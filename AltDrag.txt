@@ -1,0 +1,253 @@
+*=========================================================================*
+*                        ALTDRAG for NT4 to Win10                         *
+*   Modified by Raymond Gillibert from original source by Stefan Sundin   *
+*                    release 1.28 (November 24, 2020)                     *
+*-------------------------------------------------------------------------*
+* Download: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg        *
+* Original Stefan Sundin: https://stefansundin.github.io/altdrag/         *
+*=========================================================================*
+
+== USAGE ==
+Extract to any folder, and double click on AltDrag.exe
+Enjoy AltDragging windows...
+
+You will see a new Icon in the tray
+- Right click on the Tray Icon to see the option menu
+- Left click on the Tray Icon to enable/disable
+- Go to the "Configure" menu entry for basic options
+- Middle click on the Tray Icon to open config file AltDrag.ini (advanced)
+- You can hide the icon if you want, to show it again relunch AltDrag.exe
+
+more at: https://stefansundin.github.io/altdrag/doc/usage.html
+Note that this version has some more feature..
+
+== CHANGELOG ==
+
+== AltDrag 1.28 ==
+
++ Added a RefreshRate in the [Performance] section of AltDrag.ini that 
+  allows you to set a minimum time in miliseconds between two Windows
+  Redraw when FullWin=1, I recomend a value that corresponds to the
+  refresh rate of your monitor ie: 60Hz => RefreshRate=16.
+
++ Added Maximize action, it can be used to toggle the maximized state,
+  combine with Shift to minimize. (Thanks to Jim Teunis for suggestion).
+
++ Added the CenterFraction in the [General] section of AltDrag.ini to adjust
+  The size of the region in percent that is used for the center resizing
+  mode. Default is 24% meaning 38% for the sides. You can, for example set it
+  to 0 to enable a 4 regions mode instead or the 9 default regions.
+  You can also set CenterFraction=100 and combine with the ResizeCenter=0
+  option in order to have a pure bottom right mode.
+
++ Added AeroThreshold option in the [Advanced] options. Default value is 5.
+  It corresponds to the threshold distance in pixels at which a window will
+  be snapped automatically to the monitor (aero style). If you do not like
+  windows snapping for a fraction of second when changing monitors, try to
+  set this value to only 2, in such a case it will be necessary to use Ctrl
+  to snap windows between monitors. On the other hand if you want you can
+  increase this value and this will make snapping between monitors easier
+  without Ctrl key...
+
+* Fixed: An Aero-snapped window will now require mouse mouvement before
+  moving, instead of a simple Alt+Click.
+
+* Fixed when a window is in full screen you will actually need to move the
+  mouse in order to resize it.
+
+* Fixed a remaining Win 10 invisible borders bug that would shrink slightly
+  a window when resizing it from a fullscreen state.
+
+* Fixed application hang when changing DPI scaling under Win10. Note that
+  for the moment the solution is to restart AltDrag when receaving the
+  WM_DPICHANGED message, I hope to have better solution in the future.
+
+* Fixed bug in Transparency action where the windows transparency could no
+  longer be modified in some cases.
+
+* Misc cleanup and code refactoring here and there + Fixed all warnings.
+  using gcc -Wall parameter.
+
+* Minor GUI improvement for WinNT4 and Win2000.
+
+
+== AltDrag 1.27 ==
+
++ Added Elevate option to the tray menu as suggested by Loxaan Oxyde.
+
++ Added Pause Process option, use Alt+Shift+Pause to pause the process
+  of the windows under your cursor, press Alt+Pause to Resume.
+  The Option AgressivePause must be set to 1 in [Input] config.
+  Use the associated Pause blacklist. This function needs XP or later.
+  Note 1: This is a very aggressive option use with caution.
+  Note 2: The windows of the paused process will no longer be drawn leading
+  to screen tearing on the windows itself.
+  Note 3: If you use WIN as a hotkey, then you can still obtain the
+  WIN+PAUSE System Properties by pointing first the cursor to the taskbar.
+
++ Now when using Aero Snap, and resizing towards the top, the windows will
+  be maximized vertically when the cursor will touch the top of the screen.
+  Same behaviour for the left. This behaviour is ONLY for the top and left
+  when using respectively the pure top and pure left resize modes.
+
+* Actually fixed DPI scaling under Win10 with the .manifest I made a typo
+  in the first place and never fixed it, because I was not using DPI scaling
+  and I thought I was...
+
+* Fixed the toggle borderless action under Windows 10, the window would
+  not be properly refreshed because of buggy DWM.
+
+* Fixed: Now the Transparency action will not ignore blacklists.
+
+* Improved translation handling, now all translations are ini files in the
+  "Lang" subdirectory of AltDrag. This will simplify addition of new
+  Locals, this also allow anyone with notepad to fix his own language.
+  Finally you can remove languages that you donot need and if you want only
+  english you can remove the whole "Lang" directory.
+
+* Updated zh_CN chinese with Zepp Lu's corrections
+
+* More French and Italian corrections.
+
+== AltDrag 1.25 ==
+
+* Fixed Memory leaks.
+
+== AltDrag 1.24 ==
+
+* Fixed Crash in the config dialog.
+
+* Fixed some windows such as mplayer's windows can now be resized again.
+
+* Fixed translations and French and Italian translations in particular.
+  More will come on this.
+
+* Fixed Incorrect snapping of windows in an MDI under Windows 10.
+
+* Fixed: Now on a blacklist, an empty title will be considered as a really
+  empty title instead of 'any' title. You should use '*|class' to include
+  all windows from a given class instead of just |class. This gives a more
+  fine control over blacklist to the user.
+
+* Fixed minor drawing problems when using FullWin=0
+
+== AltDrag 1.23 ==
+
++ Add option to disable resizing windows that are not resisable
+  ie: No WS_THICKFRAME. Default is to resize everything.
+
+* Fixed: Now config dialog can be used on NT4.
+
+* Fixed: Now AeroSnap takes into account the taskbar on NT4.
+
+* Fixed: Now when a windows is not responding, move/resize will be disabled.
+
+* Some optimisations were done.
+
+* Fixed: Windows will be moved/resized in an independant thread avoiding any
+  mouse delay/lockup when a window is very unresponsive. This is helpfull for
+  Slow video drivers on Win8/10, and for web browsers windows.
+
+== AltDrag 1.22 ==
+
++ Added options to chose the Aero Snap ratio. You can now chose the position
+  in percentage of screen size, where the AeroSnap corners will meet.
+  Default is 50%:50% ie:
+  AeroHoffset=50 ; Horizontal from left
+  AeroVoffset=50 ; Vertical from top
+  You could set for example AeroHoffset to 33, this mean that a windows
+  snapped to the left will use only 33% of the screen and a window snapped
+  to the right will use 67%. The same logic applies to AeroVoffset for the
+  vertical direction. This will be appreciated by the widescreen users.
+
++ Added toggle window title bar and border on/off Action (Igor Bochkariov)
+  I used a different implementation though. If you want to just disable the
+  titlebar and keep borders, press shift.
+
+* Fixed Transparency action. Now when setting back the windows to an opaque
+  state, the WS_EX_LAYERED attribute is removed as it should be. This will
+  avoid useless performance issues when using this feature
+
+* Fixed: Now under Windows 10, the DWM api will be used when available to
+  obtain correct window rectangle and avoid gaps between snapping windows
+
+* Fixed: now fullscreen windows that have a system menu will not be
+  automatically blacklisted.
+
+* Now a full screen window will not be restored unless the mouse is moved
+  instead of a simple alt+click as before. It was an annoying behaviour.
+
+* Double click will maximize a normal window and restore a maximized window.
+
+== AltDrag 1.20 ==
+
++ Ability to drag only a square instead of the full windows (beter perf.)
++ Added an option to replace center resizing mode by bottom-right mode.
++ Added MDIs blacklist: Windows for which MDI behaviour will be disabled.
+
+- No more HookWindows as (unstable and mixing 64 and 32 bit code)
+- No more FocusOnTyping (too buggy)
+
+* Fixed cursor performances problems, before the cursor windows used alpha
+  blending which is very slow. I just told the windows to do nothing when
+  it receave the WM_PAINT or WM_ERASEBKGND messages and that's it, this also
+  means proper display for all windows versions instead of being limited to
+  Windows 2000+ .
+
+* Now compatible with Windows NT4 sp3+
+* Removed dependencies with shlwapi.dll
+* Dynamically import PSAPI.DLL in case it is missing (it is not much used)
+
+* Fixed: Cursor windows now captures the mouse input (prevents some bugs).
+* Fixed compleatly opaque blacklist reading procedure, it will be trivial to
+  add or remove blacklists from now.
+* Fixed some drawing problems (not all).
+
+* Fixed .manifest information for high dpi awareness.
+* Refactoring by putting some code into functions
+* Use GetPrivateProfileInt instead of the 'String version for all int values.
+* Avoid floating point arithmetric. Only int math are used.
+* Add -nostdlib flag to gcc to avoid useless bloat to the dll and exe.
+* Avoid GUI locking when windows is very slow to resize (with FullWin=0 only)
+
+== OS Requirement ==
+AltDrag should work on NT4sp3+/2000/XP/2003/Vista/7/8/10.
+
+This program needs at least Windows NT4 service pack 3 or later.
+This is because it relies on the 'LowLevel Keyboard/Mouse Proc' functions
+that is only supported by the NT based Windows and from NT4 sp3. You will
+note that the program also depends on 'SendInput()' that appeared at the
+same time. This later dependency is not necessary but is convenient.
+
+
+== What is AltDrag and why this version? ==
+If you ever use any half decent Linux distribution you will realise how bad
+the default window manager is under Microsoft Windows OS, in comparison to
+what you can get on Linux.
+
+When resizing and moving windows in particular, under Windows you HAVE to
+click precisely on the title bar to move or on a thin border to resize.
+A much better solution is to combine mouse and keyboard in order for the
+ALT key to trigger moving mode, where any left click dragging on the window
+will move it and right click will resize depending on where your cursor is
+on the window.
+
+Stefan Sundin wrote a little program named AltDrag that adds this behaviour
+under Windows. I started using his program which is really awesome but
+encountered some performance problems on my old computer. Because AltDrag
+Shows the content of the windows while dragging, it is annoying to use
+on slow hardware, I also prefer, and find visually less disturbing, to
+have just a rectangle when I move/resize the window.
+In addition I realized that the program was incompatible with Windows NT4
+and Windows 2000 That I still use to this day.
+
+After modifying a little the source the program was quickly compatible
+with Windows NT4 and then I started refactoring the code and simplify it
+by removing a lot of features and adding a few others this led to
+AltDragMicro.
+
+Then I worked again to the fully featured version ane only removed a
+couple of buggy features and added mines.
+
+
+== END OF FILE ==

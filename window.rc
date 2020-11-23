@@ -1,0 +1,125 @@
+#include <windows.h>
+
+#include "resource.h"
+
+/////////////////////////////////////////////////////////////////////////////
+IDD_ABOUTPAGE DIALOGEX 0, 0, 220, 190
+STYLE WS_CHILD | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | DS_3DLOOK
+CAPTION "About"
+FONT 8, "Ms Sans Serif", 400, 0, 0x1
+BEGIN
+    GROUPBOX        "About",IDC_ABOUT_BOX, 3,1, 212,105
+
+    ICON            app_icon, IDC_STATIC, 15,15,0,0
+    LTEXT           "Version",IDC_VERSION, 48, 15, 160,8
+    LTEXT           "https://stefansundin.github.io/altdrag/", 0, 48,25,160,10
+    LTEXT           "Created by Stefan Sundin",IDC_AUTHOR, 10, 40, 200, 8
+    LTEXT           "https://stefansundin.com/", 0, 10,50,200,10
+
+    LTEXT           "Modified By Raymond Gillibert (raymond_gillibert@yahoo.fr)",0, 10, 65, 200, 8
+
+    LTEXT           "Free and open source software!", IDC_LICENSE,10, 80, 195, 20
+
+    GROUPBOX        "Translations",IDC_TRANSLATIONS_BOX,3,111,212,72
+    EDITTEXT        IDC_TRANSLATIONS,10,120,200,60, ES_MULTILINE | ES_AUTOHSCROLL | ES_READONLY | WS_VSCROLL
+END
+
+/////////////////////////////////////////////////////////////////////////////
+IDD_BLACKLISTPAGE DIALOG DISCARDABLE  0, 0, 220, 190
+STYLE WS_CHILD | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | DS_3DLOOK
+CAPTION "Blacklist"
+FONT 8, "Ms Shell Dlg"
+BEGIN
+
+    GROUPBOX        "Blacklist",      IDC_BLACKLIST_BOX,           3,1,212,140
+    LTEXT           "Processes:",     IDC_PROCESSBLACKLIST_HEADER, 10,11,190,8
+    EDITTEXT        IDC_PROCESSBLACKLIST,10,20, 195,14,ES_AUTOHSCROLL
+    LTEXT           "Windows:",       IDC_BLACKLIST_HEADER,        10,36,190,8
+    EDITTEXT        IDC_BLACKLIST,       10,45, 195,14,ES_AUTOHSCROLL
+    LTEXT           "Snaplist:",      IDC_SNAPLIST_HEADER,         10,61,190,8
+    EDITTEXT        IDC_SNAPLIST,        10,70, 195,14,ES_AUTOHSCROLL
+    LTEXT           "&MDIs:",          IDC_MDISBL_HEADER,          10,86,190,8
+    EDITTEXT        IDC_MDIS,            10,95,195,14,ES_AUTOHSCROLL
+    LTEXT           "Pau&se blacklist:",IDC_PAUSEBL_HEADER,         10,111,190,8
+    EDITTEXT        IDC_PAUSEBL,         10,120,195,14,ES_AUTOHSCROLL
+
+    GROUPBOX        "Identify window",IDC_FINDWINDOW_BOX,          3,145,212,40
+    ICON            IDI_FIND,         IDC_FINDWINDOW,              12,161,16,16, SS_NOTIFY |  SS_REALSIZEIMAGE
+    EDITTEXT        IDC_NEWRULE, 30,159,176,14,ES_AUTOHSCROLL
+END
+
+/////////////////////////////////////////////////////////////////////////////
+IDD_GENERALPAGE DIALOGEX 0, 0, 220, 190
+STYLE WS_CHILD | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | DS_3DLOOK
+EXSTYLE WS_EX_WINDOWEDGE
+CAPTION "General"
+FONT 8, "Ms Shell Dlg"
+BEGIN
+    GROUPBOX        "General", IDC_GENERAL_BOX,3,1,212,120
+    CONTROL         "AutoFocus",          IDC_AUTOFOCUS,     "Button",BS_AUTOCHECKBOX | WS_TABSTOP | BS_MULTILINE,10,13,195,18
+    CONTROL         "Aero",               IDC_AERO,          "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10, 31,195,8
+    CONTROL         "InactiveScroll",     IDC_INACTIVESCROLL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,43,195,8
+    CONTROL         "MDI",                IDC_MDI,           "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10, 55,195,8
+
+    CONTROL         "FullWin",     IDC_FULLWIN,       "Button",BS_AUTOCHECKBOX | WS_TABSTOP,110, 76,102,8
+    CONTROL         "ResizeAll",   IDC_RESIZEALL,     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,110, 90,102,8
+    CONTROL         "resizeCenter",IDC_RESIZECENTER,  "Button",BS_AUTOCHECKBOX | WS_TABSTOP,110,104,102,8
+
+    LTEXT           "AutoSnap:", IDC_AUTOSNAP_HEADER,10,65,95,8
+    COMBOBOX        IDC_AUTOSNAP, 10,75 ,95,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
+    LTEXT           "Language:", IDC_LANGUAGE_HEADER,10,90,95,8
+    COMBOBOX        IDC_LANGUAGE, 10,100,95,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP | WS_VSCROLL
+
+    GROUPBOX        "Autostart",IDC_AUTOSTART_BOX ,3,125,212,53
+    CONTROL         "Autostart",IDC_AUTOSTART,        "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,137,195,8
+    CONTROL         "Hide tray",IDC_AUTOSTART_HIDE,   "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,150,195,8
+    CONTROL         "Elevate",  IDC_AUTOSTART_ELEVATE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,10,163,140,8
+    DEFPUSHBUTTON   "Elevate",  IDC_ELEVATE, 153,160,58,14
+
+    LTEXT           "Note: Instant!",IDC_AUTOSAVE,3,180,216,8
+
+END
+
+/////////////////////////////////////////////////////////////////////////////
+IDD_INPUTPAGE DIALOG DISCARDABLE  0, 0, 220, 190
+STYLE WS_CHILD | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | DS_3DLOOK
+CAPTION "Input"
+FONT 8, "Ms Shell Dlg"
+BEGIN
+    GROUPBOX        "Mouse",       IDC_MOUSE_BOX,    3,1,212,130
+    LTEXT           "LMB:", IDC_LMB_HEADER, 10,13,85,8
+    COMBOBOX        IDC_LMB,   105,10,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
+    LTEXT           "MMB:", IDC_MMB_HEADER, 10,27,85,8
+    COMBOBOX        IDC_MMB,   105,24,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
+    LTEXT           "RMB:", IDC_RMB_HEADER, 10,41,85,8
+    COMBOBOX        IDC_RMB,   105,38,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
+    LTEXT           "MB4:", IDC_MB4_HEADER, 10,55,85,8
+    COMBOBOX        IDC_MB4,   105,52,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
+    LTEXT           "MB5:", IDC_MB5_HEADER, 10,69,85,8
+    COMBOBOX        IDC_MB5,   105,66,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
+    LTEXT           "Scroll:",IDC_SCROLL_HEADER,10,83,85,8
+    COMBOBOX        IDC_SCROLL,105,80,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
+
+    CONTROL         "LowerWithMMB",   IDC_LOWERWITHMMB,"Button", BS_AUTOCHECKBOX | WS_TABSTOP|BS_MULTILINE,10,95,195,16
+    CONTROL         "AggressivePause",IDC_AGGRESSIVEPAUSE,"Button", BS_AUTOCHECKBOX | WS_TABSTOP|BS_MULTILINE,10,112,195,16
+
+    GROUPBOX        "Hotkeys",    IDC_HOTKEYS_BOX,  3,135,212,55
+    CONTROL         "LeftAlt",    IDC_LEFTALT,    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10 ,145,60,10
+    CONTROL         "RightAlt",   IDC_RIGHTALT,   "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10 ,156,60,10
+    CONTROL         "LeftWinkey", IDC_LEFTWINKEY, "Button",BS_AUTOCHECKBOX | WS_TABSTOP,71 ,145,72,10
+    CONTROL         "RightWinkey",IDC_RIGHTWINKEY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,71 ,156,72,10
+    CONTROL         "LeftCtrl",   IDC_LEFTCTRL,   "Button",BS_AUTOCHECKBOX | WS_TABSTOP,145,145,65,10
+    CONTROL         "RightCtrl",  IDC_RIGHTCTRL,  "Button",BS_AUTOCHECKBOX | WS_TABSTOP,145,155,65,10
+    LTEXT           "ini file",    IDC_HOTKEYS_MORE, 10,168,200,20
+
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Cursor
+IDI_FIND                CURSOR  DISCARDABLE     "media/find.cur"
+
+/////////////////////////////////////////////////////////////////////////////
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_FIND                ICON    DISCARDABLE     "media/find.ico"

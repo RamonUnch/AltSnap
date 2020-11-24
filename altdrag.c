@@ -203,6 +203,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         GetModuleFileName(NULL, module, ARR_SZ(module));
         ShellExecute(NULL, NULL, module, L"-multi", NULL, SW_SHOWNORMAL);
         PostQuitMessage(0);
+        ExitProcess(0);
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }

@@ -26,6 +26,8 @@ Note that this version has some more feature..
 
 == AltDrag 1.28 ==
 
++ Added hardening flags for gcc.
+
 + Added a RefreshRate in the [Performance] section of AltDrag.ini that 
   allows you to set a minimum time in miliseconds between two Windows
   Redraw when FullWin=1, I recomend a value that corresponds to the
@@ -49,6 +51,8 @@ Note that this version has some more feature..
   to snap windows between monitors. On the other hand if you want you can
   increase this value and this will make snapping between monitors easier
   without Ctrl key...
+
+* Removed dependency to Advapi32.dll from hooks.dll (it was unnecessary).
 
 * Fixed: An Aero-snapped window will now require mouse mouvement before
   moving, instead of a simple Alt+Click.

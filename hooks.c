@@ -182,7 +182,8 @@ struct {
     struct blacklist Snaplist;
     struct blacklist MDIs;
     struct blacklist Pause;
-} BlkLst = {{NULL,0}, {NULL,0}, {NULL,0}, {NULL,0}, {NULL,0}};
+} BlkLst = { {NULL, 0, NULL}, {NULL, 0, NULL}, {NULL, 0, NULL}
+           , {NULL, 0, NULL}, {NULL, 0, NULL} };
 
 // Cursor data
 HWND cursorwnd = NULL;
@@ -921,8 +922,8 @@ static void MouseMove(POINT pt)
         MONITORINFO mi = { sizeof(MONITORINFO) };
         GetMonitorInfo(state.origin.monitor, &mi);
         RECT fmon = mi.rcMonitor;
-        pt.x = (pt.x<fmon.left)?fmon.left: (pt.x>=fmon.right)?fmon.right-1: pt.x;
-        pt.y = (pt.y<fmon.top)?fmon.top: (pt.y>=fmon.bottom)?fmon.bottom-1: pt.y;
+        pt.x = (pt.x<fmon.left)?fmon.left: (pt.x>=fmon.right)?fmon.right: pt.x;
+        pt.y = (pt.y<fmon.top)?fmon.top: (pt.y>=fmon.bottom)?fmon.bottom: pt.y;
     }
 
     // Get window state
@@ -1124,7 +1125,7 @@ static void MouseMove(POINT pt)
 static void Send_CTRL()
 {
     state.ignorectrl = 1;
-    KEYBDINPUT ctrl[2] = { {VK_CONTROL, 0, 0, 0}, {VK_CONTROL, 0 , KEYEVENTF_KEYUP,0} };
+    KEYBDINPUT ctrl[2] = { {VK_CONTROL, 0, 0, 0, 0}, {VK_CONTROL, 0 , KEYEVENTF_KEYUP, 0, 0} };
     ctrl[0].dwExtraInfo = ctrl[1].dwExtraInfo = GetMessageExtraInfo();
     INPUT input[2] = { {INPUT_KEYBOARD,{.ki = ctrl[0]}}, {INPUT_KEYBOARD,{.ki = ctrl[1]}} };
     SendInput(2, input, sizeof(INPUT));

@@ -24,20 +24,21 @@
 #define APP_NAME L"AltDrag"
 
 // Boring stuff
-#define REHOOK_TIMER  WM_APP+1
-#define INIT_TIMER    WM_APP+2
+#define RESTORE_TIMER WM_APP+1
+#define REHOOK_TIMER  WM_APP+2
+#define INIT_TIMER    WM_APP+3
 
 HWND g_hwnd;
 static int UnhookMouse();
 static int HookMouse();
 
 // Enumerators
-enum action { AC_NONE=0, AC_MOVE, AC_RESIZE, AC_MINIMIZE, AC_MAXIMIZE, AC_CENTER
-            , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_ALTTAB, AC_VOLUME
-		    , AC_TRANSPARENCY, AC_BORDERLESS };
-enum button { BT_NONE=0, BT_LMB, BT_MMB, BT_RMB, BT_MB4, BT_MB5 };
-enum resize { RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER };
-enum cursor { HAND, SIZENWSE, SIZENESW, SIZENS, SIZEWE, SIZEALL };
+enum action {AC_NONE=0, AC_MOVE, AC_RESIZE, AC_MINIMIZE, AC_MAXIMIZE, AC_CENTER
+           , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_ALTTAB, AC_VOLUME
+		   , AC_TRANSPARENCY, AC_BORDERLESS};
+enum button {BT_NONE=0, BT_LMB, BT_MMB, BT_RMB, BT_MB4, BT_MB5};
+enum resize {RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER};
+enum cursor {HAND, SIZENWSE, SIZENESW, SIZENS, SIZEWE, SIZEALL};
 
 // Window database
 #define NUMWNDDB 32
@@ -58,6 +59,7 @@ struct {
 
 RECT oldRect;
 HDC hdcc;
+char no_MM_onUnHk;
 HPEN hpenDot_Global=NULL;
 HDWP hWinPosInfo;
 
@@ -81,18 +83,19 @@ struct {
     DWORD clicktime;
 
     char alt;
-    char activated;
-    char ctrl;
+    char activated; // Keep track on if an action has begun since the hotkey was depressed,
+    char ctrl;     //in order to successfully block Alt from triggering a menu
     char interrupted;
+
+    struct {
+        enum resize x, y;
+    } resize;
 
     char blockaltup;
     char blockmouseup;
     char ignorectrl;
     char locked;
-
     unsigned char updaterate;
-    char shift;
-    char snap;
 
     struct {
         char maximized;
@@ -102,19 +105,17 @@ struct {
         int right;
         int bottom;
     } origin;
-
-    enum action action;
-    struct {
-        enum resize x, y;
-    } resize;
-
     struct {
         POINT Min;
         POINT Max;
     } mmi;
-
-
 } state;
+
+struct {
+    short shift;
+    short snap;
+    enum action action;
+} sharedstate = {0, 0, AC_NONE};
 
 // Snap
 RECT *monitors = NULL;
@@ -126,7 +127,7 @@ int numhwnds = 0;
 HWND progman = NULL;
 
 // Settings
-#define MAXKEYS 10
+#define MAXKEYS 11
 struct {
     char AutoFocus;
     char AutoSnap;
@@ -151,8 +152,6 @@ struct {
     char ResizeAll;
     char AggressivePause;
     unsigned char CenterFraction;
-
-    unsigned char RefreshRate;
 
     struct {
         unsigned char length;
@@ -180,8 +179,7 @@ struct {
     struct blacklist Snaplist;
     struct blacklist MDIs;
     struct blacklist Pause;
-} BlkLst = { {NULL, 0, NULL}, {NULL, 0, NULL}, {NULL, 0, NULL}
-           , {NULL, 0, NULL}, {NULL, 0, NULL} };
+} BlkLst = {{NULL,0}, {NULL,0}, {NULL,0}, {NULL,0}, {NULL,0}};
 
 // Cursor data
 HWND cursorwnd = NULL;
@@ -237,22 +235,21 @@ static int blacklistedP(HWND hwnd, struct blacklist *list)
     }
     return 0;
 }
-// Limit x between l and h
+void freeblacklist(struct blacklist *list)
+{
+    free(list->data);
+    free(list->items);
+    list->length = 0;
+}
 static inline int CLAMP(int _l, int _x, int _h)
 {
     return (_x<_l)? _l: ((_x>_h)? _h: _x);
 }
-// Macro to clamp width and height of windows
 #define CLAMPW(width)  CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x)
 #define CLAMPH(height) CLAMP(state.mmi.Min.y, height, state.mmi.Max.y)
 static inline int IsResizable(HWND hwnd)
 {
-    return (conf.ResizeAll || GetWindowLong(hwnd, GWL_STYLE)&WS_THICKFRAME);
-}
-/////////////////////////////////////////////////////////////////////////////
-static inline int IsSamePTT(POINT pt, POINT ptt)
-{
-    return !( pt.x > ptt.x+4 || pt.y > ptt.y+4 ||pt.x < ptt.x-4 || pt.y < ptt.y-4 );
+    return (conf.ResizeAll || GetWindowLong(state.hwnd, GWL_STYLE)&WS_THICKFRAME);
 }
 /////////////////////////////////////////////////////////////////////////////
 // Enumerate callback proc
@@ -286,7 +283,7 @@ BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
     if (window != state.hwnd && window != progman
      && IsWindowVisible(window) && !IsIconic(window)
      &&( ((style=GetWindowLongPtr(window,GWL_STYLE))&WS_CAPTION) == WS_CAPTION
-          || (style&WS_THICKFRAME) == WS_THICKFRAME
+          || style&WS_THICKFRAME == WS_THICKFRAME
           || blacklisted(window,&BlkLst.Snaplist)
        )
      && GetWindowRectL(window,&wnd) != 0 ) {
@@ -351,7 +348,7 @@ static void EnumMdi()
     if (GetClientRect(state.mdiclient, &wnd) != 0) {
         monitors[nummonitors++] = wnd;
     }
-    if (state.snap < 2) {
+    if (sharedstate.snap < 2) {
         return;
     }
 
@@ -406,16 +403,16 @@ static void Enum()
     if (taskbar != NULL && GetWindowRectL(taskbar,&wnd) != 0) {
         wnds[numwnds++] = wnd;
     }
-    if (state.snap >= 2) {
+    if (sharedstate.snap >= 2) {
         EnumWindows(EnumWindowsProc, 0);
     }
 }
 ///////////////////////////////////////////////////////////////////////////
-char mouse_move_start = 1;
+char mouse_mouve_start;
 static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
 {
     static RECT borders = {0, 0, 0, 0};
-    if(mouse_move_start) {
+    if(mouse_mouve_start) {
         Enum(); // Enumerate monitors and windows
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
     }
@@ -437,7 +434,7 @@ static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
             i++;
         } else if (j < numwnds) {
             snapwnd = wnds[j];
-            snapinside = (state.snap != 2);
+            snapinside = (sharedstate.snap != 2);
             j++;
         }
 
@@ -517,7 +514,7 @@ static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
 static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 {
     static RECT borders = {0, 0, 0, 0};
-    if(mouse_move_start) {
+    if(mouse_mouve_start) {
         Enum(); // Enumerate monitors and windows
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
     }
@@ -540,7 +537,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
             i++;
         } else if (j < numwnds) {
             snapwnd = wnds[j];
-            snapinside = (state.snap != 2);
+            snapinside = (sharedstate.snap != 2);
             j++;
         }
 
@@ -630,16 +627,14 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 }
 ///////////////////////////////////////////////////////////////////////////
 // Called only in MouseMove
-#define MM_THREAD_ON (LastWin.hwnd && conf.FullWin)
 #define AERO_TH conf.AeroThreshold
 static int AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
-                      , int *wndwidth, int *wndheight, RECT mon)
+                  , int *wndwidth, int *wndheight, RECT mon)
 {
     // Aero Snap
     static int resizable=1;
-    // return if last resizing is not finished or no Aero or not resizable.
-    if (!conf.Aero || MM_THREAD_ON || !resizable) return 0;
-    if ( mouse_move_start && !(resizable=IsResizable(state.hwnd)) ) return 0;
+    if (!conf.Aero || !resizable) return 0;
+    if ( mouse_mouve_start && !(resizable=IsResizable(state.hwnd)) ) return 0;
 
     int Left  = mon.left   + 2*AERO_TH ;
     int Right = mon.right  - 2*AERO_TH ;
@@ -650,7 +645,7 @@ static int AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
     if (pt.x < Left && pt.y < Top) {
         // Top left
         state.wndentry->restore = 1;
-        *wndwidth =  ((mon.right-mon.left)*conf.AHoff)/100;
+        *wndwidth = ((mon.right-mon.left)*conf.AHoff)/100;
         *wndheight = ((mon.bottom-mon.top)*conf.AVoff)/100;
         *posx = mon.left;
         *posy = mon.top;
@@ -697,7 +692,7 @@ static int AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
         *wndheight = CLAMPH( mon.bottom-mon.top );
         *posx = mon.left;
         *posy = mon.top+(mon.bottom-mon.top)/2 - *wndheight/2; // Center
-    } else if (mon.right - AERO_TH < pt.x) {
+    } else if (mon.right-AERO_TH < pt.x) {
         // Right
         state.wndentry->restore = 1;
         *wndwidth =  CLAMPW( (mon.right-mon.left)*(100-conf.AHoff)/100 );
@@ -716,10 +711,9 @@ static int AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
         state.wndentry->width = state.origin.width;
         state.wndentry->height = state.origin.height;
 
+        // Get new size after move
         FixDWMRect(state.hwnd, posx, posy, wndwidth, wndheight, NULL);
         MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
-
-        // Get new size after move
         // Doing this since wndwidth and wndheight might be wrong
         // if the window is resized in chunks
         GetWindowRect(state.hwnd, wnd);
@@ -728,6 +722,7 @@ static int AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
         state.wndentry->last.height = wnd->bottom-wnd->top;
 
         // We are done
+        no_MM_onUnHk=1;
         return 0;
     }
     return 0;
@@ -735,11 +730,10 @@ static int AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
 ///////////////////////////////////////////////////////////////////////////
 static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight, RECT mon)
 {
-    // return if last resizing is not finished or no Aero
-    if(!conf.Aero || MM_THREAD_ON) return;
+    if(!conf.Aero) return;
 
     static RECT borders = {0, 0, 0, 0};
-    if(mouse_move_start)
+    if(mouse_mouve_start)
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
 
     if ( state.resize.x == RZ_CENTER && state.resize.y == RZ_TOP && pt.y < mon.top + AERO_TH ) {
@@ -762,21 +756,24 @@ static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *w
         state.wndentry->width = state.origin.width;
         state.wndentry->height = state.origin.height;
 
+        // Get new size after move
         MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
 
-        // Get new size after move
         // Doing this since wndwidth and wndheight might be wrong
         // if the window is resized in chunks
         RECT wnd;
         GetWindowRect(state.hwnd, &wnd);
         state.wndentry->last.width = wnd.right-wnd.left;
         state.wndentry->last.height = wnd.bottom-wnd.top;
+
+        // We are done
+        no_MM_onUnHk=1;
     }
 }
 
 ///////////////////////////////////////////////////////////////////////////
 // Get action of button
-enum action GetAction(int button)
+int GetAction(int button)
 {
     if      (button == BT_LMB) return conf.Mouse.LMB;
     else if (button == BT_MMB) return conf.Mouse.MMB;
@@ -820,14 +817,13 @@ DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
     struct windowRR *lw = LastWinV;
 
     ret = MoveWindow(lw->hwnd, lw->x, lw->y, lw->width, lw->height, TRUE);
-    if(conf.RefreshRate) Sleep(conf.RefreshRate);
 
     lw->hwnd = NULL;
 
     return !ret;
 }
 /////////////////////////////////////////////////////////////////////////////
-static void RestoreOldWin(POINT pt)
+static void RestoreOldWin(POINT pt, RECT wnd, POINT mdiclientpt)
 {
     // Restore old width/height?
     int restore = 0;
@@ -840,18 +836,20 @@ static void RestoreOldWin(POINT pt)
     }
     state.wndentry->restore = 0;
 
-    POINT mdiclientpt = { 0, 0 };
-    RECT wnd;
-    GetWindowRect(state.hwnd, &wnd);
-    ClientToScreen(state.mdiclient, &mdiclientpt);
-
+//    POINT mdiclientpt = { 0, 0 };
+//    POINT pt;
+//    GetCursorPos(&pt);
+//    RECT wnd;
+//    GetWindowRect(state.hwnd, &wnd);
+//    ClientToScreen(state.mdiclient, &mdiclientpt);
+//
     // Set offset
-    state.offset.x = (state.origin.width  * (pt.x-wnd.left))/(wnd.right-wnd.left);
-    state.offset.y = (state.origin.height * (pt.y-wnd.top)) /(wnd.bottom-wnd.top);
-
     if (state.origin.maximized) {
         // NOTHING
-    } else if (restore) {
+    } else if (restore && !state.origin.maximized) {
+        state.offset.x = (state.origin.width*(pt.x-wnd.left))/(wnd.right-wnd.left);
+        state.offset.y = (state.origin.height*(pt.y-wnd.top))/(wnd.bottom-wnd.top);
+        no_MM_onUnHk=1;
         MoveWindow(state.hwnd, pt.x - state.offset.x - mdiclientpt.x
                              , pt.y - state.offset.y - mdiclientpt.y
                              , state.origin.width, state.origin.height, TRUE);
@@ -865,41 +863,71 @@ char was_moving=0;
 static void MouseMove(POINT pt)
 {
     int posx, posy, wndwidth, wndheight;
+    RECT newRect;
+    was_moving=1;
+    no_MM_onUnHk=0;
+
+    // Make sure we got something to do
+    if (sharedstate.action != AC_MOVE && sharedstate.action != AC_RESIZE) return;
 
     // Check if window still exists
     if (!state.hwnd || !IsWindow(state.hwnd)) { UnhookMouse(); return; }
 
-    // Restore Aero snapped window
-    if(state.action == AC_MOVE && !was_moving) RestoreOldWin(pt);
-
-    was_moving=1;
     // Restrict pt within origin monitor if Ctrl is being pressed
     if ((GetAsyncKeyState(VK_CONTROL)&0x8000) && !state.ignorectrl) {
-        static HMONITOR origMonitor;
-        static RECT fmon;
-        if(origMonitor != state.origin.monitor) {
-            origMonitor = state.origin.monitor;
-            MONITORINFO mi = { sizeof(MONITORINFO) };
-            GetMonitorInfo(state.origin.monitor, &mi);
-            fmon =  mi.rcMonitor;
-            fmon.left += 1; fmon.top += 1;
-            fmon.right -=2; fmon.bottom-=2;
-        }
-        ClipCursor(&fmon);
-        pt.x = CLAMP(fmon.left, pt.x, fmon.right);
-        pt.y = CLAMP(fmon.top, pt.y, fmon.bottom);
+        MONITORINFO mi = { sizeof(MONITORINFO) };
+        GetMonitorInfo(state.origin.monitor, &mi);
+        RECT fmon = mi.rcMonitor;
+        pt.x = (pt.x<fmon.left)?fmon.left: (pt.x>=fmon.right)?fmon.right-1: pt.x;
+        pt.y = (pt.y<fmon.top)?fmon.top: (pt.y>=fmon.bottom)?fmon.bottom-1: pt.y;
     }
 
+    // Get window state
+    int maximized = IsZoomed(state.hwnd);
+    HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+
+    // AutoRemaximize has priority over locked flag
+    if (sharedstate.action == AC_MOVE && conf.AutoRemaximize
+    && state.origin.maximized && monitor != state.origin.monitor && !state.mdiclient) {
+        // Get monitor rect
+        MONITORINFO mi = { sizeof(MONITORINFO) };
+        GetMonitorInfo(monitor, &mi);
+        RECT mon = mi.rcWork;
+        RECT fmon = mi.rcMonitor;
+
+        // Center window on monitor and maximize it
+        WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+        GetWindowPlacement(state.hwnd, &wndpl);
+        wndpl.rcNormalPosition.left = fmon.left+(mon.right-mon.left)/2-state.origin.width/2;
+        wndpl.rcNormalPosition.top = fmon.top+(mon.bottom-mon.top)/2-state.origin.height/2;
+        wndpl.rcNormalPosition.right = wndpl.rcNormalPosition.left+state.origin.width;
+        wndpl.rcNormalPosition.bottom = wndpl.rcNormalPosition.top+state.origin.height;
+        if (maximized) {
+            wndpl.showCmd = SW_RESTORE;
+            SetWindowPlacement(state.hwnd, &wndpl);
+        }
+        wndpl.showCmd = SW_MAXIMIZE;
+        SetWindowPlacement(state.hwnd, &wndpl);
+        // Set this monitor as the origin (dirty hack maybe)
+        state.origin.monitor = monitor;
+        // Lock the current state
+        state.locked = 1;
+        // Restore window after a timeout if AutoRemaximize=2
+        if (conf.AutoRemaximize == 2) {
+            SetTimer(g_hwnd, RESTORE_TIMER, 1000, NULL);
+        }
+        no_MM_onUnHk=1;
+        //return;
+        goto FINISH;
+    }
+
+    // Return if state is locked
     if (state.locked) return;
 
     // Get window size
     static RECT wnd;
     RECT mon, fmon;
-    if (mouse_move_start && !GetWindowRect(state.hwnd, &wnd)) return;
-
-    // Get window state
-    int maximized = IsZoomed(state.hwnd);
-    HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+    if (mouse_mouve_start && GetWindowRect(state.hwnd, &wnd) == 0) return;
 
     // MDI
     POINT mdiclientpt = { 0, 0 };
@@ -922,12 +950,12 @@ static void MouseMove(POINT pt)
     }
 
     // Get new position for window
-    if (state.action == AC_MOVE) {
+    if (sharedstate.action == AC_MOVE) {
         posx = pt.x-state.offset.x;
         posy = pt.y-state.offset.y;
         wndwidth = wnd.right-wnd.left;
         wndheight = wnd.bottom-wnd.top;
-        // Restore window if maximized when move starts.
+        // Restore window?
         if (maximized) {
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
@@ -939,45 +967,14 @@ static void MouseMove(POINT pt)
         }
 
         // Check if the window will snap anywhere
-        if (state.snap)
+        if (sharedstate.snap)
             MoveSnap(&posx, &posy, wndwidth, wndheight);
-        int aeromsnap = AeroMoveSnap(pt, &wnd, &posx, &posy, &wndwidth, &wndheight, mon);
-        if(aeromsnap == 1) return;
-        else if (aeromsnap == 2) goto FINISH;
+        int ret = AeroMoveSnap(pt, &wnd, &posx, &posy, &wndwidth, &wndheight, mon);
+        if(ret == 1) return;
+        else if (ret == 2) goto FINISH;
 
 
-    } else if (state.action == AC_RESIZE) {
-        // Restore the window (to monitor size) if it's maximized
-        if (maximized) {
-            WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
-            GetWindowPlacement(state.hwnd, &wndpl);
-            wndpl.rcNormalPosition = mon; // Set size to monitor to prevent flickering
-            wnd = mon;
-            if (state.mdiclient) {
-                // Make it a little smaller since MDIClients by
-                // default have scrollbars that would otherwise appear
-                wndpl.rcNormalPosition.right -= 10;
-                wndpl.rcNormalPosition.bottom -= 10;
-            }
-            wndpl.showCmd = SW_RESTORE;
-            SetWindowPlacement(state.hwnd, &wndpl);
-            if (state.mdiclient) {
-                // Get new values from MDIClient, since restoring the child have changed them,
-                // The amount they change with differ depending on implementation (compare mIRC and Spy++)
-                Sleep(1); // Sometimes needed
-                mdiclientpt = (POINT) { 0, 0 };
-                if ( GetClientRect(state.mdiclient, &wnd) == 0
-                 || !ClientToScreen(state.mdiclient, &mdiclientpt) ) {
-                }
-            }
-            // Fix wnd for MDI offset and invisible borders
-            RECT borders;
-            FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
-            wnd = (RECT) { wnd.left  + mdiclientpt.x - borders.left
-                         , wnd.top   + mdiclientpt.y - borders.top
-                         , wnd.right + mdiclientpt.x + borders.right
-                         , wnd.bottom+ mdiclientpt.y + borders.bottom };
-        }
+    } else if (sharedstate.action == AC_RESIZE) {
         // Clear restore flag
         state.wndentry->restore = 0;
 
@@ -1020,15 +1017,18 @@ static void MouseMove(POINT pt)
             wndheight=CLAMPH(wndheight);
 
             // Check if the window will snap anywhere
-            if (state.snap) {
+            if (sharedstate.snap) {
                 ResizeSnap(&posx, &posy, &wndwidth, &wndheight);
             }
             AeroResizeSnap(pt, &posx, &posy, &wndwidth, &wndheight, mon);
         }
     }
     FINISH:
-    MoveWindow(cursorwnd, pt.x-127, pt.y-127, 256, 256, FALSE);
-    int mouse_thread_finished = !LastWin.hwnd;
+    MoveWindow(cursorwnd, pt.x-20, pt.y-20, 41, 41, FALSE);
+//    MoveWindow(cursorwnd, posx, posy, wndwidth, wndheight, TRUE);
+//    SetWindowPos(cursorwnd, NULL, posx, posy, wndwidth, wndheight
+//                   , SWP_NOZORDER|SWP_DRAWFRAME|SWP_NOREPOSITION|SWP_NOACTIVATE);
+    int move_thread_finished = !LastWin.hwnd;
     LastWin.hwnd=state.hwnd;
     LastWin.x=posx;
     LastWin.y=posy;
@@ -1046,28 +1046,34 @@ static void MouseMove(POINT pt)
         newRect.right = wnd.right - 1;
         newRect.bottom= wnd.bottom - 1;
         if(!hdcc){
-            if(!hpenDot_Global)
-                hpenDot_Global = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
             hdcc = CreateDCA("DISPLAY", NULL, NULL, NULL);
             SetROP2(hdcc, R2_NOTXORPEN);
             SelectObject(hdcc, hpenDot_Global);
         }
+        int rectchanged = newRect.left != oldRect.left || newRect.right != oldRect.right
+                   || newRect.top != oldRect.top || newRect.bottom != oldRect.bottom ;
+        if (rectchanged) 
+            Rectangle(hdcc, newRect.left, newRect.top, newRect.right, newRect.bottom);
 
-        Rectangle(hdcc, newRect.left, newRect.top, newRect.right, newRect.bottom);
-
-        if(!mouse_move_start){
+        if(mouse_mouve_start == 0 && rectchanged){
             Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
         } else {
-            mouse_move_start=0;
+            mouse_mouve_start=0;
         }
 
         oldRect=newRect; // oldRect is GLOBAL!
 
-    } else if(mouse_thread_finished) {
-        DWORD lpThreadId;
-        HANDLE thread;
-        thread = CreateThread(NULL, 0, MoveWindowThread, &LastWin, 0, &lpThreadId);
-        CloseHandle(thread);
+        if(no_MM_onUnHk){
+            MoveWindow(state.hwnd, posx, posy, wndwidth, wndheight, TRUE);
+            mouse_mouve_start=2; // NOT ONE!
+        }
+    } else {
+        if(move_thread_finished) {
+            DWORD lpThreadId;
+            HANDLE thread;
+            thread = CreateThread(NULL, 0, MoveWindowThread, &LastWin, 0, &lpThreadId);
+            CloseHandle(thread);
+        }
     }
 }
 
@@ -1075,7 +1081,7 @@ static void MouseMove(POINT pt)
 static void Send_CTRL()
 {
     state.ignorectrl = 1;
-    KEYBDINPUT ctrl[2] = { {VK_CONTROL, 0, 0, 0, 0}, {VK_CONTROL, 0 , KEYEVENTF_KEYUP, 0, 0} };
+    KEYBDINPUT ctrl[2] = { {VK_CONTROL, 0, 0, 0}, {VK_CONTROL, 0 , KEYEVENTF_KEYUP,0} };
     ctrl[0].dwExtraInfo = ctrl[1].dwExtraInfo = GetMessageExtraInfo();
     INPUT input[2] = { {INPUT_KEYBOARD,{.ki = ctrl[0]}}, {INPUT_KEYBOARD,{.ki = ctrl[1]}} };
     SendInput(2, input, sizeof(INPUT));
@@ -1092,7 +1098,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
     if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
         if (IsHotkey(vkey)) {
             // Block this keypress if an we're already pressing a hotkey or an action is happening
-            if (state.activated && !state.alt && state.action) {
+            if (state.activated && !state.alt && sharedstate.action) {
                 state.alt = 1;
             }
             if (state.activated && state.alt) {
@@ -1107,32 +1113,32 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
             // Ctrl as hotkey should not trigger Ctrl-focusing when starting dragging,
 	        // releasing and pressing it again will focus though
-            if (!state.action && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
+            if (!sharedstate.action && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
                 state.ignorectrl = 1;
             }
 
             // Hook mouse
             HookMouse();
         } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
-            state.snap = 3;
-            state.shift = 1;
+            sharedstate.snap = 3;
+            sharedstate.shift = 1;
 
             // Block keydown to prevent Windows from changing keyboard layout
-            if (state.alt && state.action) {
+            if (state.alt && sharedstate.action) {
                 return 1;
             }
-        } else if (vkey == VK_SPACE && state.action && state.snap) {
-            state.snap = 0;
+        } else if (vkey == VK_SPACE && sharedstate.action && sharedstate.snap) {
+            sharedstate.snap = 0;
             return 1;
-        } else if (vkey == VK_ESCAPE && state.action != AC_NONE) {
-            state.action = AC_NONE;
+        } else if (vkey == VK_ESCAPE && sharedstate.action != AC_NONE) {
+            sharedstate.action = AC_NONE;
             if (!conf.FullWin && was_moving) {
-                if(mouse_move_start==0){ // LAST RECTANGLE!
+                was_moving=0;
+                if(mouse_mouve_start==0){ // LAST RECTANGLE!
                     Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
                 }
             }
-            was_moving=0;
-            mouse_move_start=1;
+            mouse_mouve_start=1;
             UnhookMouse();
             return 1;//CallNextHookEx(NULL, nCode, wParam, lParam);
         } else if (conf.AggressivePause && vkey == VK_PAUSE && state.alt) {
@@ -1144,7 +1150,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 GetWindowThreadProcessId(hwnd, &pid);
                 HANDLE ProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
                 if(ProcessHandle){
-                    if(state.shift) NtSuspendProcess(ProcessHandle);
+                    if(sharedstate.shift) NtSuspendProcess(ProcessHandle);
                     else                  NtResumeProcess(ProcessHandle);
                 }
                 CloseHandle(ProcessHandle);
@@ -1153,9 +1159,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         } else {
             state.interrupted = 1;
         }
-        if ( (state.action == AC_MOVE || state.action == AC_RESIZE)
-          && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)
-          && !state.ignorectrl && !state.ctrl) {
+        if (sharedstate.action && (vkey == VK_LCONTROL || vkey == VK_RCONTROL) && !state.ignorectrl && !state.ctrl) {
             POINT pt;
             GetCursorPos(&pt);
             state.locked = 0;
@@ -1169,12 +1173,11 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
     } else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP) {
         if (vkey == VK_LCONTROL || vkey == VK_RCONTROL) {
             state.ctrl = 0;
-            ClipCursor(NULL); // Release cursor trapping
         }
         if (IsHotkey(vkey)) {
             // Prevent the alt keyup from triggering the window menu to be selected
             // The way this works is that the alt key is "disguised" by sending ctrl keydown/keyup events
-            if (state.blockaltup || state.action) {
+            if (state.blockaltup || sharedstate.action) {
                 Send_CTRL();
             }
 
@@ -1183,12 +1186,12 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.ignorectrl = 0;
 
             // Unhook mouse if not moving or resizing
-            if (!state.action) {
+            if (!sharedstate.action) {
                 UnhookMouse();
             }
         } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
-            state.shift = 0;
-            state.snap = conf.AutoSnap;
+            sharedstate.shift = 0;
+            sharedstate.snap = conf.AutoSnap;
         }
     }
 
@@ -1239,7 +1242,7 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
 
     // Change WM_MOUSEWHEEL to WM_MOUSEHWHEEL if shift is being depressed
     // Introduced in Vista and far from all programs have implemented it.
-    if (wParam == WM_MOUSEWHEEL && state.shift && (GetAsyncKeyState(VK_SHIFT)&0x8000)) {
+    if (wParam == WM_MOUSEWHEEL && sharedstate.shift && (GetAsyncKeyState(VK_SHIFT)&0x8000)) {
         wParam = WM_MOUSEHWHEEL;
         wp = (-GET_WHEEL_DELTA_WPARAM(mouseData)) << 16; // Up is left, down is right
     }
@@ -1334,69 +1337,44 @@ static int ActionAltTab(POINT pt, int delta)
 // Vista+ Only...
 static int ActionVolume(int delta)
 {
-    static int HaveV=-1;
-    static HINSTANCE hOLE32DLL=NULL;
-    if(HaveV == -1){
-        hOLE32DLL = LoadLibraryA("OLE32.DLL");
-        if(hOLE32DLL){
-            myCoInitialize = (void *)GetProcAddress(hOLE32DLL, "CoInitialize");
-            myCoUninitialize= (void *)GetProcAddress(hOLE32DLL, "CoUninitialize");
-            myCoCreateInstance= (void *)GetProcAddress(hOLE32DLL, "CoCreateInstance");
-            if(!myCoCreateInstance || !myCoUninitialize || !myCoInitialize){
-                FreeLibrary(hOLE32DLL);
-                HaveV = 0;
-            } else {
-                HaveV = 1;
-            }
-        } else {
-            HaveV = 0;
-        }
+    HRESULT hr;
+    IMMDeviceEnumerator *pDevEnumerator = NULL;
+    IMMDevice *pDev = NULL;
+    IAudioEndpointVolume *pAudioEndpoint = NULL;
+
+    // Get audio endpoint
+    CoInitialize(NULL); // Needed for IAudioEndpointVolume
+    hr = CoCreateInstance(&my_CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL
+                        , &my_IID_IMMDeviceEnumerator, (void**)&pDevEnumerator);
+    if (hr != S_OK){
+        CoUninitialize();
+        return 0;
     }
-    if (HaveV) {
-        HRESULT hr;
-        IMMDeviceEnumerator *pDevEnumerator = NULL;
-        IMMDevice *pDev = NULL;
-        IAudioEndpointVolume *pAudioEndpoint = NULL;
 
-        // Get audio endpoint
-        myCoInitialize(NULL); // Needed for IAudioEndpointVolume
-        hr = myCoCreateInstance(&my_CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL
-                              , &my_IID_IMMDeviceEnumerator, (void**)&pDevEnumerator);
-        if (hr != S_OK){
-            myCoUninitialize();
-            FreeLibrary(hOLE32DLL);
-            HaveV = 0;
-            return 0;
-        }
+    hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(pDevEnumerator, eRender, eMultimedia, &pDev);
+    IMMDeviceEnumerator_Release(pDevEnumerator);
+    if (hr != S_OK) return 0;
 
-        hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(pDevEnumerator, eRender, eMultimedia, &pDev);
-        IMMDeviceEnumerator_Release(pDevEnumerator);
-        if (hr != S_OK) return 0;
+    hr = IMMDevice_Activate(pDev, &my_IID_IAudioEndpointVolume, CLSCTX_ALL, NULL, (void**)&pAudioEndpoint);
+    IMMDevice_Release(pDev);
+    if (hr != S_OK) return 0;
 
-        hr = IMMDevice_Activate(pDev, &my_IID_IAudioEndpointVolume, CLSCTX_ALL
-                                    , NULL, (void**)&pAudioEndpoint);
-        IMMDevice_Release(pDev);
-        if (hr != S_OK) return 0;
+    // Function pointer so we only need one for-loop
+    typedef HRESULT WINAPI (*_VolumeStep)(IAudioEndpointVolume*, LPCGUID pguidEventContext);
+    _VolumeStep VolumeStep = (_VolumeStep)(pAudioEndpoint->lpVtbl->VolumeStepDown);
+    if (delta > 0)
+        VolumeStep = (_VolumeStep)(pAudioEndpoint->lpVtbl->VolumeStepUp);
 
+    // Hold shift to make 5 steps
+    int i;
+    int num = (sharedstate.shift)?5:1;
 
-
-        // Function pointer so we only need one for-loop
-        typedef HRESULT WINAPI (*_VolumeStep)(IAudioEndpointVolume*, LPCGUID pguidEventContext);
-        _VolumeStep VolumeStep = (_VolumeStep)(pAudioEndpoint->lpVtbl->VolumeStepDown);
-        if (delta > 0)
-            VolumeStep = (_VolumeStep)(pAudioEndpoint->lpVtbl->VolumeStepUp);
-
-        // Hold shift to make 5 steps
-        int i;
-        int num = (state.shift)?5:1;
-
-        for (i=0; i < num; i++) {
-            hr = VolumeStep(pAudioEndpoint, NULL);
-        }
-
-        IAudioEndpointVolume_Release(pAudioEndpoint);
-        myCoUninitialize();
+    for (i=0; i < num; i++) {
+        hr = VolumeStep(pAudioEndpoint, NULL);
     }
+
+    IAudioEndpointVolume_Release(pAudioEndpoint);
+    CoUninitialize();
     return -1;
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -1423,7 +1401,7 @@ static int ActionTransparency(POINT pt, int delta)
          alpha = old_alpha; // If possible start from the actual aplha.
     }
 
-    int alpha_delta = (state.shift)?8:64;
+    int alpha_delta = (sharedstate.shift)?8:64;
     if (delta > 0) {
         alpha += alpha_delta;
         if (alpha >= 255) {
@@ -1449,7 +1427,7 @@ static int ActionLower(POINT pt, int delta)
     hwnd = GetAncestor(hwnd, GA_ROOT);
 
     if (delta > 0) {
-        if (state.shift) {
+        if (sharedstate.shift) {
             // Get monitor info
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(hwnd, &wndpl);
@@ -1477,7 +1455,7 @@ static int ActionLower(POINT pt, int delta)
             SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
         }
     } else {
-        if (state.shift) {
+        if (sharedstate.shift) {
             SendMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
         } else {
             SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
@@ -1507,11 +1485,12 @@ static HCURSOR CursorToDraw()
     return cursor;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int ActionMove(WINDOWPLACEMENT wndpl, RECT mon, RECT fmon, HMONITOR monitor )
+static int ActionMove(POINT pt, WINDOWPLACEMENT wndpl, POINT mdiclientpt,
+                      RECT wnd, RECT mon, RECT fmon, HMONITOR monitor )
 {
     // Toggle Maximize window if this is a double-click
     if (GetTickCount()-state.clicktime <= conf.dbclktime && IsResizable(state.hwnd)) {
-        state.action = AC_NONE; // Stop move action
+        sharedstate.action = AC_NONE; // Stop move action
         state.clicktime = 0; // Reset double-click time
         state.blockmouseup = 1; // Block the mouseup, otherwise it can trigger a context menu
 
@@ -1528,19 +1507,52 @@ static int ActionMove(WINDOWPLACEMENT wndpl, RECT mon, RECT fmon, HMONITOR monit
         // Prevent mousedown from propagating
         return 1;
     }
+    RestoreOldWin(pt, wnd, mdiclientpt);
     return -1;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
+static int ActionResize(POINT pt, WINDOWPLACEMENT wndpl, POINT mdiclientpt
+                      , RECT *wnd, RECT mon, RECT fmon)
 {
     if(!IsResizable(state.hwnd)) {
         state.blockmouseup = 1;
-        state.action = AC_NONE;
+        sharedstate.action = AC_NONE;
         return 1;
     }
-    // Restore the window (to monitor size) if it's maximized
 
+    // Restore the window (to monitor size) if it's maximized
+    if (state.origin.maximized) {
+        wndpl.rcNormalPosition = fmon; // Set size to full monitor to prevent flickering
+        *wnd = mon;
+        if (state.mdiclient) {
+            // Make it a little smaller since MDIClients by
+            // default have scrollbars that would otherwise appear
+            wndpl.rcNormalPosition.right -= 10;
+            wndpl.rcNormalPosition.bottom -= 10;
+        }
+        wndpl.showCmd = SW_RESTORE;
+        SetWindowPlacement(state.hwnd, &wndpl);
+        if (state.mdiclient) {
+            // Get new values from MDIClient, since restoring the child have changed them,
+            // The amount they change with differ depending on implementation (compare mIRC and Spy++)
+            Sleep(1); // Sometimes needed
+            mdiclientpt = (POINT) { 0, 0 };
+            if ( GetClientRect(state.mdiclient, wnd) == 0
+             || !ClientToScreen(state.mdiclient, &mdiclientpt) ) {
+                return 0;
+            }
+        }
+        // Update origin width/height
+        state.origin.width  = wnd->right  - wnd->left;
+        state.origin.height = wnd->bottom - wnd->top;
+
+        // Move window
+        no_MM_onUnHk=1;
+        MoveWindow(state.hwnd, wnd->left, wnd->top, state.origin.width, state.origin.height, TRUE);
+        *wnd = (RECT) { wnd->left+mdiclientpt.x,  wnd->top+mdiclientpt.y
+                      , wnd->right+mdiclientpt.x, wnd->bottom+mdiclientpt.y };
+    }
 
     // Set edge and offset
     // Think of the window as nine boxes (corner regions get 38%, middle only 24%)
@@ -1577,7 +1589,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
 
     // Aero-move this window if this is a double-click
     if (GetTickCount()-state.clicktime <= conf.dbclktime) {
-        state.action = AC_NONE; // Stop resize action
+        sharedstate.action = AC_NONE; // Stop resize action
         state.clicktime = 0; // Reset double-click time
         state.blockmouseup = 1; // Block the mouseup, otherwise it can trigger a
                                 // context menu (e.g. in explorer, or on the desktop)
@@ -1604,6 +1616,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
         } else if (state.resize.x == RZ_RIGHT) {
             posx = mon.right-wndwidth;
         }
+        no_MM_onUnHk=1;
         FixDWMRect(state.hwnd, &posx, &posy, &wndwidth, &wndheight, NULL);
         MoveWindow(state.hwnd, posx, posy, wndwidth, wndheight, TRUE);
 
@@ -1679,7 +1692,7 @@ static void GetMinMaxInfo_glob(HWND hwnd)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-static int init_movement_and_actions(POINT pt, enum action action, int nCode, WPARAM wParam, LPARAM lParam)
+static int init_movement_and_actions(POINT pt, int action, int nCode, WPARAM wParam, LPARAM lParam)
 {
     RECT wnd;
 
@@ -1714,6 +1727,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
 
     // Get window
     state.mdiclient = NULL;
+    MSG msg;
     state.hwnd = WindowFromPoint(pt);
     DWORD lpdwResult;
     if (state.hwnd == NULL || state.hwnd == LastWin.hwnd) {
@@ -1755,8 +1769,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
     // Return if window is blacklisted,
     // if we can't get information about it,
     // or if the window is fullscreen and hans no sysmenu nor caption.
-    if (state.hwnd == progman
-     || blacklistedP(state.hwnd, &BlkLst.Processes)
+    if (blacklistedP(state.hwnd, &BlkLst.Processes)
      || blacklisted(state.hwnd, &BlkLst.Windows)
      || GetWindowPlacement(state.hwnd,&wndpl) == 0
      || GetWindowRect(state.hwnd,&wnd) == 0
@@ -1767,9 +1780,9 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
     }
 
     // Update state
-    state.action = action;
-    if (!state.snap) {
-        state.snap = conf.AutoSnap;
+    sharedstate.action = action;
+    if (!sharedstate.snap) {
+        sharedstate.snap = conf.AutoSnap;
     }
     state.activated = 1;
     state.blockaltup = 1;
@@ -1789,14 +1802,14 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
     if (action == AC_MOVE) { ////////////////
         GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
 
-        if(ActionMove(wndpl, mon, fmon, monitor) == 1)
+        if(ActionMove(pt, wndpl, mdiclientpt, wnd, mon, fmon, monitor) == 1)
             return 1;
         cursor = cursors[HAND];
 
     } else if (action == AC_RESIZE) { ///////////////
         GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
 
-        int ret = ActionResize(pt, mdiclientpt, &wnd, mon);
+        int ret = ActionResize(pt, wndpl, mdiclientpt, &wnd, mon, fmon);
         if(ret==1) return 1;
         else if (ret==0) CallNextHookEx(NULL, nCode, wParam, lParam);
 
@@ -1805,7 +1818,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
     } else if (action == AC_MINIMIZE) {
         SendMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
     } else if (action == AC_MAXIMIZE) {
-        if(state.shift) {
+        if(sharedstate.shift) {
             SendMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
         } else if (IsResizable(state.hwnd)) {
             // Center window on monitor, if needed
@@ -1819,6 +1832,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
             SetWindowPlacement(state.hwnd, &wndpl);
         }
     } else if (action == AC_CENTER) {
+        no_MM_onUnHk=1;
         MoveWindow(state.hwnd, mon.left+(mon.right-mon.left)/2-state.origin.width/2
                 , mon.top+(mon.bottom-mon.top)/2-state.origin.height/2
                 , state.origin.width, state.origin.height, TRUE);
@@ -1828,8 +1842,9 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
 
     } else if (action == AC_BORDERLESS) {
         long style = GetWindowLong(state.hwnd, GWL_STYLE);
+        long ostyle=style;
 
-        if(style&WS_BORDER) style &= state.shift? ~WS_CAPTION: ~(WS_CAPTION|WS_THICKFRAME);
+        if(style&WS_BORDER) style &= sharedstate.shift? ~WS_CAPTION: ~(WS_CAPTION|WS_THICKFRAME);
         else style |= WS_CAPTION|WS_THICKFRAME|WS_MINIMIZEBOX|WS_MAXIMIZEBOX|WS_SYSMENU;
 
         SetWindowLong(state.hwnd, GWL_STYLE, style);
@@ -1850,7 +1865,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
     } else if (action == AC_CLOSE) {
         SendMessage(state.hwnd, WM_CLOSE, 0, 0);
     } else if (action == AC_LOWER) {
-        if (state.shift) {
+        if (sharedstate.shift) {
             SendMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
         } else {
             SetWindowPos(state.hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
@@ -1878,30 +1893,10 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
     // Prevent mousedown from propagating
     return 1;
 }
-// Call with SW_MAXIMIZE or SW_RESTORE
-static void Maximize_Restore_atpt(HWND hwnd, POINT pt, UINT sw_cmd, HMONITOR monitor)
+/////////////////////////////////////////////////////////////////////////////
+static inline int IsSamePTT(POINT pt, POINT ptt)
 {
-    WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
-    GetWindowPlacement(hwnd, &wndpl);
-    wndpl.showCmd = sw_cmd;
-    if(sw_cmd == SW_MAXIMIZE) {
-        if(!monitor) monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-        MONITORINFO mi = { sizeof(MONITORINFO) };
-        GetMonitorInfo(monitor, &mi);
-        RECT mon = mi.rcWork;
-
-        // Center window on monitor, if needed
-        HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-        if (monitor != wndmonitor) {
-            int width  = wndpl.rcNormalPosition.right  - wndpl.rcNormalPosition.left;
-            int height = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
-            wndpl.rcNormalPosition.left = mon.left + (mon.right-mon.left)/2-width/2;
-            wndpl.rcNormalPosition.top  = mon.top  + (mon.bottom-mon.top)/2-height/2;
-            wndpl.rcNormalPosition.right  = wndpl.rcNormalPosition.left + width;
-            wndpl.rcNormalPosition.bottom = wndpl.rcNormalPosition.top  + height;
-        }
-    }
-    SetWindowPlacement(hwnd, &wndpl);
+    return !( pt.x > ptt.x+4 || pt.y > ptt.y+4 ||pt.x < ptt.x-4 || pt.y < ptt.y-4 );
 }
 /////////////////////////////////////////////////////////////////////////////
 // This is somewhat the main function, it is active only when the ALT key is
@@ -1919,8 +1914,8 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         // Store prevpt so we can check if the hook goes stale
         state.prevpt = pt;
         // Move the window
-        if (state.action == AC_MOVE || state.action == AC_RESIZE) {
-            state.updaterate = (state.updaterate+1)%(state.action==AC_MOVE
+        if (sharedstate.action == AC_MOVE || sharedstate.action == AC_RESIZE) {
+            state.updaterate = (state.updaterate+1)%(sharedstate.action==AC_MOVE
                               ? conf.MoveRate: conf.ResizeRate);
             if (state.updaterate == 0) {
                 MouseMove(pt);
@@ -1932,10 +1927,10 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         }
 
     } else if (wParam == WM_MOUSEWHEEL || wParam == WM_MOUSEHWHEEL) {
-        if (state.alt && !state.action && conf.Mouse.Scroll && !state.interrupted) {
+        if (state.alt && !sharedstate.action && conf.Mouse.Scroll && !state.interrupted) {
             int delta = GET_WHEEL_DELTA_WPARAM(msg->mouseData);
 
-            if (conf.Mouse.Scroll == AC_ALTTAB && !state.shift) {
+            if (conf.Mouse.Scroll == AC_ALTTAB && !sharedstate.shift) {
                 if(!ActionAltTab(pt, delta))
                     CallNextHookEx(NULL, nCode, wParam, lParam);
 
@@ -1955,7 +1950,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
             state.blockaltup = 1;
             state.activated = 1;
             return 1;
-        } else if (!state.action && conf.InactiveScroll) {
+        } else if (!sharedstate.action && conf.InactiveScroll) {
             if(!ScrollPointedWindow(pt, msg->mouseData, wParam))
                 return CallNextHookEx(NULL, nCode, wParam, lParam);
             else return 1;
@@ -1977,7 +1972,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         || wParam==WM_RBUTTONUP  ||wParam==WM_XBUTTONUP)?STATE_UP:STATE_NONE;
 
     // Lower window if middle mouse button is used on the title bar/top of the win
-    if (conf.LowerWithMMB && !state.alt && !state.action && buttonstate == STATE_DOWN && button == BT_MMB) {
+    if (conf.LowerWithMMB && !state.alt && !sharedstate.action && buttonstate == STATE_DOWN && button == BT_MMB) {
         HWND hwnd = WindowFromPoint(pt);
         if (hwnd == NULL) {
             return CallNextHookEx(NULL, nCode, wParam, lParam);
@@ -1986,7 +1981,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         int area = SendMessage(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x,pt.y));
         if (area == HTCAPTION || area == HTTOP || area == HTTOPLEFT || area == HTTOPRIGHT
          || area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON || area == HTCLOSE) {
-            if (state.shift) {
+            if (sharedstate.shift) {
                 SendMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
             } else {
                 SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
@@ -1996,11 +1991,11 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
     }
 
     // Return if no mouse action will be started
-    enum action action = GetAction(button);
+    int action = GetAction(button);
     if (!action) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     // Block mousedown if we are busy with another action
-    if (state.action && buttonstate == STATE_DOWN) {
+    if (sharedstate.action && buttonstate == STATE_DOWN) {
         return 1; // Block mousedown so AltDrag.exe does not remove cursorwnd
 
     } else if (buttonstate == STATE_UP && state.blockmouseup) {
@@ -2015,9 +2010,12 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         }
 
     // FINISHING THE MOVE
-    } else if (buttonstate == STATE_UP && state.action == action) {
+    } else if (buttonstate == STATE_UP && sharedstate.action == action) {
+        sharedstate.action = AC_NONE;
+
         if (!conf.FullWin && was_moving) {
-             if(mouse_move_start==0){ // LAST RECTANGLE!
+             was_moving=0;
+             if(mouse_mouve_start==0){ // LAST RECTANGLE!
                  Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
              }
              DWORD lpThreadId;
@@ -2025,18 +2023,12 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
              thread = CreateThread(NULL, 0, EndMoveWindowThread, &LastWin, 0, &lpThreadId);
              CloseHandle(thread);
         }
-
-        // Auto Remaximize if option enabled and conditions are met.
-        if(conf.AutoRemaximize && was_moving && state.origin.maximized
-          && !state.mdiclient && state.action == AC_MOVE){
-            HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-            if(monitor != state.origin.monitor)
-                Maximize_Restore_atpt(state.hwnd, pt, SW_MAXIMIZE, monitor);
+        if(no_MM_onUnHk) {
+            mouse_mouve_start=2;
+        } else {
+            mouse_mouve_start=1;
         }
-
-        state.action = AC_NONE;
-        was_moving = 0;
-        mouse_move_start = 1;
+        no_MM_onUnHk=0;
 
         // Send WM_EXITSIZEMOVE
         SendSizeMove_on(action, 0);
@@ -2060,7 +2052,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
 /////////////////////////////////////////////////////////////////////////////
 static int HookMouse()
 {
-    mouse_move_start=1; // Used to know the first time we call MouseMove.
+    mouse_mouve_start=1; // Used to know the first time we call MouseMove.
 
     if (conf.InactiveScroll || conf.LowerWithMMB) {
         SendMessage(g_hwnd, WM_TIMER, REHOOK_TIMER, 0);
@@ -2083,13 +2075,10 @@ static int HookMouse()
 static int UnhookMouse()
 {
     // Stop action
-    state.action = AC_NONE;
+    sharedstate.action = AC_NONE;
     state.activated = 0;
-    mouse_move_start=1; // Just in case
-    ClipCursor(NULL);  // Release cursor trapping in case...
-
+    mouse_mouve_start=1; // Just in case
     if (hdcc) { DeleteDC(hdcc); hdcc=NULL; }
-    if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL;};
 
     ShowWindowAsync(cursorwnd, SW_HIDE);
 
@@ -2119,6 +2108,30 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 HookMouse();
                 SetTimer(g_hwnd, REHOOK_TIMER, 5000, NULL); // Start rehook timer
             }
+        } else if (wParam == RESTORE_TIMER) {
+            KillTimer(g_hwnd, wParam);
+            state.locked = 0;
+
+            if (sharedstate.action == AC_MOVE) {
+                // Reset offset
+                POINT pt;
+                GetCursorPos(&pt);
+                HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+                MONITORINFO mi = { sizeof(MONITORINFO) };
+                GetMonitorInfo(monitor, &mi);
+                RECT fmon = mi.rcMonitor;
+                state.offset.x = (state.origin.width*(pt.x-fmon.left))/(fmon.right-fmon.left);
+                state.offset.y = (state.origin.height*(pt.y-fmon.top))/(fmon.bottom-fmon.top);
+
+                // Restore window
+                WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+                GetWindowPlacement(state.hwnd, &wndpl);
+                wndpl.showCmd = SW_RESTORE;
+                SetWindowPlacement(state.hwnd, &wndpl);
+
+                // Move
+                MouseMove(pt);
+            }
         } else if (wParam == REHOOK_TIMER) {
             // Silently rehook hooks if they have been stopped (>= Win7 and LowLevelHooksTimeout)
             // This can often happen if locking or sleeping the computer a lot
@@ -2130,6 +2143,7 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             }
         }
     } else if (msg == WM_DESTROY) {
+        KillTimer(g_hwnd, RESTORE_TIMER);
         KillTimer(g_hwnd, REHOOK_TIMER);
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -2139,11 +2153,34 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 // To be called before Free Library. Ideally it should free everything
 __declspec(dllexport) void Unload()
 {
-    if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL;};
+    if(hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL;};
     if (hdcc) { DeleteDC(hdcc); hdcc=NULL; }
 
     mousehook = NULL;
     DestroyWindow(g_hwnd);
+}
+static void FreeAll()
+{
+    freeblacklist(&BlkLst.Processes);
+    freeblacklist(&BlkLst.Windows);
+    freeblacklist(&BlkLst.Snaplist);
+    freeblacklist(&BlkLst.MDIs);
+
+    free(monitors);
+    monitors = NULL;
+    nummonitors = 0;
+    monitors_alloc = 0;
+
+    free(hwnds);
+    hwnds = NULL;
+    numhwnds = 0;
+    hwnds_alloc = 0;
+
+    free(wnds);
+    wnds = NULL;
+    numwnds = 0;
+    wnds_alloc = 0;
+
 }
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated ans title and class are | separated.
@@ -2205,9 +2242,9 @@ __declspec(dllexport) void Load(void)
     // Load settings
     wchar_t txt[1024];
     wchar_t inipath[MAX_PATH];
-    state.action = AC_NONE;
-    state.shift=0;
-    LastWin.hwnd=NULL;
+
+    // init Brush (hpenDot_Global), Only once.
+    hpenDot_Global = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
 
     conf.Hotkeys.length = 0;
     conf.dbclktime = GetDoubleClickTime();
@@ -2218,7 +2255,7 @@ __declspec(dllexport) void Load(void)
 
     // [General]
     conf.AutoFocus =    GetPrivateProfileInt(L"General", L"AutoFocus", 0, inipath);
-    conf.AutoSnap=state.snap=GetPrivateProfileInt(L"General", L"AutoSnap", 0, inipath);
+    conf.AutoSnap=sharedstate.snap=GetPrivateProfileInt(L"General", L"AutoSnap", 0, inipath);
     conf.Aero =         GetPrivateProfileInt(L"General", L"Aero", 1, inipath);
     conf.InactiveScroll=GetPrivateProfileInt(L"General", L"InactiveScroll", 0, inipath);
     conf.MDI =          GetPrivateProfileInt(L"General", L"MDI", 0, inipath);
@@ -2246,8 +2283,6 @@ __declspec(dllexport) void Load(void)
     conf.MoveRate  = GetPrivateProfileInt(L"Performance", L"MoveRate", 2, inipath);
     conf.ResizeRate= GetPrivateProfileInt(L"Performance", L"ResizeRate", 4, inipath);
     conf.FullWin   = GetPrivateProfileInt(L"Performance", L"FullWin", 1, inipath);
-    conf.RefreshRate=GetPrivateProfileInt(L"Performance", L"RefreshRate", 0, inipath);
-
     // [Input]
     struct {
         wchar_t *key;
@@ -2282,6 +2317,7 @@ __declspec(dllexport) void Load(void)
 
     conf.LowerWithMMB    = GetPrivateProfileInt(L"Input", L"LowerWithMMB",    0, inipath);
     conf.AggressivePause = GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath);
+    // conf.UseDoubleClick  = GetPrivateProfileInt(L"Input", L"UseDoubleClick",  1, inipath);
     unsigned temp;
     int numread;
     GetPrivateProfileString(L"Input", L"Hotkeys", L"A4 A5", txt, ARR_SZ(txt), inipath);

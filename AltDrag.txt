@@ -23,14 +23,34 @@ more at: https://stefansundin.github.io/altdrag/doc/usage.html
 Note that this version has some more feature..
 
 == CHANGELOG ==
+== AltDrag 1.29 ==
+
+* Rewrote the Auto Remaximize procedure. It is now much simpler and handier
+  in my opinion. The window is now remaximized when released on the current
+  monitor, if it was maximized when move started AND was dragged to an other
+  monitor. There is no more 1s delay option...
+  Note this procedure was not working properly on previous releases.
+
+* Fixed: Position of the mouse cursor relative to the restored windows
+  should be always correct now, this was a stupid bug I introduced...
+
+* Fixed: Desktop window is now properly ignored.
+
+* Fixed: When using Ctrl, the cursor will be properly restricted to the
+  current monitor.
+
+* Removed unused varaible and cleaned up some code.
+
+* Remove hard dependency to ole32.dll, it will be loaded only when using
+  the Volume action.
 
 == AltDrag 1.28 ==
 
 + Added hardening flags for gcc.
 
 + Added a RefreshRate in the [Performance] section of AltDrag.ini that 
-  allows you to set a minimum time in miliseconds between two Windows
-  Redraw when FullWin=1, I recomend a value that corresponds to the
+  allows you to set a minimum time in milliseconds between two Windows
+  Redraw when FullWin=1, I recommend a value that corresponds to the
   refresh rate of your monitor ie: 60Hz => RefreshRate=16.
 
 + Added Maximize action, it can be used to toggle the maximized state,
@@ -54,23 +74,23 @@ Note that this version has some more feature..
 
 * Removed dependency to Advapi32.dll from hooks.dll (it was unnecessary).
 
-* Fixed: An Aero-snapped window will now require mouse mouvement before
+* Fixed: An Aero-snapped window will now require mouse movement before
   moving, instead of a simple Alt+Click.
 
 * Fixed when a window is in full screen you will actually need to move the
   mouse in order to resize it.
 
 * Fixed a remaining Win 10 invisible borders bug that would shrink slightly
-  a window when resizing it from a fullscreen state.
+  a window when resizing it from a full screen state.
 
 * Fixed application hang when changing DPI scaling under Win10. Note that
-  for the moment the solution is to restart AltDrag when receaving the
+  for the moment the solution is to restart AltDrag when receiving the
   WM_DPICHANGED message, I hope to have better solution in the future.
 
 * Fixed bug in Transparency action where the windows transparency could no
   longer be modified in some cases.
 
-* Misc cleanup and code refactoring here and there + Fixed all warnings.
+* Misc. cleanup and code refactoring here and there + Fixed all warnings.
   using gcc -Wall parameter.
 
 * Minor GUI improvement for WinNT4 and Win2000.

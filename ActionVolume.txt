@@ -1,0 +1,155 @@
+static int ActionVolume(int delta)
+{
+    static int vista=-1;
+    static HINSTANCE hOLE32DLL=NULL;
+    if(vista == -1){
+        OSVERSIONINFO vi = { sizeof(OSVERSIONINFO) };
+        GetVersionEx(&vi);
+        if ((vista = vi.dwMajorVersion >= 6)){
+            hOLE32DLL = LoadLibraryA("OLE32.DLL");
+            if(hOLE32DLL){
+                myCoInitialize = (void *)GetProcAddress(hOLE32DLL, "CoInitialize");
+                myCoUninitialize= (void *)GetProcAddress(hOLE32DLL, "CoUninitialize");
+                myCoCreateInstance= (void *)GetProcAddress(hOLE32DLL, "CoCreateInstance");
+                if(!myCoCreateInstance || !myCoUninitialize || !myCoInitialize){
+                    FreeLibrary(hOLE32DLL);
+                    hOLE32DLL=NULL;
+                }
+
+            }
+        }
+    }
+    if (hOLE32DLL && vista) {
+        HRESULT hr;
+        IMMDeviceEnumerator *pDevEnumerator = NULL;
+        IMMDevice *pDev = NULL;
+        IAudioEndpointVolume *pAudioEndpoint = NULL;
+
+        // Get audio endpoint
+        myCoInitialize(NULL); // Needed for IAudioEndpointVolume
+        hr = myCoCreateInstance(&my_CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL
+                            , &my_IID_IMMDeviceEnumerator, (void**)&pDevEnumerator);
+        if (hr != S_OK){
+            CoUninitialize();
+            return 0;
+        }
+
+        hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(pDevEnumerator, eRender, eMultimedia, &pDev);
+        IMMDeviceEnumerator_Release(pDevEnumerator);
+        if (hr != S_OK) return 0;
+
+        hr = IMMDevice_Activate(pDev, &my_IID_IAudioEndpointVolume, CLSCTX_ALL
+                                    , NULL, (void**)&pAudioEndpoint);
+        IMMDevice_Release(pDev);
+        if (hr != S_OK) return 0;
+
+
+
+        // Function pointer so we only need one for-loop
+        typedef HRESULT WINAPI (*_VolumeStep)(IAudioEndpointVolume*, LPCGUID pguidEventContext);
+        _VolumeStep VolumeStep = (_VolumeStep)(pAudioEndpoint->lpVtbl->VolumeStepDown);
+        if (delta > 0)
+            VolumeStep = (_VolumeStep)(pAudioEndpoint->lpVtbl->VolumeStepUp);
+
+        // Hold shift to make 5 steps
+        int i;
+        int num = (sharedstate.shift)?5:1;
+
+        for (i=0; i < num; i++) {
+            hr = VolumeStep(pAudioEndpoint, NULL);
+        }
+
+        IAudioEndpointVolume_Release(pAudioEndpoint);
+        myCoUninitialize();
+    } 
+    return -1;
+}
+
+else {
+        DWORD Volume;
+        waveOutGetVolume(NULL, &Volume);
+
+        DWORD tmp = Volume&0xFFFF0000 >> 16;
+        int leftV = (int)tmp;
+        tmp = (Volume&0x0000FFFF);
+        int rightV = (int)tmp;
+        rightV += (delta>0? 0x0800: -0x0800) * (sharedstate.shift? 4: 1);
+        leftV  += (delta>0? 0x0800: -0x0800) * (sharedstate.shift? 4: 1);
+        rightV = CLAMP(0x0000, rightV, 0xFFFF);
+        leftV  = CLAMP(0x0000, leftV, 0xFFFF);
+        Volume = ( ((DWORD)leftV) << 16 ) | ( (DWORD)rightV );
+        waveOutSetVolume(NULL, Volume);
+    }
+    
+static void AutoRemaximize(int maximized, HMONITOR monitor)
+{
+        // Get monitor rect
+        MONITORINFO mi = { sizeof(MONITORINFO) };
+        GetMonitorInfo(monitor, &mi);
+        RECT mon = mi.rcWork;
+        RECT fmon = mi.rcMonitor;
+
+        // Center window on monitor and maximize it
+        WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+        GetWindowPlacement(state.hwnd, &wndpl);
+        wndpl.rcNormalPosition.left = fmon.left+(mon.right-mon.left)/2-state.origin.width/2;
+        wndpl.rcNormalPosition.top = fmon.top+(mon.bottom-mon.top)/2-state.origin.height/2;
+        wndpl.rcNormalPosition.right = wndpl.rcNormalPosition.left+state.origin.width;
+        wndpl.rcNormalPosition.bottom = wndpl.rcNormalPosition.top+state.origin.height;
+        if (maximized) {
+            wndpl.showCmd = SW_RESTORE;
+            SetWindowPlacement(state.hwnd, &wndpl);
+        }
+        wndpl.showCmd = SW_MAXIMIZE;
+        SetWindowPlacement(state.hwnd, &wndpl);
+        // Set this monitor as the origin (dirty hack maybe)
+        state.origin.monitor = monitor;
+        // Lock the current state
+        state.locked = 1;
+        // Restore window after a timeout if AutoRemaximize=2
+        if (conf.AutoRemaximize == 2) {
+            SetTimer(g_hwnd, RESTORE_TIMER, 1000, NULL);
+        }
+        no_MM_onUnHk=1;
+}
+
+    // Restore the window (to monitor size) if it's maximized
+        if (state.origin.maximized) {
+            wndpl.rcNormalPosition = fmon; // Set size to full monitor to prevent flickering
+            *wnd = mon;
+            if (state.mdiclient) {
+                // Make it a little smaller since MDIClients by
+                // default have scrollbars that would otherwise appear
+                wndpl.rcNormalPosition.right -= 10;
+                wndpl.rcNormalPosition.bottom -= 10;
+            }
+            wndpl.showCmd = SW_RESTORE;
+            SetWindowPlacement(state.hwnd, &wndpl);
+            if (state.mdiclient) {
+                // Get new values from MDIClient, since restoring the child have changed them,
+                // The amount they change with differ depending on implementation (compare mIRC and Spy++)
+                Sleep(1); // Sometimes needed
+                mdiclientpt = (POINT) { 0, 0 };
+                if ( GetClientRect(state.mdiclient, wnd) == 0
+                 || !ClientToScreen(state.mdiclient, &mdiclientpt) ) {
+                    return 0;
+                }
+            }
+            // Update origin width/height
+            RECT brd;
+            FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &brd);
+            wnd->left -= brd.left;   wnd->top -= brd.top;
+            wnd->right += brd.right; wnd->bottom += brd.bottom;
+    
+            state.origin.width  = wnd->right  - wnd->left;
+            state.origin.height = wnd->bottom - wnd->top;
+    
+            // Move window
+            no_MM_onUnHk=1;
+            MoveWindow(state.hwnd, wnd->left, wnd->top, state.origin.width, state.origin.height, TRUE);
+            *wnd = (RECT) { wnd->left+mdiclientpt.x,  wnd->top+mdiclientpt.y
+                          , wnd->right+mdiclientpt.x, wnd->bottom+mdiclientpt.y };
+        }
+
+
+

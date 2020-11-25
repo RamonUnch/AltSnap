@@ -66,6 +66,12 @@ static HRESULT (WINAPI *myDwmIsCompositionEnabled)(BOOL *pfEnabled);
 static LONG (NTAPI *myNtSuspendProcess)(HANDLE ProcessHandle);
 static LONG (NTAPI *myNtResumeProcess )(HANDLE ProcessHandle);
 
+/* OLE32.DLL */
+HRESULT (WINAPI *myCoInitialize)(LPVOID pvReserved);
+VOID (WINAPI *myCoUninitialize)( );
+HRESULT (WINAPI *myCoCreateInstance)(REFCLSID rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, REFIID riid, LPVOID * ppv);
+
+
 #define HAVE_FUNC -1
 
 DWORD GetProcessImageFileNameL(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize)

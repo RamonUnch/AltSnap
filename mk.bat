@@ -1,6 +1,8 @@
-@set CFLAGS= -Os -fno-stack-check -fno-stack-protector -mno-stack-arg-probe -march=i386 -mtune=i686 -mpreferred-stack-boundary=2 -foptimize-strlen -nostdlib -lkernel32 -luser32 -lmsvcrt -flto -s -Wall -Wl,-dynamicbase,-nxcompat -Wformat-security -Wstrict-overflow -Wp,-D_FORTIFY_SOURCE=2
+@set WARNINGS=-Wall -Wformat-security -Wstrict-overflow -Wsign-compare -Wclobbered -Wempty-body -Wignored-qualifiers -Wuninitialized -Wtype-limits -Woverride-init -Wduplicated-cond  -Wduplicated-branches -Wlogical-op  -Wnull-dereference
+@set CFLAGS= -Os -fno-stack-check -fno-stack-protector -mno-stack-arg-probe -march=i386 -mtune=i686 -mpreferred-stack-boundary=2 -foptimize-strlen -nostdlib -lkernel32 -luser32 -lmsvcrt -flto -Wl,-dynamicbase,-nxcompat  -Wp,-D_FORTIFY_SOURCE=2 -s %WARNINGS%
 
-:: -Wextra -Wno-sign-compare -Wno-implicit-fallthrough -Wno-missing-field-initializers
+
+:: -Wunused-parameter
 
 @taskkill /IM AltDrag.exe 2> nul
 

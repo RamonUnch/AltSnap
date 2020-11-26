@@ -42,7 +42,7 @@ static void wcscpy_resolve(wchar_t *dest, wchar_t *source)
 static void LoadTranslation(wchar_t *ini)
 {
     wchar_t txt[txt_len];
-    int i;
+    size_t i;
     if (!ini) {
         l10n = &en_US;
         return;

@@ -110,7 +110,7 @@ void OpenConfig(int startpage)
         { IDD_ABOUTPAGE,     AboutPageDialogProc    } };
 
     PROPSHEETPAGE psp[ARR_SZ(pages)] = { };
-    int i;
+    size_t i;
     for (i = 0; i < ARR_SZ(pages); i++) {
         psp[i].dwSize = sizeof(PROPSHEETPAGE);
         psp[i].hInstance = g_hinst;
@@ -153,7 +153,7 @@ void UpdateStrings()
     int numrows_prev = TabCtrl_GetRowCount(tc);
     wchar_t *titles[] = { l10n->tab_general,   l10n->tab_input
                         , l10n->tab_blacklist, l10n->tab_about };
-    int i;
+    size_t i;
     for (i = 0; i < ARR_SZ(titles); i++) {
         TCITEM ti;
         ti.mask = TCIF_TEXT;
@@ -449,8 +449,8 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 
     // Hotkeys
     struct {
-        int control;
-        int vkey;
+        unsigned control;
+        unsigned vkey;
     } hotkeys[] = {
         { IDC_LEFTALT, VK_LMENU     },
         { IDC_RIGHTALT, VK_RMENU    },
@@ -471,8 +471,8 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         Button_Enable(GetDlgItem(hwnd, IDC_AGGRESSIVEPAUSE), HaveProc("NTDLL.DLL", "NtResumeProcess"));
 
         // Hotkeys
-        int i;
-        unsigned int temp;
+        size_t i;
+        unsigned temp;
         int numread;
         wchar_t txt[50];
         GetPrivateProfileString(L"Input", L"Hotkeys", L"A4 A5", txt, ARR_SZ(txt), inipath);
@@ -491,7 +491,7 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         int id = LOWORD(wParam);
         int event = HIWORD(wParam);
         wchar_t txt[50] = L"";
-        int i;
+        size_t i;
         if (event == CBN_SELCHANGE) {
             HWND control = GetDlgItem(hwnd, id);
             // Mouse actions
@@ -515,7 +515,7 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             WritePrivateProfileString(L"Input", L"AggressivePause", _itow(val, txt, 10), inipath);
         } else {
             // Hotkeys
-            int vkey = 0;
+            unsigned vkey = 0;
             for (i = 0; i < ARR_SZ(hotkeys); i++) {
                 if (wParam == hotkeys[i].control) {
                     vkey = hotkeys[i].vkey;
@@ -553,7 +553,7 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             wchar_t txt[50];
-            int i, j, sel;
+            size_t i, j, sel;
 
             // Mouse actions
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {

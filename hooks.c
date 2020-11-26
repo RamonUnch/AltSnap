@@ -88,9 +88,8 @@ struct {
     char blockaltup;
     char blockmouseup;
     char ignorectrl;
-    char locked;
-
     unsigned char updaterate;
+
     char shift;
     char snap;
 
@@ -112,8 +111,6 @@ struct {
         POINT Min;
         POINT Max;
     } mmi;
-
-
 } state;
 
 // Snap
@@ -862,6 +859,13 @@ static void RestoreOldWin(POINT pt)
         state.offset.y = pt.y-wnd.top;
     }
 }
+RECT GetMonitorRect(POINT pt)
+{
+    MONITORINFO mi = { sizeof(MONITORINFO) };
+    GetMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi);
+    
+    return mi.rcWork;
+}
 ///////////////////////////////////////////////////////////////////////////
 char was_moving=0;
 static void MouseMove(POINT pt)
@@ -892,13 +896,11 @@ static void MouseMove(POINT pt)
         pt.y = CLAMP(fmon.top, pt.y, fmon.bottom);
     }
 
-    if (state.locked) return;
-
     // Get window size
     static RECT wnd;
     if (mouse_move_start && !GetWindowRect(state.hwnd, &wnd)) return;
 
-    RECT mon;
+    RECT mdimon;
     POINT mdiclientpt = { 0, 0 };
     if (state.mdiclient) { // MDI
         RECT mdiclientwnd;
@@ -906,17 +908,13 @@ static void MouseMove(POINT pt)
          || ClientToScreen(state.mdiclient, &mdiclientpt) == FALSE) {
             return;
         }
-        mon = (RECT) {0, 0, mdiclientwnd.right-mdiclientwnd.left
+        mdimon = (RECT) {0, 0, mdiclientwnd.right-mdiclientwnd.left
                           , mdiclientwnd.bottom-mdiclientwnd.top};
         pt.x -= mdiclientpt.x;
         pt.y -= mdiclientpt.y;
-    } else if (state.snap || conf.Aero) { // only needed if snappig
-        // Get monitor info
-        MONITORINFO mi = { sizeof(MONITORINFO) };
-        GetMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi);
-        mon = mi.rcWork;
+    } else {
+        // mon = GetMonitorRect(pt);
     }
-
     // Get new position for window
     if (state.action == AC_MOVE) {
         posx = pt.x-state.offset.x;
@@ -936,19 +934,16 @@ static void MouseMove(POINT pt)
 
         // Check if the window will snap anywhere
         if (state.snap) MoveSnap(&posx, &posy, wndwidth, wndheight);
-        AeroMoveSnap(pt, &wnd, &posx, &posy, &wndwidth, &wndheight, mon);
+        AeroMoveSnap(pt, &wnd, &posx, &posy, &wndwidth, &wndheight
+                    , state.mdiclient? mdimon: GetMonitorRect(pt));
 
     } else if (state.action == AC_RESIZE) {
         // Restore the window (to monitor size) if it's maximized
         if (IsZoomed(state.hwnd)) {
-            MONITORINFO mi = { sizeof(MONITORINFO) };
-            GetMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi);
-            mon = mi.rcWork;
-
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
-            wndpl.rcNormalPosition = mon; // Set size to monitor to prevent flickering
-            wnd = mon;
+            // Set size to monitor to prevent flickering
+            wnd = wndpl.rcNormalPosition = state.mdiclient? mdimon: GetMonitorRect(pt);
             if (state.mdiclient) {
                 // Make it a little smaller since MDIClients by
                 // default have scrollbars that would otherwise appear
@@ -1019,7 +1014,7 @@ static void MouseMove(POINT pt)
             if (state.snap) {
                 ResizeSnap(&posx, &posy, &wndwidth, &wndheight);
             }
-            AeroResizeSnap(pt, &posx, &posy, &wndwidth, &wndheight, mon);
+            AeroResizeSnap(pt, &posx, &posy, &wndwidth, &wndheight, state.mdiclient? mdimon: GetMonitorRect(pt));
         }
     }
 
@@ -1159,7 +1154,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
           && !state.ignorectrl && !state.ctrl) {
             POINT pt;
             GetCursorPos(&pt);
-            state.locked = 0;
             state.origin.maximized = 0;
             state.origin.monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
             SetForegroundWindow(state.hwnd);
@@ -1379,8 +1373,6 @@ static int ActionVolume(int delta)
         IMMDevice_Release(pDev);
         if (hr != S_OK) return 0;
 
-
-
         // Function pointer so we only need one for-loop
         typedef HRESULT WINAPI (*_VolumeStep)(IAudioEndpointVolume*, LPCGUID pguidEventContext);
         _VolumeStep VolumeStep = (_VolumeStep)(pAudioEndpoint->lpVtbl->VolumeStepDown);
@@ -1441,6 +1433,36 @@ static int ActionTransparency(POINT pt, int delta)
 
     return -1;
 }
+// Call with SW_MAXIMIZE or SW_RESTORE
+#define SW_TOGGLE_MAX_RESTORE 27
+static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR monitor)
+{
+    WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+    GetWindowPlacement(hwnd, &wndpl);
+    if(sw_cmd == SW_TOGGLE_MAX_RESTORE)
+        wndpl.showCmd = (wndpl.showCmd==SW_MAXIMIZE)? SW_RESTORE: SW_MAXIMIZE;
+    else
+        wndpl.showCmd = sw_cmd;
+    
+    if(sw_cmd == SW_MAXIMIZE) {
+        if(!monitor) monitor = MonitorFromPoint(*pt, MONITOR_DEFAULTTONEAREST);
+        MONITORINFO mi = { sizeof(MONITORINFO) };
+        GetMonitorInfo(monitor, &mi);
+        RECT mon = mi.rcWork;
+
+        // Center window on monitor, if needed
+        HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        if (monitor != wndmonitor) {
+            int width  = wndpl.rcNormalPosition.right  - wndpl.rcNormalPosition.left;
+            int height = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
+            wndpl.rcNormalPosition.left = mon.left + (mon.right-mon.left)/2-width/2;
+            wndpl.rcNormalPosition.top  = mon.top  + (mon.bottom-mon.top)/2-height/2;
+            wndpl.rcNormalPosition.right  = wndpl.rcNormalPosition.left + width;
+            wndpl.rcNormalPosition.bottom = wndpl.rcNormalPosition.top  + height;
+        }
+    }
+    SetWindowPlacement(hwnd, &wndpl);
+}
 /////////////////////////////////////////////////////////////////////////////
 static int ActionLower(POINT pt, int delta)
 {
@@ -1451,31 +1473,10 @@ static int ActionLower(POINT pt, int delta)
 
     if (delta > 0) {
         if (state.shift) {
-            // Get monitor info
-            WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
-            GetWindowPlacement(hwnd, &wndpl);
-            HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-            MONITORINFO mi = { sizeof(MONITORINFO) };
-            GetMonitorInfo(monitor, &mi);
-            RECT mon = mi.rcWork;
-            RECT fmon = mi.rcMonitor;
-            // Toggle maximized state
-            wndpl.showCmd = (wndpl.showCmd==SW_MAXIMIZE)?SW_RESTORE:SW_MAXIMIZE;
-            // If maximizing, also center window on monitor, if needed
-            if (wndpl.showCmd == SW_MAXIMIZE) {
-                HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-                if (monitor != wndmonitor) {
-                    int width  = wndpl.rcNormalPosition.right  - wndpl.rcNormalPosition.left;
-                    int height = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
-                    wndpl.rcNormalPosition.left = fmon.left + (mon.right-mon.left)/2-width/2;
-                    wndpl.rcNormalPosition.top  = fmon.top  + (mon.bottom-mon.top)/2-height/2;
-                    wndpl.rcNormalPosition.right  = wndpl.rcNormalPosition.left + width;
-                    wndpl.rcNormalPosition.bottom = wndpl.rcNormalPosition.top  + height;
-                }
-            }
-            SetWindowPlacement(hwnd, &wndpl);
+            Maximize_Restore_atpt(hwnd, &pt, SW_TOGGLE_MAX_RESTORE, NULL);
         } else {
-            SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
+            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
+            SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
         }
     } else {
         if (state.shift) {
@@ -1508,7 +1509,7 @@ static HCURSOR CursorToDraw()
     return cursor;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int ActionMove(WINDOWPLACEMENT wndpl, RECT mon, RECT fmon, HMONITOR monitor )
+static int ActionMove(HMONITOR monitor )
 {
     // Toggle Maximize window if this is a double-click
     if (GetTickCount()-state.clicktime <= conf.dbclktime && IsResizable(state.hwnd)) {
@@ -1516,15 +1517,7 @@ static int ActionMove(WINDOWPLACEMENT wndpl, RECT mon, RECT fmon, HMONITOR monit
         state.clicktime = 0; // Reset double-click time
         state.blockmouseup = 1; // Block the mouseup, otherwise it can trigger a context menu
 
-        // Center window on monitor, if needed
-        if (monitor != MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST)) {
-            wndpl.rcNormalPosition.left = fmon.left+ (mon.right-mon.left)/2-state.origin.width/2;
-            wndpl.rcNormalPosition.top  = fmon.top + (mon.bottom-mon.top)/2-state.origin.height/2;
-            wndpl.rcNormalPosition.right  = wndpl.rcNormalPosition.left+state.origin.width;
-            wndpl.rcNormalPosition.bottom = wndpl.rcNormalPosition.top+state.origin.height;
-        }
-        wndpl.showCmd = state.origin.maximized? SW_RESTORE: SW_MAXIMIZE;
-        SetWindowPlacement(state.hwnd, &wndpl);
+        Maximize_Restore_atpt(state.hwnd, NULL, SW_TOGGLE_MAX_RESTORE, monitor);
 
         // Prevent mousedown from propagating
         return 1;
@@ -1540,9 +1533,6 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
         state.action = AC_NONE;
         return 1;
     }
-    // Restore the window (to monitor size) if it's maximized
-
-
     // Set edge and offset
     // Think of the window as nine boxes (corner regions get 38%, middle only 24%)
     // Does not use state.origin.width/height since that is based on wndpl.rcNormalPosition
@@ -1577,11 +1567,10 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
     state.origin.bottom = wnd->bottom-mdiclientpt.y;
 
     // Aero-move this window if this is a double-click
-    if (GetTickCount()-state.clicktime <= conf.dbclktime) {
+    if (GetTickCount() - state.clicktime <= conf.dbclktime) {
         state.action = AC_NONE; // Stop resize action
-        state.clicktime = 0; // Reset double-click time
-        state.blockmouseup = 1; // Block the mouseup, otherwise it can trigger a
-                                // context menu (e.g. in explorer, or on the desktop)
+        state.clicktime = 0;    // Reset double-click time
+        state.blockmouseup = 1; // Block the mouseup
 
         // Get and set new position
         int posx, posy, wndwidth, wndheight;
@@ -1762,7 +1751,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
     }
     state.activated = 1;
     state.blockaltup = 1;
-    state.locked = 0;
     state.origin.maximized = IsZoomed(state.hwnd);
     state.origin.width = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
     state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
@@ -1778,7 +1766,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
     if (action == AC_MOVE) { ////////////////
         GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
 
-        if(ActionMove(wndpl, mon, fmon, monitor) == 1)
+        if(ActionMove(monitor) == 1)
             return 1;
         cursor = cursors[HAND];
 
@@ -1797,15 +1785,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
         if(state.shift) {
             SendMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
         } else if (IsResizable(state.hwnd)) {
-            // Center window on monitor, if needed
-            if (monitor != MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST)) {
-                wndpl.rcNormalPosition.left = fmon.left+ (mon.right-mon.left)/2-state.origin.width/2;
-                wndpl.rcNormalPosition.top  = fmon.top + (mon.bottom-mon.top)/2-state.origin.height/2;
-                wndpl.rcNormalPosition.right  = wndpl.rcNormalPosition.left+state.origin.width;
-                wndpl.rcNormalPosition.bottom = wndpl.rcNormalPosition.top+state.origin.height;
-            }
-            wndpl.showCmd = state.origin.maximized? SW_RESTORE: SW_MAXIMIZE;
-            SetWindowPlacement(state.hwnd, &wndpl);
+            Maximize_Restore_atpt(state.hwnd, NULL, SW_TOGGLE_MAX_RESTORE, monitor);
         }
     } else if (action == AC_CENTER) {
         MoveWindow(state.hwnd, mon.left+(mon.right-mon.left)/2-state.origin.width/2
@@ -1866,31 +1846,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
 
     // Prevent mousedown from propagating
     return 1;
-}
-// Call with SW_MAXIMIZE or SW_RESTORE
-static void Maximize_Restore_atpt(HWND hwnd, POINT pt, UINT sw_cmd, HMONITOR monitor)
-{
-    WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
-    GetWindowPlacement(hwnd, &wndpl);
-    wndpl.showCmd = sw_cmd;
-    if(sw_cmd == SW_MAXIMIZE) {
-        if(!monitor) monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-        MONITORINFO mi = { sizeof(MONITORINFO) };
-        GetMonitorInfo(monitor, &mi);
-        RECT mon = mi.rcWork;
-
-        // Center window on monitor, if needed
-        HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-        if (monitor != wndmonitor) {
-            int width  = wndpl.rcNormalPosition.right  - wndpl.rcNormalPosition.left;
-            int height = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
-            wndpl.rcNormalPosition.left = mon.left + (mon.right-mon.left)/2-width/2;
-            wndpl.rcNormalPosition.top  = mon.top  + (mon.bottom-mon.top)/2-height/2;
-            wndpl.rcNormalPosition.right  = wndpl.rcNormalPosition.left + width;
-            wndpl.rcNormalPosition.bottom = wndpl.rcNormalPosition.top  + height;
-        }
-    }
-    SetWindowPlacement(hwnd, &wndpl);
 }
 /////////////////////////////////////////////////////////////////////////////
 // This is somewhat the main function, it is active only when the ALT key is
@@ -2020,7 +1975,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
           && !state.mdiclient && state.action == AC_MOVE){
             HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
             if(monitor != state.origin.monitor)
-                Maximize_Restore_atpt(state.hwnd, pt, SW_MAXIMIZE, monitor);
+                Maximize_Restore_atpt(state.hwnd, NULL, SW_MAXIMIZE, monitor);
         }
 
         state.action = AC_NONE;

@@ -255,6 +255,18 @@ static inline int IsSamePTT(POINT pt, POINT ptt)
     return !( pt.x > ptt.x+4 || pt.y > ptt.y+4 ||pt.x < ptt.x-4 || pt.y < ptt.y-4 );
 }
 /////////////////////////////////////////////////////////////////////////////
+static void SendSizeMove_on(enum action action, int on)
+{
+    if (action == AC_MOVE || action == AC_RESIZE) {
+        // Don't send WM_ENTER/EXIT SIZEMOVE if the window is iTunes
+        wchar_t classname[8] = L"";
+        GetClassName(state.hwnd, classname, ARR_SZ(classname));
+        if (wcscmp(classname, L"iTunes")) {
+            SendMessage(state.hwnd, on? WM_ENTERSIZEMOVE: WM_EXITSIZEMOVE, 0, 0);
+        }
+    }
+}
+/////////////////////////////////////////////////////////////////////////////
 // Enumerate callback proc
 int monitors_alloc = 0;
 BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
@@ -629,17 +641,16 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
     }
 }
 ///////////////////////////////////////////////////////////////////////////
-// Called only in MouseMove
 #define MM_THREAD_ON (LastWin.hwnd && conf.FullWin)
 #define AERO_TH conf.AeroThreshold
-static int AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
+static void AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
                       , int *wndwidth, int *wndheight, RECT mon)
 {
     // Aero Snap
     static int resizable=1;
     // return if last resizing is not finished or no Aero or not resizable.
-    if (!conf.Aero || MM_THREAD_ON || !resizable) return 0;
-    if ( mouse_move_start && !(resizable=IsResizable(state.hwnd)) ) return 0;
+    if (!conf.Aero || MM_THREAD_ON || !resizable) return;
+    if ( mouse_move_start && !(resizable=IsResizable(state.hwnd)) ) return;
 
     int Left  = mon.left   + 2*AERO_TH ;
     int Right = mon.right  - 2*AERO_TH ;
@@ -726,11 +737,7 @@ static int AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
 
         state.wndentry->last.width = wnd->right-wnd->left;
         state.wndentry->last.height = wnd->bottom-wnd->top;
-
-        // We are done
-        return 0;
     }
-    return 0;
 }
 ///////////////////////////////////////////////////////////////////////////
 static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight, RECT mon)
@@ -750,11 +757,6 @@ static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *w
         state.wndentry->restore = 1;
         *wndwidth = CLAMPW(mon.right - mon.left + borders.left + borders.right);
         *posx = mon.left - borders.left;
-    } else if (state.wndentry->restore) {
-        // Restore original window size
-        state.wndentry->restore = 0;
-        *wndwidth = state.origin.width;
-        *wndheight = state.origin.height;
     }
 
     // Aero-move the window?
@@ -881,7 +883,7 @@ static void MouseMove(POINT pt)
             origMonitor = state.origin.monitor;
             MONITORINFO mi = { sizeof(MONITORINFO) };
             GetMonitorInfo(state.origin.monitor, &mi);
-            fmon =  mi.rcMonitor;
+            fmon = mi.rcMonitor;
             fmon.left += 1; fmon.top += 1;
             fmon.right -=2; fmon.bottom-=2;
         }
@@ -894,31 +896,25 @@ static void MouseMove(POINT pt)
 
     // Get window size
     static RECT wnd;
-    RECT mon, fmon;
     if (mouse_move_start && !GetWindowRect(state.hwnd, &wnd)) return;
 
-    // Get window state
-    int maximized = IsZoomed(state.hwnd);
-    HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-
-    // MDI
+    RECT mon;
     POINT mdiclientpt = { 0, 0 };
-    if (state.mdiclient) {
+    if (state.mdiclient) { // MDI
         RECT mdiclientwnd;
         if (GetClientRect(state.mdiclient, &mdiclientwnd) == 0
          || ClientToScreen(state.mdiclient, &mdiclientpt) == FALSE) {
             return;
         }
-        mon = fmon = (RECT) {0, 0, mdiclientwnd.right-mdiclientwnd.left
-                            , mdiclientwnd.bottom-mdiclientwnd.top};
+        mon = (RECT) {0, 0, mdiclientwnd.right-mdiclientwnd.left
+                          , mdiclientwnd.bottom-mdiclientwnd.top};
         pt.x -= mdiclientpt.x;
         pt.y -= mdiclientpt.y;
-    } else {
+    } else if (state.snap || conf.Aero) { // only needed if snappig
         // Get monitor info
         MONITORINFO mi = { sizeof(MONITORINFO) };
-        GetMonitorInfo(monitor, &mi);
+        GetMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi);
         mon = mi.rcWork;
-        fmon = mi.rcMonitor;
     }
 
     // Get new position for window
@@ -928,7 +924,7 @@ static void MouseMove(POINT pt)
         wndwidth = wnd.right-wnd.left;
         wndheight = wnd.bottom-wnd.top;
         // Restore window if maximized when move starts.
-        if (maximized) {
+        if (IsZoomed(state.hwnd)) {
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
             wndpl.showCmd = SW_RESTORE;
@@ -939,16 +935,16 @@ static void MouseMove(POINT pt)
         }
 
         // Check if the window will snap anywhere
-        if (state.snap)
-            MoveSnap(&posx, &posy, wndwidth, wndheight);
-        int aeromsnap = AeroMoveSnap(pt, &wnd, &posx, &posy, &wndwidth, &wndheight, mon);
-        if(aeromsnap == 1) return;
-        else if (aeromsnap == 2) goto FINISH;
-
+        if (state.snap) MoveSnap(&posx, &posy, wndwidth, wndheight);
+        AeroMoveSnap(pt, &wnd, &posx, &posy, &wndwidth, &wndheight, mon);
 
     } else if (state.action == AC_RESIZE) {
         // Restore the window (to monitor size) if it's maximized
-        if (maximized) {
+        if (IsZoomed(state.hwnd)) {
+            MONITORINFO mi = { sizeof(MONITORINFO) };
+            GetMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi);
+            mon = mi.rcWork;
+
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
             wndpl.rcNormalPosition = mon; // Set size to monitor to prevent flickering
@@ -1026,7 +1022,7 @@ static void MouseMove(POINT pt)
             AeroResizeSnap(pt, &posx, &posy, &wndwidth, &wndheight, mon);
         }
     }
-    FINISH:
+
     MoveWindow(cursorwnd, pt.x-127, pt.y-127, 256, 256, FALSE);
     int mouse_thread_finished = !LastWin.hwnd;
     LastWin.hwnd=state.hwnd;
@@ -1070,7 +1066,6 @@ static void MouseMove(POINT pt)
         CloseHandle(thread);
     }
 }
-
 /////////////////////////////////////////////////////////////////////////////
 static void Send_CTRL()
 {
@@ -1125,16 +1120,22 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.snap = 0;
             return 1;
         } else if (vkey == VK_ESCAPE && state.action != AC_NONE) {
-            state.action = AC_NONE;
             if (!conf.FullWin && was_moving) {
                 if(mouse_move_start==0){ // LAST RECTANGLE!
                     Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
                 }
             }
-            was_moving=0;
-            mouse_move_start=1;
+            // Send WM_EXITSIZEMOVE
+            SendSizeMove_on(state.action , 0);
+
+            was_moving = 0;
+            mouse_move_start = 1;
+            state.action = AC_NONE;
+            LastWin.hwnd = NULL;
+
             UnhookMouse();
-            return 1;//CallNextHookEx(NULL, nCode, wParam, lParam);
+
+            return 1;
         } else if (conf.AggressivePause && vkey == VK_PAUSE && state.alt) {
             POINT pt;
             DWORD pid;
@@ -1656,18 +1657,6 @@ static void AddWindowToDB(HWND hwndd)
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-static void SendSizeMove_on(enum action action, int on)
-{
-    if (action == AC_MOVE || action == AC_RESIZE) {
-        // Don't send WM_ENTER/EXIT SIZEMOVE if the window is iTunes
-        wchar_t classname[8] = L"";
-        GetClassName(state.hwnd, classname, ARR_SZ(classname));
-        if (wcscmp(classname, L"iTunes")) {
-            SendMessage(state.hwnd, on? WM_ENTERSIZEMOVE: WM_EXITSIZEMOVE, 0, 0);
-        }
-    }
-}
-/////////////////////////////////////////////////////////////////////////////
 static void GetMinMaxInfo_glob(HWND hwnd)
 {
     MINMAXINFO mmi = { {0, 0}, {0, 0}, {0, 0}
@@ -2092,6 +2081,7 @@ static int UnhookMouse()
     if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL;};
 
     ShowWindowAsync(cursorwnd, SW_HIDE);
+    ReleaseCapture();
 
     // Do not unhook if not hooked or if the hook is still used for something
     if (!mousehook || conf.InactiveScroll || conf.LowerWithMMB) {

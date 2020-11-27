@@ -426,25 +426,26 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         wchar_t *l10n;
     };
     struct action mouse_actions[] = {
-        {L"Move", l10n->input_actions_move},
-        {L"Resize", l10n->input_actions_resize},
-        {L"Close", l10n->input_actions_close},
-        {L"Minimize", l10n->input_actions_minimize},
-        {L"Maximize", l10n->input_actions_maximize},
-        {L"Lower", l10n->input_actions_lower},
+        {L"Move",        l10n->input_actions_move},
+        {L"Resize",      l10n->input_actions_resize},
+        {L"Close",       l10n->input_actions_close},
+        {L"Minimize",    l10n->input_actions_minimize},
+        {L"Maximize",    l10n->input_actions_maximize},
+        {L"Lower",       l10n->input_actions_lower},
         {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
         {L"Borderless",  l10n->input_actions_borderless},
-        {L"Center", l10n->input_actions_center},
-        {L"Nothing", l10n->input_actions_nothing},
+        {L"Center",      l10n->input_actions_center},
+        {L"Nothing",     l10n->input_actions_nothing},
     };
 
     // Scroll
     struct action scroll_actions[] = {
-        {L"AltTab", l10n->input_actions_alttab},
-        {L"Volume", l10n->input_actions_volume},
+        {L"AltTab",       l10n->input_actions_alttab},
+        {L"Volume",       l10n->input_actions_volume},
         {L"Transparency", l10n->input_actions_transparency},
-        {L"Lower", l10n->input_actions_lower},
-        {L"Nothing", l10n->input_actions_nothing},
+        {L"Lower",        l10n->input_actions_lower},
+        {L"Maximize",     l10n->input_actions_maximize},
+        {L"Nothing",      l10n->input_actions_nothing},
     };
 
     // Hotkeys
@@ -452,12 +453,12 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         unsigned control;
         unsigned vkey;
     } hotkeys[] = {
-        { IDC_LEFTALT, VK_LMENU     },
-        { IDC_RIGHTALT, VK_RMENU    },
-        { IDC_LEFTWINKEY, VK_LWIN   },
-        { IDC_RIGHTWINKEY, VK_RWIN  },
-        { IDC_LEFTCTRL, VK_LCONTROL },
-        { IDC_RIGHTCTRL, VK_RCONTROL},
+        { IDC_LEFTALT,     VK_LMENU    },
+        { IDC_RIGHTALT,    VK_RMENU    },
+        { IDC_LEFTWINKEY,  VK_LWIN     },
+        { IDC_RIGHTWINKEY, VK_RWIN     },
+        { IDC_LEFTCTRL,    VK_LCONTROL },
+        { IDC_RIGHTCTRL,   VK_RCONTROL },
     };
 
     if (msg == WM_INITDIALOG) {

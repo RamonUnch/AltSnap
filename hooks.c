@@ -28,7 +28,7 @@
 #define INIT_TIMER    WM_APP+2
 
 HWND g_hwnd;
-static int UnhookMouse();
+static void UnhookMouse();
 static int HookMouse();
 
 // Enumerators
@@ -736,16 +736,26 @@ static void AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
         state.wndentry->last.height = wnd->bottom-wnd->top;
     }
 }
+RECT GetMonitorRect(POINT pt)
+{
+    MONITORINFO mi = { sizeof(MONITORINFO) };
+    GetMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi);
+
+    return mi.rcWork;
+}
 ///////////////////////////////////////////////////////////////////////////
-static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight, RECT mon)
+static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight, RECT *mon_)
 {
     // return if last resizing is not finished or no Aero
     if(!conf.Aero || MM_THREAD_ON) return;
 
     static RECT borders = {0, 0, 0, 0};
-    if(mouse_move_start)
+    static RECT mon;
+    if(mouse_move_start) {
+        if(!mon_) mon = GetMonitorRect(pt);
+        else mon = *mon_;
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
-
+    }
     if ( state.resize.x == RZ_CENTER && state.resize.y == RZ_TOP && pt.y < mon.top + AERO_TH ) {
         state.wndentry->restore = 1;
         *wndheight = CLAMPH(mon.bottom - mon.top + borders.bottom + borders.top);
@@ -859,13 +869,6 @@ static void RestoreOldWin(POINT pt)
         state.offset.y = pt.y-wnd.top;
     }
 }
-RECT GetMonitorRect(POINT pt)
-{
-    MONITORINFO mi = { sizeof(MONITORINFO) };
-    GetMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi);
-    
-    return mi.rcWork;
-}
 ///////////////////////////////////////////////////////////////////////////
 char was_moving=0;
 static void MouseMove(POINT pt)
@@ -909,11 +912,9 @@ static void MouseMove(POINT pt)
             return;
         }
         mdimon = (RECT) {0, 0, mdiclientwnd.right-mdiclientwnd.left
-                          , mdiclientwnd.bottom-mdiclientwnd.top};
+                             , mdiclientwnd.bottom-mdiclientwnd.top};
         pt.x -= mdiclientpt.x;
         pt.y -= mdiclientpt.y;
-    } else {
-        // mon = GetMonitorRect(pt);
     }
     // Get new position for window
     if (state.action == AC_MOVE) {
@@ -1014,7 +1015,7 @@ static void MouseMove(POINT pt)
             if (state.snap) {
                 ResizeSnap(&posx, &posy, &wndwidth, &wndheight);
             }
-            AeroResizeSnap(pt, &posx, &posy, &wndwidth, &wndheight, state.mdiclient? mdimon: GetMonitorRect(pt));
+            AeroResizeSnap(pt, &posx, &posy, &wndwidth, &wndheight, state.mdiclient? &mdimon: NULL);
         }
     }
 
@@ -1443,7 +1444,7 @@ static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR mo
         wndpl.showCmd = (wndpl.showCmd==SW_MAXIMIZE)? SW_RESTORE: SW_MAXIMIZE;
     else
         wndpl.showCmd = sw_cmd;
-    
+
     if(sw_cmd == SW_MAXIMIZE) {
         if(!monitor) monitor = MonitorFromPoint(*pt, MONITOR_DEFAULTTONEAREST);
         MONITORINFO mi = { sizeof(MONITORINFO) };
@@ -1477,6 +1478,7 @@ static int ActionLower(POINT pt, int delta)
         } else {
             SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
             SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
+            if(conf.AutoFocus) SetForegroundWindow(hwnd);
         }
     } else {
         if (state.shift) {
@@ -1485,6 +1487,49 @@ static int ActionLower(POINT pt, int delta)
             SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
         }
     }
+    return -1;
+}
+/////////////////////////////////////////////////////////////////////////////
+static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_)
+{
+    HWND mdiclient = NULL;
+    HWND root = GetAncestor(hwnd, GA_ROOT);
+
+    if (conf.MDI && !blacklisted(root, &BlkLst.MDIs)) {
+        while (hwnd != root) {
+            HWND parent = GetParent(hwnd);
+            LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+            if ((exstyle&WS_EX_MDICHILD)) {
+                // Found MDI child, parent is now MDIClient window
+                mdiclient = parent;
+                break;
+            }
+            hwnd = parent;
+        }
+    } else {
+        hwnd = root;
+    }
+    if(mdiclient_) *mdiclient_ = mdiclient;
+    return hwnd;
+}
+/////////////////////////////////////////////////////////////////////////////
+static int ActionMaxRestMin(POINT pt, int delta)
+{
+    HWND hwnd = WindowFromPoint(pt);
+    if (!hwnd) return 0;
+    hwnd = MDIorNOT(hwnd, NULL);
+    int maximized = IsZoomed(hwnd);
+
+    if (delta > 0) {
+        if(!maximized)
+            Maximize_Restore_atpt(hwnd, &pt, SW_MAXIMIZE, NULL);
+    } else {
+        if(maximized)
+            Maximize_Restore_atpt(hwnd, &pt, SW_RESTORE, NULL);
+        else
+            SendMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+    }
+    if(conf.AutoFocus) SetForegroundWindow(hwnd);
     return -1;
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -1655,7 +1700,6 @@ static void GetMinMaxInfo_glob(HWND hwnd)
     state.mmi.Min = mmi.ptMinTrackSize;
     state.mmi.Max = mmi.ptMaxTrackSize;
 }
-
 /////////////////////////////////////////////////////////////////////////////
 static int init_movement_and_actions(POINT pt, enum action action, int nCode, WPARAM wParam, LPARAM lParam)
 {
@@ -1705,26 +1749,14 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
     state.hwnd = GetClass_HideIfTooltip(pt, state.hwnd, classname, ARR_SZ(classname));
 
     // MDI or not
+    state.hwnd = MDIorNOT(state.hwnd, &state.mdiclient);
     POINT mdiclientpt = {0,0};
-    HWND root = GetAncestor(state.hwnd, GA_ROOT);
-    if (conf.MDI && !blacklisted(root, &BlkLst.MDIs)) {
-        while (state.hwnd != root) {
-            HWND parent = GetParent(state.hwnd);
-            LONG_PTR exstyle = GetWindowLongPtr(state.hwnd, GWL_EXSTYLE);
-            if ((exstyle&WS_EX_MDICHILD)) {
-                // Found MDI child, parent is now MDIClient window
-                state.mdiclient = parent;
-                if (GetClientRect(state.mdiclient, &fmon) == 0
-                 || ClientToScreen(state.mdiclient, &mdiclientpt) == FALSE) {
-                    return 0; // CallNextHookEx(NULL, nCode, wParam, lParam);
-                }
-                mon = fmon;
-                break;
-            }
-            state.hwnd = parent;
+    if (state.mdiclient) {
+        if (!GetClientRect(state.mdiclient, &fmon)
+         || !ClientToScreen(state.mdiclient, &mdiclientpt) ) {
+            return 0; // CallNextHookEx
         }
-    } else {
-        state.hwnd = root;
+        mon = fmon;
     }
 
     LONG_PTR style = GetWindowLongPtr(state.hwnd, GWL_STYLE);
@@ -1760,7 +1792,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
 
     // AutoFocus
     if (conf.AutoFocus) { SetForegroundWindow(state.hwnd); }
-
 
     // Do things depending on what button was pressed
     if (action == AC_MOVE) { ////////////////
@@ -1894,6 +1925,10 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
             } else if (conf.Mouse.Scroll == AC_LOWER) {
                 if(!ActionLower(pt, delta))
                     return CallNextHookEx(NULL, nCode, wParam, lParam);
+
+            } else if (conf.Mouse.Scroll == AC_MAXIMIZE) {
+                if(!ActionMaxRestMin(pt, delta))
+                    return CallNextHookEx(NULL, nCode, wParam, lParam);
             }
             // Block original scroll event
             state.blockaltup = 1;
@@ -2011,20 +2046,19 @@ static int HookMouse()
     }
 
     // Check if mouse is already hooked
-    if (mousehook) {
+    if (mousehook)
         return 1;
-    }
+
     // Set up the mouse hook
     mousehook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, hinstDLL, 0);
-    if (mousehook == NULL) {
+    if (!mousehook) 
         return 1;
-    }
-
-    return 0;
+    else
+        return 0;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-static int UnhookMouse()
+static void UnhookMouse()
 {
     // Stop action
     state.action = AC_NONE;
@@ -2039,17 +2073,12 @@ static int UnhookMouse()
     ReleaseCapture();
 
     // Do not unhook if not hooked or if the hook is still used for something
-    if (!mousehook || conf.InactiveScroll || conf.LowerWithMMB) {
-        return 1;
-    }
-    // Remove mouse hook
-    if (UnhookWindowsHookEx(mousehook) == 0) {
-        mousehook = NULL;
-        return 1;
-    }
+    if (!mousehook || conf.InactiveScroll || conf.LowerWithMMB)
+        return;
 
+    // Remove mouse hook
+    UnhookWindowsHookEx(mousehook);
     mousehook = NULL;
-    return 0;
 }
 /////////////////////////////////////////////////////////////////////////////
 // Window for timers only...
@@ -2084,10 +2113,10 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 // To be called before Free Library. Ideally it should free everything
 __declspec(dllexport) void Unload()
 {
-    if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL;};
+    UnhookMouse();
+    if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL; }
     if (hdcc) { DeleteDC(hdcc); hdcc=NULL; }
-
-    mousehook = NULL;
+    if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
     DestroyWindow(g_hwnd);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -2252,7 +2281,7 @@ __declspec(dllexport) void Load(void)
                      , NULL, NULL, NULL, NULL, APP_NAME"-hooks", NULL };
     RegisterClassEx(&wnd);
     g_hwnd = CreateWindowEx(0, wnd.lpszClassName, wnd.lpszClassName, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT
-                           , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, HWND_MESSAGE, NULL, hinstDLL, NULL);
+                     , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, HWND_MESSAGE, NULL, hinstDLL, NULL);
     // Create a timer to do further initialization
     SetTimer(g_hwnd, INIT_TIMER, 10, NULL);
 

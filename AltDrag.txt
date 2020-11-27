@@ -23,7 +23,20 @@ more at: https://stefansundin.github.io/altdrag/doc/usage.html
 Note that this version has some more feature..
 
 == CHANGELOG ==
+
 == AltDrag 1.29 ==
+
++ Added Maximize scroll action that behave expected: wheel up maximize the
+  pointed window, wheel down restore a maximize window and minimize a to
+  taskbar a normal window.
+
+* Lower action will no longer ignore the AutoFocus config flag.
+
+* Minor refactoring, moved some code toward function and fixed some gcc's
+  -Wsign-compare warnings.
+
+* Fixed: Sometime when pressing escape while resizing, it would prevent
+  further window move/resize.
 
 * Rewrote the Auto Remaximize procedure. It is now much simpler and handier
   in my opinion. The window is now remaximized when released on the current

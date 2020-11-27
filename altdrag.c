@@ -17,7 +17,7 @@
 // App
 #define APP_NAME            L"AltDrag"
 #define APP_NAMEA           "AltDrag"
-#define APP_VERSION         "1.28"
+#define APP_VERSION         "1.29"
 
 // Messages
 #define WM_TRAY              (WM_USER+1)
@@ -321,11 +321,17 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
         PostMessage(g_hwnd, WM_OPENCONFIG, config, 0);
     }
     // Message loop
+    BOOL ret;
     MSG msg;
-    while (GetMessage(&msg, NULL, 0, 0)) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
+    while ((ret = GetMessage( &msg, NULL, 0, 0 )) != 0) { 
+        if (ret == -1) {
+            break;
+        } else {
+            TranslateMessage(&msg); 
+            DispatchMessage(&msg); 
+        }
     }
+
     return msg.wParam;
 }
 /////////////////////////////////////////////////////////////////////////////

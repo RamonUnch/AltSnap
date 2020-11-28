@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTDRAG for NT4 to Win10                         *
 *   Modified by Raymond Gillibert from original source by Stefan Sundin   *
-*                    release 1.28 (November 24, 2020)                     *
+*                    release 1.29 (November 30, 2020)                     *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltDrag/releases/         *
@@ -28,7 +28,11 @@ Note that this version has some more feature..
 
 + Added Maximize scroll action that behave expected: wheel up maximize the
   pointed window, wheel down restore a maximize window and minimize a to
-  taskbar a normal window.
+  taskbar a normal window. This action was proposed by bluebird11.
+
+* The cursor is now properly limited to MDI client area when using Ctrl.
+
+* Cleaned up some code by removing useless global variables.
 
 * Lower action will no longer ignore the AutoFocus config flag.
 

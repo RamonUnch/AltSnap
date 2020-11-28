@@ -731,6 +731,7 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             // Update text
             SetDlgItemText(hwnd, IDC_ABOUT_BOX, l10n->about_box);
             SetDlgItemText(hwnd, IDC_VERSION, l10n->about_version);
+            SetDlgItemText(hwnd, IDC_URL, L"https://github.com/RamonUnch/AltDrag");
             SetDlgItemText(hwnd, IDC_AUTHOR, l10n->about_author);
             SetDlgItemText(hwnd, IDC_LICENSE, l10n->about_license);
             SetDlgItemText(hwnd, IDC_TRANSLATIONS_BOX, l10n->about_translation_credit);

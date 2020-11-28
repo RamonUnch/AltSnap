@@ -73,6 +73,7 @@
 #define IDC_VERSION                     1515
 #define IDC_AUTHOR                      1516
 #define IDC_LICENSE                     1517
+#define IDC_URL                         1518
 
 #define IDC_FULLWIN                     2008
 #define IDC_SHOWCURSOR                  2009

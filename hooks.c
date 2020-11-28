@@ -876,6 +876,21 @@ static void MouseMove(POINT pt)
     // Restore Aero snapped window
     if(state.action == AC_MOVE && mm_start) RestoreOldWin(pt);
 
+    // Get window size: In FullWin mode we have to ALWAYS update it.
+    static RECT wnd;
+    if ((mm_start || conf.FullWin) && !GetWindowRect(state.hwnd, &wnd)) return;
+
+    RECT mdimon;
+    POINT mdiclientpt = { 0, 0 };
+    if (state.mdiclient) { // MDI
+        if (!GetClientRect(state.mdiclient, &mdimon)
+         || !ClientToScreen(state.mdiclient, &mdiclientpt)) {
+            return;
+        }
+        pt.x -= mdiclientpt.x;
+        pt.y -= mdiclientpt.y;
+    }
+
     // Restrict pt within origin monitor if Ctrl is being pressed
     if ((GetAsyncKeyState(VK_CONTROL)&0x8000) && !state.ignorectrl) {
         static HMONITOR origMonitor;
@@ -888,28 +903,14 @@ static void MouseMove(POINT pt)
             fmon.left++; fmon.top++;
             fmon.right--; fmon.bottom--;
         }
-        ClipCursor(&fmon);
+        RECT clip = !state.mdiclient?fmon: (RECT)
+                  { mdiclientpt.x, mdiclientpt.y
+                  , mdiclientpt.x + mdimon.right, mdiclientpt.y + mdimon.bottom};
+        ClipCursor(&clip);
         pt.x = CLAMP(fmon.left, pt.x, fmon.right);
         pt.y = CLAMP(fmon.top, pt.y, fmon.bottom);
     }
 
-    // Get window size: In FullWin mode we have to ALWAYS update it.
-    static RECT wnd;
-    if ((mm_start || conf.FullWin) && !GetWindowRect(state.hwnd, &wnd)) return;
-
-    RECT mdimon;
-    POINT mdiclientpt = { 0, 0 };
-    if (state.mdiclient) { // MDI
-        RECT mdiclientwnd;
-        if (!GetClientRect(state.mdiclient, &mdiclientwnd)
-         || !ClientToScreen(state.mdiclient, &mdiclientpt)) {
-            return;
-        }
-        mdimon = (RECT) {0, 0, mdiclientwnd.right-mdiclientwnd.left
-                             , mdiclientwnd.bottom-mdiclientwnd.top};
-        pt.x -= mdiclientpt.x;
-        pt.y -= mdiclientpt.y;
-    }
     // Get new position for window
     if (state.action == AC_MOVE) {
         posx = pt.x-state.offset.x;
@@ -2051,8 +2052,8 @@ static void UnhookMouse()
     mm_start=1; // Just in case
     ClipCursor(NULL);  // Release cursor trapping in case...
 
-    if (hdcc) { DeleteDC(hdcc); hdcc=NULL; }
-    if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL;};
+    if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
+    if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL; }
 
     ShowWindowAsync(cursorwnd, SW_HIDE);
     ReleaseCapture();
@@ -2098,9 +2099,9 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 // To be called before Free Library. Ideally it should free everything
 __declspec(dllexport) void Unload()
 {
-    UnhookMouse();
+    if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
     if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL; }
-    if (hdcc) { DeleteDC(hdcc); hdcc=NULL; }
+
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
     DestroyWindow(g_hwnd);
 }

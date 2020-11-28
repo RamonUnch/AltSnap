@@ -901,8 +901,8 @@ static void MouseMove(POINT pt)
     POINT mdiclientpt = { 0, 0 };
     if (state.mdiclient) { // MDI
         RECT mdiclientwnd;
-        if (GetClientRect(state.mdiclient, &mdiclientwnd) == 0
-         || ClientToScreen(state.mdiclient, &mdiclientpt) == FALSE) {
+        if (!GetClientRect(state.mdiclient, &mdiclientwnd)
+         || !ClientToScreen(state.mdiclient, &mdiclientpt)) {
             return;
         }
         mdimon = (RECT) {0, 0, mdiclientwnd.right-mdiclientwnd.left
@@ -952,8 +952,9 @@ static void MouseMove(POINT pt)
                 // The amount they change with differ depending on implementation (compare mIRC and Spy++)
                 Sleep(1); // Sometimes needed
                 mdiclientpt = (POINT) { 0, 0 };
-                if ( GetClientRect(state.mdiclient, &wnd) == 0
+                if (!GetClientRect(state.mdiclient, &wnd)
                  || !ClientToScreen(state.mdiclient, &mdiclientpt) ) {
+                     return;
                 }
             }
             // Fix wnd for MDI offset and invisible borders
@@ -976,31 +977,25 @@ static void MouseMove(POINT pt)
             state.offset.x = pt.x;
             state.offset.y = pt.y;
         } else {
-            static RECT rootwnd = {0,0,0,0};
-            if (mm_start && state.mdiclient) {
-                HWND root = GetAncestor(state.hwnd, GA_ROOT);
-                if(!root || GetClientRect(root, &rootwnd)) return;
-            }
-
             if (state.resize.y == RZ_TOP) {
                 wndheight = CLAMPH( (wnd.bottom-pt.y+state.offset.y)-mdiclientpt.y );
                 posy = state.origin.bottom-wndheight;
             } else if (state.resize.y == RZ_CENTER) {
-                posy = wnd.top-rootwnd.top-mdiclientpt.y;
+                posy = wnd.top - mdiclientpt.y;
                 wndheight = wnd.bottom-wnd.top;
             } else if (state.resize.y == RZ_BOTTOM) {
-                posy = wnd.top-rootwnd.top-mdiclientpt.y;
+                posy = wnd.top - mdiclientpt.y;
                 wndheight = pt.y-posy+state.offset.y;
             }
             if (state.resize.x == RZ_LEFT) {
                 wndwidth = CLAMPW( (wnd.right-pt.x+state.offset.x)-mdiclientpt.x );
                 posx = state.origin.right-wndwidth;
             } else if (state.resize.x == RZ_CENTER) {
-                posx = wnd.left-rootwnd.left-mdiclientpt.x;
+                posx = wnd.left - mdiclientpt.x;
                 wndwidth = wnd.right-wnd.left;
             } else if (state.resize.x == RZ_RIGHT) {
-                posx = wnd.left-rootwnd.left-mdiclientpt.x;
-                wndwidth = pt.x-posx+state.offset.x;
+                posx = wnd.left - mdiclientpt.x;
+                wndwidth = pt.x - posx+state.offset.x;
             }
             wndwidth =CLAMPW(wndwidth);
             wndheight=CLAMPH(wndheight);

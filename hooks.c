@@ -1609,17 +1609,25 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
         posy = mon.top;
 
         if (state.resize.y == RZ_CENTER) {
-            wndheight = CLAMPH( (mon.bottom-mon.top) );
-            posy += (mon.bottom-mon.top)/2 - wndheight/2;
+            wndheight = CLAMPH(mon.bottom - mon.top);
+            posy += (mon.bottom - mon.top)/2 - wndheight/2;
         } else if (state.resize.y == RZ_BOTTOM) {
             posy = mon.bottom-wndheight;
         }
         if (state.resize.x == RZ_CENTER && state.resize.y != RZ_CENTER) {
             wndwidth = CLAMPW( (mon.right-mon.left) );
-            posx += (mon.right-mon.left)/2-wndwidth/2;
+            posx += (mon.right - mon.left)/2 - wndwidth/2;
         } else if (state.resize.x == RZ_CENTER) {
-            wndwidth = wnd->right-wnd->left;
-            posx = wnd->left-mdiclientpt.x;
+            if(state.shift) { 
+                // center-center mode and shift => max width.
+                wndwidth = CLAMPW(mon.right - mon.left);
+                wndheight= wnd->bottom - wnd->top;
+                posx = mon.left; 
+                posy = wnd->top;
+            } else {
+                wndwidth = wnd->right - wnd->left;
+                posx = wnd->left - mdiclientpt.x;
+            }        
         } else if (state.resize.x == RZ_RIGHT) {
             posx = mon.right-wndwidth;
         }

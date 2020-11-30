@@ -732,7 +732,7 @@ static void AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
         state.wndentry->last.height = wnd->bottom-wnd->top;
     }
 }
-RECT GetMonitorRect(POINT pt)
+static RECT GetMonitorRect(POINT pt)
 {
     static RECT mon;
     static int single_mon = -1;
@@ -1212,7 +1212,7 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
 
     // If it's a groupbox, grab the real window
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
-    if ((style&BS_GROUPBOX) && !wcscmp(classname,L"Button")) {
+    if ((style&BS_GROUPBOX) && !wcscmp(classname, L"Button")) {
         HWND groupbox = hwnd;
         EnableWindow(groupbox, FALSE);
         hwnd = WindowFromPoint(pt);
@@ -1241,10 +1241,10 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
     if (GetAsyncKeyState(VK_XBUTTON2)&0x8000) wp |= MK_XBUTTON2;
 
     // Forward scroll message
-    SendMessage(hwnd, wParam, wp, lp);
-
-    // Block original scroll event
-    return 1;
+    if(SendMessage(hwnd, wParam, wp, lp))
+        return 1;
+    else
+        return 0;
 }
 /////////////////////////////////////////////////////////////////////////////
 static int ActionAltTab(POINT pt, int delta)

@@ -734,10 +734,17 @@ static void AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
 }
 RECT GetMonitorRect(POINT pt)
 {
-    MONITORINFO mi = { sizeof(MONITORINFO) };
-    GetMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi);
-
-    return mi.rcWork;
+    static RECT mon;
+    static int single_mon = -1;
+    switch(single_mon) {
+    case -1:
+        single_mon = (GetSystemMetrics(SM_CMONITORS) <= 1);
+    case 0: /* If we have several monitors... */
+        ;MONITORINFO mi = { sizeof(MONITORINFO) };
+        GetMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi);
+        mon = mi.rcWork;
+    }
+    return mon;
 }
 ///////////////////////////////////////////////////////////////////////////
 static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight, RECT *mon_)

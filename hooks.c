@@ -146,6 +146,7 @@ struct {
     unsigned char CenterFraction;
 
     unsigned char RefreshRate;
+    char AeroTopMaximizes;
 
     struct {
         unsigned char length;
@@ -633,17 +634,47 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
         *wndheight = stickbottom-*posy + borders.bottom;
     }
 }
+// Call with SW_MAXIMIZE or SW_RESTORE
+#define SW_TOGGLE_MAX_RESTORE 27
+static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR monitor)
+{
+    WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+    GetWindowPlacement(hwnd, &wndpl);
+    if(sw_cmd == SW_TOGGLE_MAX_RESTORE)
+        wndpl.showCmd = (wndpl.showCmd==SW_MAXIMIZE)? SW_RESTORE: SW_MAXIMIZE;
+    else
+        wndpl.showCmd = sw_cmd;
+
+    if(sw_cmd == SW_MAXIMIZE) {
+        if(!monitor) monitor = MonitorFromPoint(*pt, MONITOR_DEFAULTTONEAREST);
+        MONITORINFO mi = { sizeof(MONITORINFO) };
+        GetMonitorInfo(monitor, &mi);
+        RECT mon = mi.rcWork;
+
+        // Center window on monitor, if needed
+        HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        if (monitor != wndmonitor) {
+            int width  = wndpl.rcNormalPosition.right  - wndpl.rcNormalPosition.left;
+            int height = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
+            wndpl.rcNormalPosition.left = mon.left + (mon.right-mon.left)/2-width/2;
+            wndpl.rcNormalPosition.top  = mon.top  + (mon.bottom-mon.top)/2-height/2;
+            wndpl.rcNormalPosition.right  = wndpl.rcNormalPosition.left + width;
+            wndpl.rcNormalPosition.bottom = wndpl.rcNormalPosition.top  + height;
+        }
+    }
+    SetWindowPlacement(hwnd, &wndpl);
+}
 ///////////////////////////////////////////////////////////////////////////
 #define MM_THREAD_ON (LastWin.hwnd && conf.FullWin)
 #define AERO_TH conf.AeroThreshold
-static void AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
+static int AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
                       , int *wndwidth, int *wndheight, RECT mon)
 {
     // Aero Snap
     static int resizable=1;
     // return if last resizing is not finished or no Aero or not resizable.
-    if (!conf.Aero || MM_THREAD_ON || !resizable) return;
-    if ( mm_start && !(resizable=IsResizable(state.hwnd)) ) return;
+    if (!conf.Aero || MM_THREAD_ON || !resizable) return 0;
+    if ( mm_start && !(resizable=IsResizable(state.hwnd)) ) return 0;
 
     int Left  = mon.left   + 2*AERO_TH ;
     int Right = mon.right  - 2*AERO_TH ;
@@ -679,14 +710,19 @@ static void AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
         *wndheight= CLAMPH( (mon.bottom-mon.top)*(100-conf.AVoff)/100 );
         *posx = mon.right-*wndwidth;
         *posy = mon.bottom-*wndheight;
-    } else if (pt.y < Top) {
+    } else if (pt.y < mon.top + AERO_TH) {
         // Top
-        state.wndentry->restore = 1;
-        *wndwidth = CLAMPW( mon.right - mon.left );
-        *wndheight = (mon.bottom-mon.top)*conf.AVoff/100;
-        // Center horizontally (if window has a max width)
-        *posx = mon.left+(mon.right-mon.left)/2-*wndwidth/2;
-        *posy = mon.top;
+        if(state.shift ^ conf.AeroTopMaximizes) {
+            Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
+            return 1;
+        } else { 
+            state.wndentry->restore = 1;
+            *wndwidth = CLAMPW( mon.right - mon.left );
+            *wndheight = (mon.bottom-mon.top)*conf.AVoff/100;
+            // Center horizontally (if window has a max width)
+            *posx = mon.left+(mon.right-mon.left)/2-*wndwidth/2;
+            *posy = mon.top;
+        }
     } else if (mon.bottom-AERO_TH < pt.y) {
         // Bottom
         state.wndentry->restore = 1;
@@ -731,6 +767,7 @@ static void AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
         state.wndentry->last.width = wnd->right-wnd->left;
         state.wndentry->last.height = wnd->bottom-wnd->top;
     }
+    return 0;
 }
 static RECT GetMonitorRect(POINT pt)
 {
@@ -924,7 +961,14 @@ static void MouseMove(POINT pt)
         posy = pt.y-state.offset.y;
         wndwidth = wnd.right-wnd.left;
         wndheight = wnd.bottom-wnd.top;
-        // Restore window if maximized when move starts.
+
+        // Check if the window will snap anywhere
+        if (state.snap) MoveSnap(&posx, &posy, wndwidth, wndheight);
+        if(AeroMoveSnap(pt, &wnd, &posx, &posy, &wndwidth, &wndheight
+                       , state.mdiclient? mdimon: GetMonitorRect(pt)) ){
+            return;
+        }
+        // Restore window if maximized
         if (IsZoomed(state.hwnd)) {
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
@@ -934,15 +978,9 @@ static void MouseMove(POINT pt)
             wndwidth = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
             wndheight = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
         }
-
-        // Check if the window will snap anywhere
-        if (state.snap) MoveSnap(&posx, &posy, wndwidth, wndheight);
-        AeroMoveSnap(pt, &wnd, &posx, &posy, &wndwidth, &wndheight
-                    , state.mdiclient? mdimon: GetMonitorRect(pt));
-
     } else if (state.action == AC_RESIZE) {
         // Restore the window (to monitor size) if it's maximized
-        if (IsZoomed(state.hwnd)) {
+        if (mm_start && IsZoomed(state.hwnd)) {
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
             // Set size to monitor to prevent flickering
@@ -1424,36 +1462,6 @@ static int ActionTransparency(POINT pt, int delta)
     SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
 
     return -1;
-}
-// Call with SW_MAXIMIZE or SW_RESTORE
-#define SW_TOGGLE_MAX_RESTORE 27
-static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR monitor)
-{
-    WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
-    GetWindowPlacement(hwnd, &wndpl);
-    if(sw_cmd == SW_TOGGLE_MAX_RESTORE)
-        wndpl.showCmd = (wndpl.showCmd==SW_MAXIMIZE)? SW_RESTORE: SW_MAXIMIZE;
-    else
-        wndpl.showCmd = sw_cmd;
-
-    if(sw_cmd == SW_MAXIMIZE) {
-        if(!monitor) monitor = MonitorFromPoint(*pt, MONITOR_DEFAULTTONEAREST);
-        MONITORINFO mi = { sizeof(MONITORINFO) };
-        GetMonitorInfo(monitor, &mi);
-        RECT mon = mi.rcWork;
-
-        // Center window on monitor, if needed
-        HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-        if (monitor != wndmonitor) {
-            int width  = wndpl.rcNormalPosition.right  - wndpl.rcNormalPosition.left;
-            int height = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
-            wndpl.rcNormalPosition.left = mon.left + (mon.right-mon.left)/2-width/2;
-            wndpl.rcNormalPosition.top  = mon.top  + (mon.bottom-mon.top)/2-height/2;
-            wndpl.rcNormalPosition.right  = wndpl.rcNormalPosition.left + width;
-            wndpl.rcNormalPosition.bottom = wndpl.rcNormalPosition.top  + height;
-        }
-    }
-    SetWindowPlacement(hwnd, &wndpl);
 }
 /////////////////////////////////////////////////////////////////////////////
 static int ActionLower(POINT pt, int delta)
@@ -2207,7 +2215,8 @@ __declspec(dllexport) void Load(void)
     conf.AutoRemaximize= GetPrivateProfileInt(L"Advanced", L"AutoRemaximize", 0, inipath);
     conf.SnapThreshold = GetPrivateProfileInt(L"Advanced", L"SnapThreshold", 20, inipath);
     conf.AeroThreshold = GetPrivateProfileInt(L"Advanced", L"AeroThreshold",  5, inipath);
-
+    conf.AeroTopMaximizes=GetPrivateProfileInt(L"Advanced",L"AeroTopMaximizes",  1, inipath);
+    
     // CURSOR STUFF
     cursorwnd = FindWindow(APP_NAME, NULL);
     cursors[HAND]     = LoadCursor(NULL, IDC_HAND);

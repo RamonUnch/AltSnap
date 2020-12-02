@@ -23,6 +23,18 @@ More at: https://stefansundin.github.io/altdrag/doc/usage.html
 Note that this version has some more feature..
 
 == CHANGELOG ==
+== AltDrag 1.30 ==
+
++ Re-introduced the Aero snap at top to maximize a window. this behavior can
+  be disabled with the AeroTopMaximizes option in the [Advanced] section of
+  AltDrag.ini. The Shift key will also invert the behavior.
+
+* Fixed the Scroll inactive windows option, that would prevent scrolling
+  in all metro apps under Win 10. Note that I advise against using this
+  option anyway because Win 10 does it already natively by default.
+
+* Now "Start|Windows.UI.Core.CoreWindow" is in the default blacklist.
+  This will avoid AltDrag interactions with Win10's Start menu.
 
 == AltDrag 1.29 ==
 

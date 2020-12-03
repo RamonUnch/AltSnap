@@ -1662,7 +1662,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
                 wndwidth = CLAMPW(mon.right - mon.left);
                 wndheight= wnd->bottom - wnd->top - bd.top - bd.bottom ;
                 posx = mon.left;
-                posy = wnd->top + bd.top;
+                posy = wnd->top - mdiclientpt.y + bd.top ;
             } else {
                 wndwidth = wnd->right - wnd->left - bd.left - bd.right;
                 posx = wnd->left - mdiclientpt.x + bd.left;

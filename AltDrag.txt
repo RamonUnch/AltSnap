@@ -35,6 +35,9 @@ Note that this version has some more feature..
 * Fixed overcompesation of Win10 invisible borders in center mode, double 
   click Aero-snapping.
 
+* Fixed horizontal double-click Aero-snapping maximization in the case of
+  MDI windows.
+
 * Fixed: Now the Volume action is not limited to Vista and later. This later
   will use the WINMM API on NT4/2000/XP to change the waveOut volume.
 

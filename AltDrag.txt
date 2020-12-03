@@ -23,17 +23,18 @@ More at: https://stefansundin.github.io/altdrag/doc/usage.html
 Note that this version has some more feature..
 
 == CHANGELOG ==
+
 == AltDrag 1.30 ==
 
 + Re-introduced the Aero snap at top to maximize a window. this behavior can
   be disabled with the AeroTopMaximizes option in the [Advanced] section of
   AltDrag.ini. The Shift key will also invert the behavior.
 
-+ Now when auto remaximize option is on, the remaximizing can be prevented
++ Now when auto re-maximize option is on, the re-maximizing can be prevented
   by pressing the shift key before releasing the mouse.
 
-* Fixed overcompesation of Win10 invisible borders in center mode, double 
-  click Aero-snapping.
+* Fixed overcompensation of Win10 invisible borders in center mode in the
+  case of double click Aero-snapping.
 
 * Fixed horizontal double-click Aero-snapping maximization in the case of
   MDI windows.

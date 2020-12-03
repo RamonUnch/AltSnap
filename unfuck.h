@@ -46,7 +46,6 @@ static BOOL    (WINAPI *mySetWindowSubclass)(HWND hWnd, SUBCLASSPROC pfnSubclass
 static BOOL (WINAPI *mySetLayeredWindowAttributes)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags);
 static BOOL (WINAPI *myGetLayeredWindowAttributes)(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWORD *pdwFlags);
 static HWND (WINAPI *myGetAncestor)(HWND hwnd, UINT gaFlags);
-static UINT (WINAPI *mySendInput)(UINT cInputs, LPINPUT pInputs, int cbSize);
 static BOOL (WINAPI *myEnumDisplayMonitors)(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, LPARAM dwData);
 static BOOL (WINAPI *myGetMonitorInfoW)(HMONITOR hMonitor, LPMONITORINFO lpmi);
 static HMONITOR (WINAPI *myMonitorFromPoint)(POINT pt, DWORD dwFlags);
@@ -55,9 +54,6 @@ static HMONITOR (WINAPI *myMonitorFromWindow)(HWND hwnd, DWORD dwFlags);
 /* PSAPI.DLL */
 static DWORD (WINAPI *myGetProcessImageFileName)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize);
 static BOOL  (WINAPI *myEmptyWorkingSet)(HANDLE hProcess);
-
-/* KERNEL32.DLL */
-static BOOL (WINAPI *myIsWow64Process) (HANDLE hProcess, PBOOL Wow64Process);
 
 /* DWMAPI.DLL */
 static HRESULT (WINAPI *myDwmGetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c);
@@ -72,6 +68,9 @@ HRESULT (WINAPI *myCoInitialize)(LPVOID pvReserved);
 VOID (WINAPI *myCoUninitialize)( );
 HRESULT (WINAPI *myCoCreateInstance)(REFCLSID rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, REFIID riid, LPVOID * ppv);
 
+/* WINMM.DLL */
+MMRESULT (WINAPI *mywaveOutGetVolume)(HWAVEOUT hwo, LPDWORD pdwVolume);
+MMRESULT (WINAPI *mywaveOutSetVolume)(HWAVEOUT hwo, DWORD dwVolume);
 
 #define HAVE_FUNC -1
 
@@ -303,40 +302,6 @@ BOOL SetWindowSubclassL(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR uIdSubclas
 }
 #define SetWindowSubclass SetWindowSubclassL
 
-
-UINT SendInputL(UINT cInputs, LPINPUT pInputs, int cbSize)
-{
-    static char have_func=HAVE_FUNC;
-
-    switch(have_func){
-    case -1: /* First time */
-        mySendInput=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "SendInput");
-        if(!mySendInput) {
-            have_func=0;
-            break;
-        } else {
-            have_func=1;
-        }
-    case 1: /* We know we have the function */
-        return mySendInput(cInputs, pInputs, cbSize);
-    case 0:
-    default: break;
-    }
-    UINT i;
-    for(i=0; i< cInputs; i++){
-         if (pInputs[i].type == INPUT_KEYBOARD){
-             keybd_event(pInputs[i].ki.wVk, 0, 0, 0);
-             keybd_event(pInputs[i].ki.wVk, 0, KEYEVENTF_KEYUP, 0);
-         }else if(pInputs[i].type == INPUT_MOUSE){
-             /* mouse_event(...); */
-         }else if(pInputs[i].type == INPUT_HARDWARE){
-             /* TODO */
-         }
-    }
-    return i;
-}
-/* #define SendInput SendInputL */
-
 BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, LPARAM dwData)
 {
     static char have_func=HAVE_FUNC;
@@ -439,28 +404,6 @@ HMONITOR MonitorFromWindowL(HWND hwnd, DWORD dwFlags)
     return NULL;
 }
 #define MonitorFromWindow MonitorFromWindowL
-
-BOOL IsWow64ProcessL(HANDLE hProcess, PBOOL Wow64Process)
-{
-    static char have_func=HAVE_FUNC;
-
-    switch(have_func){
-    case -1: /* First time */
-        myIsWow64Process = (void *)GetProcAddress(GetModuleHandleA("KERNEL32.DLL"), "IsWow64Process");
-        if(!myIsWow64Process) {
-            have_func=0;
-            break;
-        } else {
-            have_func=1;
-        }
-    case 1: /* We know we have the function */
-        return myIsWow64Process(hProcess, Wow64Process);
-    case 0:
-    default: break;
-    }
-    return FALSE;
-}
-#define IsWow64Process IsWow64ProcessL
 
 HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 {

@@ -263,7 +263,7 @@ static void SendSizeMove_on(enum action action, int on)
 /////////////////////////////////////////////////////////////////////////////
 // Enumerate callback proc
 int monitors_alloc = 0;
-BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
+static BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
 {
     // Make sure we have enough space allocated
     if (nummonitors == monitors_alloc) {
@@ -277,7 +277,7 @@ BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMon
 
 /////////////////////////////////////////////////////////////////////////////
 int wnds_alloc = 0;
-BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
+static BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
     if (numwnds == wnds_alloc) {
@@ -329,7 +329,7 @@ BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
 
 /////////////////////////////////////////////////////////////////////////////
 int hwnds_alloc = 0;
-BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
+static BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
     if (numhwnds == hwnds_alloc) {
@@ -714,8 +714,9 @@ static int AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
         // Top
         if(state.shift ^ conf.AeroTopMaximizes) {
             Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
+            LastWin.hwnd=NULL;
             return 1;
-        } else { 
+        } else {
             state.wndentry->restore = 1;
             *wndwidth = CLAMPW( mon.right - mon.left );
             *wndheight = (mon.bottom-mon.top)*conf.AVoff/100;
@@ -825,7 +826,7 @@ static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *w
 
 ///////////////////////////////////////////////////////////////////////////
 // Get action of button
-enum action GetAction(int button)
+static enum action GetAction(int button)
 {
     if      (button == BT_LMB) return conf.Mouse.LMB;
     else if (button == BT_MMB) return conf.Mouse.MMB;
@@ -849,7 +850,7 @@ static int IsHotkey(int key)
 }
 /////////////////////////////////////////////////////////////////////////////
 // Move the windows in a thread in case it is very slow to resize
-DWORD WINAPI EndMoveWindowThread(LPVOID LastWinV)
+static DWORD WINAPI EndMoveWindowThread(LPVOID LastWinV)
 {
     int ret;
     struct windowRR *lw = LastWinV;
@@ -863,7 +864,7 @@ DWORD WINAPI EndMoveWindowThread(LPVOID LastWinV)
 
     return !ret;
 }
-DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
+static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
     int ret;
     struct windowRR *lw = LastWinV;
@@ -1079,9 +1080,7 @@ static void MouseMove(POINT pt)
             SetROP2(hdcc, R2_NOTXORPEN);
             SelectObject(hdcc, hpenDot_Global);
         }
-
         Rectangle(hdcc, newRect.left, newRect.top, newRect.right, newRect.bottom);
-
         if(!mm_start)
             Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
 
@@ -1149,9 +1148,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             return 1;
         } else if (vkey == VK_ESCAPE && state.action != AC_NONE) {
             if (!conf.FullWin && !mm_start) {
-                if(mm_start==0){ // LAST RECTANGLE!
-                    Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
-                }
+                Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
             }
             // Send WM_EXITSIZEMOVE
             SendSizeMove_on(state.action , 0);
@@ -1245,7 +1242,7 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
         return 0;
 
     // Get class behind eventual tooltip
-    wchar_t classname[20] = L"";
+    wchar_t classname[256] = L"";
     hwnd=GetClass_HideIfTooltip(pt, hwnd, classname, ARR_SZ(classname));
 
     // If it's a groupbox, grab the real window
@@ -1360,7 +1357,7 @@ static int ActionAltTab(POINT pt, int delta)
 static int ActionVolume(int delta)
 {
     static int HaveV=-1;
-    static HINSTANCE hOLE32DLL=NULL;
+    static HINSTANCE hOLE32DLL=NULL, hMMdll=NULL;
     if(HaveV == -1){
         hOLE32DLL = LoadLibraryA("OLE32.DLL");
         if(hOLE32DLL){
@@ -1377,7 +1374,7 @@ static int ActionVolume(int delta)
             HaveV = 0;
         }
     }
-    if (HaveV) {
+    if (HaveV == 1) {
         HRESULT hr;
         IMMDeviceEnumerator *pDevEnumerator = NULL;
         IMMDevice *pDev = NULL;
@@ -1390,7 +1387,7 @@ static int ActionVolume(int delta)
         if (hr != S_OK){
             myCoUninitialize();
             FreeLibrary(hOLE32DLL);
-            HaveV = 0;
+            HaveV = 2;
             return 0;
         }
 
@@ -1419,6 +1416,31 @@ static int ActionVolume(int delta)
 
         IAudioEndpointVolume_Release(pAudioEndpoint);
         myCoUninitialize();
+    } else {
+        if (HaveV == 2) {
+            if (!hMMdll) hMMdll = LoadLibraryA("WINMM.DLL");
+            if (!hMMdll) return -1;
+            mywaveOutGetVolume = (void *)GetProcAddress(hMMdll, "waveOutGetVolume");
+            mywaveOutSetVolume = (void *)GetProcAddress(hMMdll, "waveOutSetVolume");
+            if(!mywaveOutSetVolume  || !mywaveOutGetVolume) {
+                FreeLibrary(hMMdll); hMMdll=NULL;
+                return 0;
+            }
+            HaveV = 3;
+        }
+        DWORD Volume;
+        mywaveOutGetVolume(NULL, &Volume);
+
+        DWORD tmp = Volume&0xFFFF0000 >> 16;
+        int leftV = (int)tmp;
+        tmp = (Volume&0x0000FFFF);
+        int rightV = (int)tmp;
+        rightV += (delta>0? 0x0800: -0x0800) * (state.shift? 4: 1);
+        leftV  += (delta>0? 0x0800: -0x0800) * (state.shift? 4: 1);
+        rightV = CLAMP(0x0000, rightV, 0xFFFF);
+        leftV  = CLAMP(0x0000, leftV, 0xFFFF);
+        Volume = ( ((DWORD)leftV) << 16 ) | ( (DWORD)rightV );
+        mywaveOutSetVolume(NULL, Volume);
     }
     return -1;
 }
@@ -1622,6 +1644,8 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
         wndheight = CLAMPH( (mon.bottom-mon.top)/2 );
         posx = mon.left;
         posy = mon.top;
+        RECT bd;
+        FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &bd);
 
         if (state.resize.y == RZ_CENTER) {
             wndheight = CLAMPH(mon.bottom - mon.top);
@@ -1633,20 +1657,22 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
             wndwidth = CLAMPW( (mon.right-mon.left) );
             posx += (mon.right - mon.left)/2 - wndwidth/2;
         } else if (state.resize.x == RZ_CENTER) {
-            if(state.shift) { 
+            if(state.shift) {
                 // center-center mode and shift => max width.
                 wndwidth = CLAMPW(mon.right - mon.left);
-                wndheight= wnd->bottom - wnd->top;
-                posx = mon.left; 
-                posy = wnd->top;
+                wndheight= wnd->bottom - wnd->top - bd.top - bd.bottom ;
+                posx = mon.left;
+                posy = wnd->top + bd.top;
             } else {
-                wndwidth = wnd->right - wnd->left;
-                posx = wnd->left - mdiclientpt.x;
-            }        
+                wndwidth = wnd->right - wnd->left - bd.left - bd.right;
+                posx = wnd->left - mdiclientpt.x + bd.left;
+            }
         } else if (state.resize.x == RZ_RIGHT) {
-            posx = mon.right-wndwidth;
+            posx = mon.right - wndwidth;
         }
-        FixDWMRect(state.hwnd, &posx, &posy, &wndwidth, &wndheight, NULL);
+        // FixDWMRect
+        posx -= bd.left; posy -= bd.top; 
+        wndwidth += bd.left+bd.right; wndheight += bd.top+bd.bottom;
         MoveWindow(state.hwnd, posx, posy, wndwidth, wndheight, TRUE);
 
         // Get new size after move
@@ -2003,10 +2029,9 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
 
     // FINISHING THE MOVE
     } else if (buttonstate == STATE_UP && state.action == action) {
-        if (!conf.FullWin && !mm_start) {
-             if(mm_start==0){ // LAST RECTANGLE!
-                 Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
-             }
+        if (!conf.FullWin && !mm_start && LastWin.hwnd) {
+             Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
+
              DWORD lpThreadId;
              HANDLE thread;
              thread = CreateThread(NULL, 0, EndMoveWindowThread, &LastWin, 0, &lpThreadId);
@@ -2015,7 +2040,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
 
         // Auto Remaximize if option enabled and conditions are met.
         if(conf.AutoRemaximize && !mm_start && state.origin.maximized
-          && !state.mdiclient && state.action == AC_MOVE){
+          && !state.shift && !state.mdiclient && state.action == AC_MOVE){
             HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
             if(monitor != state.origin.monitor){
                 if(!conf.FullWin) Sleep(10); // Wait a little for moveThread.
@@ -2091,7 +2116,7 @@ static void UnhookMouse()
 }
 /////////////////////////////////////////////////////////////////////////////
 // Window for timers only...
-LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_TIMER) {
         if (wParam == INIT_TIMER) {
@@ -2216,7 +2241,7 @@ __declspec(dllexport) void Load(void)
     conf.SnapThreshold = GetPrivateProfileInt(L"Advanced", L"SnapThreshold", 20, inipath);
     conf.AeroThreshold = GetPrivateProfileInt(L"Advanced", L"AeroThreshold",  5, inipath);
     conf.AeroTopMaximizes=GetPrivateProfileInt(L"Advanced",L"AeroTopMaximizes",  1, inipath);
-    
+
     // CURSOR STUFF
     cursorwnd = FindWindow(APP_NAME, NULL);
     cursors[HAND]     = LoadCursor(NULL, IDC_HAND);

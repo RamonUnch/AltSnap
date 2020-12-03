@@ -17,7 +17,7 @@
 // App
 #define APP_NAME            L"AltDrag"
 #define APP_NAMEA           "AltDrag"
-#define APP_VERSION         "1.29"
+#define APP_VERSION         "1.30"
 
 // Messages
 #define WM_TRAY              (WM_USER+1)

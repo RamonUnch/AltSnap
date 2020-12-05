@@ -45,10 +45,6 @@ struct wnddata {
     HWND hwnd;
     int width;
     int height;
-    struct {
-        int width;
-        int height;
-    } last;
     int restore;
 };
 struct {
@@ -651,6 +647,11 @@ static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR mo
         GetMonitorInfo(monitor, &mi);
         RECT mon = mi.rcWork;
 
+        wndpl.rcNormalPosition.left = LastWin.x;
+        wndpl.rcNormalPosition.top  = LastWin.y;
+        wndpl.rcNormalPosition.right  = LastWin.x + LastWin.width;
+        wndpl.rcNormalPosition.bottom = LastWin.y + LastWin.height;
+
         // Center window on monitor, if needed
         HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         if (monitor != wndmonitor) {
@@ -664,10 +665,39 @@ static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR mo
     }
     SetWindowPlacement(hwnd, &wndpl);
 }
+/////////////////////////////////////////////////////////////////////////////
+// Move the windows in a thread in case it is very slow to resize
+static DWORD WINAPI EndMoveWindowThread(LPVOID LastWinV)
+{
+    int ret;
+    struct windowRR *lw = LastWinV;
+
+    if(!lw->hwnd || !IsWindow(lw->hwnd)) {return 1;}
+
+    ret = MoveWindow(lw->hwnd, lw->x, lw->y, lw->width, lw->height, TRUE);
+    if(!conf.FullWin)
+        RedrawWindow(lw->hwnd, NULL, NULL, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE|RDW_ALLCHILDREN);
+
+    lw->hwnd = NULL;
+
+    return !ret;
+}
+static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
+{
+    int ret;
+    struct windowRR *lw = LastWinV;
+
+    ret = MoveWindow(lw->hwnd, lw->x, lw->y, lw->width, lw->height, TRUE);
+    if(conf.RefreshRate) Sleep(conf.RefreshRate);
+
+    lw->hwnd = NULL;
+
+    return !ret;
+}
 ///////////////////////////////////////////////////////////////////////////
 #define MM_THREAD_ON (LastWin.hwnd && conf.FullWin)
 #define AERO_TH conf.AeroThreshold
-static int AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
+static int AeroMoveSnap(POINT pt, int *posx, int *posy
                       , int *wndwidth, int *wndheight, RECT mon)
 {
     // Aero Snap
@@ -760,13 +790,7 @@ static int AeroMoveSnap(POINT pt, RECT *wnd, int *posx, int *posy
         FixDWMRect(state.hwnd, posx, posy, wndwidth, wndheight, NULL);
         MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
 
-        // Get new size after move
-        // Doing this since wndwidth and wndheight might be wrong
-        // if the window is resized in chunks
-        GetWindowRect(state.hwnd, wnd);
-
-        state.wndentry->last.width = wnd->right-wnd->left;
-        state.wndentry->last.height = wnd->bottom-wnd->top;
+        return conf.FullWin;
     }
     return 0;
 }
@@ -785,10 +809,11 @@ static RECT GetMonitorRect(POINT pt)
     return mon;
 }
 ///////////////////////////////////////////////////////////////////////////
-static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight, RECT *mon_)
+static int AeroResizeSnap(POINT pt, int *posx, int *posy
+                         , int *wndwidth, int *wndheight, RECT *mon_)
 {
     // return if last resizing is not finished or no Aero
-    if(!conf.Aero || MM_THREAD_ON) return;
+    if(!conf.Aero || MM_THREAD_ON) return 0;
 
     static RECT borders = {0, 0, 0, 0};
     static RECT mon;
@@ -814,16 +839,10 @@ static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *w
 
         MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
 
-        // Get new size after move
-        // Doing this since wndwidth and wndheight might be wrong
-        // if the window is resized in chunks
-        RECT wnd;
-        GetWindowRect(state.hwnd, &wnd);
-        state.wndentry->last.width = wnd.right-wnd.left;
-        state.wndentry->last.height = wnd.bottom-wnd.top;
+        return conf.FullWin;
     }
+    return 0;
 }
-
 ///////////////////////////////////////////////////////////////////////////
 // Get action of button
 static enum action GetAction(int button)
@@ -849,41 +868,11 @@ static int IsHotkey(int key)
     return 0;
 }
 /////////////////////////////////////////////////////////////////////////////
-// Move the windows in a thread in case it is very slow to resize
-static DWORD WINAPI EndMoveWindowThread(LPVOID LastWinV)
-{
-    int ret;
-    struct windowRR *lw = LastWinV;
-
-    if(!lw->hwnd || !IsWindow(lw->hwnd)) {return 1;}
-
-    ret = MoveWindow(lw->hwnd, lw->x, lw->y, lw->width, lw->height, TRUE);
-    RedrawWindow(lw->hwnd, NULL, NULL, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE|RDW_ALLCHILDREN);
-
-    lw->hwnd = NULL;
-
-    return !ret;
-}
-static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
-{
-    int ret;
-    struct windowRR *lw = LastWinV;
-
-    ret = MoveWindow(lw->hwnd, lw->x, lw->y, lw->width, lw->height, TRUE);
-    if(conf.RefreshRate) Sleep(conf.RefreshRate);
-
-    lw->hwnd = NULL;
-
-    return !ret;
-}
-/////////////////////////////////////////////////////////////////////////////
 static void RestoreOldWin(POINT pt)
 {
     // Restore old width/height?
     int restore = 0;
-    if (state.wndentry->restore
-     && state.wndentry->last.width == state.origin.width
-     && state.wndentry->last.height == state.origin.height) {
+    if (state.wndentry->restore) {
         restore = 1;
         state.origin.width = state.wndentry->width;
         state.origin.height = state.wndentry->height;
@@ -921,9 +910,8 @@ static void MouseMove(POINT pt)
     // Restore Aero snapped window
     if(state.action == AC_MOVE && mm_start) RestoreOldWin(pt);
 
-    // Get window size: In FullWin mode we have to ALWAYS update it.
     static RECT wnd;
-    if ((mm_start || conf.FullWin) && !GetWindowRect(state.hwnd, &wnd)) return;
+    if ((mm_start) && !GetWindowRect(state.hwnd, &wnd)) return;
 
     RECT mdimon;
     POINT mdiclientpt = { 0, 0 };
@@ -965,7 +953,7 @@ static void MouseMove(POINT pt)
 
         // Check if the window will snap anywhere
         if (state.snap) MoveSnap(&posx, &posy, wndwidth, wndheight);
-        if(AeroMoveSnap(pt, &wnd, &posx, &posy, &wndwidth, &wndheight
+        if(AeroMoveSnap(pt, &posx, &posy, &wndwidth, &wndheight
                        , state.mdiclient? mdimon: GetMonitorRect(pt)) ){
             return;
         }
@@ -1051,46 +1039,52 @@ static void MouseMove(POINT pt)
             if (state.snap) {
                 ResizeSnap(&posx, &posy, &wndwidth, &wndheight);
             }
-            AeroResizeSnap(pt, &posx, &posy, &wndwidth, &wndheight, state.mdiclient? &mdimon: NULL);
+            if(AeroResizeSnap(pt, &posx, &posy, &wndwidth
+                  , &wndheight, state.mdiclient? &mdimon: NULL))
+                return;
         }
     }
 
     MoveWindow(cursorwnd, pt.x-127, pt.y-127, 256, 256, FALSE);
+    // LastWin is GLOBAL !
     int mouse_thread_finished = !LastWin.hwnd;
-    LastWin.hwnd=state.hwnd;
-    LastWin.x=posx;
-    LastWin.y=posy;
-    LastWin.width=wndwidth;
-    LastWin.height=wndheight;
+    LastWin.hwnd   = state.hwnd;
+    LastWin.x      = posx;
+    LastWin.y      = posy;
+    LastWin.width  = wndwidth;
+    LastWin.height = wndheight;
 
-    if(!conf.FullWin){
+    wnd.left   = posx + mdiclientpt.x;
+    wnd.top    = posy + mdiclientpt.y;
+    wnd.right  = posx + mdiclientpt.x + wndwidth;
+    wnd.bottom = posy + mdiclientpt.y + wndheight;
+
+    if (!conf.FullWin) {
         RECT newRect;
-        wnd.left=posx+mdiclientpt.x;
-        wnd.top =posy+mdiclientpt.y;
-        wnd.right=posx+mdiclientpt.x+wndwidth;
-        wnd.bottom=posy+mdiclientpt.y+wndheight;
         newRect.left = wnd.left + 1;
         newRect.top  = wnd.top + 1;
         newRect.right = wnd.right - 1;
         newRect.bottom= wnd.bottom - 1;
-        if(!hdcc){
-            if(!hpenDot_Global)
+        if (!hdcc) {
+            if (!hpenDot_Global)
                 hpenDot_Global = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
             hdcc = CreateDCA("DISPLAY", NULL, NULL, NULL);
             SetROP2(hdcc, R2_NOTXORPEN);
             SelectObject(hdcc, hpenDot_Global);
         }
         Rectangle(hdcc, newRect.left, newRect.top, newRect.right, newRect.bottom);
-        if(!mm_start)
+        if (!mm_start)
             Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
 
         oldRect=newRect; // oldRect is GLOBAL!
 
-    } else if(mouse_thread_finished) {
+    } else if (mouse_thread_finished) {
         DWORD lpThreadId;
         HANDLE thread;
         thread = CreateThread(NULL, 0, MoveWindowThread, &LastWin, 0, &lpThreadId);
         CloseHandle(thread);
+    } else {
+        Sleep(0);
     }
     mm_start = 0;
 }
@@ -1170,7 +1164,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 HANDLE ProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
                 if(ProcessHandle){
                     if(state.shift) NtSuspendProcess(ProcessHandle);
-                    else                  NtResumeProcess(ProcessHandle);
+                    else            NtResumeProcess(ProcessHandle);
                 }
                 CloseHandle(ProcessHandle);
                 return 1;
@@ -1671,17 +1665,10 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
             posx = mon.right - wndwidth;
         }
         // FixDWMRect
-        posx -= bd.left; posy -= bd.top; 
+        posx -= bd.left; posy -= bd.top;
         wndwidth += bd.left+bd.right; wndheight += bd.top+bd.bottom;
         MoveWindow(state.hwnd, posx, posy, wndwidth, wndheight, TRUE);
 
-        // Get new size after move
-        // Doing this since wndwidth and wndheight might be wrong
-        // if the window is resized in chunks (e.g. PuTTY)
-        GetWindowRect(state.hwnd, wnd);
-        // Update wndentry
-        state.wndentry->last.width = wnd->right-wnd->left;
-        state.wndentry->last.height = wnd->bottom-wnd->top;
         if (!state.wndentry->restore) {
             state.wndentry->width = state.origin.width;
             state.wndentry->height = state.origin.height;
@@ -2029,8 +2016,9 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
 
     // FINISHING THE MOVE
     } else if (buttonstate == STATE_UP && state.action == action) {
-        if (!conf.FullWin && !mm_start && LastWin.hwnd) {
-             Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
+        if (!mm_start && LastWin.hwnd) {
+             if(!conf.FullWin) // to erase the last rectangle...
+                 Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
 
              DWORD lpThreadId;
              HANDLE thread;

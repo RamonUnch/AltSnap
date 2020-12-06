@@ -788,12 +788,14 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
         state.wndentry->height = state.origin.height;
 
         FixDWMRect(state.hwnd, posx, posy, wndwidth, wndheight, NULL);
-        MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
-
-        return conf.FullWin;
+        if(conf.FullWin) {
+            MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
+            return 1;
+        }
     }
     return 0;
 }
+///////////////////////////////////////////////////////////////////////////
 static RECT GetMonitorRect(POINT pt)
 {
     static RECT mon;
@@ -836,10 +838,10 @@ static int AeroResizeSnap(POINT pt, int *posx, int *posy
     if (state.wndentry->restore) {
         state.wndentry->width = state.origin.width;
         state.wndentry->height = state.origin.height;
-
-        MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
-
-        return conf.FullWin;
+        if(conf.FullWin) {
+            MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
+            return 1;
+        }
     }
     return 0;
 }
@@ -905,7 +907,8 @@ static void MouseMove(POINT pt)
     int posx, posy, wndwidth, wndheight;
 
     // Check if window still exists
-    if (!state.hwnd || !IsWindow(state.hwnd)) { UnhookMouse(); return; }
+    if (!state.hwnd || !IsWindow(state.hwnd))
+        { LastWin.hwnd = NULL; UnhookMouse(); return; }
 
     // Restore Aero snapped window
     if(state.action == AC_MOVE && mm_start) RestoreOldWin(pt);
@@ -953,10 +956,10 @@ static void MouseMove(POINT pt)
 
         // Check if the window will snap anywhere
         if (state.snap) MoveSnap(&posx, &posy, wndwidth, wndheight);
-        if(AeroMoveSnap(pt, &posx, &posy, &wndwidth, &wndheight
-                       , state.mdiclient? mdimon: GetMonitorRect(pt)) ){
-            return;
-        }
+        int ret = AeroMoveSnap(pt, &posx, &posy, &wndwidth, &wndheight
+                       , state.mdiclient? mdimon: GetMonitorRect(pt));
+        if ( ret == 1) return;
+
         // Restore window if maximized
         if (IsZoomed(state.hwnd)) {
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
@@ -977,8 +980,8 @@ static void MouseMove(POINT pt)
             if (state.mdiclient) {
                 // Make it a little smaller since MDIClients by
                 // default have scrollbars that would otherwise appear
-                wndpl.rcNormalPosition.right -= 10;
-                wndpl.rcNormalPosition.bottom -= 10;
+                wndpl.rcNormalPosition.right -= 8;
+                wndpl.rcNormalPosition.bottom -= 8;
             }
             wndpl.showCmd = SW_RESTORE;
             SetWindowPlacement(state.hwnd, &wndpl);
@@ -991,6 +994,7 @@ static void MouseMove(POINT pt)
                  || !ClientToScreen(state.mdiclient, &mdiclientpt) ) {
                      return;
                 }
+                state.origin.right=wnd.right; state.origin.bottom=wnd.bottom;
             }
             // Fix wnd for MDI offset and invisible borders
             RECT borders;
@@ -1005,8 +1009,8 @@ static void MouseMove(POINT pt)
 
         // Figure out new placement
         if (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER) {
-            posx = wnd.left-(pt.x-state.offset.x)-mdiclientpt.x;
-            posy = wnd.top-(pt.y-state.offset.y)-mdiclientpt.y;
+            posx = wnd.left - (pt.x-state.offset.x) - mdiclientpt.x;
+            posy = wnd.top - (pt.y-state.offset.y) - mdiclientpt.y;
             wndwidth = wnd.right-wnd.left+2*(pt.x-state.offset.x);
             wndheight = wnd.bottom-wnd.top+2*(pt.y-state.offset.y);
             state.offset.x = pt.x;
@@ -2031,7 +2035,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
           && !state.shift && !state.mdiclient && state.action == AC_MOVE){
             HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
             if(monitor != state.origin.monitor){
-                if(!conf.FullWin) Sleep(10); // Wait a little for moveThread.
+                Sleep(10); // Wait a little for moveThread.
                 Maximize_Restore_atpt(state.hwnd, NULL, SW_MAXIMIZE, monitor);
             }
         }

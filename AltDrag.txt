@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTDRAG for NT4 to Win10                         *
 *   Modified by Raymond Gillibert from original source by Stefan Sundin   *
-*                    release 1.30 (December 05, 2020)                     *
+*                    release 1.31 (December XX, 2020)                     *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltDrag/releases/         *
@@ -23,6 +23,19 @@ More at: https://stefansundin.github.io/altdrag/doc/usage.html
 Note that this version has some more feature..
 
 == CHANGELOG ==
+== AltDrag 1.31 ==
+
+* Improved the non full windows dragging mode, it will no longer move the
+  window when it snaps but only the transparent square and the window will
+  be moved when click is released as expected.
+
+* Simplified window database and removed useless code.
+
+* Fixed slightly too large window when resizing from a maximized window
+  inside an MDI.
+
+* Fixed some annoying behavior in the in case of unresponsive windows.
+
 
 == AltDrag 1.30 ==
 

@@ -647,11 +647,6 @@ static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR mo
         GetMonitorInfo(monitor, &mi);
         RECT mon = mi.rcWork;
 
-        wndpl.rcNormalPosition.left = LastWin.x;
-        wndpl.rcNormalPosition.top  = LastWin.y;
-        wndpl.rcNormalPosition.right  = LastWin.x + LastWin.width;
-        wndpl.rcNormalPosition.bottom = LastWin.y + LastWin.height;
-
         // Center window on monitor, if needed
         HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         if (monitor != wndmonitor) {
@@ -742,16 +737,15 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
         *posy = mon.bottom-*wndheight;
     } else if (pt.y < mon.top + AERO_TH) {
         // Top
-        if(state.shift ^ conf.AeroTopMaximizes) {
+        if (state.shift ^ conf.AeroTopMaximizes) {
             Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
             LastWin.hwnd=NULL;
             return 1;
         } else {
             state.wndentry->restore = 1;
-            *wndwidth = CLAMPW( mon.right - mon.left );
+            *wndwidth = CLAMPW(mon.right - mon.left);
             *wndheight = (mon.bottom-mon.top)*conf.AVoff/100;
-            // Center horizontally (if window has a max width)
-            *posx = mon.left+(mon.right-mon.left)/2-*wndwidth/2;
+            *posx = mon.left + (mon.right-mon.left)/2 - *wndwidth/2; // Center
             *posy = mon.top;
         }
     } else if (mon.bottom-AERO_TH < pt.y) {
@@ -759,22 +753,22 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
         state.wndentry->restore = 1;
         *wndwidth  = CLAMPW( mon.right-mon.left);
         *wndheight = CLAMPH( (mon.bottom-mon.top)*(100-conf.AVoff)/100 );
-        *posx = mon.left+(mon.right-mon.left)/2-*wndwidth/2; // Center
-        *posy = mon.bottom-*wndheight;
+        *posx = mon.left + (mon.right-mon.left)/2 - *wndwidth/2; // Center
+        *posy = mon.bottom - *wndheight;
     } else if (pt.x < mon.left+AERO_TH) {
         // Left
         state.wndentry->restore = 1;
         *wndwidth = (mon.right-mon.left)*conf.AHoff/100;
         *wndheight = CLAMPH( mon.bottom-mon.top );
         *posx = mon.left;
-        *posy = mon.top+(mon.bottom-mon.top)/2 - *wndheight/2; // Center
+        *posy = mon.top + (mon.bottom-mon.top)/2 - *wndheight/2; // Center
     } else if (mon.right - AERO_TH < pt.x) {
         // Right
         state.wndentry->restore = 1;
         *wndwidth =  CLAMPW( (mon.right-mon.left)*(100-conf.AHoff)/100 );
         *wndheight = CLAMPH( (mon.bottom-mon.top) );
-        *posx = mon.right-*wndwidth;
-        *posy = mon.top+(mon.bottom-mon.top)/2-*wndheight/2; // Center
+        *posx = mon.right - *wndwidth;
+        *posy = mon.top + (mon.bottom-mon.top)/2 - *wndheight/2; // Center
     } else if (state.wndentry->restore) {
         // Restore original window size
         state.wndentry->restore = 0;
@@ -784,6 +778,9 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
 
     // Aero-move the window?
     if (state.wndentry->restore) {
+        *wndwidth  = CLAMPW(*wndwidth);
+        *wndheight = CLAMPH(*wndheight);
+
         state.wndentry->width = state.origin.width;
         state.wndentry->height = state.origin.height;
 
@@ -824,7 +821,7 @@ static int AeroResizeSnap(POINT pt, int *posx, int *posy
         else mon = *mon_;
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
     }
-    if ( state.resize.x == RZ_CENTER && state.resize.y == RZ_TOP && pt.y < mon.top + AERO_TH ) {
+    if (state.resize.x == RZ_CENTER && state.resize.y == RZ_TOP && pt.y < mon.top + AERO_TH) {
         state.wndentry->restore = 1;
         *wndheight = CLAMPH(mon.bottom - mon.top + borders.bottom + borders.top);
         *posy = mon.top - borders.top;
@@ -1017,21 +1014,21 @@ static void MouseMove(POINT pt)
             state.offset.y = pt.y;
         } else {
             if (state.resize.y == RZ_TOP) {
-                wndheight = CLAMPH( (wnd.bottom-pt.y+state.offset.y)-mdiclientpt.y );
-                posy = state.origin.bottom-wndheight;
+                wndheight = CLAMPH( (wnd.bottom-pt.y+state.offset.y) - mdiclientpt.y );
+                posy = state.origin.bottom - wndheight;
             } else if (state.resize.y == RZ_CENTER) {
                 posy = wnd.top - mdiclientpt.y;
-                wndheight = wnd.bottom-wnd.top;
+                wndheight = wnd.bottom - wnd.top;
             } else if (state.resize.y == RZ_BOTTOM) {
                 posy = wnd.top - mdiclientpt.y;
-                wndheight = pt.y-posy+state.offset.y;
+                wndheight = pt.y - posy + state.offset.y;
             }
             if (state.resize.x == RZ_LEFT) {
-                wndwidth = CLAMPW( (wnd.right-pt.x+state.offset.x)-mdiclientpt.x );
-                posx = state.origin.right-wndwidth;
+                wndwidth = CLAMPW( (wnd.right-pt.x+state.offset.x) - mdiclientpt.x );
+                posx = state.origin.right - wndwidth;
             } else if (state.resize.x == RZ_CENTER) {
                 posx = wnd.left - mdiclientpt.x;
-                wndwidth = wnd.right-wnd.left;
+                wndwidth = wnd.right - wnd.left;
             } else if (state.resize.x == RZ_RIGHT) {
                 posx = wnd.left - mdiclientpt.x;
                 wndwidth = pt.x - posx+state.offset.x;

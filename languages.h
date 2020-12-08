@@ -64,7 +64,10 @@ struct strings {
   wchar_t *general_fullwin;
   wchar_t *general_resizeall;
   wchar_t *general_resizecenter;
-
+  wchar_t *general_resizecenter_norm;
+  wchar_t *general_resizecenter_br;
+  wchar_t *general_resizecenter_move;
+  
   // general autostart
   wchar_t *general_autostart_box;
   wchar_t *general_autostart;
@@ -178,6 +181,9 @@ struct {
   { &l10n_ini.general_fullwin,                         L"GeneralFullWin" },
   { &l10n_ini.general_resizeall,                       L"GeneralResizeAll" },
   { &l10n_ini.general_resizecenter,                    L"GeneralResizeCenter" },
+  { &l10n_ini.general_resizecenter_norm,               L"GeneralResizeCenterNorm" },
+  { &l10n_ini.general_resizecenter_br,                 L"GeneralResizeCenterBr" },
+  { &l10n_ini.general_resizecenter_move,               L"GeneralResizeCenterMove" },
 
   { &l10n_ini.general_autostart_box,                   L"GeneralAutostartBox" },
   { &l10n_ini.general_autostart,                       L"GeneralAutostart" },
@@ -288,6 +294,9 @@ struct strings en_US = {
  /* FullWin            */ L"&Drag full windows",
  /* ResizeAll          */ L"&Resize all windows",
  /* ResizeCenter       */ L"&Center resize mode",
+ /* ResizeCenterNorm   */ L"All d&irections",
+ /* ResizeCenterBr     */ L"B&ottom right",
+ /* ResizeCenterMove   */ L"Mo&ve",
 
  /* autostart_box      */ L"Autostart",
  /* autostart          */ L"S&tart "APP_NAME" when logging on",

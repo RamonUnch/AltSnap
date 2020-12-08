@@ -25,6 +25,9 @@ Note that this version has some more feature..
 == CHANGELOG ==
 == AltDrag 1.31 ==
 
++ Added option to replace the resize center mode with Move mode.
+  GUI was adjusted accordingly
+
 * Improved the non full windows dragging mode, it will no longer move the
   window when it snaps but only the transparent square and the window will
   be moved when click is released as expected.
@@ -35,7 +38,6 @@ Note that this version has some more feature..
   inside an MDI.
 
 * Fixed some annoying behavior in the in case of unresponsive windows.
-
 
 == AltDrag 1.30 ==
 

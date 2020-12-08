@@ -263,7 +263,8 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         Button_SetCheck(GetDlgItem(hwnd, IDC_RESIZEALL), ret? BST_CHECKED : BST_UNCHECKED);
 
         ret=GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
-        Button_SetCheck(GetDlgItem(hwnd, IDC_RESIZECENTER), ret? BST_CHECKED : BST_UNCHECKED);
+        ret = ret==1? IDC_RZCENTER_NORM: ret==2? IDC_RZCENTER_MOVE: IDC_RZCENTER_BR;
+        CheckRadioButton(hwnd, IDC_RZCENTER_NORM, IDC_RZCENTER_MOVE, ret);
 
         HWND control = GetDlgItem(hwnd, IDC_LANGUAGE);
         ComboBox_ResetContent(control);
@@ -305,8 +306,16 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             WritePrivateProfileString(L"Performance",L"FullWin", _itow(val, txt, 10), inipath);
         } else if (id == IDC_RESIZEALL) {
             WritePrivateProfileString(L"Advanced",   L"ResizeAll", _itow(val, txt, 10), inipath);
-        } else if (id == IDC_RESIZECENTER) {
-            WritePrivateProfileString(L"General",    L"ResizeCenter", _itow(val, txt, 10), inipath);
+        
+        } else if (id == IDC_RZCENTER_NORM) {
+            CheckRadioButton(hwnd, IDC_RZCENTER_NORM, IDC_RZCENTER_MOVE, IDC_RZCENTER_NORM);
+            WritePrivateProfileString(L"General",    L"ResizeCenter", L"1", inipath);
+        } else if (id == IDC_RZCENTER_BR) {
+            CheckRadioButton(hwnd, IDC_RZCENTER_NORM, IDC_RZCENTER_MOVE, IDC_RZCENTER_BR);
+            WritePrivateProfileString(L"General",    L"ResizeCenter", L"0", inipath);
+        } else if (id == IDC_RZCENTER_MOVE) {
+            CheckRadioButton(hwnd, IDC_RZCENTER_NORM, IDC_RZCENTER_MOVE, IDC_RZCENTER_MOVE);
+            WritePrivateProfileString(L"General",    L"ResizeCenter", L"2", inipath);
 
         } else if (id == IDC_LANGUAGE && event == CBN_SELCHANGE) {
             int i = ComboBox_GetCurSel(control);
@@ -382,6 +391,9 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         SetDlgItemText(hwnd, IDC_FULLWIN,           l10n->general_fullwin);
         SetDlgItemText(hwnd, IDC_RESIZEALL,         l10n->general_resizeall);
         SetDlgItemText(hwnd, IDC_RESIZECENTER,      l10n->general_resizecenter);
+        SetDlgItemText(hwnd, IDC_RZCENTER_NORM,     l10n->general_resizecenter_norm);
+        SetDlgItemText(hwnd, IDC_RZCENTER_BR,       l10n->general_resizecenter_br);
+        SetDlgItemText(hwnd, IDC_RZCENTER_MOVE,     l10n->general_resizecenter_move);
 
         SetDlgItemText(hwnd, IDC_AUTOSTART_BOX,     l10n->general_autostart_box);
         SetDlgItemText(hwnd, IDC_AUTOSTART,         l10n->general_autostart);

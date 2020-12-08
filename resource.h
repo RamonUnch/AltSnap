@@ -85,3 +85,7 @@
 #define IDC_PAUSEBL                     2014
 #define IDC_MDISBL_HEADER               2015
 #define IDC_MDIS                        2016
+
+#define IDC_RZCENTER_NORM               2017
+#define IDC_RZCENTER_BR                 2018
+#define IDC_RZCENTER_MOVE               2019

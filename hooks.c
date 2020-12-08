@@ -972,8 +972,10 @@ static void MouseMove(POINT pt)
         if (mm_start && IsZoomed(state.hwnd)) {
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
+
             // Set size to monitor to prevent flickering
             wnd = wndpl.rcNormalPosition = state.mdiclient? mdimon: GetMonitorRect(pt);
+
             if (state.mdiclient) {
                 // Make it a little smaller since MDIClients by
                 // default have scrollbars that would otherwise appear
@@ -1000,6 +1002,7 @@ static void MouseMove(POINT pt)
                          , wnd.top   + mdiclientpt.y - borders.top
                          , wnd.right + mdiclientpt.x + borders.right
                          , wnd.bottom+ mdiclientpt.y + borders.bottom };
+
         }
         // Clear restore flag
         state.wndentry->restore = 0;
@@ -1552,6 +1555,10 @@ static int ActionMaxRestMin(POINT pt, int delta)
 static HCURSOR CursorToDraw()
 {
     HCURSOR cursor;
+    
+    if(state.action == AC_MOVE)
+        return cursors[HAND];
+    
     if ((state.resize.y == RZ_TOP && state.resize.x == RZ_LEFT)
      || (state.resize.y == RZ_BOTTOM && state.resize.x == RZ_RIGHT)) {
         cursor = cursors[SIZENWSE];
@@ -1572,7 +1579,13 @@ static HCURSOR CursorToDraw()
 /////////////////////////////////////////////////////////////////////////////
 static int ActionMove(HMONITOR monitor )
 {
+    if (!monitor) {
+        POINT pt;
+        GetCursorPos(&pt);
+        monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+    }
     // Toggle Maximize window if this is a double-click
+
     if (GetTickCount()-state.clicktime <= conf.dbclktime && IsResizable(state.hwnd)) {
         state.action = AC_NONE; // Stop move action
         state.clicktime = 0; // Reset double-click time
@@ -1679,11 +1692,15 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
         // Prevent mousedown from propagating
         return 1;
     }
-    if (!conf.ResizeCenter && state.resize.y == RZ_CENTER && state.resize.x == RZ_CENTER) {
-        state.resize.x = RZ_RIGHT;
-        state.resize.y = RZ_BOTTOM;
-        state.offset.y = wnd->bottom-pt.y;
-        state.offset.x = wnd->right-pt.x;
+    if (state.resize.y == RZ_CENTER && state.resize.x == RZ_CENTER) {
+        if (conf.ResizeCenter == 0) {
+            state.resize.x = RZ_RIGHT;
+            state.resize.y = RZ_BOTTOM;
+            state.offset.y = wnd->bottom-pt.y;
+            state.offset.x = wnd->right-pt.x;
+        } else if (conf.ResizeCenter == 2) {
+            state.action = AC_MOVE;
+        }
     }
 
     return -1;
@@ -1826,6 +1843,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
         GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
 
         int ret = ActionResize(pt, mdiclientpt, &wnd, mon);
+        action = state.action;
         if(ret==1) return 1;
         else if (ret==0) CallNextHookEx(NULL, nCode, wParam, lParam);
 
@@ -2009,14 +2027,16 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         return 1;
 
     } else if (state.alt && buttonstate == STATE_DOWN) {
-        if(!init_movement_and_actions(pt, action, nCode, wParam, lParam)) {
+        int ret = init_movement_and_actions(pt, action, nCode, wParam, lParam);
+        action = state.action;
+        if(!ret) {
             return CallNextHookEx(NULL, nCode, wParam, lParam);
         } else {
             return 1;
         }
 
     // FINISHING THE MOVE
-    } else if (buttonstate == STATE_UP && state.action == action) {
+    } else if (buttonstate == STATE_UP && state.action) {
         if (!mm_start && LastWin.hwnd) {
              if(!conf.FullWin) // to erase the last rectangle...
                  Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);

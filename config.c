@@ -306,7 +306,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             WritePrivateProfileString(L"Performance",L"FullWin", _itow(val, txt, 10), inipath);
         } else if (id == IDC_RESIZEALL) {
             WritePrivateProfileString(L"Advanced",   L"ResizeAll", _itow(val, txt, 10), inipath);
-        
+
         } else if (id == IDC_RZCENTER_NORM) {
             CheckRadioButton(hwnd, IDC_RZCENTER_NORM, IDC_RZCENTER_MOVE, IDC_RZCENTER_NORM);
             WritePrivateProfileString(L"General",    L"ResizeCenter", L"1", inipath);

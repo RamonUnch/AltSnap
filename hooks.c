@@ -139,10 +139,11 @@ struct {
     char FullWin;
     char ResizeAll;
     char AggressivePause;
-    unsigned char CenterFraction;
-
-    unsigned char RefreshRate;
     char AeroTopMaximizes;
+
+    char UseCursor;
+    unsigned char CenterFraction;
+    unsigned char RefreshRate;
 
     struct {
         unsigned char length;
@@ -413,11 +414,11 @@ static void Enum()
     }
 }
 ///////////////////////////////////////////////////////////////////////////
-char mm_start = 1;
+char was_moving = 0;
 static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
 {
     static RECT borders = {0, 0, 0, 0};
-    if(mm_start) {
+    if(!was_moving) {
         Enum(); // Enumerate monitors and windows
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
     }
@@ -519,7 +520,7 @@ static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
 static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 {
     static RECT borders = {0, 0, 0, 0};
-    if(mm_start) {
+    if(!was_moving) {
         Enum(); // Enumerate monitors and windows
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
     }
@@ -630,7 +631,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
         *wndheight = stickbottom-*posy + borders.bottom;
     }
 }
-// Call with SW_MAXIMIZE or SW_RESTORE
+// Call with SW_MAXIMIZE or SW_RESTORE or below.
 #define SW_TOGGLE_MAX_RESTORE 27
 static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR monitor)
 {
@@ -699,7 +700,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
     static int resizable=1;
     // return if last resizing is not finished or no Aero or not resizable.
     if (!conf.Aero || MM_THREAD_ON || !resizable) return 0;
-    if ( mm_start && !(resizable=IsResizable(state.hwnd)) ) return 0;
+    if (!was_moving && !(resizable=IsResizable(state.hwnd)) ) return 0;
 
     int Left  = mon.left   + 2*AERO_TH ;
     int Right = mon.right  - 2*AERO_TH ;
@@ -727,19 +728,20 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
         *wndwidth = (mon.right-mon.left)*conf.AHoff/100;
         *wndheight = CLAMPH( (mon.bottom-mon.top)*(100-conf.AVoff)/100 );
         *posx = mon.left;
-        *posy = mon.bottom-*wndheight;
+        *posy = mon.bottom - *wndheight;
     } else if (Right < pt.x && Bottom < pt.y) {
         // Bottom right
         state.wndentry->restore = 1;
         *wndwidth = CLAMPW( (mon.right-mon.left)*(100-conf.AHoff)/100 );
         *wndheight= CLAMPH( (mon.bottom-mon.top)*(100-conf.AVoff)/100 );
-        *posx = mon.right-*wndwidth;
-        *posy = mon.bottom-*wndheight;
+        *posx = mon.right - *wndwidth;
+        *posy = mon.bottom - *wndheight;
     } else if (pt.y < mon.top + AERO_TH) {
         // Top
         if (state.shift ^ conf.AeroTopMaximizes) {
             Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
             LastWin.hwnd=NULL;
+            was_moving = 2;
             return 1;
         } else {
             state.wndentry->restore = 1;
@@ -816,7 +818,7 @@ static int AeroResizeSnap(POINT pt, int *posx, int *posy
 
     static RECT borders = {0, 0, 0, 0};
     static RECT mon;
-    if(mm_start) {
+    if(!was_moving) {
         if(!mon_) mon = GetMonitorRect(pt);
         else mon = *mon_;
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
@@ -908,10 +910,10 @@ static void MouseMove(POINT pt)
         { LastWin.hwnd = NULL; UnhookMouse(); return; }
 
     // Restore Aero snapped window
-    if(state.action == AC_MOVE && mm_start) RestoreOldWin(pt);
+    if(state.action == AC_MOVE && !was_moving) RestoreOldWin(pt);
 
     static RECT wnd;
-    if ((mm_start) && !GetWindowRect(state.hwnd, &wnd)) return;
+    if (!was_moving && !GetWindowRect(state.hwnd, &wnd)) return;
 
     RECT mdimon;
     POINT mdiclientpt = { 0, 0 };
@@ -969,7 +971,7 @@ static void MouseMove(POINT pt)
         }
     } else if (state.action == AC_RESIZE) {
         // Restore the window (to monitor size) if it's maximized
-        if (mm_start && IsZoomed(state.hwnd)) {
+        if (!was_moving && IsZoomed(state.hwnd)) {
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
 
@@ -1077,7 +1079,7 @@ static void MouseMove(POINT pt)
             SelectObject(hdcc, hpenDot_Global);
         }
         Rectangle(hdcc, newRect.left, newRect.top, newRect.right, newRect.bottom);
-        if (!mm_start)
+        if (was_moving == 1)
             Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
 
         oldRect=newRect; // oldRect is GLOBAL!
@@ -1090,7 +1092,7 @@ static void MouseMove(POINT pt)
     } else {
         Sleep(0);
     }
-    mm_start = 0;
+    was_moving = 1;
 }
 /////////////////////////////////////////////////////////////////////////////
 static void Send_CTRL()
@@ -1145,13 +1147,13 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.snap = 0;
             return 1;
         } else if (vkey == VK_ESCAPE && state.action != AC_NONE) {
-            if (!conf.FullWin && !mm_start) {
+            if (!conf.FullWin && was_moving) {
                 Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
             }
             // Send WM_EXITSIZEMOVE
             SendSizeMove_on(state.action , 0);
 
-            mm_start = 1;
+            was_moving = 0;
             state.action = AC_NONE;
             LastWin.hwnd = NULL;
 
@@ -1555,10 +1557,10 @@ static int ActionMaxRestMin(POINT pt, int delta)
 static HCURSOR CursorToDraw()
 {
     HCURSOR cursor;
-    
+
     if(state.action == AC_MOVE)
         return cursors[HAND];
-    
+
     if ((state.resize.y == RZ_TOP && state.resize.x == RZ_LEFT)
      || (state.resize.y == RZ_BOTTOM && state.resize.x == RZ_RIGHT)) {
         cursor = cursors[SIZENWSE];
@@ -1907,7 +1909,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
     state.clickpt = pt;
 
     // Update cursor
-    if (cursorwnd && cursor) {
+    if (conf.UseCursor && cursorwnd && cursor) {
         MoveWindow(cursorwnd, pt.x-20, pt.y-20, 41, 41, FALSE);
         ShowWindow(cursorwnd, SW_SHOWNA);
         SetCursor(cursor);
@@ -2037,7 +2039,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
 
     // FINISHING THE MOVE
     } else if (buttonstate == STATE_UP && state.action) {
-        if (!mm_start && LastWin.hwnd) {
+        if (was_moving && LastWin.hwnd) {
              if(!conf.FullWin) // to erase the last rectangle...
                  Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
 
@@ -2048,7 +2050,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         }
 
         // Auto Remaximize if option enabled and conditions are met.
-        if(conf.AutoRemaximize && !mm_start && state.origin.maximized
+        if(conf.AutoRemaximize && was_moving && state.origin.maximized
           && !state.shift && !state.mdiclient && state.action == AC_MOVE){
             HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
             if(monitor != state.origin.monitor){
@@ -2058,7 +2060,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         }
 
         state.action = AC_NONE;
-        mm_start = 1;
+        was_moving = 0;
 
         // Send WM_EXITSIZEMOVE
         SendSizeMove_on(action, 0);
@@ -2082,7 +2084,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
 /////////////////////////////////////////////////////////////////////////////
 static int HookMouse()
 {
-    mm_start=1; // Used to know the first time we call MouseMove.
+    was_moving = 0; // Used to know the first time we call MouseMove.
 
     if (conf.InactiveScroll || conf.LowerWithMMB) {
         SendMessage(g_hwnd, WM_TIMER, REHOOK_TIMER, 0);
@@ -2106,7 +2108,7 @@ static void UnhookMouse()
     // Stop action
     state.action = AC_NONE;
     state.activated = 0;
-    mm_start=1; // Just in case
+    was_moving = 0; // Just in case
     ClipCursor(NULL);  // Release cursor trapping in case...
 
     if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
@@ -2249,22 +2251,23 @@ __declspec(dllexport) void Load(void)
     conf.AutoRemaximize= GetPrivateProfileInt(L"Advanced", L"AutoRemaximize", 0, inipath);
     conf.SnapThreshold = GetPrivateProfileInt(L"Advanced", L"SnapThreshold", 20, inipath);
     conf.AeroThreshold = GetPrivateProfileInt(L"Advanced", L"AeroThreshold",  5, inipath);
-    conf.AeroTopMaximizes=GetPrivateProfileInt(L"Advanced",L"AeroTopMaximizes",  1, inipath);
+    conf.AeroTopMaximizes=GetPrivateProfileInt(L"Advanced",L"AeroTopMaximizes",1, inipath);
+    conf.UseCursor     = GetPrivateProfileInt(L"Advanced", L"UseCursor", 1, inipath);
 
     // CURSOR STUFF
     cursorwnd = FindWindow(APP_NAME, NULL);
-    cursors[HAND]     = LoadCursor(NULL, IDC_HAND);
+    cursors[HAND]     = conf.UseCursor==2? LoadCursor(NULL, IDC_ARROW): LoadCursor(NULL, IDC_HAND);
     cursors[SIZENWSE] = LoadCursor(NULL, IDC_SIZENWSE);
     cursors[SIZENESW] = LoadCursor(NULL, IDC_SIZENESW);
     cursors[SIZENS]   = LoadCursor(NULL, IDC_SIZENS);
     cursors[SIZEWE]   = LoadCursor(NULL, IDC_SIZEWE);
     cursors[SIZEALL]  = LoadCursor(NULL, IDC_SIZEALL);
-
+   
     // [Performance]
     conf.MoveRate  = GetPrivateProfileInt(L"Performance", L"MoveRate", 2, inipath);
     conf.ResizeRate= GetPrivateProfileInt(L"Performance", L"ResizeRate", 4, inipath);
     conf.FullWin   = GetPrivateProfileInt(L"Performance", L"FullWin", 1, inipath);
-    conf.RefreshRate=GetPrivateProfileInt(L"Performance", L"RefreshRate", 0, inipath);
+    conf.RefreshRate=GetPrivateProfileInt(L"Performance", L"RefreshRate", 5, inipath);
 
     // [Input]
     struct {
@@ -2273,7 +2276,7 @@ __declspec(dllexport) void Load(void)
         enum action *ptr;
     } buttons[] = {
         {L"LMB",    L"Move",    &conf.Mouse.LMB},
-        {L"MMB",    L"Resize",  &conf.Mouse.MMB},
+        {L"MMB",    L"Maximize",&conf.Mouse.MMB},
         {L"RMB",    L"Resize",  &conf.Mouse.RMB},
         {L"MB4",    L"Nothing", &conf.Mouse.MB4},
         {L"MB5",    L"Nothing", &conf.Mouse.MB5},

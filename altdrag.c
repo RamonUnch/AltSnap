@@ -323,12 +323,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     // Message loop
     BOOL ret;
     MSG msg;
-    while ((ret = GetMessage( &msg, NULL, 0, 0 )) != 0) { 
+    while ((ret = GetMessage( &msg, NULL, 0, 0 )) != 0) {
         if (ret == -1) {
             break;
         } else {
-            TranslateMessage(&msg); 
-            DispatchMessage(&msg); 
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
         }
     }
 

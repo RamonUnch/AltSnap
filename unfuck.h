@@ -1,7 +1,7 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Compatibility layer for old NT OSes                                   *
  * Written by Raymond Gillibert in 2020                                  *
- * THIS FILE IS NOT UNDER GPL but under the DWTFPL.                      *
+ * THIS FILE IS NOT UNDER GPL but under the WTFPL.                       *
  * DO WHAT THE FUCK YOU WANT WITH THIS CODE!                             *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -208,7 +208,7 @@ BOOL GetLayeredWindowAttributesL(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWO
         return myGetLayeredWindowAttributes(hwnd, pcrKey, pbAlpha, pdwFlags);
     case 0:
     default:
-         return FALSE;
+        return FALSE;
     }
 }
 #define GetLayeredWindowAttributes GetLayeredWindowAttributesL

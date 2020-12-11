@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTDRAG for NT4 to Win10                         *
 *   Modified by Raymond Gillibert from original source by Stefan Sundin   *
-*                    release 1.31 (December XX, 2020)                     *
+*                    release 1.32 (December XX, 2020)                     *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltDrag/releases/         *
@@ -23,6 +23,15 @@ More at: https://stefansundin.github.io/altdrag/doc/usage.html
 Note that this version has some more feature..
 
 == CHANGELOG ==
+
+== AltDrag 1.32 ==
+
++ Added the UseCursor option in the [Advanced] section of AltDrag.ini
+  Use 0 to disable any cirsor handeling, 1 to enable all cursors changes
+  and 2 to disable only the Hand cursor when dragging a window.
+
+* Fixed some more minor drawing problems when using FullWin=0
+
 == AltDrag 1.31 ==
 
 + Added option to replace the resize center mode with Move mode.

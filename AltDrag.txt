@@ -26,6 +26,9 @@ Note that this version has some more feature..
 
 == AltDrag 1.32 ==
 
++ Added the PearceDBClick option in [Advanced] section of Altdrag.ini.
+  Use 1 to disable the maximize on Alt+double-cklick.
+
 + Added the UseCursor option in the [Advanced] section of AltDrag.ini
   Use 0 to disable any cirsor handeling, 1 to enable all cursors changes
   and 2 to disable only the Hand cursor when dragging a window, Finally,

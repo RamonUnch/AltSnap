@@ -82,7 +82,9 @@ struct {
 
     char blockmouseup;
     char ignorectrl;
+    char ignoreclick;
     char shift;
+
     char snap;
 
     struct {
@@ -142,6 +144,7 @@ struct {
     char AeroTopMaximizes;
 
     char UseCursor;
+    char PearceDBClick;
     unsigned char CenterFraction;
     unsigned char RefreshRate;
 
@@ -1104,6 +1107,28 @@ static void Send_CTRL()
     SendInput(2, input, sizeof(INPUT));
     state.ignorectrl = 0;
 }
+/////////////////////////////////////////////////////////////////////////////
+static void Send_DoubleClick(DWORD button)
+{
+    state.ignoreclick = 1;
+    if (!button) return;
+    DWORD MouseEvent = button&(~0x0001); // Remove the LSB
+    // In case of XButton (0x0080) set mouse data to 1 or 2
+    DWORD mdata = 0;
+    if(button&0x0080) mdata = 0x0001 + (button&0x0001);
+    MOUSEINPUT click[2] = { {0, 0, mdata, MouseEvent, 0, 0}
+                          , {0, 0, mdata, MouseEvent, 0, 0} };
+    click[0].dwExtraInfo = click[1].dwExtraInfo = GetMessageExtraInfo();
+    INPUT input[2] = { {INPUT_MOUSE, {.mi = click[0]}}, {INPUT_MOUSE, {.mi = click[1]}} };
+
+    SendInput(2, input, sizeof(INPUT));
+    Sleep(1);
+    click[0].dwExtraInfo = click[1].dwExtraInfo = GetMessageExtraInfo();
+    SendInput(2, input, sizeof(INPUT));
+    Sleep(0);
+    state.ignoreclick = 0;
+}
+
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -1591,10 +1616,13 @@ static int ActionMove(HMONITOR monitor, DWORD button)
     if (GetTickCount()-state.clicktime <= conf.dbclktime && IsResizable(state.hwnd)) {
         state.action = AC_NONE; // Stop move action
         state.clicktime = 0; // Reset double-click time
-        state.blockmouseup = 1; // Block the mouseup, otherwise it can trigger a context menu
 
-        Maximize_Restore_atpt(state.hwnd, NULL, SW_TOGGLE_MAX_RESTORE, monitor);
-
+        if (!conf.PearceDBClick) {
+            state.blockmouseup = 1; // Block the mouseup, otherwise it can trigger a context menu
+            Maximize_Restore_atpt(state.hwnd, NULL, SW_TOGGLE_MAX_RESTORE, monitor);
+        } else {
+            Send_DoubleClick(button);
+        }
         // Prevent mousedown from propagating
         return 1;
     }
@@ -1655,7 +1683,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
         wndheight = CLAMPH( (mon.bottom-mon.top)*conf.AVoff/100 );
         posx = mon.left;
         posy = mon.top;
-        
+
         RECT bd;
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &bd);
 
@@ -1666,7 +1694,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
             wndheight = CLAMPH( (mon.bottom-mon.top)*(100-conf.AVoff)/100 );
             posy = mon.bottom-wndheight;
         }
-        
+
         if (state.resize.x == RZ_CENTER && state.resize.y != RZ_CENTER) {
             if (state.resize.y == RZ_TOP && state.shift) {
                 Maximize_Restore_atpt(state.hwnd, &pt, SW_TOGGLE_MAX_RESTORE, NULL);
@@ -1937,8 +1965,9 @@ static int init_movement_and_actions(POINT pt, enum action action
 // pressed, or is always on when InactiveScroll or LowerWithMMB are enabled.
 __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    if (nCode != HC_ACTION) return CallNextHookEx(NULL, nCode, wParam, lParam);
-    
+    if (nCode != HC_ACTION || state.ignoreclick)
+        return CallNextHookEx(NULL, nCode, wParam, lParam);
+
     // Set up some variables
     PMSLLHOOKSTRUCT msg = (PMSLLHOOKSTRUCT)lParam;
     POINT pt = msg->pt;
@@ -2098,7 +2127,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
 static int HookMouse()
 {
     was_moving = 0; // Used to know the first time we call MouseMove.
-
+    state.ignoreclick = 0;
     if (conf.InactiveScroll || conf.LowerWithMMB) {
         SendMessage(g_hwnd, WM_TIMER, REHOOK_TIMER, 0);
     }
@@ -2266,6 +2295,7 @@ __declspec(dllexport) void Load(void)
     conf.AeroThreshold = GetPrivateProfileInt(L"Advanced", L"AeroThreshold",  5, inipath);
     conf.AeroTopMaximizes=GetPrivateProfileInt(L"Advanced",L"AeroTopMaximizes",1, inipath);
     conf.UseCursor     = GetPrivateProfileInt(L"Advanced", L"UseCursor", 1, inipath);
+    conf.PearceDBClick = GetPrivateProfileInt(L"Advanced", L"PearceDBClick", 0, inipath);
 
     // CURSOR STUFF
     cursorwnd = FindWindow(APP_NAME, NULL);
@@ -2275,7 +2305,7 @@ __declspec(dllexport) void Load(void)
     cursors[SIZENS]   = LoadCursor(NULL, IDC_SIZENS);
     cursors[SIZEWE]   = LoadCursor(NULL, IDC_SIZEWE);
     cursors[SIZEALL]  = LoadCursor(NULL, IDC_SIZEALL);
-   
+
     // [Performance]
     conf.MoveRate  = GetPrivateProfileInt(L"Performance", L"MoveRate", 2, inipath);
     conf.ResizeRate= GetPrivateProfileInt(L"Performance", L"ResizeRate", 4, inipath);

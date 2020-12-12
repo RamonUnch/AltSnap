@@ -28,7 +28,15 @@ Note that this version has some more feature..
 
 + Added the UseCursor option in the [Advanced] section of AltDrag.ini
   Use 0 to disable any cirsor handeling, 1 to enable all cursors changes
-  and 2 to disable only the Hand cursor when dragging a window.
+  and 2 to disable only the Hand cursor when dragging a window, Finally,
+  use 3 to always use the default cursor, even when resizing.
+
++ Now when Using the Shift ket while using doubleclick snapping on the 
+  center-top section of the window, this later will be maximized/restored,
+  instead of being snapped to the top. This will be usefull when using
+  the Move instead of resize-center option.
+
+* Fixed: Now doubleclick snapping will respect Aero(H/V)offset settings.
 
 * Fixed some more minor drawing problems when using FullWin=0
 

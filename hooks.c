@@ -35,7 +35,7 @@ static int HookMouse();
 enum action { AC_NONE=0, AC_MOVE, AC_RESIZE, AC_MINIMIZE, AC_MAXIMIZE, AC_CENTER
             , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_ALTTAB, AC_VOLUME
 		    , AC_TRANSPARENCY, AC_BORDERLESS };
-enum button { BT_NONE=0, BT_LMB, BT_MMB, BT_RMB, BT_MB4, BT_MB5 };
+enum button { BT_NONE=0, BT_LMB=0x0002, BT_MMB=0x0020, BT_RMB=0x0008, BT_MB4=0x0080, BT_MB5=0x0081 };
 enum resize { RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER };
 enum cursor { HAND, SIZENWSE, SIZENESW, SIZENS, SIZEWE, SIZEALL };
 
@@ -1558,7 +1558,7 @@ static HCURSOR CursorToDraw()
 {
     HCURSOR cursor;
 
-    if(state.action == AC_MOVE)
+    if(state.action == AC_MOVE || conf.UseCursor == 3)
         return cursors[HAND];
 
     if ((state.resize.y == RZ_TOP && state.resize.x == RZ_LEFT)
@@ -1579,7 +1579,7 @@ static HCURSOR CursorToDraw()
     return cursor;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int ActionMove(HMONITOR monitor )
+static int ActionMove(HMONITOR monitor, DWORD button)
 {
     if (!monitor) {
         POINT pt;
@@ -1650,10 +1650,12 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
 
         // Get and set new position
         int posx, posy, wndwidth, wndheight;
-        wndwidth =  CLAMPW( (mon.right-mon.left)/2 );
-        wndheight = CLAMPH( (mon.bottom-mon.top)/2 );
+        // Set for Top Left corner
+        wndwidth =  CLAMPW( (mon.right-mon.left)*conf.AHoff/100 );
+        wndheight = CLAMPH( (mon.bottom-mon.top)*conf.AVoff/100 );
         posx = mon.left;
         posy = mon.top;
+        
         RECT bd;
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &bd);
 
@@ -1661,13 +1663,20 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
             wndheight = CLAMPH(mon.bottom - mon.top);
             posy += (mon.bottom - mon.top)/2 - wndheight/2;
         } else if (state.resize.y == RZ_BOTTOM) {
+            wndheight = CLAMPH( (mon.bottom-mon.top)*(100-conf.AVoff)/100 );
             posy = mon.bottom-wndheight;
         }
+        
         if (state.resize.x == RZ_CENTER && state.resize.y != RZ_CENTER) {
-            wndwidth = CLAMPW( (mon.right-mon.left) );
-            posx += (mon.right - mon.left)/2 - wndwidth/2;
+            if (state.resize.y == RZ_TOP && state.shift) {
+                Maximize_Restore_atpt(state.hwnd, &pt, SW_TOGGLE_MAX_RESTORE, NULL);
+                return 1;
+            } else {
+                wndwidth = CLAMPW( (mon.right-mon.left) );
+                posx += (mon.right - mon.left)/2 - wndwidth/2;
+            }
         } else if (state.resize.x == RZ_CENTER) {
-            if(state.shift) {
+            if (state.shift) {
                 // center-center mode and shift => max width.
                 wndwidth = CLAMPW(mon.right - mon.left);
                 wndheight= wnd->bottom - wnd->top - bd.top - bd.bottom ;
@@ -1678,6 +1687,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
                 posx = wnd->left - mdiclientpt.x + bd.left;
             }
         } else if (state.resize.x == RZ_RIGHT) {
+            wndwidth =  CLAMPW( (mon.right-mon.left)*(100-conf.AHoff)/100 );
             posx = mon.right - wndwidth;
         }
         // FixDWMRect
@@ -1741,7 +1751,8 @@ static void GetMinMaxInfo_glob(HWND hwnd)
     state.mmi.Max = mmi.ptMaxTrackSize;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int init_movement_and_actions(POINT pt, enum action action, int nCode, WPARAM wParam, LPARAM lParam)
+static int init_movement_and_actions(POINT pt, enum action action
+          , int nCode, WPARAM wParam, LPARAM lParam, DWORD button)
 {
     RECT wnd;
 
@@ -1836,8 +1847,10 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
     // Do things depending on what button was pressed
     if (action == AC_MOVE) { ////////////////
         GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
-
-        if(ActionMove(monitor) == 1)
+        int ret = ActionMove(monitor, button);
+        if (ret == 0)
+            return 0;
+        else if (ret == 1)
             return 1;
         cursor = cursors[HAND];
 
@@ -1925,7 +1938,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int nCode, WP
 __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
     if (nCode != HC_ACTION) return CallNextHookEx(NULL, nCode, wParam, lParam);
-
+    
     // Set up some variables
     PMSLLHOOKSTRUCT msg = (PMSLLHOOKSTRUCT)lParam;
     POINT pt = msg->pt;
@@ -2029,7 +2042,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         return 1;
 
     } else if (state.alt && buttonstate == STATE_DOWN) {
-        int ret = init_movement_and_actions(pt, action, nCode, wParam, lParam);
+        int ret = init_movement_and_actions(pt, action, nCode, wParam, lParam, button);
         action = state.action;
         if(!ret) {
             return CallNextHookEx(NULL, nCode, wParam, lParam);
@@ -2256,7 +2269,7 @@ __declspec(dllexport) void Load(void)
 
     // CURSOR STUFF
     cursorwnd = FindWindow(APP_NAME, NULL);
-    cursors[HAND]     = conf.UseCursor==2? LoadCursor(NULL, IDC_ARROW): LoadCursor(NULL, IDC_HAND);
+    cursors[HAND]     = conf.UseCursor>1? LoadCursor(NULL, IDC_ARROW): LoadCursor(NULL, IDC_HAND);
     cursors[SIZENWSE] = LoadCursor(NULL, IDC_SIZENWSE);
     cursors[SIZENESW] = LoadCursor(NULL, IDC_SIZENESW);
     cursors[SIZENS]   = LoadCursor(NULL, IDC_SIZENS);

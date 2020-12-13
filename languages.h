@@ -23,15 +23,10 @@ struct strings {
   wchar_t *lang;
   wchar_t *author;
 
-  // tray
-  wchar_t *tray_enabled;
-  wchar_t *tray_disabled;
-
   // menu
   wchar_t *menu_enable;
   wchar_t *menu_disable;
   wchar_t *menu_hide;
-  wchar_t *menu_update;
   wchar_t *menu_config;
   wchar_t *menu_about;
   wchar_t *menu_exit;
@@ -67,7 +62,7 @@ struct strings {
   wchar_t *general_resizecenter_norm;
   wchar_t *general_resizecenter_br;
   wchar_t *general_resizecenter_move;
-  
+
   // general autostart
   wchar_t *general_autostart_box;
   wchar_t *general_autostart;
@@ -142,107 +137,104 @@ struct {
   wchar_t **str;
   wchar_t *name;
 } l10n_mapping[] = {
-  { &l10n_ini.code,                                    L"Code" },
-  { &l10n_ini.lang_english,                            L"LangEnglish" },
-  { &l10n_ini.lang,                                    L"Lang" },
-  { &l10n_ini.author,                                  L"Author" },
+  { &l10n_ini.code,                            L"Code" },
+  { &l10n_ini.lang_english,                    L"LangEnglish" },
+  { &l10n_ini.lang,                            L"Lang" },
+  { &l10n_ini.author,                          L"Author" },
 
-  { &l10n_ini.tray_enabled,                            L"TrayEnabled" },
-  { &l10n_ini.tray_disabled,                           L"TrayDisabled" },
-  { &l10n_ini.menu_enable,                             L"MenuEnable" },
-  { &l10n_ini.menu_disable,                            L"MenuDisable" },
-  { &l10n_ini.menu_hide,                               L"MenuHideTray" },
-  { &l10n_ini.menu_update,                             L"MenuUpdateAvailable" },
-  { &l10n_ini.menu_config,                             L"MenuConfigure" },
-  { &l10n_ini.menu_about,                              L"MenuAbout" },
-  { &l10n_ini.menu_exit,                               L"MenuExit" },
-  { &l10n_ini.update_balloon,                          L"UpdateBalloon" },
-  { &l10n_ini.update_dialog,                           L"UpdateDialog" },
-  { &l10n_ini.update_nonew,                            L"UpdateLatest" },
+  { &l10n_ini.menu_enable,                     L"MenuEnable" },
+  { &l10n_ini.menu_disable,                    L"MenuDisable" },
+  { &l10n_ini.menu_hide,                       L"MenuHideTray" },
+  { &l10n_ini.menu_config,                     L"MenuConfigure" },
+  { &l10n_ini.menu_about,                      L"MenuAbout" },
+  { &l10n_ini.menu_exit,                       L"MenuExit" },
+  { &l10n_ini.update_balloon,                  L"UpdateBalloon" },
+  { &l10n_ini.update_dialog,                   L"UpdateDialog" },
+  { &l10n_ini.update_nonew,                    L"UpdateLatest" },
 
-  { &l10n_ini.title,                                   L"ConfigTitle" },
-  { &l10n_ini.tab_general,                             L"ConfigTabGeneral" },
-  { &l10n_ini.tab_input,                               L"ConfigTabInput" },
-  { &l10n_ini.tab_blacklist,                           L"ConfigTabBlacklist" },
-  { &l10n_ini.tab_advanced,                            L"ConfigTabAdvanced" },
-  { &l10n_ini.tab_about,                               L"ConfigTabAbout" },
+  { &l10n_ini.title,                           L"ConfigTitle" },
+  { &l10n_ini.tab_general,                     L"ConfigTabGeneral" },
+  { &l10n_ini.tab_input,                       L"ConfigTabInput" },
+  { &l10n_ini.tab_blacklist,                   L"ConfigTabBlacklist" },
+  { &l10n_ini.tab_advanced,                    L"ConfigTabAdvanced" },
+  { &l10n_ini.tab_about,                       L"ConfigTabAbout" },
 
-  { &l10n_ini.general_box,                             L"GeneralBox" },
-  { &l10n_ini.general_autofocus,                       L"GeneralAutoFocus" },
-  { &l10n_ini.general_aero,                            L"GeneralAero" },
-  { &l10n_ini.general_inactivescroll,                  L"GeneralInactiveScroll" },
-  { &l10n_ini.general_mdi,                             L"GeneralMDI" },
-  { &l10n_ini.general_autosnap,                        L"GeneralAutoSnap" },
-  { &l10n_ini.general_autosnap0,                       L"GeneralAutoSnap0" },
-  { &l10n_ini.general_autosnap1,                       L"GeneralAutoSnap1" },
-  { &l10n_ini.general_autosnap2,                       L"GeneralAutoSnap2" },
-  { &l10n_ini.general_autosnap3,                       L"GeneralAutoSnap3" },
-  { &l10n_ini.general_language,                        L"GeneralLanguage" },
-  { &l10n_ini.general_fullwin,                         L"GeneralFullWin" },
-  { &l10n_ini.general_resizeall,                       L"GeneralResizeAll" },
-  { &l10n_ini.general_resizecenter,                    L"GeneralResizeCenter" },
-  { &l10n_ini.general_resizecenter_norm,               L"GeneralResizeCenterNorm" },
-  { &l10n_ini.general_resizecenter_br,                 L"GeneralResizeCenterBr" },
-  { &l10n_ini.general_resizecenter_move,               L"GeneralResizeCenterMove" },
+  { &l10n_ini.general_box,                     L"GeneralBox" },
+  { &l10n_ini.general_autofocus,               L"GeneralAutoFocus" },
+  { &l10n_ini.general_aero,                    L"GeneralAero" },
+  { &l10n_ini.general_inactivescroll,          L"GeneralInactiveScroll" },
+  { &l10n_ini.general_mdi,                     L"GeneralMDI" },
+  { &l10n_ini.general_autosnap,                L"GeneralAutoSnap" },
+  { &l10n_ini.general_autosnap0,               L"GeneralAutoSnap0" },
+  { &l10n_ini.general_autosnap1,               L"GeneralAutoSnap1" },
+  { &l10n_ini.general_autosnap2,               L"GeneralAutoSnap2" },
+  { &l10n_ini.general_autosnap3,               L"GeneralAutoSnap3" },
+  { &l10n_ini.general_language,                L"GeneralLanguage" },
+  { &l10n_ini.general_fullwin,                 L"GeneralFullWin" },
+  { &l10n_ini.general_resizeall,               L"GeneralResizeAll" },
+  { &l10n_ini.general_resizecenter,            L"GeneralResizeCenter" },
+  { &l10n_ini.general_resizecenter_norm,       L"GeneralResizeCenterNorm" },
+  { &l10n_ini.general_resizecenter_br,         L"GeneralResizeCenterBr" },
+  { &l10n_ini.general_resizecenter_move,       L"GeneralResizeCenterMove" },
 
-  { &l10n_ini.general_autostart_box,                   L"GeneralAutostartBox" },
-  { &l10n_ini.general_autostart,                       L"GeneralAutostart" },
-  { &l10n_ini.general_autostart_hide,                  L"GeneralAutostartHide" },
-  { &l10n_ini.general_autostart_elevate,               L"GeneralAutostartElevate" },
-  { &l10n_ini.general_autostart_elevate_tip,           L"GeneralAutostartElevateTip" },
-  { &l10n_ini.general_elevate,                         L"GeneralElevate" },
-  { &l10n_ini.general_elevated,                        L"GeneralElevated" },
-  { &l10n_ini.general_elevation_aborted,               L"GeneralElevationAborted" },
-  { &l10n_ini.general_autosave,                        L"GeneralAutosave" },
+  { &l10n_ini.general_autostart_box,           L"GeneralAutostartBox" },
+  { &l10n_ini.general_autostart,               L"GeneralAutostart" },
+  { &l10n_ini.general_autostart_hide,          L"GeneralAutostartHide" },
+  { &l10n_ini.general_autostart_elevate,       L"GeneralAutostartElevate" },
+  { &l10n_ini.general_autostart_elevate_tip,   L"GeneralAutostartElevateTip" },
+  { &l10n_ini.general_elevate,                 L"GeneralElevate" },
+  { &l10n_ini.general_elevated,                L"GeneralElevated" },
+  { &l10n_ini.general_elevation_aborted,       L"GeneralElevationAborted" },
+  { &l10n_ini.general_autosave,                L"GeneralAutosave" },
 
-  { &l10n_ini.input_mouse_box,                         L"InputMouseBox" },
-  { &l10n_ini.input_mouse_lmb,                         L"InputMouseLMB" },
-  { &l10n_ini.input_mouse_mmb,                         L"InputMouseMMB" },
-  { &l10n_ini.input_mouse_rmb,                         L"InputMouseRMB" },
-  { &l10n_ini.input_mouse_mb4,                         L"InputMouseMB4" },
-  { &l10n_ini.input_mouse_mb5,                         L"InputMouseMB5" },
-  { &l10n_ini.input_mouse_scroll,                      L"InputMouseScroll" },
-  { &l10n_ini.input_mouse_lowerwithmmb,                L"InputMouseLowerWithMMB" },
-  { &l10n_ini.input_aggressive_pause,                  L"InputAggressivePause" },
+  { &l10n_ini.input_mouse_box,                 L"InputMouseBox" },
+  { &l10n_ini.input_mouse_lmb,                 L"InputMouseLMB" },
+  { &l10n_ini.input_mouse_mmb,                 L"InputMouseMMB" },
+  { &l10n_ini.input_mouse_rmb,                 L"InputMouseRMB" },
+  { &l10n_ini.input_mouse_mb4,                 L"InputMouseMB4" },
+  { &l10n_ini.input_mouse_mb5,                 L"InputMouseMB5" },
+  { &l10n_ini.input_mouse_scroll,              L"InputMouseScroll" },
+  { &l10n_ini.input_mouse_lowerwithmmb,        L"InputMouseLowerWithMMB" },
+  { &l10n_ini.input_aggressive_pause,          L"InputAggressivePause" },
 
-  { &l10n_ini.input_actions_move,                      L"InputActionMove" },
-  { &l10n_ini.input_actions_resize,                    L"InputActionResize" },
-  { &l10n_ini.input_actions_close,                     L"InputActionClose" },
-  { &l10n_ini.input_actions_minimize,                  L"InputActionMinimize" },
-  { &l10n_ini.input_actions_maximize,                  L"InputActionMaximize" },
-  { &l10n_ini.input_actions_lower,                     L"InputActionLower" },
-  { &l10n_ini.input_actions_alwaysontop,               L"InputActionAlwaysOnTop" },
-  { &l10n_ini.input_actions_borderless,                L"InputActionBorderless" },
-  { &l10n_ini.input_actions_center,                    L"InputActionCenter" },
-  { &l10n_ini.input_actions_nothing,                   L"InputActionNothing" },
-  { &l10n_ini.input_actions_alttab,                    L"InputActionAltTab" },
-  { &l10n_ini.input_actions_volume,                    L"InputActionVolume" },
-  { &l10n_ini.input_actions_transparency,              L"InputActionTransparency" },
+  { &l10n_ini.input_actions_move,              L"InputActionMove" },
+  { &l10n_ini.input_actions_resize,            L"InputActionResize" },
+  { &l10n_ini.input_actions_close,             L"InputActionClose" },
+  { &l10n_ini.input_actions_minimize,          L"InputActionMinimize" },
+  { &l10n_ini.input_actions_maximize,          L"InputActionMaximize" },
+  { &l10n_ini.input_actions_lower,             L"InputActionLower" },
+  { &l10n_ini.input_actions_alwaysontop,       L"InputActionAlwaysOnTop" },
+  { &l10n_ini.input_actions_borderless,        L"InputActionBorderless" },
+  { &l10n_ini.input_actions_center,            L"InputActionCenter" },
+  { &l10n_ini.input_actions_nothing,           L"InputActionNothing" },
+  { &l10n_ini.input_actions_alttab,            L"InputActionAltTab" },
+  { &l10n_ini.input_actions_volume,            L"InputActionVolume" },
+  { &l10n_ini.input_actions_transparency,      L"InputActionTransparency" },
 
-  { &l10n_ini.input_hotkeys_box,                       L"InputHotkeysBox" },
-  { &l10n_ini.input_hotkeys_leftalt,                   L"InputHotkeysLeftAlt" },
-  { &l10n_ini.input_hotkeys_rightalt,                  L"InputHotkeysRightAlt" },
-  { &l10n_ini.input_hotkeys_leftwinkey,                L"InputHotkeysLeftWinkey" },
-  { &l10n_ini.input_hotkeys_rightwinkey,               L"InputHotkeysRightWinkey" },
-  { &l10n_ini.input_hotkeys_leftctrl,                  L"InputHotkeysLeftCtrl" },
-  { &l10n_ini.input_hotkeys_rightctrl,                 L"InputHotkeysRightCtrl" },
-  { &l10n_ini.input_hotkeys_more,                      L"InputHotkeysMore" },
+  { &l10n_ini.input_hotkeys_box,               L"InputHotkeysBox" },
+  { &l10n_ini.input_hotkeys_leftalt,           L"InputHotkeysLeftAlt" },
+  { &l10n_ini.input_hotkeys_rightalt,          L"InputHotkeysRightAlt" },
+  { &l10n_ini.input_hotkeys_leftwinkey,        L"InputHotkeysLeftWinkey" },
+  { &l10n_ini.input_hotkeys_rightwinkey,       L"InputHotkeysRightWinkey" },
+  { &l10n_ini.input_hotkeys_leftctrl,          L"InputHotkeysLeftCtrl" },
+  { &l10n_ini.input_hotkeys_rightctrl,         L"InputHotkeysRightCtrl" },
+  { &l10n_ini.input_hotkeys_more,              L"InputHotkeysMore" },
 
-  { &l10n_ini.blacklist_box,                           L"BlacklistBox" },
-  { &l10n_ini.blacklist_processblacklist,              L"BlacklistProcessBlacklist" },
-  { &l10n_ini.blacklist_blacklist,                     L"BlacklistBlacklist" },
-  { &l10n_ini.blacklist_snaplist,                      L"BlacklistSnaplist" },
-  { &l10n_ini.blacklist_mdis,                          L"BlacklistMDIs" },
-  { &l10n_ini.blacklist_pause,                         L"BlacklistPause" },
-  { &l10n_ini.blacklist_findwindow_box,                L"BlacklistFindWindowBox" },
+  { &l10n_ini.blacklist_box,                   L"BlacklistBox" },
+  { &l10n_ini.blacklist_processblacklist,      L"BlacklistProcessBlacklist" },
+  { &l10n_ini.blacklist_blacklist,             L"BlacklistBlacklist" },
+  { &l10n_ini.blacklist_snaplist,              L"BlacklistSnaplist" },
+  { &l10n_ini.blacklist_mdis,                  L"BlacklistMDIs" },
+  { &l10n_ini.blacklist_pause,                 L"BlacklistPause" },
+  { &l10n_ini.blacklist_findwindow_box,        L"BlacklistFindWindowBox" },
 
-  { &l10n_ini.about_box,                               L"AboutBox" },
-  { &l10n_ini.about_version,                           L"AboutVersion" },
-  { &l10n_ini.about_author,                            L"AboutAuthor" },
-  { &l10n_ini.about_license,                           L"AboutLicense" },
-  { &l10n_ini.about_translation_credit,                L"AboutTranslationCredit" },
+  { &l10n_ini.about_box,                       L"AboutBox" },
+  { &l10n_ini.about_version,                   L"AboutVersion" },
+  { &l10n_ini.about_author,                    L"AboutAuthor" },
+  { &l10n_ini.about_license,                   L"AboutLicense" },
+  { &l10n_ini.about_translation_credit,        L"AboutTranslationCredit" },
 
-  { &l10n_ini.unhook_error,                            L"MiscUnhookError" },
+  { &l10n_ini.unhook_error,                    L"MiscUnhookError" },
 };
 
 struct strings en_US = {
@@ -253,14 +245,10 @@ struct strings en_US = {
  /* author             */ L"Stefan Sundin",
 
  /* === app === */
- /* tray_enabled       */ APP_NAME L"",
- /* tray_disabled      */ APP_NAME L" (disabled)",
-
  /* menu */
  /* enable             */ L"&Enable",
  /* disable            */ L"&Disable",
  /* hide               */ L"&Hide tray",
- /* update             */ L"&Update available!",
  /* config             */ L"&Configure",
  /* about              */ L"&About",
  /* exit               */ L"E&xit",

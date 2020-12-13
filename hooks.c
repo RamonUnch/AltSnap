@@ -241,7 +241,7 @@ static inline int CLAMP(int _l, int _x, int _h)
 #define CLAMPH(height) CLAMP(state.mmi.Min.y, height, state.mmi.Max.y)
 static inline int IsResizable(HWND hwnd)
 {
-    return (conf.ResizeAll || GetWindowLong(hwnd, GWL_STYLE)&WS_THICKFRAME);
+    return (conf.ResizeAll || GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME);
 }
 /////////////////////////////////////////////////////////////////////////////
 static inline int IsSamePTT(POINT pt, POINT ptt)
@@ -1263,12 +1263,15 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
     HWND foreground = GetForegroundWindow();
 
     // Return if no window or if foreground window is blacklisted
-    if (hwnd == NULL || (foreground != NULL && blacklisted(foreground,&BlkLst.Windows)))
+    if (!hwnd || ( foreground && (
+        blacklisted(foreground, &BlkLst.Windows)
+      ||blacklistedP(foreground, &BlkLst.Processes) ) )
+      ) {
         return 0;
-
+    }
     // Get class behind eventual tooltip
     wchar_t classname[256] = L"";
-    hwnd=GetClass_HideIfTooltip(pt, hwnd, classname, ARR_SZ(classname));
+    hwnd = GetClass_HideIfTooltip(pt, hwnd, classname, ARR_SZ(classname));
 
     // If it's a groupbox, grab the real window
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
@@ -1277,8 +1280,8 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
         EnableWindow(groupbox, FALSE);
         hwnd = WindowFromPoint(pt);
         EnableWindow(groupbox, TRUE);
-        if (!hwnd) return 0;
     }
+    if (!hwnd) return 0;
 
     // Get wheel info
     WPARAM wp = GET_WHEEL_DELTA_WPARAM(mouseData) << 16;
@@ -1286,7 +1289,7 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
 
     // Change WM_MOUSEWHEEL to WM_MOUSEHWHEEL if shift is being depressed
     // Introduced in Vista and far from all programs have implemented it.
-    if (wParam == WM_MOUSEWHEEL && state.shift && (GetAsyncKeyState(VK_SHIFT)&0x8000)) {
+    if (wParam == WM_MOUSEWHEEL && state.shift) {
         wParam = WM_MOUSEHWHEEL;
         wp = (-GET_WHEEL_DELTA_WPARAM(mouseData)) << 16; // Up is left, down is right
     }
@@ -1301,7 +1304,7 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
     if (GetAsyncKeyState(VK_XBUTTON2)&0x8000) wp |= MK_XBUTTON2;
 
     // Forward scroll message
-    if(SendMessage(hwnd, wParam, wp, lp))
+    if(PostMessage(hwnd, wParam, wp, lp))
         return 1;
     else
         return 0;
@@ -1348,10 +1351,10 @@ static int ActionAltTab(POINT pt, int delta)
                 }
                 if (numhwnds > 1) {
                     if (delta > 0) {
-                        SendMessage(mdiclient, WM_MDIACTIVATE, (WPARAM) hwnds[numhwnds-1], 0);
+                        PostMessage(mdiclient, WM_MDIACTIVATE, (WPARAM) hwnds[numhwnds-1], 0);
                     } else {
                         SetWindowPos(hwnds[0], hwnds[numhwnds-1], 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
-                        SendMessage(mdiclient, WM_MDIACTIVATE, (WPARAM) hwnds[1], 0);
+                        PostMessage(mdiclient, WM_MDIACTIVATE, (WPARAM) hwnds[1], 0);
                     }
                 }
             }
@@ -1378,7 +1381,8 @@ static int ActionAltTab(POINT pt, int delta)
     return -1;
 }
 /////////////////////////////////////////////////////////////////////////////
-// Vista+ Only...
+// Under Vista this will change the main volume with ole interface,
+// Under NT4-XP, this will change the waveOut volume.
 static int ActionVolume(int delta)
 {
     static int HaveV=-1;
@@ -1528,7 +1532,7 @@ static int ActionLower(POINT pt, int delta)
         }
     } else {
         if (state.shift) {
-            SendMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+            PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
         } else {
             SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
         }
@@ -1573,7 +1577,7 @@ static int ActionMaxRestMin(POINT pt, int delta)
         if(maximized)
             Maximize_Restore_atpt(hwnd, &pt, SW_RESTORE, NULL);
         else
-            SendMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+            PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
     }
     if(conf.AutoFocus) SetForegroundWindow(hwnd);
     return -1;
@@ -1893,10 +1897,10 @@ static int init_movement_and_actions(POINT pt, enum action action
         cursor = CursorToDraw();
 
     } else if (action == AC_MINIMIZE) {
-        SendMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+        PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
     } else if (action == AC_MAXIMIZE) {
         if(state.shift) {
-            SendMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+            PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
         } else if (IsResizable(state.hwnd)) {
             Maximize_Restore_atpt(state.hwnd, NULL, SW_TOGGLE_MAX_RESTORE, monitor);
         }
@@ -1909,12 +1913,12 @@ static int init_movement_and_actions(POINT pt, enum action action
         SetWindowPos(state.hwnd, (topmost?HWND_NOTOPMOST:HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE);
 
     } else if (action == AC_BORDERLESS) {
-        long style = GetWindowLong(state.hwnd, GWL_STYLE);
+        long style = GetWindowLongPtr(state.hwnd, GWL_STYLE);
 
         if(style&WS_BORDER) style &= state.shift? ~WS_CAPTION: ~(WS_CAPTION|WS_THICKFRAME);
         else style |= WS_CAPTION|WS_THICKFRAME|WS_MINIMIZEBOX|WS_MAXIMIZEBOX|WS_SYSMENU;
 
-        SetWindowLong(state.hwnd, GWL_STYLE, style);
+        SetWindowLongPtr(state.hwnd, GWL_STYLE, style);
 
         // Under Windows 10, with DWM we HAVE to resize the windows twice
         // to have proper drawing. this is a bug...
@@ -1930,10 +1934,10 @@ static int init_movement_and_actions(POINT pt, enum action action
         }
 
     } else if (action == AC_CLOSE) {
-        SendMessage(state.hwnd, WM_CLOSE, 0, 0);
+        PostMessage(state.hwnd, WM_CLOSE, 0, 0);
     } else if (action == AC_LOWER) {
         if (state.shift) {
-            SendMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+            PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
         } else {
             SetWindowPos(state.hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
         }
@@ -2042,15 +2046,16 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
     // Lower window if middle mouse button is used on the title bar/top of the win
     if (conf.LowerWithMMB && !state.alt && !state.action && buttonstate == STATE_DOWN && button == BT_MMB) {
         HWND hwnd = WindowFromPoint(pt);
-        if (hwnd == NULL) {
-            return CallNextHookEx(NULL, nCode, wParam, lParam);
-        }
+        if (!hwnd) return CallNextHookEx(NULL, nCode, wParam, lParam);
         hwnd = GetAncestor(hwnd, GA_ROOT);
+        if (blacklisted(hwnd, &BlkLst.Windows))
+            return CallNextHookEx(NULL, nCode, wParam, lParam);
+
         int area = SendMessage(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x,pt.y));
         if (area == HTCAPTION || area == HTTOP || area == HTTOPLEFT || area == HTTOPRIGHT
          || area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON || area == HTCLOSE) {
             if (state.shift) {
-                SendMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+                PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
             } else {
                 SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
             }
@@ -2093,12 +2098,13 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
 
         // Auto Remaximize if option enabled and conditions are met.
         if(conf.AutoRemaximize && was_moving && state.origin.maximized
-          && !state.shift && !state.mdiclient && state.action == AC_MOVE){
+          && !state.shift && !state.mdiclient && state.action == AC_MOVE) {
             HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
             if(monitor != state.origin.monitor){
                 Sleep(10); // Wait a little for moveThread.
                 Maximize_Restore_atpt(state.hwnd, NULL, SW_MAXIMIZE, monitor);
             }
+            state.snap = conf.AutoSnap;
         }
 
         state.action = AC_NONE;
@@ -2267,8 +2273,8 @@ __declspec(dllexport) void Load(void)
     wchar_t txt[1024];
     wchar_t inipath[MAX_PATH];
     state.action = AC_NONE;
-    state.shift=0;
-    LastWin.hwnd=NULL;
+    state.shift = 0;
+    LastWin.hwnd = NULL;
 
     conf.Hotkeys.length = 0;
     conf.dbclktime = GetDoubleClickTime();

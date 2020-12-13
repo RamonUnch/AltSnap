@@ -16,7 +16,7 @@ int InitTray()
 {
     // Load icons
     icon[0] = LoadImageA(g_hinst, "tray_disabled", IMAGE_ICON, 0, 0, LR_MONOCHROME);
-    icon[1] = LoadImageA(g_hinst, "tray_enabled", IMAGE_ICON, 0, 0,    LR_MONOCHROME);
+    icon[1] = LoadImageA(g_hinst, "tray_enabled", IMAGE_ICON, 0, 0,  LR_MONOCHROME);
     if (icon[0] == NULL || icon[1] == NULL) {
         return 1;
     }

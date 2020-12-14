@@ -1271,7 +1271,9 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
     }
     // Get class behind eventual tooltip
     wchar_t classname[256] = L"";
-    hwnd = GetClass_HideIfTooltip(pt, hwnd, classname, ARR_SZ(classname));
+    //hwnd = GetClass_HideIfTooltip(pt, hwnd, classname, ARR_SZ(classname));
+    GetClassName(hwnd, classname, 255);
+
 
     // If it's a groupbox, grab the real window
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
@@ -1280,8 +1282,10 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
         EnableWindow(groupbox, FALSE);
         hwnd = WindowFromPoint(pt);
         EnableWindow(groupbox, TRUE);
+        if (!hwnd) return 0;
+    } else if (!wcscmp(classname, L"Windows.UI.Core.CoreWindow")) {
+        return 0;
     }
-    if (!hwnd) return 0;
 
     // Get wheel info
     WPARAM wp = GET_WHEEL_DELTA_WPARAM(mouseData) << 16;

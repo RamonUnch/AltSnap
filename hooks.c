@@ -1271,9 +1271,7 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
     }
     // Get class behind eventual tooltip
     wchar_t classname[256] = L"";
-    //hwnd = GetClass_HideIfTooltip(pt, hwnd, classname, ARR_SZ(classname));
-    GetClassName(hwnd, classname, 255);
-
+    hwnd = GetClass_HideIfTooltip(pt, hwnd, classname, ARR_SZ(classname));
 
     // If it's a groupbox, grab the real window
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);

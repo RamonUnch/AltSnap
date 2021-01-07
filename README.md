@@ -1,6 +1,8 @@
 # AltDrag
 Fork from Stefan Sundin's AltDrag.
+
 Documentation: https://stefansundin.github.io/altdrag/doc/
+
 Note that documentation is not 100% accurate because it is a fork.
 Read the changelog for more details.
 

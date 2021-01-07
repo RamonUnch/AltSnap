@@ -1,5 +1,8 @@
 # AltDrag
 Fork from Stefan Sundin's AltDrag.
+Documentation: https://stefansundin.github.io/altdrag/doc/
+Note that documentation is not 100% accurate because it is a fork.
+Read the changelog for more details.
 
 It allows you to move and resize windows by using the Alt key and clicking wherever on the window instead of relying on very precise clicking.
 This behavior is very common on Linux distributions and is not actually hard to implement on Windows.

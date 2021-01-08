@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTDRAG for NT4 to Win10                         *
 *   Modified by Raymond Gillibert from original source by Stefan Sundin   *
-*                    release 1.32 (December XX, 2020)                     *
+*                     release 1.33 (January 8, 2021)                      *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltDrag/releases/         *
@@ -24,27 +24,45 @@ Note that this version has some more feature..
 
 == CHANGELOG ==
 
+== AltDrag 1.33 ==
+
++ Added a MinAlpha option in the [Advanded] section of AltDrag.ini, in order
+  to adjust from 0 to 255 the minimum opacity of a windows (dfault is 8).
+
+* Fixed AltDrag freezing when changing dip scaling or going to sleep mode.
+
+* Fixed Stupid bug that would restart AltDrag wen moving windows between 
+  monitors with different dpi scalings.
+
+* Improved english on the snapping windows option (thanks redactedscribe).
+
+* Now settings should be kept when updating AltDrag (thanks FSund).
+
 == AltDrag 1.32 ==
 
 + Added the PearceDBClick option in [Advanced] section of Altdrag.ini.
-  Use 1 to disable the maximize on Alt+double-cklick.
+  Use 1 to disable the maximize on Alt+double-cklick. It only applies to
+  the Move action for now, maybe more will come if needed.
 
 + Added the UseCursor option in the [Advanced] section of AltDrag.ini
-  Use 0 to disable any cursor handeling, 1 to enable all cursors changes
-  and 2 to disable only the Hand cursor when dragging a window, Finally,
-  use 3 to always use the default cursor, even when resizing.
+  Use 0 to disable any cursor handeling (not recomended).
+  Use 1 to enable all cursors changes (default).
+  Use 2 to disable only the Hand cursor when dragging a window (icyhoty2k).
+  Use 3 to always use the default cursor, even when resizing.
+  Note that none of those settings is expected to affect performances in
+  any significant way.
 
-+ Now when Using the Shift ket while using doubleclick snapping on the 
++ Now when pressing the SHIFT ket while using doubleclick snapping on the
   center-top section of the window, this later will be maximized/restored,
   instead of being snapped to the top. This will be usefull when using
   the Move instead of resize-center option.
 
 * Lower with Middle mouse button option will no longer ignore the window
-  blacklist.
+  blacklist, this will avoid interactions with taskbar.
 
 * Fixed Scroll inactive windows, hopefully for real this time.
 
-* Avoid some more loockup in the case of very unresponsive windows bu using
+* Avoid some more loockup in the case of very unresponsive windows by using
   PostMessage instead of SendMessage, when applicable.
 
 * Fixed: Now doubleclick snapping will respect Aero(H/V)offset settings.

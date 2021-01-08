@@ -31,9 +31,8 @@ Section
     # define the output path for this file
     SetOutPath $INSTDIR
     ; Rename old ini file if it exists
-    IfFileExists "${APP_NAME}.ini" 0 +3
-        Delete "${APP_NAME}-old.ini"
-        Rename "${APP_NAME}.ini" "${APP_NAME}-old.ini"
+    IfFileExists "${APP_NAME}.ini" +2 0
+        File AltDrag.ini
 
     ; Delete files that existed in earlier versions
     Delete /REBOOTOK "$INSTDIR\info.txt" ; existed in <= 0.9
@@ -44,7 +43,6 @@ Section
     # define what to install and place it in the output path
     File AltDrag.exe
     File AltDrag.txt
-    File AltDrag.ini
     File hooks.dll
     File License.txt
     SetOutPath $INSTDIR\Lang

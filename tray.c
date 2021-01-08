@@ -15,14 +15,15 @@ int hide = 0;
 int InitTray()
 {
     // Load icons
-    icon[0] = LoadImageA(g_hinst, "tray_disabled", IMAGE_ICON, 0, 0, LR_MONOCHROME);
-    icon[1] = LoadImageA(g_hinst, "tray_enabled", IMAGE_ICON, 0, 0,  LR_MONOCHROME);
+    icon[0] = LoadIconA(g_hinst, "tray_disabled");
+    icon[1] = LoadIconA(g_hinst, "tray_enabled");
+
     if (icon[0] == NULL || icon[1] == NULL) {
         return 1;
     }
 
     // Create icondata
-    tray.cbSize = sizeof(NOTIFYICONDATA);
+    tray.cbSize = sizeof(tray);
     tray.uID = 0;
     tray.uFlags = NIF_MESSAGE|NIF_ICON|NIF_TIP;
     tray.hWnd = g_hwnd;
@@ -46,9 +47,12 @@ int UpdateTray()
 
     // Only add or modify if not hidden or if balloon will be displayed
     if (!hide || tray.uFlags&NIF_INFO) {
-        // Try until it succeeds, sleep 100 ms between each attempt
-        while (Shell_NotifyIconA((tray_added?NIM_MODIFY:NIM_ADD),&tray) == FALSE) {
+        // Try a few times, sleep 100 ms between each attempt
+        int i=0;
+        while (!Shell_NotifyIconA((tray_added?NIM_MODIFY:NIM_ADD),&tray) ) {
+            if (i > 3) break;
             Sleep(100);
+            i++;
         }
         // Success
         tray_added = 1;

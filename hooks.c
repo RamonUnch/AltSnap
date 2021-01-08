@@ -147,6 +147,8 @@ struct {
     char PearceDBClick;
     unsigned char CenterFraction;
     unsigned char RefreshRate;
+    
+    unsigned char MinAlpha;
 
     struct {
         unsigned char length;
@@ -871,12 +873,42 @@ static int IsHotkey(int key)
     }
     return 0;
 }
+///////////////////////////////////////////////////////////////////////////////
+//// This is used to detect is the window was snapped normally outside of
+//// AltDrag, in this case if windows was in the database, we restore it.
+//static int IsWindowSnapped(HWND hwnd)
+//{
+//    RECT rect, mon;
+//    if(!GetWindowRectL(state.hwnd, &rect)) return 0;
+//    
+//    MONITORINFO mi = { sizeof(MONITORINFO) };
+//    GetMonitorInfo(state.origin.monitor, &mi);
+//    mon = mi.rcWork;
+//
+//    int W = rect.right  - rect.left;
+//    int H = rect.bottom - rect.top;
+//    int SW = mon.right  - mon.left;
+//    int SH = mon.bottom - mon.top;
+//
+//    if (W == SW/2) {
+//        if(H == SH){
+//            if (rect.top == 0 && (rect.left == 0 || rect.right == SW))
+//                return 1;
+//        } else if (H == SH/2) {
+//            if (rect.top == 0 || rect.bottom == SH)
+//                return 1;
+//        }
+//    }
+//    return 0;
+//}
 /////////////////////////////////////////////////////////////////////////////
 static void RestoreOldWin(POINT pt)
 {
     // Restore old width/height?
     int restore = 0;
-    if (state.wndentry->restore) {
+    if (state.wndentry->restore 
+//     || (IsWindowSnapped(state.hwnd) && state.wndentry->width && state.wndentry->height)
+     ) {
         restore = 1;
         state.origin.width = state.wndentry->width;
         state.origin.height = state.wndentry->height;
@@ -1509,8 +1541,8 @@ static int ActionTransparency(POINT pt, int delta)
         }
     } else {
         alpha -= alpha_delta;
-        if (alpha < 8)
-            alpha = 8;
+        if (alpha < conf.MinAlpha)
+            alpha = conf.MinAlpha;
     }
     SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
 
@@ -1755,6 +1787,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
 static void AddWindowToDB(HWND hwndd)
 {
     // Check if window is already in the wnddb database
+    // And set it in the current state
     state.wndentry = NULL;
     int i;
     for (i=0; i < NUMWNDDB; i++) {
@@ -2304,6 +2337,7 @@ __declspec(dllexport) void Load(void)
     conf.AeroTopMaximizes=GetPrivateProfileInt(L"Advanced",L"AeroTopMaximizes",1, inipath);
     conf.UseCursor     = GetPrivateProfileInt(L"Advanced", L"UseCursor", 1, inipath);
     conf.PearceDBClick = GetPrivateProfileInt(L"Advanced", L"PearceDBClick", 0, inipath);
+    conf.MinAlpha      = GetPrivateProfileInt(L"Advanced", L"MinAlpha", 8, inipath);
 
     // CURSOR STUFF
     cursorwnd = FindWindow(APP_NAME, NULL);

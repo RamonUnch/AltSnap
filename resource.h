@@ -89,4 +89,3 @@
 #define IDC_RZCENTER_NORM               2017
 #define IDC_RZCENTER_BR                 2018
 #define IDC_RZCENTER_MOVE               2019
-

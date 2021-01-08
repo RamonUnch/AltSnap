@@ -17,7 +17,7 @@
 // App
 #define APP_NAME            L"AltDrag"
 #define APP_NAMEA           "AltDrag"
-#define APP_VERSION         "1.32"
+#define APP_VERSION         "1.33"
 
 // Messages
 #define WM_TRAY              (WM_USER+1)
@@ -196,14 +196,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         return 0;
     } else if (msg == WM_ERASEBKGND && wParam) {
         return 0;
-    } else if (msg == WM_DPICHANGED) {
-        UnhookSystem();
-        RemoveTray();
-        wchar_t module[MAX_PATH];
-        GetModuleFileName(NULL, module, ARR_SZ(module));
-        ShellExecute(NULL, NULL, module, L"-multi", NULL, SW_SHOWNORMAL);
-        PostQuitMessage(0);
-        ExitProcess(0);
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }

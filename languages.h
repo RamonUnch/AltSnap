@@ -273,7 +273,7 @@ struct strings en_US = {
  /* aero               */ L"Mimic &Aero Snap",
  /* inactivescroll     */ L"&Scroll inactive windows",
  /* mdi                */ L"&MDI support",
- /* autosnap           */ L"Automatically s&nap to:",
+ /* autosnap           */ L"S&nap window edges to:",
  /* autosnap0          */ L"Disabled",
  /* autosnap1          */ L"To screen borders",
  /* autosnap2          */ L"+ outside of windows",

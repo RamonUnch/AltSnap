@@ -1,7 +1,7 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # define the name of the installer
 !define APP_NAME "AltDrag"
-!define APP_VERSION "1.32"
+!define APP_VERSION "1.34"
 
 # define the name of the installer
 OutFile "${APP_NAME}${APP_VERSION}-inst.exe"

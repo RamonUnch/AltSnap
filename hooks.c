@@ -147,7 +147,7 @@ struct {
     char PearceDBClick;
     unsigned char CenterFraction;
     unsigned char RefreshRate;
-    
+
     unsigned char MinAlpha;
 
     struct {
@@ -176,8 +176,9 @@ struct {
     struct blacklist Snaplist;
     struct blacklist MDIs;
     struct blacklist Pause;
+    struct blacklist MMBLower;
 } BlkLst = { {NULL, 0, NULL}, {NULL, 0, NULL}, {NULL, 0, NULL}
-           , {NULL, 0, NULL}, {NULL, 0, NULL} };
+           , {NULL, 0, NULL}, {NULL, 0, NULL}, {NULL, 0, NULL}};
 
 // Cursor data
 HWND cursorwnd = NULL;
@@ -873,42 +874,43 @@ static int IsHotkey(int key)
     }
     return 0;
 }
-///////////////////////////////////////////////////////////////////////////////
-//// This is used to detect is the window was snapped normally outside of
-//// AltDrag, in this case if windows was in the database, we restore it.
-//static int IsWindowSnapped(HWND hwnd)
-//{
-//    RECT rect, mon;
-//    if(!GetWindowRectL(state.hwnd, &rect)) return 0;
-//    
-//    MONITORINFO mi = { sizeof(MONITORINFO) };
-//    GetMonitorInfo(state.origin.monitor, &mi);
-//    mon = mi.rcWork;
-//
-//    int W = rect.right  - rect.left;
-//    int H = rect.bottom - rect.top;
-//    int SW = mon.right  - mon.left;
-//    int SH = mon.bottom - mon.top;
-//
-//    if (W == SW/2) {
-//        if(H == SH){
-//            if (rect.top == 0 && (rect.left == 0 || rect.right == SW))
-//                return 1;
-//        } else if (H == SH/2) {
-//            if (rect.top == 0 || rect.bottom == SH)
-//                return 1;
-//        }
-//    }
-//    return 0;
-//}
+/////////////////////////////////////////////////////////////////////////////
+// This is used to detect is the window was snapped normally outside of
+// AltDrag, in this case the window appears as normal
+// ie: wndpl.showCmd=SW_SHOWNORMAL, but if the WM_RESTORE command is sent,
+// The window will be restored. This is a non documented behaviour.
+// Works under Windows 10 20H2 at least...
+static int IsWindowSnapped(HWND hwnd)
+{
+    RECT rect, mon;
+    if(!GetWindowRectL(state.hwnd, &rect)) return 0;
+
+    MONITORINFO mi = { sizeof(MONITORINFO) };
+    GetMonitorInfo(state.origin.monitor, &mi);
+    mon = mi.rcWork;
+
+    int W = rect.right  - rect.left;
+    int H = rect.bottom - rect.top;
+    int SW = mon.right  - mon.left;
+    int SH = mon.bottom - mon.top;
+
+    if (W == SW/2) {
+        if(H == SH){
+            if (rect.top == 0 && (rect.left == 0 || rect.right == SW))
+                return 1;
+        } else if (H == SH/2) {
+            if (rect.top == 0 || rect.bottom == SH)
+                return 1;
+        }
+    }
+    return 0;
+}
 /////////////////////////////////////////////////////////////////////////////
 static void RestoreOldWin(POINT pt)
 {
     // Restore old width/height?
     int restore = 0;
-    if (state.wndentry->restore 
-//     || (IsWindowSnapped(state.hwnd) && state.wndentry->width && state.wndentry->height)
-     ) {
+    if (state.wndentry->restore) {
         restore = 1;
         state.origin.width = state.wndentry->width;
         state.origin.height = state.wndentry->height;
@@ -945,7 +947,11 @@ static void MouseMove(POINT pt)
         { LastWin.hwnd = NULL; UnhookMouse(); return; }
 
     // Restore Aero snapped window
-    if(state.action == AC_MOVE && !was_moving) RestoreOldWin(pt);
+    int was_snapped=0;
+    if(state.action == AC_MOVE && !was_moving){
+        RestoreOldWin(pt);
+        was_snapped = IsWindowSnapped(state.hwnd);
+    }
 
     static RECT wnd;
     if (!was_moving && !GetWindowRect(state.hwnd, &wnd)) return;
@@ -995,14 +1001,14 @@ static void MouseMove(POINT pt)
         if ( ret == 1) return;
 
         // Restore window if maximized
-        if (IsZoomed(state.hwnd)) {
+        if (IsZoomed(state.hwnd) || was_snapped) {
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
             wndpl.showCmd = SW_RESTORE;
             SetWindowPlacement(state.hwnd, &wndpl);
             // Update wndwidth and wndheight
-            wndwidth = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
-            wndheight = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
+            wndwidth  = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
+            wndheight = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
         }
     } else if (state.action == AC_RESIZE) {
         // Restore the window (to monitor size) if it's maximized
@@ -1288,6 +1294,7 @@ static HWND GetClass_HideIfTooltip(POINT pt, HWND hwnd, wchar_t *classname, size
     return hwnd;
 }
 /////////////////////////////////////////////////////////////////////////////
+// 1.29
 static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
 {
     // Get window and foreground window
@@ -1295,26 +1302,21 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
     HWND foreground = GetForegroundWindow();
 
     // Return if no window or if foreground window is blacklisted
-    if (!hwnd || ( foreground && (
-        blacklisted(foreground, &BlkLst.Windows)
-      ||blacklistedP(foreground, &BlkLst.Processes) ) )
-      ) {
+    if (hwnd == NULL || (foreground != NULL && blacklisted(foreground,&BlkLst.Windows)))
         return 0;
-    }
+
     // Get class behind eventual tooltip
-    wchar_t classname[256] = L"";
-    hwnd = GetClass_HideIfTooltip(pt, hwnd, classname, ARR_SZ(classname));
+    wchar_t classname[20] = L"";
+    hwnd=GetClass_HideIfTooltip(pt, hwnd, classname, ARR_SZ(classname));
 
     // If it's a groupbox, grab the real window
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
-    if ((style&BS_GROUPBOX) && !wcscmp(classname, L"Button")) {
+    if ((style&BS_GROUPBOX) && !wcscmp(classname,L"Button")) {
         HWND groupbox = hwnd;
         EnableWindow(groupbox, FALSE);
         hwnd = WindowFromPoint(pt);
         EnableWindow(groupbox, TRUE);
         if (!hwnd) return 0;
-    } else if (!wcscmp(classname, L"Windows.UI.Core.CoreWindow")) {
-        return 0;
     }
 
     // Get wheel info
@@ -1323,7 +1325,7 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
 
     // Change WM_MOUSEWHEEL to WM_MOUSEHWHEEL if shift is being depressed
     // Introduced in Vista and far from all programs have implemented it.
-    if (wParam == WM_MOUSEWHEEL && state.shift) {
+    if (wParam == WM_MOUSEWHEEL && state.shift && (GetAsyncKeyState(VK_SHIFT)&0x8000)) {
         wParam = WM_MOUSEHWHEEL;
         wp = (-GET_WHEEL_DELTA_WPARAM(mouseData)) << 16; // Up is left, down is right
     }
@@ -1338,10 +1340,10 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
     if (GetAsyncKeyState(VK_XBUTTON2)&0x8000) wp |= MK_XBUTTON2;
 
     // Forward scroll message
-    if(PostMessage(hwnd, wParam, wp, lp))
-        return 1;
-    else
-        return 0;
+    SendMessage(hwnd, wParam, wp, lp);
+
+    // Block original scroll event
+    return 1;
 }
 /////////////////////////////////////////////////////////////////////////////
 static int ActionAltTab(POINT pt, int delta)
@@ -2083,7 +2085,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         HWND hwnd = WindowFromPoint(pt);
         if (!hwnd) return CallNextHookEx(NULL, nCode, wParam, lParam);
         hwnd = GetAncestor(hwnd, GA_ROOT);
-        if (blacklisted(hwnd, &BlkLst.Windows))
+        if (blacklisted(hwnd, &BlkLst.Windows) || blacklisted(hwnd, &BlkLst.MMBLower))
             return CallNextHookEx(NULL, nCode, wParam, lParam);
 
         int area = SendMessage(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x,pt.y));
@@ -2092,6 +2094,8 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
             if (state.shift) {
                 PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
             } else {
+                if(hwnd == GetAncestor(GetForegroundWindow(), GA_ROOT))
+                    SetForegroundWindow(GetWindow(hwnd, GW_HWNDPREV));
                 SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
             }
             return 1;
@@ -2422,6 +2426,7 @@ __declspec(dllexport) void Load(void)
     readblacklist(inipath, &BlkLst.Snaplist,  L"Snaplist");
     readblacklist(inipath, &BlkLst.MDIs,      L"MDIs");
     readblacklist(inipath, &BlkLst.Pause,     L"Pause");
+    readblacklist(inipath, &BlkLst.MMBLower,  L"MMBLower");
 
     // Allocate some memory
     monitors_alloc++;

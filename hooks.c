@@ -882,31 +882,24 @@ static int IsHotkey(int key)
 // Works under Windows 10 20H2 at least...
 static int IsWindowSnapped(HWND hwnd)
 {
-    RECT rect, mon;
-    if(!GetWindowRectL(state.hwnd, &rect)) return 0;
-
-    MONITORINFO mi = { sizeof(MONITORINFO) };
-    GetMonitorInfo(state.origin.monitor, &mi);
-    mon = mi.rcWork;
-
+    RECT rect;
+    if(!GetWindowRect(state.hwnd, &rect)) return 0;
     int W = rect.right  - rect.left;
     int H = rect.bottom - rect.top;
-    int SW = mon.right  - mon.left;
-    int SH = mon.bottom - mon.top;
 
-    if (W == SW/2) {
-        if(H == SH){
-            if (rect.top == 0 && (rect.left == 0 || rect.right == SW))
-                return 1;
-        } else if (H == SH/2) {
-            if (rect.top == 0 || rect.bottom == SH)
-                return 1;
-        }
-    }
-    return 0;
+    WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+    GetWindowPlacement(state.hwnd, &wndpl);
+    wndpl.showCmd = SW_RESTORE;
+    int nW = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
+    int nH = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
+
+    if(W != nW || H != nH) 
+        return 1;
+    else
+        return 0;
 }
 /////////////////////////////////////////////////////////////////////////////
-static void RestoreOldWin(POINT pt)
+static void RestoreOldWin(POINT pt, int was_snapped)
 {
     // Restore old width/height?
     int restore = 0;
@@ -926,7 +919,7 @@ static void RestoreOldWin(POINT pt)
     state.offset.x = (state.origin.width  * (pt.x-wnd.left))/(wnd.right-wnd.left);
     state.offset.y = (state.origin.height * (pt.y-wnd.top)) /(wnd.bottom-wnd.top);
 
-    if (state.origin.maximized) {
+    if (state.origin.maximized || was_snapped) {
         // NOTHING
     } else if (restore) {
         MoveWindow(state.hwnd, pt.x - state.offset.x - mdiclientpt.x
@@ -949,8 +942,8 @@ static void MouseMove(POINT pt)
     // Restore Aero snapped window
     int was_snapped=0;
     if(state.action == AC_MOVE && !was_moving){
-        RestoreOldWin(pt);
         was_snapped = IsWindowSnapped(state.hwnd);
+        RestoreOldWin(pt, was_snapped);
     }
 
     static RECT wnd;
@@ -968,7 +961,7 @@ static void MouseMove(POINT pt)
     }
 
     // Restrict pt within origin monitor if Ctrl is being pressed
-    if ((GetAsyncKeyState(VK_CONTROL)&0x8000) && !state.ignorectrl) {
+    if (state.ctrl && !state.ignorectrl) {
         static HMONITOR origMonitor;
         static RECT fmon;
         if(origMonitor != state.origin.monitor) {
@@ -982,7 +975,7 @@ static void MouseMove(POINT pt)
         RECT clip = !state.mdiclient?fmon: (RECT)
                   { mdiclientpt.x, mdiclientpt.y
                   , mdiclientpt.x + mdimon.right, mdiclientpt.y + mdimon.bottom};
-        ClipCursor(&clip);
+        if(state.ctrl == 1){ ClipCursor(&clip); state.ctrl = 2;}
         pt.x = CLAMP(fmon.left, pt.x, fmon.right);
         pt.y = CLAMP(fmon.top, pt.y, fmon.bottom);
     }
@@ -1247,7 +1240,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.origin.maximized = 0;
             state.origin.monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
             SetForegroundWindow(state.hwnd);
-            MouseMove(pt);
+            //MouseMove(pt);
             state.ctrl = 1;
         }
 
@@ -1940,6 +1933,18 @@ static int init_movement_and_actions(POINT pt, enum action action
             PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
         } else if (IsResizable(state.hwnd)) {
             Maximize_Restore_atpt(state.hwnd, NULL, SW_TOGGLE_MAX_RESTORE, monitor);
+//            WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+//            GetWindowPlacement(state.hwnd, &wndpl);
+//            wndpl.showCmd = SW_MAXIMIZE;
+//            wndpl.rcNormalPosition.left = 200;
+//            wndpl.rcNormalPosition.top  = 200;
+//            wndpl.rcNormalPosition.right  = 600;
+//            wndpl.rcNormalPosition.bottom = 500;
+////            ShowWindow(state.hwnd, SW_HIDE);
+////            Sleep(200);
+//            SetWindowPlacement(state.hwnd, &wndpl);
+//            MoveWindow(state.hwnd, 400, 400, 600, 600, TRUE);
+////            ShowWindow(state.hwnd, SW_SHOW);
         }
     } else if (action == AC_CENTER) {
         MoveWindow(state.hwnd, mon.left+(mon.right-mon.left)/2-state.origin.width/2
@@ -2094,8 +2099,9 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
             if (state.shift) {
                 PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
             } else {
-                if(hwnd == GetAncestor(GetForegroundWindow(), GA_ROOT))
+                if(hwnd == GetAncestor(GetForegroundWindow(), GA_ROOT)) {
                     SetForegroundWindow(GetWindow(hwnd, GW_HWNDPREV));
+                }
                 SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
             }
             return 1;
@@ -2140,7 +2146,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
           && !state.shift && !state.mdiclient && state.action == AC_MOVE) {
             HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
             if(monitor != state.origin.monitor){
-                Sleep(10); // Wait a little for moveThread.
+                Sleep(50); // Wait a little for moveThread.
                 Maximize_Restore_atpt(state.hwnd, NULL, SW_MAXIMIZE, monitor);
             }
             state.snap = conf.AutoSnap;
@@ -2195,14 +2201,18 @@ static void UnhookMouse()
     // Stop action
     state.action = AC_NONE;
     state.activated = 0;
+    state.ctrl = 0;
+    state.ignorectrl = 0;
+
     was_moving = 0; // Just in case
-    ClipCursor(NULL);  // Release cursor trapping in case...
 
     if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
     if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL; }
 
     ShowWindowAsync(cursorwnd, SW_HIDE);
     ReleaseCapture();
+    
+    ClipCursor(NULL);  // Release cursor trapping in case...
 
     // Do not unhook if not hooked or if the hook is still used for something
     if (!mousehook || conf.InactiveScroll || conf.LowerWithMMB)

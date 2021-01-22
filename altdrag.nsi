@@ -1,7 +1,7 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # define the name of the installer
 !define APP_NAME "AltDrag"
-!define APP_VERSION "1.34"
+!define APP_VERSION "1.35"
 
 # define the name of the installer
 OutFile "${APP_NAME}${APP_VERSION}-inst.exe"
@@ -32,6 +32,8 @@ Section
     SetOutPath $INSTDIR
     ; Rename old ini file if it exists
     IfFileExists "${APP_NAME}.ini" +2 0
+        File AltDrag.ini
+    ifFileExists "hooks_x64.dll" 0 +2
         File AltDrag.ini
 
     ; Delete files that existed in earlier versions
@@ -116,7 +118,7 @@ Section "Uninstall"
     Delete License.txt
     Delete Lang\*.*
     RMDir "$INSTDIR\Lang"
-    
+
     SetOutPath $APPDATA
     RMDir "$INSTDIR"
 

@@ -107,8 +107,6 @@ struct strings {
   wchar_t *input_hotkeys_rightalt;
   wchar_t *input_hotkeys_leftwinkey;
   wchar_t *input_hotkeys_rightwinkey;
-  wchar_t *input_hotkeys_leftctrl;
-  wchar_t *input_hotkeys_rightctrl;
   wchar_t *input_hotkeys_more;
 
   // blacklist
@@ -216,8 +214,6 @@ struct {
   { &l10n_ini.input_hotkeys_rightalt,          L"InputHotkeysRightAlt" },
   { &l10n_ini.input_hotkeys_leftwinkey,        L"InputHotkeysLeftWinkey" },
   { &l10n_ini.input_hotkeys_rightwinkey,       L"InputHotkeysRightWinkey" },
-  { &l10n_ini.input_hotkeys_leftctrl,          L"InputHotkeysLeftCtrl" },
-  { &l10n_ini.input_hotkeys_rightctrl,         L"InputHotkeysRightCtrl" },
   { &l10n_ini.input_hotkeys_more,              L"InputHotkeysMore" },
 
   { &l10n_ini.blacklist_box,                   L"BlacklistBox" },
@@ -329,8 +325,6 @@ struct strings en_US = {
  /* rightalt           */ L"&Right Alt",
  /* leftwinkey         */ L"Left &Winkey",
  /* rightwinkey        */ L"Right W&inkey",
- /* leftctrl           */ L"Left &Ctrl",
- /* rightctrl          */ L"Right C&trl",
  /* more               */ L"You can add any key by editing the ini file.\nUse the shift key to snap windows to each other.",
 
  /* blacklist tab */

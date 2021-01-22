@@ -74,6 +74,9 @@ MMRESULT (WINAPI *mywaveOutSetVolume)(HWAVEOUT hwo, DWORD dwVolume);
 
 #define HAVE_FUNC -1
 
+#define VISTA (WinVer >= 6)
+#define WIN10 (WinVer >= 10)
+
 DWORD GetProcessImageFileNameL(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize)
 {
     static HINSTANCE hPSAPIdll=NULL;

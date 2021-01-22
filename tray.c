@@ -83,7 +83,7 @@ void ShowContextMenu(HWND hwnd)
 
     InsertMenu(menu, -1, MF_BYPOSITION, SWM_TOGGLE, (ENABLED()?l10n->menu_disable:l10n->menu_enable));
     InsertMenu(menu, -1, MF_BYPOSITION, SWM_HIDE, l10n->menu_hide);
-    if(vista)
+    if(VISTA)
         InsertMenu(menu, -1, elevated?MF_BYPOSITION|MF_GRAYED:MF_BYPOSITION
                  , SWM_ELEVATE, (elevated? l10n->general_elevated: l10n->general_elevate));
 

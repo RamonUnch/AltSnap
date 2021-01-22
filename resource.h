@@ -56,8 +56,6 @@
 #define IDC_RIGHTALT                    1207
 #define IDC_LEFTWINKEY                  1208
 #define IDC_RIGHTWINKEY                 1209
-#define IDC_LEFTCTRL                    1210
-#define IDC_RIGHTCTRL                   1211
 #define IDC_HOOKWINDOWS                 1401
 #define IDC_OPENINI                     1402
 #define IDC_DONATE                      1501

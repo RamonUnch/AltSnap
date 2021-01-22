@@ -17,7 +17,7 @@
 // App
 #define APP_NAME            L"AltDrag"
 #define APP_NAMEA           "AltDrag"
-#define APP_VERSION         "1.34"
+#define APP_VERSION         "1.35"
 
 // Messages
 #define WM_TRAY              (WM_USER+1)
@@ -45,7 +45,7 @@ wchar_t inipath[MAX_PATH];
 HINSTANCE hinstDLL = NULL;
 HHOOK keyhook = NULL;
 char elevated = 0;
-char vista = 0;
+char WinVer = 0;
 
 // Include stuff
 #include "unfuck.h"
@@ -240,10 +240,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
         }
     }
 
-    // Check if elevated if in >= Vista
+    // Check if elevated if in >= WinVer
     OSVERSIONINFO vi = { sizeof(OSVERSIONINFO) };
     GetVersionEx(&vi);
-    if ((vista = vi.dwMajorVersion >= 6)) {
+    WinVer = vi.dwMajorVersion;
+    if (VISTA) { // Vista +
         HANDLE token;
         TOKEN_ELEVATION elevation;
         DWORD len;

@@ -253,12 +253,14 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
         ret = GetPrivateProfileInt(L"General", L"InactiveScroll", 0, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_INACTIVESCROLL), ret? BST_CHECKED : BST_UNCHECKED);
+        if(WIN10) Button_Enable(GetDlgItem(hwnd, IDC_INACTIVESCROLL), ret);
 
         ret=GetPrivateProfileInt(L"General", L"MDI", 0, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_MDI), ret? BST_CHECKED : BST_UNCHECKED);
 
         ret=GetPrivateProfileInt(L"Performance", L"FullWin", 1, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_FULLWIN), ret? BST_CHECKED : BST_UNCHECKED);
+        if(HaveDWM()) Button_Enable(GetDlgItem(hwnd, IDC_FULLWIN), !ret);
 
         ret=GetPrivateProfileInt(L"Advanced", L"ResizeAll", 1, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_RESIZEALL), ret? BST_CHECKED : BST_UNCHECKED);
@@ -284,7 +286,8 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             }
         }
 
-        Button_Enable(GetDlgItem(hwnd, IDC_ELEVATE), vista && !elevated);
+        Button_Enable(GetDlgItem(hwnd, IDC_ELEVATE), VISTA && !elevated);
+
     } else if (msg == WM_COMMAND) {
         int id = LOWORD(wParam);
         int event = HIWORD(wParam);
@@ -331,7 +334,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         } else if (id == IDC_AUTOSTART) {
             SetAutostart(val, 0, 0);
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE), val);
-            Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), val && vista);
+            Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), val && VISTA);
             if (!val) {
                 Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE), BST_UNCHECKED);
                 Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), BST_UNCHECKED);
@@ -376,7 +379,8 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE), hidden ? BST_CHECKED : BST_UNCHECKED);
             Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), elevated ? BST_CHECKED : BST_UNCHECKED);
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE), autostart);
-            Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), autostart && vista);
+            Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), autostart && VISTA);
+            
         }
     }
     if (updatestrings) {
@@ -470,8 +474,8 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         { IDC_RIGHTALT,    VK_RMENU    },
         { IDC_LEFTWINKEY,  VK_LWIN     },
         { IDC_RIGHTWINKEY, VK_RWIN     },
-        { IDC_LEFTCTRL,    VK_LCONTROL },
-        { IDC_RIGHTCTRL,   VK_RCONTROL },
+//        { IDC_LEFTCTRL,    VK_LCONTROL },
+//        { IDC_RIGHTCTRL,   VK_RCONTROL },
     };
 
     if (msg == WM_INITDIALOG) {
@@ -612,8 +616,8 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             SetDlgItemText(hwnd, IDC_RIGHTALT,        l10n->input_hotkeys_rightalt);
             SetDlgItemText(hwnd, IDC_LEFTWINKEY,      l10n->input_hotkeys_leftwinkey);
             SetDlgItemText(hwnd, IDC_RIGHTWINKEY,     l10n->input_hotkeys_rightwinkey);
-            SetDlgItemText(hwnd, IDC_LEFTCTRL,        l10n->input_hotkeys_leftctrl);
-            SetDlgItemText(hwnd, IDC_RIGHTCTRL,       l10n->input_hotkeys_rightctrl);
+//            SetDlgItemText(hwnd, IDC_LEFTCTRL,        l10n->input_hotkeys_leftctrl);
+//            SetDlgItemText(hwnd, IDC_RIGHTCTRL,       l10n->input_hotkeys_rightctrl);
             SetDlgItemText(hwnd, IDC_HOTKEYS_MORE,    l10n->input_hotkeys_more);
         }
     }

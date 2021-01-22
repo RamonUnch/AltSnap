@@ -29,7 +29,7 @@
 
 HWND g_hwnd;
 static void UnhookMouse();
-static int HookMouse();
+static void HookMouse();
 
 // Enumerators
 enum action { AC_NONE=0, AC_MOVE, AC_RESIZE, AC_MINIMIZE, AC_MAXIMIZE, AC_CENTER
@@ -76,15 +76,13 @@ struct {
     DWORD clicktime;
 
     char alt;
-    char activated;
     char ctrl;
     char blockaltup;
-
     char blockmouseup;
+
     char ignorectrl;
     char ignoreclick;
     char shift;
-
     char snap;
 
     struct {
@@ -149,6 +147,7 @@ struct {
     unsigned char RefreshRate;
 
     unsigned char MinAlpha;
+    unsigned char MoveTrans;
 
     struct {
         unsigned char length;
@@ -803,17 +802,10 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
 ///////////////////////////////////////////////////////////////////////////
 static RECT GetMonitorRect(POINT pt)
 {
-    static RECT mon;
-    static int single_mon = -1;
-    switch(single_mon) {
-    case -1:
-        single_mon = (GetSystemMetrics(SM_CMONITORS) <= 1);
-    case 0: /* If we have several monitors... */
-        ;MONITORINFO mi = { sizeof(MONITORINFO) };
-        GetMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi);
-        mon = mi.rcWork;
-    }
-    return mon;
+    MONITORINFO mi = { sizeof(MONITORINFO) };
+    GetMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi);
+
+    return mi.rcWork;
 }
 ///////////////////////////////////////////////////////////////////////////
 static int AeroResizeSnap(POINT pt, int *posx, int *posy
@@ -893,7 +885,7 @@ static int IsWindowSnapped(HWND hwnd)
     int nW = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
     int nH = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
 
-    if(W != nW || H != nH) 
+    if(W != nW || H != nH)
         return 1;
     else
         return 0;
@@ -961,7 +953,8 @@ static void MouseMove(POINT pt)
     }
 
     // Restrict pt within origin monitor if Ctrl is being pressed
-    if (state.ctrl && !state.ignorectrl) {
+    // 
+    if ((state.ctrl || state.shift) && !state.ignorectrl) {
         static HMONITOR origMonitor;
         static RECT fmon;
         if(origMonitor != state.origin.monitor) {
@@ -975,7 +968,8 @@ static void MouseMove(POINT pt)
         RECT clip = !state.mdiclient?fmon: (RECT)
                   { mdiclientpt.x, mdiclientpt.y
                   , mdiclientpt.x + mdimon.right, mdiclientpt.y + mdimon.bottom};
-        if(state.ctrl == 1){ ClipCursor(&clip); state.ctrl = 2;}
+        if(state.ctrl == 1) { ClipCursor(&clip); state.ctrl = 2; }
+        if(state.shift == 1) { ClipCursor(&clip); state.shift = 2; }
         pt.x = CLAMP(fmon.left, pt.x, fmon.right);
         pt.y = CLAMP(fmon.top, pt.y, fmon.bottom);
     }
@@ -1029,7 +1023,7 @@ static void MouseMove(POINT pt)
                  || !ClientToScreen(state.mdiclient, &mdiclientpt) ) {
                      return;
                 }
-                state.origin.right=wnd.right; state.origin.bottom=wnd.bottom;
+                state.origin.right = wnd.right; state.origin.bottom=wnd.bottom;
             }
             // Fix wnd for MDI offset and invisible borders
             RECT borders;
@@ -1169,29 +1163,22 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
     int vkey = ((PKBDLLHOOKSTRUCT)lParam)->vkCode;
 
     if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
-        if (IsHotkey(vkey)) {
-            // Block this keypress if an we're already pressing a hotkey or an action is happening
-            if (state.activated && !state.alt && state.action) {
-                state.alt = 1;
-            }
-            if (state.activated && state.alt) {
-                return 1;
-            }
+        if (IsHotkey(vkey) && !state.alt) {
 
             // Update state
             state.alt = 1;
             state.blockaltup = 0;
             state.blockmouseup = 0;
 
-            // Ctrl as hotkey should not trigger Ctrl-focusing when starting dragging,
-	        // releasing and pressing it again will focus though
-            if (!state.action && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
-                state.ignorectrl = 1;
-            }
-
             // Hook mouse
             HookMouse();
         } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
+            if(!state.shift && (state.action == AC_MOVE || state.action == AC_RESIZE || state.alt)) {
+                POINT pt;
+                GetCursorPos(&pt);
+                state.origin.maximized = 0;
+                state.origin.monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+            }
             state.snap = 3;
             state.shift = 1;
 
@@ -1201,7 +1188,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             }
         } else if (vkey == VK_SPACE && state.action && state.snap) {
             state.snap = 0;
-            return 1;
+            return 1; // Block to avoid sys menu.
         } else if (vkey == VK_ESCAPE && state.action != AC_NONE) {
             if (!conf.FullWin && was_moving) {
                 Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
@@ -1216,6 +1203,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             UnhookMouse();
 
             return 1;
+
         } else if (conf.AggressivePause && vkey == VK_PAUSE && state.alt) {
             POINT pt;
             DWORD pid;
@@ -1231,17 +1219,18 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 CloseHandle(ProcessHandle);
                 return 1;
             }
-        }
-        if ( (state.action == AC_MOVE || state.action == AC_RESIZE)
-          && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)
-          && !state.ignorectrl && !state.ctrl) {
-            POINT pt;
-            GetCursorPos(&pt);
-            state.origin.maximized = 0;
-            state.origin.monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-            SetForegroundWindow(state.hwnd);
-            //MouseMove(pt);
-            state.ctrl = 1;
+
+        } else if ((vkey == VK_LCONTROL || vkey == VK_RCONTROL) && !state.ignorectrl && !state.ctrl) {
+            if(state.action == AC_MOVE || state.action == AC_RESIZE || state.alt) {
+                state.ctrl = 1;
+                POINT pt;
+                GetCursorPos(&pt);
+                state.origin.maximized = 0;
+                state.origin.monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+            }
+            if(state.action == AC_MOVE || state.action == AC_RESIZE){
+                SetForegroundWindow(state.hwnd);
+            }
         }
 
     } else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP) {
@@ -1267,6 +1256,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
             state.shift = 0;
             state.snap = conf.AutoSnap;
+            ClipCursor(NULL); // Release cursor trapping
         }
     }
 
@@ -1825,22 +1815,6 @@ static int init_movement_and_actions(POINT pt, enum action action
     RECT mon = mi.rcWork;
     RECT fmon = mi.rcMonitor;
 
-    // Double check if any of the hotkeys are being pressed
-    if (!state.activated) {
-        // Don't check if we've activated, because keyups would be blocked
-        // and GetAsyncKeyState() won't return the correct state
-        int i;
-        for (i=0; i < conf.Hotkeys.length; i++) {
-            if (GetAsyncKeyState(conf.Hotkeys.keys[i])&0x8000) {
-                break;
-            } else if (i+1 == conf.Hotkeys.length) {
-                state.alt = 0;
-                UnhookMouse();
-                return 0;
-            }
-        }
-    }
-
     // Okay, at least one trigger key is being pressed
     HCURSOR cursor = NULL;
 
@@ -1894,7 +1868,7 @@ static int init_movement_and_actions(POINT pt, enum action action
     if (!state.snap) {
         state.snap = conf.AutoSnap;
     }
-    state.activated = 1;
+
     state.blockaltup = 1;
     state.origin.maximized = IsZoomed(state.hwnd);
     state.origin.width = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
@@ -2062,7 +2036,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
             }
             // Block original scroll event
             state.blockaltup = 1;
-            state.activated = 1;
             return 1;
         } else if (!state.action && conf.InactiveScroll) {
             if(!ScrollPointedWindow(pt, msg->mouseData, wParam))
@@ -2175,7 +2148,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
 } // END OF LL MOUSE PROCK
 
 /////////////////////////////////////////////////////////////////////////////
-static int HookMouse()
+static void HookMouse()
 {
     was_moving = 0; // Used to know the first time we call MouseMove.
     state.ignoreclick = 0;
@@ -2185,14 +2158,12 @@ static int HookMouse()
 
     // Check if mouse is already hooked
     if (mousehook)
-        return 1;
+        return ;
 
     // Set up the mouse hook
     mousehook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, hinstDLL, 0);
     if (!mousehook)
-        return 1;
-    else
-        return 0;
+        return ;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2200,8 +2171,8 @@ static void UnhookMouse()
 {
     // Stop action
     state.action = AC_NONE;
-    state.activated = 0;
     state.ctrl = 0;
+    state.shift = 0;
     state.ignorectrl = 0;
 
     was_moving = 0; // Just in case
@@ -2211,7 +2182,7 @@ static void UnhookMouse()
 
     ShowWindowAsync(cursorwnd, SW_HIDE);
     ReleaseCapture();
-    
+
     ClipCursor(NULL);  // Release cursor trapping in case...
 
     // Do not unhook if not hooked or if the hook is still used for something

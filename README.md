@@ -90,3 +90,6 @@ And finally in [Performance] section
 RefreshRate=7
 ; Minimum delay in miliseconds between two refresh of the window. I advise a value slightly lower than your refresh rate ie: 60Hz monitor => RefreshRate=16 Max value is 255 (4 Hz), sane values are below 100 (10 Hz). Use 0 if you want the most reactivity.
 
+# Build
+AltDrag builds with gcc, I use Mingw-w64 (for i686).
+Just install the latest version (I use gcc 8.1) and lunch mk.bat

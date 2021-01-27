@@ -53,7 +53,6 @@ static HMONITOR (WINAPI *myMonitorFromWindow)(HWND hwnd, DWORD dwFlags);
 
 /* PSAPI.DLL */
 static DWORD (WINAPI *myGetProcessImageFileName)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize);
-static BOOL  (WINAPI *myEmptyWorkingSet)(HANDLE hProcess);
 
 /* DWMAPI.DLL */
 static HRESULT (WINAPI *myDwmGetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c);
@@ -79,7 +78,7 @@ MMRESULT (WINAPI *mywaveOutSetVolume)(HWAVEOUT hwo, DWORD dwVolume);
 
 DWORD GetProcessImageFileNameL(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize)
 {
-    static HINSTANCE hPSAPIdll=NULL;
+    HINSTANCE hPSAPIdll=NULL;
     static char have_func=HAVE_FUNC;
 
     switch(have_func){
@@ -101,43 +100,10 @@ DWORD GetProcessImageFileNameL(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nS
         }
     case 1:
         return myGetProcessImageFileName(hProcess, lpImageFileName, nSize);
-    case 0:
-    default: break;
     }
     return 0;
 }
 #define GetProcessImageFileName GetProcessImageFileNameL
-
-BOOL EmptyWorkingSetL(HANDLE hProcess)
-{
-    static HINSTANCE hPSAPIdll=NULL;
-    static char have_func=HAVE_FUNC;
-
-    switch(have_func){
-    case -1:
-        hPSAPIdll = LoadLibraryA("PSAPI.DLL");
-        if(!hPSAPIdll) {
-            have_func = 0;
-            break;
-        } else {
-            myEmptyWorkingSet=(void *)GetProcAddress(hPSAPIdll, "EmptyWorkingSet");
-            if(myEmptyWorkingSet){
-                have_func = 1;
-            } else {
-                FreeLibrary(hPSAPIdll);
-                hPSAPIdll = NULL;
-                have_func = 0;
-                break;
-            }
-        }
-    case 1:
-        return myEmptyWorkingSet(hProcess);
-    case 0:
-    default: break;
-    }
-    return FALSE;
-}
-#define EmptyWorkingSet EmptyWorkingSetL
 
 BOOL PathRemoveFileSpecL(LPTSTR p)
 {
@@ -182,7 +148,6 @@ HWND GetAncestorL(HWND hwnd, UINT gaFlags)
         }
     case 1: /* We know we have the function */
         return myGetAncestor(hwnd, gaFlags);
-    case 0: break;
     }
 
     while ( (hlast = GetParent(hprevious)) != NULL ){
@@ -209,10 +174,8 @@ BOOL GetLayeredWindowAttributesL(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWO
         }
     case 1: /* We know we have the function */
         return myGetLayeredWindowAttributes(hwnd, pcrKey, pbAlpha, pdwFlags);
-    case 0:
-    default:
-        return FALSE;
     }
+    return FALSE;
 }
 #define GetLayeredWindowAttributes GetLayeredWindowAttributesL
 
@@ -231,10 +194,8 @@ BOOL SetLayeredWindowAttributesL(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD d
         }
     case 1: /* We know we have the function */
         return mySetLayeredWindowAttributes(hwnd, crKey, bAlpha, dwFlags);
-    case 0:
-    default:
-         return FALSE;
     }
+    return FALSE;
 }
 #define SetLayeredWindowAttributes SetLayeredWindowAttributesL
 
@@ -254,8 +215,6 @@ LRESULT DefSubclassProcL(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
     case 1: /* We know we have the function */
         return myDefSubclassProc(hWnd, uMsg, wParam, lParam);
-    case 0:
-    default: break;
     }
     return 0;
 }
@@ -276,8 +235,6 @@ BOOL RemoveWindowSubclassL(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR uIdSubc
         }
     case 1: /* We know we have the function */
         return myRemoveWindowSubclass(hWnd, pfnSubclass, uIdSubclass);
-    case 0:
-    default: break;
     }
     return FALSE;
 }
@@ -298,8 +255,6 @@ BOOL SetWindowSubclassL(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR uIdSubclas
         }
     case 1: /* We know we have the function */
         return mySetWindowSubclass(hWnd, pfnSubclass, uIdSubclass, dwRefData);
-    case 0:
-    default: break;
     }
     return FALSE;
 }
@@ -320,8 +275,6 @@ BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, L
         }
     case 1: /* We know we have the function */
         return myEnumDisplayMonitors(hdc, lprcClip, lpfnEnum, dwData);
-    case 0:
-    default: break;
     }
     return FALSE;
 }
@@ -343,8 +296,6 @@ BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
         }
     case 1: /* We know we have the function */
         return myGetMonitorInfoW(hMonitor, lpmi);
-    case 0:
-    default: break;
     }
     static int saved=0;
     static RECT TaskbarRC, DesktopRC;
@@ -378,8 +329,6 @@ HMONITOR MonitorFromPointL(POINT pt, DWORD dwFlags)
         }
     case 1: /* We know we have the function */
         return myMonitorFromPoint(pt, dwFlags);
-    case 0:
-    default: break;
     }
     return NULL;
 }
@@ -401,8 +350,6 @@ HMONITOR MonitorFromWindowL(HWND hwnd, DWORD dwFlags)
         }
     case 1: /* We know we have the function */
         return myMonitorFromWindow(hwnd, dwFlags);
-    case 0:
-    default: break;
     }
     return NULL;
 }
@@ -410,7 +357,7 @@ HMONITOR MonitorFromWindowL(HWND hwnd, DWORD dwFlags)
 
 HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 {
-    static HINSTANCE hdll=NULL;
+    HINSTANCE hdll=NULL;
     static char have_func=HAVE_FUNC;
 
     switch(have_func){
@@ -425,15 +372,12 @@ HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
                 have_func = 1;
             } else {
                 FreeLibrary(hdll);
-                hdll = NULL;
                 have_func = 0;
                 break;
             }
         }
     case 1: /* We know we have the function */
         return myDwmGetWindowAttribute(hwnd, a, b, c);
-    case 0:
-    default: break;
     }
     /* DwmGetWindowAttribute return 0 on sucess ! */
     return 666; /* Here we FAIL with 666 error    */
@@ -443,7 +387,7 @@ HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 void FixDWMRect(HWND hwnd, int *posx, int *posy, int *wndwidth, int *wndheight, RECT *bbb)
 {
     static char have_func=HAVE_FUNC;
-    static HINSTANCE hdll=NULL;
+    HINSTANCE hdll=NULL;
     RECT rect, frame;
 
     switch(have_func){
@@ -458,7 +402,6 @@ void FixDWMRect(HWND hwnd, int *posx, int *posy, int *wndwidth, int *wndheight, 
                 have_func = 1;
             } else {
                 FreeLibrary(hdll);
-                hdll = NULL;
                 have_func = 0;
                 break;
             }
@@ -478,8 +421,6 @@ void FixDWMRect(HWND hwnd, int *posx, int *posy, int *wndwidth, int *wndheight, 
             if(wndheight) *wndheight += border.top + border.bottom;
             return;
         }
-    case 0:
-    default: break;
     }
     if(bbb) bbb->top = bbb->bottom = bbb->left = bbb->right = 0;
 }
@@ -511,8 +452,6 @@ LONG NtSuspendProcessL(HANDLE ProcessHandle)
         }
     case 1: /* We know we have the function */
         return myNtSuspendProcess(ProcessHandle);
-    case 0:
-    default: break;
     }
     return 666; /* Here we FAIL with 666 error    */
 }
@@ -533,8 +472,6 @@ LONG NtResumeProcessL(HANDLE ProcessHandle)
         }
     case 1: /* We know we have the function */
         return myNtResumeProcess(ProcessHandle);
-    case 0:
-    default: break;
     }
     return 666; /* Here we FAIL with 666 error    */
 }
@@ -542,7 +479,7 @@ LONG NtResumeProcessL(HANDLE ProcessHandle)
 
 HRESULT DwmIsCompositionEnabledL(BOOL *pfEnabled)
 {
-    static HINSTANCE hdll=NULL;
+    HINSTANCE hdll=NULL;
     static char have_func=HAVE_FUNC;
 
     switch(have_func){
@@ -557,17 +494,15 @@ HRESULT DwmIsCompositionEnabledL(BOOL *pfEnabled)
                 have_func = 1;
             } else {
                 FreeLibrary(hdll);
-                hdll = NULL;
                 have_func = 0;
                 break;
             }
         }
-    case 1: /* We know we have the function */
-        return myDwmIsCompositionEnabled(pfEnabled);
+    case 1:; /* We know we have the function */
+        HRESULT ret = myDwmIsCompositionEnabled(pfEnabled);
         FreeLibrary(hdll);
         have_func = -1; /* in this case we reset to free the lib */
-    case 0:
-    default: break;
+        return ret;
     }
 
    *pfEnabled = FALSE;

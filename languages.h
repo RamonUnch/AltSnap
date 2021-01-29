@@ -286,7 +286,7 @@ struct strings en_US = {
  /* autostart          */ L"S&tart "APP_NAME" when logging on",
  /* autostart_hide     */ L"&Hide tray",
  /* autostart_elevate  */ L"&Elevate to administrator privileges",
- /* elevate_tip        */ L"Note that a UAC prompt will appear every time you log in, unless you disable UAC completely.",
+ /* elevate_tip        */ L"Note that a UAC prompt will appear every time you log in, unless you disable UAC completely or use the Task Scheduler",
  /* elevate            */ L"E&levate",
  /* elevated           */ L"Elevated",
  /* elevation_aborted  */ L"Elevation aborted.",

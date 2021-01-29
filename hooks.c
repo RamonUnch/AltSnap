@@ -40,7 +40,7 @@ enum resize { RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER };
 enum cursor { HAND, SIZENWSE, SIZENESW, SIZENS, SIZEWE, SIZEALL };
 
 // Window database
-#define NUMWNDDB 32
+#define NUMWNDDB 64
 struct wnddata {
     HWND hwnd;
     int width;
@@ -148,6 +148,7 @@ struct {
 
     unsigned char MinAlpha;
     unsigned char MoveTrans;
+    char NormRestore;
 
     struct {
         unsigned char length;
@@ -743,7 +744,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
         *posy = mon.bottom - *wndheight;
     } else if (pt.y < mon.top + AERO_TH) {
         // Top
-        if (state.shift ^ conf.AeroTopMaximizes) {
+        if (!state.shift ^ !conf.AeroTopMaximizes) {
             Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
             LastWin.hwnd=NULL;
             was_moving = 2;
@@ -776,7 +777,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
         *wndheight = CLAMPH( (mon.bottom-mon.top) );
         *posx = mon.right - *wndwidth;
         *posy = mon.top + (mon.bottom-mon.top)/2 - *wndheight/2; // Center
-    } else if (state.wndentry->restore) {
+    } else if (state.wndentry->restore == 1) {
         // Restore original window size
         state.wndentry->restore = 0;
         *wndwidth = state.origin.width;
@@ -784,7 +785,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
     }
 
     // Aero-move the window?
-    if (state.wndentry->restore) {
+    if (state.wndentry->restore == 1) {
         *wndwidth  = CLAMPW(*wndwidth);
         *wndheight = CLAMPH(*wndheight);
 
@@ -832,7 +833,7 @@ static int AeroResizeSnap(POINT pt, int *posx, int *posy
     }
 
     // Aero-move the window?
-    if (state.wndentry->restore) {
+    if (state.wndentry->restore == 1) {
         state.wndentry->width = state.origin.width;
         state.wndentry->height = state.origin.height;
         if(conf.FullWin) {
@@ -891,16 +892,17 @@ static int IsWindowSnapped(HWND hwnd)
         return 0;
 }
 /////////////////////////////////////////////////////////////////////////////
-static void RestoreOldWin(POINT pt, int was_snapped)
+static void RestoreOldWin(POINT pt, int was_snapped, int index)
 {
     // Restore old width/height?
     int restore = 0;
-    if (state.wndentry->restore) {
+
+    if (state.wndentry->restore == index) {
         restore = 1;
         state.origin.width = state.wndentry->width;
         state.origin.height = state.wndentry->height;
+        state.wndentry->restore = 0;
     }
-    state.wndentry->restore = 0;
 
     POINT mdiclientpt = { 0, 0 };
     RECT wnd;
@@ -911,9 +913,14 @@ static void RestoreOldWin(POINT pt, int was_snapped)
     state.offset.x = (state.origin.width  * (pt.x-wnd.left))/(wnd.right-wnd.left);
     state.offset.y = (state.origin.height * (pt.y-wnd.top)) /(wnd.bottom-wnd.top);
 
-    if (state.origin.maximized || was_snapped) {
+    if (state.origin.maximized || was_snapped == 1) {
         // NOTHING
     } else if (restore) {
+        if(was_snapped == 2) {
+            // Restoring via normal drag we want
+            // the offset along Y to be unchanged...
+            state.offset.y = pt.y-wnd.top;
+        }
         MoveWindow(state.hwnd, pt.x - state.offset.x - mdiclientpt.x
                              , pt.y - state.offset.y - mdiclientpt.y
                              , state.origin.width, state.origin.height, TRUE);
@@ -935,7 +942,7 @@ static void MouseMove(POINT pt)
     int was_snapped=0;
     if(state.action == AC_MOVE && !was_moving){
         was_snapped = IsWindowSnapped(state.hwnd);
-        RestoreOldWin(pt, was_snapped);
+        RestoreOldWin(pt, was_snapped, 1);
     }
 
     static RECT wnd;
@@ -952,8 +959,7 @@ static void MouseMove(POINT pt)
         pt.y -= mdiclientpt.y;
     }
 
-    // Restrict pt within origin monitor if Ctrl is being pressed
-    // 
+    // Restrict pt within origin monitor if Ctrl|Shift is being pressed
     if ((state.ctrl || state.shift) && !state.ignorectrl) {
         static HMONITOR origMonitor;
         static RECT fmon;
@@ -1150,7 +1156,7 @@ static void Send_DoubleClick(DWORD button)
     Sleep(1);
     click[0].dwExtraInfo = click[1].dwExtraInfo = GetMessageExtraInfo();
     SendInput(2, input, sizeof(INPUT));
-    Sleep(0);
+    Sleep(1);
     state.ignoreclick = 0;
 }
 
@@ -1234,10 +1240,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         }
 
     } else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP) {
-        if (vkey == VK_LCONTROL || vkey == VK_RCONTROL) {
-            state.ctrl = 0;
-            ClipCursor(NULL); // Release cursor trapping
-        }
         if (IsHotkey(vkey)) {
             // Prevent the alt keyup from triggering the window menu to be selected
             // The way this works is that the alt key is "disguised" by sending ctrl keydown/keyup events
@@ -1249,13 +1251,16 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.alt = 0;
             state.ignorectrl = 0;
 
-            // Unhook mouse if not moving or resizing
+            // Unhook mouse if no actions is ongoing.
             if (!state.action) {
                 UnhookMouse();
             }
         } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
             state.shift = 0;
             state.snap = conf.AutoSnap;
+            ClipCursor(NULL); // Release cursor trapping
+        } else if (vkey == VK_LCONTROL || vkey == VK_RCONTROL) {
+            state.ctrl = 0;
             ClipCursor(NULL); // Release cursor trapping
         }
     }
@@ -1502,7 +1507,7 @@ static int ActionTransparency(POINT pt, int delta)
         return 0;
     }
     hwnd = GetAncestor(hwnd, GA_ROOT);
-    if ( blacklisted(hwnd, &BlkLst.Windows) || blacklistedP(hwnd, &BlkLst.Processes) )
+    if (blacklisted(hwnd, &BlkLst.Windows) || blacklistedP(hwnd, &BlkLst.Processes) )
         return 0;
 
     LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
@@ -1626,25 +1631,75 @@ static HCURSOR CursorToDraw()
     }
     return cursor;
 }
+
 /////////////////////////////////////////////////////////////////////////////
-static int ActionMove(HMONITOR monitor, DWORD button)
+// Return 1 if it was already in db.
+static int GetWindowInDB(HWND hwndd)
 {
-    if (!monitor) {
-        POINT pt;
-        GetCursorPos(&pt);
-        monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+    // Check if window is already in the wnddb database
+    // And set it in the current state
+    state.wndentry = NULL;
+    int i;
+    for (i=0; i < NUMWNDDB; i++) {
+        if (wnddb.items[i].hwnd == hwndd) {
+            state.wndentry = &wnddb.items[i];
+            return 1;
+        }
     }
-    // Toggle Maximize window if this is a double-click
+    return 0;
+}
+static void AddWindowToDB(HWND hwndd)
+{
+    GetWindowInDB(hwndd);
 
-    if (GetTickCount()-state.clicktime <= conf.dbclktime && IsResizable(state.hwnd)) {
-        state.action = AC_NONE; // Stop move action
-        state.clicktime = 0; // Reset double-click time
+    // Find a nice place in wnddb if not already present
+    int i;
+    if (state.wndentry == NULL) {
+        for (i=0; i < NUMWNDDB+1 && wnddb.pos->restore ; i++) {
+            wnddb.pos = (wnddb.pos == &wnddb.items[NUMWNDDB-1])?&wnddb.items[0]:wnddb.pos+1;
+        }
+        state.wndentry = wnddb.pos;
+        state.wndentry->hwnd = hwndd;
+        state.wndentry->restore = 0;
+    }
+}
 
-        if (!conf.PearceDBClick) {
-            state.blockmouseup = 1; // Block the mouseup, otherwise it can trigger a context menu
-            Maximize_Restore_atpt(state.hwnd, NULL, SW_TOGGLE_MAX_RESTORE, monitor);
-        } else {
-            Send_DoubleClick(button);
+/////////////////////////////////////////////////////////////////////////////
+static int ActionMove(POINT pt, HMONITOR monitor, DWORD button)
+{
+    // If this is a double-click
+    if (GetTickCount()-state.clicktime <= conf.dbclktime) {
+        if (state.shift) {
+            // Roll/Unroll Window...
+            RECT rc;
+            AddWindowToDB(state.hwnd);
+            if (state.wndentry->restore == 2) {
+                if(IsZoomed(state.hwnd)){
+                    PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+                    PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+                    state.wndentry->restore = 0;
+                } else {
+                    RestoreOldWin(pt, 2, 2);
+                }
+            } else {
+                GetWindowRect(state.hwnd, &rc);
+                SetWindowPos(state.hwnd, NULL, rc.left, rc.top, rc.right - rc.left,
+                         GetSystemMetrics(SM_CYMIN), SWP_NOMOVE|SWP_NOZORDER);
+                state.wndentry->width = state.origin.width;
+                state.wndentry->height = state.origin.height;
+                state.wndentry->restore = 2;
+            }
+        } else if (IsResizable(state.hwnd)) {
+            // Toggle Maximize window
+            state.action = AC_NONE; // Stop move action
+            state.clicktime = 0; // Reset double-click time
+    
+            if (!conf.PearceDBClick) {
+                state.blockmouseup = 1; // Block the mouseup, otherwise it can trigger a context menu
+                Maximize_Restore_atpt(state.hwnd, NULL, SW_TOGGLE_MAX_RESTORE, monitor);
+            } else {
+                Send_DoubleClick(button);
+            }
         }
         // Prevent mousedown from propagating
         return 1;
@@ -1701,49 +1756,63 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
 
         // Get and set new position
         int posx, posy, wndwidth, wndheight;
-        // Set for Top Left corner
-        wndwidth =  CLAMPW( (mon.right-mon.left)*conf.AHoff/100 );
-        wndheight = CLAMPH( (mon.bottom-mon.top)*conf.AVoff/100 );
-        posx = mon.left;
-        posy = mon.top;
-
         RECT bd;
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &bd);
 
-        if (state.resize.y == RZ_CENTER) {
-            wndheight = CLAMPH(mon.bottom - mon.top);
-            posy += (mon.bottom - mon.top)/2 - wndheight/2;
-        } else if (state.resize.y == RZ_BOTTOM) {
-            wndheight = CLAMPH( (mon.bottom-mon.top)*(100-conf.AVoff)/100 );
-            posy = mon.bottom-wndheight;
-        }
+        if(state.shift) { /* Extend window's direction to monitor */
+            posx = wnd->left - mdiclientpt.x;
+            posy = wnd->top - mdiclientpt.y;
+            wndwidth = wnd->right - wnd->left;
+            wndheight= wnd->bottom - wnd->top;
 
-        if (state.resize.x == RZ_CENTER && state.resize.y != RZ_CENTER) {
-            if (state.resize.y == RZ_TOP && state.shift) {
-                Maximize_Restore_atpt(state.hwnd, &pt, SW_TOGGLE_MAX_RESTORE, NULL);
-                return 1;
-            } else {
+            if (state.resize.y == RZ_TOP) {
+                posy = mon.top - bd.top;
+                wndheight = CLAMPH(wnd->bottom-mdiclientpt.y - mon.top + bd.top);
+            } else if (state.resize.y == RZ_BOTTOM) {
+                wndheight = CLAMPH(mon.bottom - wnd->top+mdiclientpt.y + bd.bottom);
+            }
+            if (state.resize.x == RZ_RIGHT) {
+                wndwidth =  CLAMPW(mon.right - wnd->left+mdiclientpt.x + bd.right);
+            } else if (state.resize.x == RZ_LEFT) {
+                posx = mon.left - bd.left;
+                wndwidth =  CLAMPW(wnd->right-mdiclientpt.x - mon.left + bd.left);
+            } else if (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER) {
+                wndwidth = CLAMPW(mon.right - mon.left + bd.left + bd.right);
+                posx = mon.left - bd.left;
+                posy = wnd->top - mdiclientpt.y + bd.top ;
+            }
+        } else { /* Aero Snap */
+            wndwidth =  CLAMPW( (mon.right-mon.left)*conf.AHoff/100 );
+            wndheight = CLAMPH( (mon.bottom-mon.top)*conf.AVoff/100 );
+            posx = mon.left;
+            posy = mon.top;
+            if (state.resize.y == RZ_CENTER) {
+                wndheight = CLAMPH(mon.bottom - mon.top);
+                posy += (mon.bottom - mon.top)/2 - wndheight/2;
+            } else if (state.resize.y == RZ_BOTTOM) {
+                wndheight = CLAMPH( (mon.bottom-mon.top)*(100-conf.AVoff)/100 );
+                posy = mon.bottom-wndheight;
+            }
+
+            if (state.resize.x == RZ_CENTER && state.resize.y != RZ_CENTER) {
                 wndwidth = CLAMPW( (mon.right-mon.left) );
                 posx += (mon.right - mon.left)/2 - wndwidth/2;
-            }
-        } else if (state.resize.x == RZ_CENTER) {
-            if (state.shift) {
-                // center-center mode and shift => max width.
-                wndwidth = CLAMPW(mon.right - mon.left);
-                wndheight= wnd->bottom - wnd->top - bd.top - bd.bottom ;
-                posx = mon.left;
-                posy = wnd->top - mdiclientpt.y + bd.top ;
-            } else {
+            } else if (state.resize.x == RZ_CENTER) {
+                if(state.resize.y == RZ_CENTER && state.ctrl) {
+                    Maximize_Restore_atpt(state.hwnd, &pt, SW_TOGGLE_MAX_RESTORE, NULL);
+                    return 1;
+                }
                 wndwidth = wnd->right - wnd->left - bd.left - bd.right;
                 posx = wnd->left - mdiclientpt.x + bd.left;
+            } else if (state.resize.x == RZ_RIGHT) {
+                wndwidth =  CLAMPW( (mon.right-mon.left)*(100-conf.AHoff)/100 );
+                posx = mon.right - wndwidth;
             }
-        } else if (state.resize.x == RZ_RIGHT) {
-            wndwidth =  CLAMPW( (mon.right-mon.left)*(100-conf.AHoff)/100 );
-            posx = mon.right - wndwidth;
+            // FixDWMRect
+            posx -= bd.left; posy -= bd.top;
+            wndwidth += bd.left+bd.right; wndheight += bd.top+bd.bottom;
         }
-        // FixDWMRect
-        posx -= bd.left; posy -= bd.top;
-        wndwidth += bd.left+bd.right; wndheight += bd.top+bd.bottom;
+
         MoveWindow(state.hwnd, posx, posy, wndwidth, wndheight, TRUE);
 
         if (!state.wndentry->restore) {
@@ -1767,30 +1836,6 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
     }
 
     return -1;
-}
-/////////////////////////////////////////////////////////////////////////////
-static void AddWindowToDB(HWND hwndd)
-{
-    // Check if window is already in the wnddb database
-    // And set it in the current state
-    state.wndentry = NULL;
-    int i;
-    for (i=0; i < NUMWNDDB; i++) {
-        if (wnddb.items[i].hwnd == hwndd) {
-            state.wndentry = &wnddb.items[i];
-            break;
-        }
-    }
-
-    // Find a nice place in wnddb if not already present
-    if (state.wndentry == NULL) {
-        for (i=0; i < NUMWNDDB+1 && wnddb.pos->restore == 1; i++) {
-            wnddb.pos = (wnddb.pos == &wnddb.items[NUMWNDDB-1])?&wnddb.items[0]:wnddb.pos+1;
-        }
-        state.wndentry = wnddb.pos;
-        state.wndentry->hwnd = hwndd;
-        state.wndentry->restore = 0;
-    }
 }
 /////////////////////////////////////////////////////////////////////////////
 static void GetMinMaxInfo_glob(HWND hwnd)
@@ -1883,7 +1928,7 @@ static int init_movement_and_actions(POINT pt, enum action action
     // Do things depending on what button was pressed
     if (action == AC_MOVE) { ////////////////
         GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
-        int ret = ActionMove(monitor, button);
+        int ret = ActionMove(pt, monitor, button);
         if (ret == 0)
             return 0;
         else if (ret == 1)
@@ -1903,22 +1948,10 @@ static int init_movement_and_actions(POINT pt, enum action action
     } else if (action == AC_MINIMIZE) {
         PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
     } else if (action == AC_MAXIMIZE) {
-        if(state.shift) {
+        if (state.shift) {
             PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
         } else if (IsResizable(state.hwnd)) {
             Maximize_Restore_atpt(state.hwnd, NULL, SW_TOGGLE_MAX_RESTORE, monitor);
-//            WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
-//            GetWindowPlacement(state.hwnd, &wndpl);
-//            wndpl.showCmd = SW_MAXIMIZE;
-//            wndpl.rcNormalPosition.left = 200;
-//            wndpl.rcNormalPosition.top  = 200;
-//            wndpl.rcNormalPosition.right  = 600;
-//            wndpl.rcNormalPosition.bottom = 500;
-////            ShowWindow(state.hwnd, SW_HIDE);
-////            Sleep(200);
-//            SetWindowPlacement(state.hwnd, &wndpl);
-//            MoveWindow(state.hwnd, 400, 400, 600, 600, TRUE);
-////            ShowWindow(state.hwnd, SW_SHOW);
         }
     } else if (action == AC_CENTER) {
         MoveWindow(state.hwnd, mon.left+(mon.right-mon.left)/2-state.origin.width/2
@@ -2009,14 +2042,13 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         if (!IsSamePTT(pt, state.clickpt)) {
             state.clicktime = 0;
         }
-
     } else if (wParam == WM_MOUSEWHEEL || wParam == WM_MOUSEHWHEEL) {
         if (state.alt && !state.action && conf.Mouse.Scroll) {
             int delta = GET_WHEEL_DELTA_WPARAM(msg->mouseData);
 
             if (conf.Mouse.Scroll == AC_ALTTAB && !state.shift) {
                 if(!ActionAltTab(pt, delta))
-                    CallNextHookEx(NULL, nCode, wParam, lParam);
+                    return CallNextHookEx(NULL, nCode, wParam, lParam);
 
             } else if (conf.Mouse.Scroll == AC_VOLUME) {
                 if(!ActionVolume(delta))
@@ -2059,16 +2091,20 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         || wParam==WM_RBUTTONUP  ||wParam==WM_XBUTTONUP)?STATE_UP:STATE_NONE;
 
     // Lower window if middle mouse button is used on the title bar/top of the win
-    if (conf.LowerWithMMB && !state.alt && !state.action && buttonstate == STATE_DOWN && button == BT_MMB) {
+    // Or restore an AltDrad Aero-snapped window.
+    if ((conf.LowerWithMMB || conf.NormRestore)
+      && !state.alt && !state.action && (wParam == WM_MBUTTONDOWN || wParam == WM_LBUTTONDOWN)) {
         HWND hwnd = WindowFromPoint(pt);
         if (!hwnd) return CallNextHookEx(NULL, nCode, wParam, lParam);
         hwnd = GetAncestor(hwnd, GA_ROOT);
-        if (blacklisted(hwnd, &BlkLst.Windows) || blacklisted(hwnd, &BlkLst.MMBLower))
+        if (blacklisted(hwnd, &BlkLst.Windows) || (wParam == WM_MBUTTONDOWN && blacklisted(hwnd, &BlkLst.MMBLower)))
             return CallNextHookEx(NULL, nCode, wParam, lParam);
 
         int area = SendMessage(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x,pt.y));
-        if (area == HTCAPTION || area == HTTOP || area == HTTOPLEFT || area == HTTOPRIGHT
-         || area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON || area == HTCLOSE) {
+
+        if (conf.LowerWithMMB && wParam == WM_MBUTTONDOWN
+         && (area == HTCAPTION || area == HTTOP || area == HTTOPLEFT || area == HTTOPRIGHT
+         || area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON || area == HTCLOSE)) {
             if (state.shift) {
                 PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
             } else {
@@ -2078,8 +2114,23 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
                 SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
             }
             return 1;
+        } else if (conf.NormRestore && wParam == WM_LBUTTONDOWN && area == HTCAPTION
+               && !IsZoomed(hwnd) && !IsWindowSnapped(hwnd)) {
+            if (GetWindowInDB(hwnd)) {
+                // Set NormRestore to 2 in order to signal that
+                // The window should be restored
+                conf.NormRestore=2;
+                state.hwnd = hwnd;
+                state.origin.maximized=0;
+            }
         }
+    } else if (conf.NormRestore > 1 && buttonstate != STATE_UP) {
+        RestoreOldWin(pt, 2, 1);
+        conf.NormRestore = 1;
+    } else if (buttonstate == STATE_UP) {
+        if (conf.NormRestore) conf.NormRestore = 1;
     }
+    // END of Lower with MMB and NormRestore...
 
     // Return if no mouse action will be started
     enum action action = GetAction(button);
@@ -2088,14 +2139,14 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
     // Block mousedown if we are busy with another action
     if (state.action && buttonstate == STATE_DOWN) {
         return 1; // Block mousedown so AltDrag.exe does not remove cursorwnd
-
     } else if (buttonstate == STATE_UP && state.blockmouseup) {
+        // Block mouseup if asked
         state.blockmouseup = 0;
         return 1;
 
+    // INIT ACTIONS on mouse down if Alt is down...
     } else if (state.alt && buttonstate == STATE_DOWN) {
         int ret = init_movement_and_actions(pt, action, nCode, wParam, lParam, button);
-        action = state.action;
         if(!ret) {
             return CallNextHookEx(NULL, nCode, wParam, lParam);
         } else {
@@ -2124,22 +2175,20 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
             }
             state.snap = conf.AutoSnap;
         }
+        // Send WM_EXITSIZEMOVE
+        SendSizeMove_on(state.action, 0);
 
         state.action = AC_NONE;
         was_moving = 0;
 
-        // Send WM_EXITSIZEMOVE
-        SendSizeMove_on(action, 0);
-
-        // Unhook mouse?
+        // Unhook mouse if Alt is released
         if (!state.alt) {
             UnhookMouse();
+        } else {
+            // Just hide cursorwnd
+            ReleaseCapture();
+            ShowWindowAsync(cursorwnd, SW_HIDE);
         }
-
-        // Hide cursorwnd
-        ReleaseCapture();
-        ShowWindowAsync(cursorwnd, SW_HIDE);
-
         // Prevent mouseup from propagating
         return 1;
     }
@@ -2152,7 +2201,7 @@ static void HookMouse()
 {
     was_moving = 0; // Used to know the first time we call MouseMove.
     state.ignoreclick = 0;
-    if (conf.InactiveScroll || conf.LowerWithMMB) {
+    if (conf.InactiveScroll || conf.LowerWithMMB || conf.NormRestore) {
         SendMessage(g_hwnd, WM_TIMER, REHOOK_TIMER, 0);
     }
 
@@ -2174,6 +2223,7 @@ static void UnhookMouse()
     state.ctrl = 0;
     state.shift = 0;
     state.ignorectrl = 0;
+    if (conf.NormRestore) conf.NormRestore = 1;
 
     was_moving = 0; // Just in case
 
@@ -2186,7 +2236,7 @@ static void UnhookMouse()
     ClipCursor(NULL);  // Release cursor trapping in case...
 
     // Do not unhook if not hooked or if the hook is still used for something
-    if (!mousehook || conf.InactiveScroll || conf.LowerWithMMB)
+    if (!mousehook || conf.InactiveScroll || conf.LowerWithMMB || conf.NormRestore)
         return;
 
     // Remove mouse hook
@@ -2202,7 +2252,7 @@ static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             KillTimer(g_hwnd, wParam);
 
             // Hook mouse if a permanent hook is needed
-            if (conf.InactiveScroll || conf.LowerWithMMB) {
+            if (conf.InactiveScroll || conf.LowerWithMMB || conf.LowerWithMMB) {
                 HookMouse();
                 SetTimer(g_hwnd, REHOOK_TIMER, 5000, NULL); // Start rehook timer
             }
@@ -2308,6 +2358,7 @@ __declspec(dllexport) void Load(void)
     conf.AutoSnap=state.snap=GetPrivateProfileInt(L"General", L"AutoSnap", 0, inipath);
     conf.Aero =         GetPrivateProfileInt(L"General", L"Aero", 1, inipath);
     conf.InactiveScroll=GetPrivateProfileInt(L"General", L"InactiveScroll", 0, inipath);
+    conf.NormRestore   =GetPrivateProfileInt(L"General", L"NormRestore", 0, inipath);
     conf.MDI =          GetPrivateProfileInt(L"General", L"MDI", 0, inipath);
     conf.ResizeCenter = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
     conf.CenterFraction=CLAMP(0, GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath), 100);
@@ -2322,7 +2373,7 @@ __declspec(dllexport) void Load(void)
     conf.AeroTopMaximizes=GetPrivateProfileInt(L"Advanced",L"AeroTopMaximizes",1, inipath);
     conf.UseCursor     = GetPrivateProfileInt(L"Advanced", L"UseCursor", 1, inipath);
     conf.PearceDBClick = GetPrivateProfileInt(L"Advanced", L"PearceDBClick", 0, inipath);
-    conf.MinAlpha      = GetPrivateProfileInt(L"Advanced", L"MinAlpha", 8, inipath);
+    conf.MinAlpha      = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"MinAlpha", 8, inipath), 255);
 
     // CURSOR STUFF
     cursorwnd = FindWindow(APP_NAME, NULL);

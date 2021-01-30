@@ -93,6 +93,7 @@ struct strings {
   wchar_t *input_actions_minimize;
   wchar_t *input_actions_maximize;
   wchar_t *input_actions_lower;
+  wchar_t *input_actions_roll;
   wchar_t *input_actions_alwaysontop;
   wchar_t *input_actions_borderless;
   wchar_t *input_actions_center;
@@ -201,6 +202,7 @@ struct {
   { &l10n_ini.input_actions_minimize,          L"InputActionMinimize" },
   { &l10n_ini.input_actions_maximize,          L"InputActionMaximize" },
   { &l10n_ini.input_actions_lower,             L"InputActionLower" },
+  { &l10n_ini.input_actions_roll,              L"InputActionRoll" },
   { &l10n_ini.input_actions_alwaysontop,       L"InputActionAlwaysOnTop" },
   { &l10n_ini.input_actions_borderless,        L"InputActionBorderless" },
   { &l10n_ini.input_actions_center,            L"InputActionCenter" },
@@ -311,6 +313,7 @@ struct strings en_US = {
  /* minimize           */ L"Minimize window",
  /* maximize           */ L"Maximize window",
  /* lower              */ L"Lower window",
+ /* roll               */ L"Roll/Unroll window",
  /* alwaysontop        */ L"Toggle always on top",
  /* borderless         */ L"Toggle borderless",
  /* center             */ L"Center window on screen",

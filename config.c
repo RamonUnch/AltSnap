@@ -380,7 +380,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), elevated ? BST_CHECKED : BST_UNCHECKED);
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE), autostart);
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), autostart && VISTA);
-            
+
         }
     }
     if (updatestrings) {
@@ -449,6 +449,7 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"Minimize",    l10n->input_actions_minimize},
         {L"Maximize",    l10n->input_actions_maximize},
         {L"Lower",       l10n->input_actions_lower},
+        {L"Roll",        l10n->input_actions_roll},
         {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
         {L"Borderless",  l10n->input_actions_borderless},
         {L"Center",      l10n->input_actions_center},
@@ -474,8 +475,6 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         { IDC_RIGHTALT,    VK_RMENU    },
         { IDC_LEFTWINKEY,  VK_LWIN     },
         { IDC_RIGHTWINKEY, VK_RWIN     },
-//        { IDC_LEFTCTRL,    VK_LCONTROL },
-//        { IDC_RIGHTCTRL,   VK_RCONTROL },
     };
 
     if (msg == WM_INITDIALOG) {

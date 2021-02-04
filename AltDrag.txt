@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTDRAG for NT4 to Win10                         *
 *   Modified by Raymond Gillibert from original source by Stefan Sundin   *
-*                     release 1.36 (January 31, 2021)                     *
+*                     release 1.36 (February 4, 2021)                     *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltDrag/releases/         *
@@ -13,54 +13,53 @@ AltDrag gives you the ability to move and resize your windows in a new way.
 When AltDrag is running, you can simply hold down the Alt key and then click
 and drag any window.
 
-This behavior already exists in Linux and other operating systems, 
+This behavior already exists in Linux and other operating systems,
 and AltDrag was made with the mission to copy that behavior to the
 Windows platform.
 ___________
 MOVE WINDOW
 You can Move a Window by pressing Alt and using (by default) the left mouse
 button. If you double-click it will maximize/restore the window, and if you
-hold Shift while doubleclicking it will roll/unroll the window on its
-titlebar.
+hold Shift while double-clicking, it will roll/unroll the window on its
+title bar.
 _____________
 RESIZE WINDOW
 You can use (by default) the right mouse button to resize windows.
 Imagine the window divided into nine squares, and you will resize the
-corner nearest to where you press. The corners are slightly bigger 
+corner nearest to where you press. The corners are slightly bigger
 than the middle regions by default (adjust using AltDara.ini).
  ____________________________________________
 / @             |            |         _ O X \
 |===============+============+===============|
-|    top        |    top     |       top     |
-|    left       |            |     right     |
+|    top        |    top     |        top    |
+|    left       |            |      right    |
 |---------------+------------+---------------|
 |               |            |               |
-|    left       |   center   |     right     |
+|    left       |   center   |      right    |
 |               |            |               |
 |---------------+------------+---------------|
 |               |            |               |
-|    bottom     |            |    bottom     |
-|    left       |   bottom   |     right     |
+|    bottom     |            |     bottom    |
+|    left       |   bottom   |      right    |
 |_______________|____________|_______________|
 
 If you double-click (double right click) these regions, the window will be
 moved to the respective corner on your screen (like Aero Snap), so you can
 quickly arrange your windows to fit on the screen. If you press Shift in
 addition, the respective window side will be extended to the monitor side.
-Finally if you press CTRL and boubleclick on the center region it will
+Finally if you press Ctrl and double-click on the center region it will
 maximize/restore the window.
 The center region can be configured to behave differently (see options).
 _____________
 OTHER ACTIONS
 AltDrag can be configured quite finely You can set any button to perform
 any action among a list: Move, Resize, Close, Minimize, Maximize, Lower,
-AlwaysOnTop, Borderless, Center and Nothing.
+AlwaysOnTop, Borderless, Center, Roll and Nothing.
 
 By default the middle mouse button is configured for the Maximize action,
 that maximizes/restores the window. Press Shift to minimize.
 ____________________________
 TRICKS YOU SHOULD KNOW ABOUT
-* While dragging windows, press Shift to make the window snap to each-other.
 * AltDrag will not bring windows to front by default. Press Ctrl to bring the
   window to front, or configure AltDrag to do that automatically.
 * AltDrag will mimic Aero Snap by default, so try dragging windows to the
@@ -68,21 +67,57 @@ TRICKS YOU SHOULD KNOW ABOUT
 * If you use multiple monitors, you can hold Ctrl or Shift while dragging to
   trap the window within the current monitor. This is particularly useful if
   you want to Aero Snap at edges between monitors.
+* While dragging, windows borders will snap to each-other. This behavior can
+  be changed in the config. If you disable it you can still press Shift while
+  dragging to force windows borders to snap to each other.
 * If you have automatic snapping enabled, you can temporarily disable it by
   pressing the space bar while dragging.
-* If you use the scroll wheel to change the volume, you can hold shift to 
+* If you are moving a window you can press the right mouse button to toggle
+  the maximized state.
+* If you use the scroll wheel to change the volume, you can hold shift to
   increase the rate the volume is changed. If you use the scroll wheel to
   change the transparency, you can hold shift to decrease the rate the
   transparency is changed.
 * If you have Scroll inactive windows enabled, you can hold the Shift key to
   scroll horizontally. Note that this relies on that the program has support
   for normal horizontal mouse wheel scrolling, which not all programs have.
-* If you can’t move a particular window, try elevating AltDrag. 
-  Normal programs can’t interact with programs that are started with
+* If you can't move a particular window, try elevating AltDrag.
+  Normal programs can't interact with programs that are started with
   administrator privileges.
 * You can run multiple instances of AltDrag if you configure AltDrag.ini.
-  This is useful if you e.g. want Alt+LMB to move windows and Ctrl+LMB to
+  This is useful if you e.g. want Alt+LMB to move windows and Win+LMB to
   resize windows.
+* Try to add the Shift modifier key for any action, usually it has an effect.
+_____________
+CONFIGURATION
+To change the configuration from default, double-click on the tray icon, and
+you will be presented with a lot of choices.
+_________
+LANGUAGES
+AltDrag is fully translated in French, Italian and mostly translated in many
+other languages. All translations are simple ini files encoded in UTF-16 LE.
+If you want to create or improve a translation, just add or modify the 
+associated ini file in the Lang directory, and no not forget to send it to
+me via a GitHub pull request/issue or PM me, so that everyone can enjoy your
+translation. You can use "Lang\_en_US baseline.txt" as a starting point if
+you want to translate everything to a new language.
+________
+ADVANCED
+If you want to go further into the configuration, open the AltDrag.ini file
+by middle-clicking on the tray icon. You will see all the option there with
+a short description.
+
+* Set NormRestore=1 if you want a normal click to be able to restore an
+  AltDrag snapped window.
+* Set CenterFraction to change the size in percents of the central area.
+* Set RollWithTBScroll=1 to Roll/Unroll Window when using the Alt+Scroll
+  wheel on its title bar.
+______
+UPDATE
+To avoid useless bloat and potential vulnerability AltDrag no longer
+auto-updates. You can check for new versions on the GitHub page 
+If you want automation, install altdrag via the chocolatey package.
+> choco install altdrag --version X.XX
 
 ===========================================================================
 == USAGE ==
@@ -104,26 +139,68 @@ Note that this version has some more feature..
 
 == AltDrag 1.36 ==
 
-+ NEW: Now a window can be rolled/unrolled into its title bar, using
-  Alt+Shift+DoubleLeftClick (redactedscribe proposition).
++ Added MMMaximize option in the [General] section of altdrag.ini in order to
+  restore old AltDrag behavior (thanks brian6932):
+  Set to 1 to maximize/restore on left+right click (default).
+  Set to 2 to restore on a single left click instead of a drag.
+  Set to 3 for both (like the original AltDrag).
+  Set to 0 to disable any of those.
 
-+ NEW: Now when using Alt+Shift+DoubleRightClick, the window will be extended
++ Now the AeroMaxSpeed value can be set to put a speed limit beyond which the
+  moved window will not be Aero-Snapped. This is useful to move windows
+  between monitors without "flicker". You have to set AeroMaxSpeed and 
+  AeroSpeedInt in the [Advanced] section of AltDrag.ini.
+  AeroMaxSpeed is in pixels/X frames (from 1-65535)
+  AeroSpeedInt to specifies the number of frames (default 1) from 1-255.
+  To set this value: (i) See the frequency of your mouse and set an 
+  AeroSpeedInt to average over 10ms or so, so if you have a 1kHz mouse,
+  set it to 8-10, if you have a ~100Hz mouse (typical) keep it to 1 or 2.
+  (ii) Set AeroMaxSpeed to a "high" value (like 50) and try to move fast
+  a window between two monitors, if it get aero-snapped, decrease the value
+  until it "just" no longers snaps. (iii) Check that the window does snap
+  when you want it to sap, if the window tends to restore when you do not
+  want, increase the AeroMaxSpeed value.
+
++ Roll/Unroll action was added: It collapses the window in its title bar.
+  It can also be used with the move action (Alt+Shift+DoubleLeftClick).
+  You can also set RollWithTBScroll=1 in the [Input] section of your ini file
+  to enable Alt+Wheel to roll/unroll window when pointing to their title bar.
+  If not pointing to the title bar the normal Scroll action will be performed.
+  If Ctrl is pressed the normal Scroll action will always be performed
+
++ New: Now when using Alt+Shift+DoubleRightClick, the window will be extended
   to the corner/border of the monitor according to which area of the window
   was double clicked. Alt+DoubleRightClick works as before and Aero-snaps
   the window to the monitor sides/corners. Finally to Maximize a window you
   can use Alt+Ctrl+DBLeftClick on the center portion of the window (this is
-  usefull if you use a single button config with resize center set to "move".
+  useful if you use a single button config with resize center set to "move".
 
-* Fixed: cleaned up some code and corrected potential bugs.
++ New: Now the AlphaDelta and AlphaDeltaShift value can be set into the
+  [Advanced] section of AltDrag.ini to tune from -128 to +127 the step at
+  which the transparency is changed when using the Transparency Action.
+  Default is 64 and 8 with the Shift modifier. You can put negative values
+  if you want to invert wheel Up/Down direction.
 
 * Fixed/New: When Aero-snapping with AltDrag, the window can be restored
   via the title bar like normal. This is enabled if NormRestore=1 in the
-  [General] section of AltDrag.ini
+  [General] section of AltDrag.ini.
+
+* Fixed/New: Now a full screen window will be resized to full screen when
+  moving it to a different monitor. If you want you can set ResizeAll=3
+  to force move/resize of all full screen window. Keep in mind that some
+  full screen windows are really not resizable (eg Firefox and Edge).
 
 * Fixed: Now if MinAlpha is set to 0, it will be clamped back to 1, because
   setting to zero the alpha of a window disables any interaction with it.
   Everyone should also add ",Program Manager|Progman" to their windows
   blacklist (without the quotes).
+
+* New: Improved the AltDrag.txt file, read it for some basic documentation.
+
+* Fixed: cleaned up some code and corrected potential bugs, moved some more
+  code into functions.
+
+* Fixed: Now the AutoRemaximize option should always work.
 
 == AltDrag 1.35 ==
 
@@ -195,7 +272,7 @@ Note that this version has some more feature..
   Note that none of those settings is expected to affect performances in
   any significant way.
 
-+ Now when pressing the SHIFT ket while using doubleclick snapping on the
++ Now when pressing the SHIFT key while using doubleclick snapping on the
   center-top section of the window, this later will be maximized/restored,
   instead of being snapped to the top. This will be usefull when using
   the Move instead of resize-center option.
@@ -495,35 +572,5 @@ This is because it relies on the 'LowLevel Keyboard/Mouse Proc' functions
 that is only supported by the NT based Windows and from NT4 sp3. You will
 note that the program also depends on 'SendInput()' that appeared at the
 same time. This later dependency is not necessary but is convenient.
-
-
-== What is AltDrag and why this version? ==
-If you ever use any half decent Linux distribution you will realize how bad
-the default window manager is under Microsoft Windows OS, in comparison to
-what you can get on Linux.
-
-When resizing and moving windows in particular, under Windows you HAVE to
-click precisely on the title bar to move or on a thin border to resize.
-A much better solution is to combine mouse and keyboard in order for the
-ALT key to trigger moving mode, where any left click dragging on the window
-will move it and right click will resize depending on where your cursor is
-on the window.
-
-Stefan Sundin wrote a little program named AltDrag that adds this behavior
-under Windows. I started using his program which is really awesome but
-encountered some performance problems on my old computer. Because AltDrag
-Shows the content of the windows while dragging, it is annoying to use
-on slow hardware, I also prefer, and find visually less disturbing, to
-have just a rectangle when I move/resize the window.
-In addition I realized that the program was incompatible with Windows NT4
-and Windows 2000 That I still use to this day.
-
-After modifying a little the source the program was quickly compatible
-with Windows NT4 and then I started refactoring the code and simplify it
-by removing a lot of features and adding a few others this led to
-AltDragMicro.
-
-Then I worked again to the fully featured version and only removed a
-couple of buggy features and added mines.
 
 == END OF FILE ==

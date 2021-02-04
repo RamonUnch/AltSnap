@@ -462,6 +462,7 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"Volume",       l10n->input_actions_volume},
         {L"Transparency", l10n->input_actions_transparency},
         {L"Lower",        l10n->input_actions_lower},
+        {L"Roll",         l10n->input_actions_roll},
         {L"Maximize",     l10n->input_actions_maximize},
         {L"Nothing",      l10n->input_actions_nothing},
     };

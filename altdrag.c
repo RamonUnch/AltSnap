@@ -177,11 +177,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
            ElevateNow(0);
         } else if (wmId == SWM_CONFIG) {
             SendMessage(hwnd, WM_OPENCONFIG, 0, 0);
-//        } else if (wmId == SWM_HELP) {
-//            wchar_t txtpath[MAX_PATH];
-//            GetModuleFileName(NULL, txtpath, ARR_SZ(txtpath));
-//            wcscpy(&txtpath[wcslen(txtpath)-3], L"txt");
-//            ShellExecute(NULL, L"open", txtpath, NULL, NULL, SW_SHOWNORMAL);
         } else if (wmId == SWM_ABOUT) {
             SendMessage(hwnd, WM_OPENCONFIG, 3, 0);
         } else if (wmId == SWM_EXIT) {

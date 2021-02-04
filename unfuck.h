@@ -30,7 +30,6 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
 #define wcsicmp _wcsicmp
 #define LOG(X, ...) { FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fclose(LOG); }
 
-
 /* Stuff missing in MinGW */
 #define WM_MOUSEHWHEEL 0x020E
 CLSID my_CLSID_MMDeviceEnumerator= {0xBCDE0395,0xE52F,0x467C,{0x8E,0x3D,0xC4,0x57,0x92,0x91,0x69,0x2E}};
@@ -386,41 +385,21 @@ HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 
 void FixDWMRect(HWND hwnd, int *posx, int *posy, int *wndwidth, int *wndheight, RECT *bbb)
 {
-    static char have_func=HAVE_FUNC;
-    HINSTANCE hdll=NULL;
     RECT rect, frame;
 
-    switch(have_func){
-    case -1:
-        hdll = LoadLibraryA("DWMAPI.DLL");
-        if(!hdll) {
-            have_func = 0;
-            break;
-        } else {
-            myDwmGetWindowAttribute=(void *)GetProcAddress(hdll, "DwmGetWindowAttribute");
-            if(myDwmGetWindowAttribute){
-                have_func = 1;
-            } else {
-                FreeLibrary(hdll);
-                have_func = 0;
-                break;
-            }
-        }
-    case 1:
-        if(GetWindowRect(hwnd, &rect)
-        && S_OK == myDwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &frame, sizeof(RECT))){
-            RECT border;
-            border.left = frame.left - rect.left;
-            border.top = frame.top - rect.top;
-            border.right = rect.right - frame.right;
-            border.bottom = rect.bottom - frame.bottom;
-            if(bbb)  *bbb = border;
-            if(posx) *posx -= border.left;
-            if(posy) *posy -= border.top;
-            if(wndwidth)  *wndwidth += border.left + border.right;
-            if(wndheight) *wndheight += border.top + border.bottom;
-            return;
-        }
+    if(S_OK == DwmGetWindowAttributeL(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &frame, sizeof(RECT))
+       && GetWindowRect(hwnd, &rect)){
+        RECT border;
+        border.left = frame.left - rect.left;
+        border.top = frame.top - rect.top;
+        border.right = rect.right - frame.right;
+        border.bottom = rect.bottom - frame.bottom;
+        if(bbb)  *bbb = border;
+        if(posx) *posx -= border.left;
+        if(posy) *posy -= border.top;
+        if(wndwidth)  *wndwidth += border.left + border.right;
+        if(wndheight) *wndheight += border.top + border.bottom;
+        return;
     }
     if(bbb) bbb->top = bbb->bottom = bbb->left = bbb->right = 0;
 }
@@ -480,33 +459,23 @@ LONG NtResumeProcessL(HANDLE ProcessHandle)
 HRESULT DwmIsCompositionEnabledL(BOOL *pfEnabled)
 {
     HINSTANCE hdll=NULL;
-    static char have_func=HAVE_FUNC;
+    HRESULT ret ;
 
-    switch(have_func){
-    case -1: /* First time */
-        hdll = LoadLibraryA("DWMAPI.DLL");
-        if(!hdll) {
-            have_func = 0;
-            break;
+    *pfEnabled = FALSE;
+    ret = 666;
+
+    hdll = LoadLibraryA("DWMAPI.DLL");
+    if(hdll) {
+        myDwmIsCompositionEnabled = (void *)GetProcAddress(hdll, "DwmIsCompositionEnabled");
+        if(myDwmIsCompositionEnabled) {
+            ret = myDwmIsCompositionEnabled(pfEnabled);
         } else {
-            myDwmIsCompositionEnabled = (void *)GetProcAddress(hdll, "DwmIsCompositionEnabled");
-            if(myDwmIsCompositionEnabled){
-                have_func = 1;
-            } else {
-                FreeLibrary(hdll);
-                have_func = 0;
-                break;
-            }
+            *pfEnabled = FALSE;
+            ret = 666;
         }
-    case 1:; /* We know we have the function */
-        HRESULT ret = myDwmIsCompositionEnabled(pfEnabled);
         FreeLibrary(hdll);
-        have_func = -1; /* in this case we reset to free the lib */
-        return ret;
     }
-
-   *pfEnabled = FALSE;
-    return 666;
+    return ret;
 }
 
 BOOL HaveDWM()

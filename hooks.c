@@ -74,6 +74,7 @@ struct {
     HWND mdiclient;
     struct wnddata *wndentry;
     DWORD clicktime;
+    int Speed;
 
     char alt;
     char ctrl;
@@ -87,6 +88,7 @@ struct {
 
     struct {
         char maximized;
+        char fullscreen;
         HMONITOR monitor;
         int width;
         int height;
@@ -150,6 +152,13 @@ struct {
     unsigned char MoveTrans;
     char NormRestore;
     char RollWithTBScroll;
+
+    char AlphaDelta;
+    char AlphaDeltaShift;
+    unsigned short AeroMaxSpeed;
+    
+    unsigned char AeroSpeedInt;
+    char MMMaximize;
 
     struct {
         unsigned char length;
@@ -429,6 +438,7 @@ static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
         Enum(); // Enumerate monitors and windows
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
     }
+    if(state.Speed > (int)conf.AeroMaxSpeed) return;
 
     // thresholdx and thresholdy will shrink to make sure
     // the dragged window will snap to the closest windows
@@ -531,6 +541,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
         Enum(); // Enumerate monitors and windows
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
     }
+    if(state.Speed > (int)conf.AeroMaxSpeed) return;
 
     // thresholdx and thresholdy will shrink to make sure
     // the dragged window will snap to the closest windows
@@ -640,20 +651,25 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 }
 // Call with SW_MAXIMIZE or SW_RESTORE or below.
 #define SW_TOGGLE_MAX_RESTORE 27
+#define SW_FULLSCREEN 28
 static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR monitor)
 {
     WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
     GetWindowPlacement(hwnd, &wndpl);
+    RECT fmon;
     if(sw_cmd == SW_TOGGLE_MAX_RESTORE)
         wndpl.showCmd = (wndpl.showCmd==SW_MAXIMIZE)? SW_RESTORE: SW_MAXIMIZE;
+    else if (sw_cmd == SW_FULLSCREEN)
+        ;// nothing;
     else
         wndpl.showCmd = sw_cmd;
 
-    if(sw_cmd == SW_MAXIMIZE) {
+    if(sw_cmd == SW_MAXIMIZE || SW_FULLSCREEN) {
         if(!monitor) monitor = MonitorFromPoint(*pt, MONITOR_DEFAULTTONEAREST);
         MONITORINFO mi = { sizeof(MONITORINFO) };
         GetMonitorInfo(monitor, &mi);
         RECT mon = mi.rcWork;
+        fmon = mi.rcMonitor;
 
         // Center window on monitor, if needed
         HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
@@ -667,6 +683,9 @@ static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR mo
         }
     }
     SetWindowPlacement(hwnd, &wndpl);
+    if (sw_cmd == SW_FULLSCREEN) {
+        MoveWindow(hwnd, fmon.left, fmon.top, fmon.right-fmon.left, fmon.bottom-fmon.top, TRUE);
+    }
 }
 /////////////////////////////////////////////////////////////////////////////
 // Move the windows in a thread in case it is very slow to resize
@@ -703,12 +722,13 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 static int AeroMoveSnap(POINT pt, int *posx, int *posy
                       , int *wndwidth, int *wndheight, RECT mon)
 {
-    // Aero Snap
-    static int resizable=1;
+    // Return if moving too fast...
     // return if last resizing is not finished or no Aero or not resizable.
-    if (!conf.Aero || MM_THREAD_ON || !resizable) return 0;
+    if(!conf.Aero || MM_THREAD_ON || state.Speed > (int)conf.AeroMaxSpeed) return 0;
+    static int resizable=1;
+    if (!resizable) return 0;
     if (!was_moving && !(resizable=IsResizable(state.hwnd)) ) return 0;
-
+    
     int Left  = mon.left   + 2*AERO_TH ;
     int Right = mon.right  - 2*AERO_TH ;
     int Top   = mon.top    + 2*AERO_TH ;
@@ -813,8 +833,9 @@ static RECT GetMonitorRect(POINT pt)
 static int AeroResizeSnap(POINT pt, int *posx, int *posy
                          , int *wndwidth, int *wndheight, RECT *mon_)
 {
-    // return if last resizing is not finished or no Aero
-    if(!conf.Aero || MM_THREAD_ON) return 0;
+    // return if last resizing is not finished or no Aero or moving too fast
+    if(!conf.Aero || MM_THREAD_ON || state.Speed > (int)conf.AeroMaxSpeed)
+        return 0;
 
     static RECT borders = {0, 0, 0, 0};
     static RECT mon;
@@ -950,6 +971,10 @@ static void MouseMove(POINT pt)
     if (!state.hwnd || !IsWindow(state.hwnd))
         { LastWin.hwnd = NULL; UnhookMouse(); return; }
 
+    MoveWindow(cursorwnd, pt.x-127, pt.y-127, 256, 256, FALSE);
+
+    if(was_moving == 66) return;
+
     // Restore Aero snapped window
     int was_snapped=0;
     if(state.action == AC_MOVE && !was_moving){
@@ -972,7 +997,7 @@ static void MouseMove(POINT pt)
     }
 
     // Restrict pt within origin monitor if Ctrl|Shift is being pressed
-    if ((state.ctrl || state.shift) && !state.ignorectrl) {
+    if ((state.ctrl && !state.ignorectrl) || state.shift) {
         static HMONITOR origMonitor;
         static RECT fmon;
         if(origMonitor != state.origin.monitor) {
@@ -1006,7 +1031,7 @@ static void MouseMove(POINT pt)
         if ( ret == 1) return;
 
         // Restore window if maximized
-        if (IsZoomed(state.hwnd) || was_snapped) {
+        if (was_snapped || IsZoomed(state.hwnd)) {
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
             wndpl.showCmd = SW_RESTORE;
@@ -1096,8 +1121,6 @@ static void MouseMove(POINT pt)
                 return;
         }
     }
-
-    MoveWindow(cursorwnd, pt.x-127, pt.y-127, 256, 256, FALSE);
     // LastWin is GLOBAL !
     int mouse_thread_finished = !LastWin.hwnd;
     LastWin.hwnd   = state.hwnd;
@@ -1198,6 +1221,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
             // Hook mouse
             HookMouse();
+
         } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
             if(!state.shift) RestrictToCurentMonitor();
             state.snap = 3;
@@ -1520,8 +1544,11 @@ static int ActionTransparency(POINT pt, int delta)
     if (blacklisted(hwnd, &BlkLst.Windows) || blacklistedP(hwnd, &BlkLst.Processes) )
         return 0;
 
+    int alpha_delta = (state.shift)?conf.AlphaDeltaShift:conf.AlphaDelta;
+    alpha_delta = (delta > 0)? alpha_delta: -alpha_delta;
+
     LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
-    if (delta < 0 && !(exstyle&WS_EX_LAYERED)) {
+    if (alpha_delta < 0 && !(exstyle&WS_EX_LAYERED)) {
         SetWindowLongPtr(hwnd, GWL_EXSTYLE, exstyle|WS_EX_LAYERED);
         SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
     }
@@ -1531,20 +1558,12 @@ static int ActionTransparency(POINT pt, int delta)
          alpha = old_alpha; // If possible start from the actual aplha.
     }
 
-    int alpha_delta = (state.shift)?8:64;
-    if (delta > 0) {
-        alpha += alpha_delta;
-        if (alpha >= 255) {
-            alpha = 255;
-            SetWindowLongPtr(hwnd, GWL_EXSTYLE, exstyle & ~WS_EX_LAYERED);
-            return -1;
-        }
-    } else {
-        alpha -= alpha_delta;
-        if (alpha < conf.MinAlpha)
-            alpha = conf.MinAlpha;
-    }
-    SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
+    alpha = CLAMP(conf.MinAlpha, alpha+alpha_delta, 255);
+
+    if (alpha >= 255) 
+        SetWindowLongPtr(hwnd, GWL_EXSTYLE, exstyle & ~WS_EX_LAYERED);
+    else
+        SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
 
     return -1;
 }
@@ -1674,15 +1693,16 @@ static void AddWindowToDB(HWND hwndd)
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-// Roll/Unroll Window...
-static void RollWindow()
+// Roll/Unroll Window. If delta > 0: Roll if < 0: Unroll if =0: Toggle.
+static void RollWindow(int delta)
 {
     RECT rc;
     state.origin.maximized = IsZoomed(state.hwnd);
     state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
 
     AddWindowToDB(state.hwnd);
-    if (state.wndentry->restore & 2) {
+    
+    if (state.wndentry->restore & 2 && delta <= 0) { // Restore
         if(state.origin.maximized){
             PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
             PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
@@ -1690,7 +1710,7 @@ static void RollWindow()
         } else {
             RestoreOldWin(NULL, 2, 2);
         }
-    } else {
+    } else if(!(state.wndentry->restore & 2) && delta >= 0){ // ROLL
         GetWindowRect(state.hwnd, &rc);
         SetWindowPos(state.hwnd, NULL, 0, 0, rc.right - rc.left,
                  GetSystemMetrics(SM_CYMIN), SWP_NOMOVE|SWP_NOZORDER);
@@ -1705,7 +1725,7 @@ static int ActionMove(POINT pt, HMONITOR monitor, DWORD button)
     // If this is a double-click
     if (GetTickCount()-state.clicktime <= conf.dbclktime) {
         if (state.shift) {
-            RollWindow(); // Roll/Unroll Window...
+            RollWindow(0); // Roll/Unroll Window...
         } else if (IsResizable(state.hwnd)) {
             // Toggle Maximize window
             state.action = AC_NONE; // Stop move action
@@ -1720,6 +1740,8 @@ static int ActionMove(POINT pt, HMONITOR monitor, DWORD button)
         }
         // Prevent mousedown from propagating
         return 1;
+    } else if(conf.MMMaximize&2) {
+        MouseMove(pt); // Restore with simple Click
     }
     return -1;
 }
@@ -1798,7 +1820,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
                 posx = mon.left - bd.left;
                 posy = wnd->top - mdiclientpt.y + bd.top ;
             }
-        } else { /* Aero Snap */
+        } else { /* Aero Snap to corresponding side/corner */
             wndwidth =  CLAMPW( (mon.right-mon.left)*conf.AHoff/100 );
             wndheight = CLAMPH( (mon.bottom-mon.top)*conf.AVoff/100 );
             posx = mon.left;
@@ -1931,6 +1953,9 @@ static int init_movement_and_actions(POINT pt, enum action action
 
     LONG_PTR style = GetWindowLongPtr(state.hwnd, GWL_STYLE);
     WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+    // A full screen window has No caption and is to monitor size.
+    state.origin.fullscreen = ((style&WS_CAPTION) != WS_CAPTION) && (wnd.left == fmon.left && wnd.top == fmon.top 
+                           && wnd.right == fmon.right && wnd.bottom == fmon.bottom);
 
     // Return if window is blacklisted,
     // if we can't get information about it,
@@ -1940,9 +1965,7 @@ static int init_movement_and_actions(POINT pt, enum action action
      || blacklisted(state.hwnd, &BlkLst.Windows)
      || GetWindowPlacement(state.hwnd,&wndpl) == 0
      || GetWindowRect(state.hwnd,&wnd) == 0
-     ||( (style&WS_SYSMENU) != WS_SYSMENU && (style&WS_CAPTION) != WS_CAPTION
-         && wnd.left == fmon.left && wnd.top == fmon.top
-         && wnd.right == fmon.right && wnd.bottom == fmon.bottom)) {
+     ||((style&WS_SYSMENU) != WS_SYSMENU && state.origin.fullscreen && !(conf.ResizeAll&2))) {
         return 0;
     }
 
@@ -2014,7 +2037,7 @@ static int init_movement_and_actions(POINT pt, enum action action
             SetWindowPos(state.hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
         }
     } else if (action == AC_ROLL) {
-        RollWindow();
+        RollWindow(0);
     }
 
     // Send WM_ENTERSIZEMOVE
@@ -2030,6 +2053,7 @@ static int init_movement_and_actions(POINT pt, enum action action
     // Update cursor
     if (conf.UseCursor && cursorwnd && cursor) {
         MoveWindow(cursorwnd, pt.x-20, pt.y-20, 41, 41, FALSE);
+//        SetClassLongPtr(cursorwnd, GCLP_HCURSOR, (LONG_PTR)cursor);
         ShowWindow(cursorwnd, SW_SHOWNA);
         SetCursor(cursor);
         SetCapture(cursorwnd);
@@ -2097,23 +2121,39 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
 
     // Handle mouse move and scroll
     if (wParam == WM_MOUSEMOVE) {
-        // Store prevpt so we can check if the hook goes stale
-        state.prevpt = pt;
         // Move the window
+        
         if (state.action == AC_MOVE || state.action == AC_RESIZE) {
+            // Move the window every few frames.
             static char updaterate;
             updaterate = (updaterate+1)%(state.action==AC_MOVE
                               ? conf.MoveRate: conf.ResizeRate);
             if (updaterate == 0) {
                 MouseMove(pt);
             }
+            
+            // Update Speed every few frames.
+            static char speedrate;
+            speedrate = (speedrate+1)%conf.AeroSpeedInt;
+            if(speedrate == 0) {
+                static POINT prevpt;
+                state.Speed = max(abs(prevpt.x - pt.x), abs(prevpt.y - pt.y));
+                prevpt = pt;
+            }
         }
+        // Store prevpt so we can check if the hook goes stale
+        state.prevpt = pt;
+
         // Reset double-click time
         if (!IsSamePTT(pt, state.clickpt)) {
             state.clicktime = 0;
         }
     } else if (wParam == WM_MOUSEWHEEL || wParam == WM_MOUSEHWHEEL) {
-        if (conf.RollWithTBScroll && state.alt && !state.action) {
+
+        if (state.alt && !state.action && 
+         ((conf.RollWithTBScroll && wParam == WM_MOUSEWHEEL && !state.ctrl)
+         || conf.Mouse.Scroll == AC_ROLL) ) {
+            int delta = GET_WHEEL_DELTA_WPARAM(msg->mouseData);
             HWND hwnd = WindowFromPoint(pt);
             if (!hwnd) return CallNextHookEx(NULL, nCode, wParam, lParam);
             hwnd = GetAncestor(hwnd, GA_ROOT);
@@ -2121,9 +2161,9 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
                 return CallNextHookEx(NULL, nCode, wParam, lParam);
 
             int area = SendMessage(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x,pt.y));
-            if(area == HTCAPTION) {
+            if(area == HTCAPTION || conf.Mouse.Scroll == AC_ROLL) {
                 state.hwnd = hwnd;
-                RollWindow();
+                RollWindow(delta);
                 // Block original scroll event
                 state.blockaltup = 1;
                 return 1;
@@ -2183,6 +2223,20 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
     // Return if no mouse action will be started
     enum action action = GetAction(button);
     if (!action) return CallNextHookEx(NULL, nCode, wParam, lParam);
+    
+    // Maximize the window if pressing Move, Resize mouse buttons.
+    if((conf.MMMaximize&1) && state.action == AC_MOVE && action == AC_RESIZE && buttonstate == STATE_DOWN) {
+        if(LastWin.hwnd) Sleep(10);
+        if(IsZoomed(state.hwnd)) {
+            was_moving = 0;
+            MouseMove(pt);
+        } else {
+            was_moving = 66;
+            Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
+        }
+        state.blockmouseup = 1;
+        return 1;
+    }
 
     // Block mousedown if we are busy with another action
     if (state.action && buttonstate == STATE_DOWN) {
@@ -2211,13 +2265,21 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         }
 
         // Auto Remaximize if option enabled and conditions are met.
-        if(conf.AutoRemaximize && was_moving && state.origin.maximized
+        if(conf.AutoRemaximize && was_moving 
+          && (state.origin.maximized||state.origin.fullscreen)
           && !state.shift && !state.mdiclient && state.action == AC_MOVE) {
+            state.action = AC_NONE;
             HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-            if(monitor != state.origin.monitor){
-                Sleep(50); // Wait a little for moveThread.
-                if(LastWin.hwnd) Sleep(100);
-                Maximize_Restore_atpt(state.hwnd, NULL, SW_MAXIMIZE, monitor);
+            if(monitor != state.origin.monitor) {
+                Sleep(10); // Wait a little for moveThread.
+                if(LastWin.hwnd) Sleep(100); // Wait more...
+                
+                if(state.origin.maximized){
+                    Maximize_Restore_atpt(state.hwnd, NULL, SW_MAXIMIZE, monitor);
+                }
+                if(state.origin.fullscreen){
+                    Maximize_Restore_atpt(state.hwnd, NULL, SW_FULLSCREEN, monitor);
+                }
             }
         }
         // Send WM_EXITSIZEMOVE
@@ -2297,7 +2359,7 @@ static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             KillTimer(g_hwnd, wParam);
 
             // Hook mouse if a permanent hook is needed
-            if (conf.InactiveScroll || conf.LowerWithMMB || conf.LowerWithMMB) {
+            if (conf.InactiveScroll || conf.LowerWithMMB || conf.NormRestore) {
                 HookMouse();
                 SetTimer(g_hwnd, REHOOK_TIMER, 5000, NULL); // Start rehook timer
             }
@@ -2409,16 +2471,21 @@ __declspec(dllexport) void Load(void)
     conf.CenterFraction=CLAMP(0, GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath), 100);
     conf.AHoff        = CLAMP(0, GetPrivateProfileInt(L"General", L"AeroHoffset", 50, inipath),    100);
     conf.AVoff        = CLAMP(0, GetPrivateProfileInt(L"General", L"AeroVoffset", 50, inipath),    100);
+    conf.MMMaximize   = GetPrivateProfileInt(L"General", L"MMMaximize", 1, inipath);
 
     // [Advanced]
-    conf.ResizeAll     = GetPrivateProfileInt(L"Advanced", L"ResizeAll",      1, inipath);
-    conf.AutoRemaximize= GetPrivateProfileInt(L"Advanced", L"AutoRemaximize", 0, inipath);
-    conf.SnapThreshold = GetPrivateProfileInt(L"Advanced", L"SnapThreshold", 20, inipath);
-    conf.AeroThreshold = GetPrivateProfileInt(L"Advanced", L"AeroThreshold",  5, inipath);
+    conf.ResizeAll     = GetPrivateProfileInt(L"Advanced", L"ResizeAll",       1, inipath);
+    conf.AutoRemaximize= GetPrivateProfileInt(L"Advanced", L"AutoRemaximize",  0, inipath);
+    conf.SnapThreshold = GetPrivateProfileInt(L"Advanced", L"SnapThreshold",  20, inipath);
+    conf.AeroThreshold = GetPrivateProfileInt(L"Advanced", L"AeroThreshold",   5, inipath);
     conf.AeroTopMaximizes=GetPrivateProfileInt(L"Advanced",L"AeroTopMaximizes",1, inipath);
-    conf.UseCursor     = GetPrivateProfileInt(L"Advanced", L"UseCursor", 1, inipath);
-    conf.PearceDBClick = GetPrivateProfileInt(L"Advanced", L"PearceDBClick", 0, inipath);
-    conf.MinAlpha      = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"MinAlpha", 8, inipath), 255);
+    conf.UseCursor     = GetPrivateProfileInt(L"Advanced", L"UseCursor",       1, inipath);
+    conf.PearceDBClick = GetPrivateProfileInt(L"Advanced", L"PearceDBClick",   0, inipath);
+    conf.MinAlpha      = CLAMP(1,    GetPrivateProfileInt(L"Advanced", L"MinAlpha", 8, inipath), 255);
+    conf.AlphaDeltaShift=CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDeltaShift", 8, inipath), 127);
+    conf.AlphaDelta    = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDelta", 64, inipath), 127);
+    conf.AeroMaxSpeed  = CLAMP(0, GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath), 65535);
+    conf.AeroSpeedInt  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedInt", 1, inipath), 256);
 
     // CURSOR STUFF
     cursorwnd = FindWindow(APP_NAME, NULL);
@@ -2433,7 +2500,7 @@ __declspec(dllexport) void Load(void)
     conf.MoveRate  = GetPrivateProfileInt(L"Performance", L"MoveRate", 2, inipath);
     conf.ResizeRate= GetPrivateProfileInt(L"Performance", L"ResizeRate", 4, inipath);
     conf.FullWin   = GetPrivateProfileInt(L"Performance", L"FullWin", 1, inipath);
-    conf.RefreshRate=GetPrivateProfileInt(L"Performance", L"RefreshRate", 5, inipath);
+    conf.RefreshRate=GetPrivateProfileInt(L"Performance", L"RefreshRate", 7, inipath);
 
     // [Input]
     struct {
@@ -2500,7 +2567,8 @@ __declspec(dllexport) void Load(void)
                      , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, HWND_MESSAGE, NULL, hinstDLL, NULL);
     // Create a timer to do further initialization
     SetTimer(g_hwnd, INIT_TIMER, 10, NULL);
-
+    
+    // [Blacklist]
     readblacklist(inipath, &BlkLst.Processes, L"Processes");
     readblacklist(inipath, &BlkLst.Windows,   L"Windows");
     readblacklist(inipath, &BlkLst.Snaplist,  L"Snaplist");

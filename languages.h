@@ -114,7 +114,7 @@ struct strings {
   wchar_t *blacklist_box;
   wchar_t *blacklist_processblacklist;
   wchar_t *blacklist_blacklist;
-  wchar_t *blacklist_snaplist;
+  wchar_t *blacklist_scrolllist;
   wchar_t *blacklist_mdis;
   wchar_t *blacklist_pause;
   wchar_t *blacklist_findwindow_box;
@@ -221,7 +221,7 @@ struct {
   { &l10n_ini.blacklist_box,                   L"BlacklistBox" },
   { &l10n_ini.blacklist_processblacklist,      L"BlacklistProcessBlacklist" },
   { &l10n_ini.blacklist_blacklist,             L"BlacklistBlacklist" },
-  { &l10n_ini.blacklist_snaplist,              L"BlacklistSnaplist" },
+  { &l10n_ini.blacklist_scrolllist,            L"BlacklistScrolllist" },
   { &l10n_ini.blacklist_mdis,                  L"BlacklistMDIs" },
   { &l10n_ini.blacklist_pause,                 L"BlacklistPause" },
   { &l10n_ini.blacklist_findwindow_box,        L"BlacklistFindWindowBox" },
@@ -334,7 +334,7 @@ struct strings en_US = {
  /* box                */ L"Blacklist settings",
  /* processblacklist   */ L"&Process blacklist:",
  /* blacklist          */ L"&Windows blacklist:",
- /* snaplist           */ L"&Windows that should be &snapped to:",
+ /* scrolllist         */ L"Windows that should ignore &scroll action:",
  /* MDIs bl            */ L"&MDIs not to be treated as such:",
  /* Pause list         */ L"Processes not to be pa&used:",
  /* findwindow_box     */ L"Identify window",

@@ -156,7 +156,7 @@ struct {
     char AlphaDelta;
     char AlphaDeltaShift;
     unsigned short AeroMaxSpeed;
-    
+
     unsigned char AeroSpeedInt;
     char MMMaximize;
 
@@ -187,8 +187,10 @@ struct {
     struct blacklist MDIs;
     struct blacklist Pause;
     struct blacklist MMBLower;
+    struct blacklist Scroll;
 } BlkLst = { {NULL, 0, NULL}, {NULL, 0, NULL}, {NULL, 0, NULL}
-           , {NULL, 0, NULL}, {NULL, 0, NULL}, {NULL, 0, NULL}};
+           , {NULL, 0, NULL}, {NULL, 0, NULL}, {NULL, 0, NULL}
+           , {NULL, 0, NULL}};
 
 // Cursor data
 HWND cursorwnd = NULL;
@@ -728,7 +730,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
     static int resizable=1;
     if (!resizable) return 0;
     if (!was_moving && !(resizable=IsResizable(state.hwnd)) ) return 0;
-    
+
     int Left  = mon.left   + 2*AERO_TH ;
     int Right = mon.right  - 2*AERO_TH ;
     int Top   = mon.top    + 2*AERO_TH ;
@@ -892,8 +894,9 @@ static int IsHotkey(int key)
 /////////////////////////////////////////////////////////////////////////////
 // This is used to detect is the window was snapped normally outside of
 // AltDrag, in this case the window appears as normal
-// ie: wndpl.showCmd=SW_SHOWNORMAL, but if the WM_RESTORE command is sent,
-// The window will be restored. This is a non documented behaviour.
+// ie: wndpl.showCmd=SW_SHOWNORMAL, but  its actual rect does not match with
+// its rcNormalPosition and if the WM_RESTORE command is sent, The window 
+// will be restored. This is a non documented behaviour.
 // Works under Windows 10 20H2 at least...
 static int IsWindowSnapped(HWND hwnd)
 {
@@ -973,11 +976,15 @@ static void MouseMove(POINT pt)
 
     MoveWindow(cursorwnd, pt.x-127, pt.y-127, 256, 256, FALSE);
 
-    if(was_moving == 66) return;
+    if(was_moving == 66) return; // Movement blocked...
 
     // Restore Aero snapped window
     int was_snapped=0;
     if(state.action == AC_MOVE && !was_moving){
+//        if(state.origin.fullscreen) {
+//            SendMessage(state.hwnd, WM_KEYDOWN, VK_F11, 0);
+//            SendMessage(state.hwnd, WM_KEYUP,   VK_F11, 0);
+//        }
         was_snapped = IsWindowSnapped(state.hwnd);
         RestoreOldWin(&pt, was_snapped, 1);
     }
@@ -1194,6 +1201,7 @@ static void Send_DoubleClick(DWORD button)
     Sleep(1);
     state.ignoreclick = 0;
 }
+///////////////////////////////////////////////////////////////////////////
 static void RestrictToCurentMonitor()
 {
     if(state.action == AC_MOVE || state.action == AC_RESIZE || state.alt) {
@@ -1533,15 +1541,10 @@ static int ActionVolume(int delta)
 }
 /////////////////////////////////////////////////////////////////////////////
 // Windows 2000+ Only
-static int ActionTransparency(POINT pt, int delta)
+static int ActionTransparency(HWND hwnd, int delta)
 {
     static int alpha=255;
-    HWND hwnd = WindowFromPoint(pt);
-    if (hwnd == NULL) {
-        return 0;
-    }
-    hwnd = GetAncestor(hwnd, GA_ROOT);
-    if (blacklisted(hwnd, &BlkLst.Windows) || blacklistedP(hwnd, &BlkLst.Processes) )
+    if (blacklistedP(hwnd, &BlkLst.Processes))
         return 0;
 
     int alpha_delta = (state.shift)?conf.AlphaDeltaShift:conf.AlphaDelta;
@@ -1560,7 +1563,7 @@ static int ActionTransparency(POINT pt, int delta)
 
     alpha = CLAMP(conf.MinAlpha, alpha+alpha_delta, 255);
 
-    if (alpha >= 255) 
+    if (alpha >= 255)
         SetWindowLongPtr(hwnd, GWL_EXSTYLE, exstyle & ~WS_EX_LAYERED);
     else
         SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
@@ -1568,13 +1571,8 @@ static int ActionTransparency(POINT pt, int delta)
     return -1;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int ActionLower(POINT pt, int delta)
+static int ActionLower(POINT pt, HWND hwnd, int delta)
 {
-    HWND hwnd = WindowFromPoint(pt);
-    if (!hwnd) return 0;
-
-    hwnd = GetAncestor(hwnd, GA_ROOT);
-
     if (delta > 0) {
         if (state.shift) {
             Maximize_Restore_atpt(hwnd, &pt, SW_TOGGLE_MAX_RESTORE, NULL);
@@ -1701,7 +1699,7 @@ static void RollWindow(int delta)
     state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
 
     AddWindowToDB(state.hwnd);
-    
+
     if (state.wndentry->restore & 2 && delta <= 0) { // Restore
         if(state.origin.maximized){
             PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
@@ -1954,8 +1952,6 @@ static int init_movement_and_actions(POINT pt, enum action action
     LONG_PTR style = GetWindowLongPtr(state.hwnd, GWL_STYLE);
     WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
     // A full screen window has No caption and is to monitor size.
-    state.origin.fullscreen = ((style&WS_CAPTION) != WS_CAPTION) && (wnd.left == fmon.left && wnd.top == fmon.top 
-                           && wnd.right == fmon.right && wnd.bottom == fmon.bottom);
 
     // Return if window is blacklisted,
     // if we can't get information about it,
@@ -1965,9 +1961,14 @@ static int init_movement_and_actions(POINT pt, enum action action
      || blacklisted(state.hwnd, &BlkLst.Windows)
      || GetWindowPlacement(state.hwnd,&wndpl) == 0
      || GetWindowRect(state.hwnd,&wnd) == 0
-     ||((style&WS_SYSMENU) != WS_SYSMENU && state.origin.fullscreen && !(conf.ResizeAll&2))) {
+     ||((style&WS_SYSMENU) != WS_SYSMENU 
+     && ((style&WS_CAPTION) != WS_CAPTION) && (wnd.left == fmon.left && wnd.top == fmon.top
+     && wnd.right == fmon.right && wnd.bottom == fmon.bottom)
+     && !(conf.ResizeAll&2))) {
         return 0;
     }
+    state.origin.fullscreen = ((style&WS_CAPTION) != WS_CAPTION) && (wnd.left == fmon.left && wnd.top == fmon.top
+                           && wnd.right == fmon.right && wnd.bottom == fmon.bottom);
 
     // Update state
     state.action = action;
@@ -2108,6 +2109,69 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
     return -1;
 }
 /////////////////////////////////////////////////////////////////////////////
+static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
+{
+    int delta = GET_WHEEL_DELTA_WPARAM(msg->mouseData);
+    
+    // First Scroll inactive windows.. If enabled
+    if (!state.alt && !state.action && conf.InactiveScroll) {
+        return ScrollPointedWindow(pt, msg->mouseData, wParam);
+    } else if(!state.alt || state.action) {
+        return -1; // continue if no actions to be made
+    }
+    // Get pointed window
+    HWND hwnd = WindowFromPoint(pt);
+    if (!hwnd) return 0;
+    hwnd = GetAncestor(hwnd, GA_ROOT);
+
+    if (conf.RollWithTBScroll && wParam == WM_MOUSEWHEEL && !state.ctrl) {
+
+        int area = SendMessage(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x, pt.y));
+        if(area == HTCAPTION) {
+            state.hwnd = hwnd;
+            RollWindow(delta);
+            // Block original scroll event
+            state.blockaltup = 1;
+            return 1;
+        }
+    }
+    
+    // Return if blacklisted
+    if (blacklisted(hwnd, &BlkLst.Windows) || blacklisted(hwnd, &BlkLst.Scroll))
+        return 0;
+
+    if (conf.Mouse.Scroll) {
+
+        if (conf.Mouse.Scroll == AC_ALTTAB && !state.shift) {
+            if(!ActionAltTab(pt, delta))
+                return 0;
+
+        } else if (conf.Mouse.Scroll == AC_VOLUME) {
+            if(!ActionVolume(delta))
+                return 0;
+
+        } else if (conf.Mouse.Scroll == AC_TRANSPARENCY) {
+            if(!ActionTransparency(hwnd, delta))
+                return 0;
+
+        } else if (conf.Mouse.Scroll == AC_LOWER) {
+            if(!ActionLower(pt, hwnd, delta))
+                return 0;
+
+        } else if (conf.Mouse.Scroll == AC_MAXIMIZE) {
+            if(!ActionMaxRestMin(pt, delta))
+                return 0;
+        } else if (conf.Mouse.Scroll == AC_ROLL){
+            state.hwnd = hwnd;
+            RollWindow(delta);
+        }
+        // Block original scroll event
+        state.blockaltup = 1;
+        return 1;
+    } 
+    return -1;
+}
+/////////////////////////////////////////////////////////////////////////////
 // This is somewhat the main function, it is active only when the ALT key is
 // pressed, or is always on when InactiveScroll or LowerWithMMB are enabled.
 __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -2122,7 +2186,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
     // Handle mouse move and scroll
     if (wParam == WM_MOUSEMOVE) {
         // Move the window
-        
+
         if (state.action == AC_MOVE || state.action == AC_RESIZE) {
             // Move the window every few frames.
             static char updaterate;
@@ -2131,7 +2195,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
             if (updaterate == 0) {
                 MouseMove(pt);
             }
-            
+
             // Update Speed every few frames.
             static char speedrate;
             speedrate = (speedrate+1)%conf.AeroSpeedInt;
@@ -2149,59 +2213,11 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
             state.clicktime = 0;
         }
     } else if (wParam == WM_MOUSEWHEEL || wParam == WM_MOUSEHWHEEL) {
-
-        if (state.alt && !state.action && 
-         ((conf.RollWithTBScroll && wParam == WM_MOUSEWHEEL && !state.ctrl)
-         || conf.Mouse.Scroll == AC_ROLL) ) {
-            int delta = GET_WHEEL_DELTA_WPARAM(msg->mouseData);
-            HWND hwnd = WindowFromPoint(pt);
-            if (!hwnd) return CallNextHookEx(NULL, nCode, wParam, lParam);
-            hwnd = GetAncestor(hwnd, GA_ROOT);
-            if (blacklisted(hwnd, &BlkLst.Windows))
-                return CallNextHookEx(NULL, nCode, wParam, lParam);
-
-            int area = SendMessage(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x,pt.y));
-            if(area == HTCAPTION || conf.Mouse.Scroll == AC_ROLL) {
-                state.hwnd = hwnd;
-                RollWindow(delta);
-                // Block original scroll event
-                state.blockaltup = 1;
-                return 1;
-            }
-        }
-
-        if (state.alt && !state.action && conf.Mouse.Scroll) {
-            int delta = GET_WHEEL_DELTA_WPARAM(msg->mouseData);
-
-            if (conf.Mouse.Scroll == AC_ALTTAB && !state.shift) {
-                if(!ActionAltTab(pt, delta))
-                    return CallNextHookEx(NULL, nCode, wParam, lParam);
-
-            } else if (conf.Mouse.Scroll == AC_VOLUME) {
-                if(!ActionVolume(delta))
-                    return CallNextHookEx(NULL, nCode, wParam, lParam);
-
-            } else if (conf.Mouse.Scroll == AC_TRANSPARENCY) {
-                if(!ActionTransparency(pt, delta))
-                    return CallNextHookEx(NULL, nCode, wParam, lParam);
-
-            } else if (conf.Mouse.Scroll == AC_LOWER) {
-                if(!ActionLower(pt, delta))
-                    return CallNextHookEx(NULL, nCode, wParam, lParam);
-
-            } else if (conf.Mouse.Scroll == AC_MAXIMIZE) {
-                if(!ActionMaxRestMin(pt, delta))
-                    return CallNextHookEx(NULL, nCode, wParam, lParam);
-            }
-            // Block original scroll event
-            state.blockaltup = 1;
-            return 1;
-        } else if (!state.action && conf.InactiveScroll) {
-            if(!ScrollPointedWindow(pt, msg->mouseData, wParam))
-                return CallNextHookEx(NULL, nCode, wParam, lParam);
-            else return 1;
-        }
+        int ret = WheelActions(pt, msg, wParam);
+        if (ret == 0)  return CallNextHookEx(NULL, nCode, wParam, lParam);
+        else if (ret == 1) return 1;
     }
+    
     int ret = ActionNoAlt(pt, wParam);
     if (ret == 0) return CallNextHookEx(NULL, nCode, wParam, lParam);
     else if (ret == 1) return 1;
@@ -2223,7 +2239,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
     // Return if no mouse action will be started
     enum action action = GetAction(button);
     if (!action) return CallNextHookEx(NULL, nCode, wParam, lParam);
-    
+
     // Maximize the window if pressing Move, Resize mouse buttons.
     if((conf.MMMaximize&1) && state.action == AC_MOVE && action == AC_RESIZE && buttonstate == STATE_DOWN) {
         if(LastWin.hwnd) Sleep(10);
@@ -2265,7 +2281,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         }
 
         // Auto Remaximize if option enabled and conditions are met.
-        if(conf.AutoRemaximize && was_moving 
+        if(conf.AutoRemaximize && was_moving
           && (state.origin.maximized||state.origin.fullscreen)
           && !state.shift && !state.mdiclient && state.action == AC_MOVE) {
             state.action = AC_NONE;
@@ -2273,7 +2289,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
             if(monitor != state.origin.monitor) {
                 Sleep(10); // Wait a little for moveThread.
                 if(LastWin.hwnd) Sleep(100); // Wait more...
-                
+
                 if(state.origin.maximized){
                     Maximize_Restore_atpt(state.hwnd, NULL, SW_MAXIMIZE, monitor);
                 }
@@ -2299,7 +2315,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         // Prevent mouseup from propagating
         return 1;
     }
-
     return CallNextHookEx(NULL, nCode, wParam, lParam);
 } // END OF LL MOUSE PROCK
 
@@ -2567,7 +2582,7 @@ __declspec(dllexport) void Load(void)
                      , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, HWND_MESSAGE, NULL, hinstDLL, NULL);
     // Create a timer to do further initialization
     SetTimer(g_hwnd, INIT_TIMER, 10, NULL);
-    
+
     // [Blacklist]
     readblacklist(inipath, &BlkLst.Processes, L"Processes");
     readblacklist(inipath, &BlkLst.Windows,   L"Windows");
@@ -2575,6 +2590,7 @@ __declspec(dllexport) void Load(void)
     readblacklist(inipath, &BlkLst.MDIs,      L"MDIs");
     readblacklist(inipath, &BlkLst.Pause,     L"Pause");
     readblacklist(inipath, &BlkLst.MMBLower,  L"MMBLower");
+    readblacklist(inipath, &BlkLst.Scroll,    L"Scroll");
 
     // Allocate some memory
     monitors_alloc++;

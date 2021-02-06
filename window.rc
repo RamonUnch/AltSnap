@@ -36,8 +36,8 @@ BEGIN
     EDITTEXT        IDC_PROCESSBLACKLIST,10,20, 195,14,ES_AUTOHSCROLL
     LTEXT           "Windows:",       IDC_BLACKLIST_HEADER,        10,36,190,8
     EDITTEXT        IDC_BLACKLIST,       10,45, 195,14,ES_AUTOHSCROLL
-    LTEXT           "Snaplist:",      IDC_SNAPLIST_HEADER,         10,61,190,8
-    EDITTEXT        IDC_SNAPLIST,        10,70, 195,14,ES_AUTOHSCROLL
+    LTEXT           "Scroll:",      IDC_SCROLLLIST_HEADER,         10,61,190,8
+    EDITTEXT        IDC_SCROLLLIST,      10,70, 195,14,ES_AUTOHSCROLL
     LTEXT           "&MDIs:",         IDC_MDISBL_HEADER,          10,86,190,8
     EDITTEXT        IDC_MDIS,            10,95,195,14,ES_AUTOHSCROLL
     LTEXT           "Pau&se blacklist:",IDC_PAUSEBL_HEADER,         10,111,190,8

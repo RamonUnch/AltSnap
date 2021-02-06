@@ -638,8 +638,8 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         GetPrivateProfileString(L"Blacklist", L"Windows", L"", txt, ARR_SZ(txt), inipath);
         SetDlgItemText(hwnd, IDC_BLACKLIST, txt);
 
-        GetPrivateProfileString(L"Blacklist", L"Snaplist", L"", txt, ARR_SZ(txt), inipath);
-        SetDlgItemText(hwnd, IDC_SNAPLIST, txt);
+        GetPrivateProfileString(L"Blacklist", L"Scroll", L"", txt, ARR_SZ(txt), inipath);
+        SetDlgItemText(hwnd, IDC_SCROLLLIST, txt);
 
         GetPrivateProfileString(L"Blacklist", L"MDIs", L"", txt, ARR_SZ(txt), inipath);
         SetDlgItemText(hwnd, IDC_MDIS, txt);
@@ -658,8 +658,8 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
                 WritePrivateProfileString(L"Blacklist", L"Processes", txt, inipath);
             } else if (control == IDC_BLACKLIST) {
                 WritePrivateProfileString(L"Blacklist", L"Windows", txt, inipath);
-            } else if (control == IDC_SNAPLIST) {
-                WritePrivateProfileString(L"Blacklist", L"Snaplist", txt, inipath);
+            } else if (control == IDC_SCROLLLIST) {
+                WritePrivateProfileString(L"Blacklist", L"Scroll", txt, inipath);
             } else if (control == IDC_MDIS) {
                 WritePrivateProfileString(L"Blacklist", L"MDIs", txt, inipath);
             } else if (control == IDC_PAUSEBL) {
@@ -700,7 +700,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
             SetDlgItemText(hwnd, IDC_BLACKLIST_BOX          , l10n->blacklist_box);
             SetDlgItemText(hwnd, IDC_PROCESSBLACKLIST_HEADER, l10n->blacklist_processblacklist);
             SetDlgItemText(hwnd, IDC_BLACKLIST_HEADER       , l10n->blacklist_blacklist);
-            SetDlgItemText(hwnd, IDC_SNAPLIST_HEADER        , l10n->blacklist_snaplist);
+            SetDlgItemText(hwnd, IDC_SCROLLLIST_HEADER      , l10n->blacklist_scrolllist);
             SetDlgItemText(hwnd, IDC_MDISBL_HEADER          , l10n->blacklist_mdis);
             SetDlgItemText(hwnd, IDC_PAUSEBL_HEADER         , l10n->blacklist_pause);
             SetDlgItemText(hwnd, IDC_FINDWINDOW_BOX         , l10n->blacklist_findwindow_box);

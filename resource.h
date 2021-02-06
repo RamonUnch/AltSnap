@@ -37,7 +37,7 @@
 #define IDC_FINDWINDOW_BOX              1012
 #define IDC_HOTKEYS_MORE                1013
 #define IDC_BLACKLIST_BOX               1014
-#define IDC_SNAPLIST_HEADER             1015
+#define IDC_SCROLLLIST_HEADER           1015
 #define IDC_BLACKLIST_EXPLANATION       1016
 #define IDC_ADVANCED_BOX                1017
 #define IDC_GENERAL_BOX                 1018
@@ -59,7 +59,7 @@
 #define IDC_HOOKWINDOWS                 1401
 #define IDC_OPENINI                     1402
 #define IDC_DONATE                      1501
-#define IDC_SNAPLIST                    1505
+#define IDC_SCROLLLIST                  1505
 #define IDC_BLACKLIST                   1506
 #define IDC_PROCESSBLACKLIST            1507
 #define IDC_AUTOSTART                   1508

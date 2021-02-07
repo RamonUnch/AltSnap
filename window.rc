@@ -117,6 +117,37 @@ END
 
 
 /////////////////////////////////////////////////////////////////////////////
+IDD_ADVANCEDPAGE DIALOG DISCARDABLE  0, 0, 220, 190
+STYLE WS_CHILD | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | DS_3DLOOK
+CAPTION "Advanced"
+FONT 8, "Ms Shell Dlg"
+BEGIN
+
+    GROUPBOX        "Metrics",       IDC_ADVANCED_BOX,           3,1,212,80
+    LTEXT           "&Center Fraction (%):",    IDC_CENTERFRACTION_H, 10,17,140,8
+    EDITTEXT        IDC_CENTERFRACTION, 160, 15, 30, 12
+
+    LTEXT           "Aero offset(%) &Horizontal: ",   IDC_AEROHOFFSET_H, 10,32,90,8
+    EDITTEXT        IDC_AEROHOFFSET, 95, 30, 30, 12
+    LTEXT           "&Vertical:", IDC_AEROHOFFSET_H, 132,32,60,8
+    EDITTEXT        IDC_AEROVOFFSET, 160, 30, 30, 12
+
+    LTEXT           "&Snap Threshold (pixels):",    IDC_SNAPTHRESHOLD_H, 10,47,140,8
+    EDITTEXT        IDC_SNAPTHRESHOLD, 160, 45, 30, 12
+    LTEXT           "&Aero Threshold (pixels):",    IDC_AEROTHRESHOLD_H, 10,62,140,8
+    EDITTEXT        IDC_AEROTHRESHOLD, 160, 60, 30, 12
+
+    GROUPBOX        "Behavior",IDC_FINDWINDOW_BOX,  3,85,212,95
+    CONTROL         "Allow multiple &instances of AltDrag",                   IDC_MULTIPLEINSTANCES,"Button",BS_AUTOCHECKBOX | WS_TABSTOP, 10, 100, 195,8
+    CONTROL         "Automatically &remaximize windows when changing monitor",IDC_AUTOREMAXIMIZE,   "Button",BS_AUTOCHECKBOX | WS_TABSTOP, 10, 110, 195,8
+    CONTROL         "&Double-click pearces through",                          IDC_PEARCEDBCLICK,    "Button",BS_AUTOCHECKBOX | WS_TABSTOP, 10, 120, 195,8
+    CONTROL         "Restore AltDrag snapped windows with &normal move",      IDC_NORMRESTORE,      "Button",BS_AUTOCHECKBOX | WS_TABSTOP, 10, 130, 195,8
+    CONTROL         "&Maximize windows snapped at top",                       IDC_AEROTOPMAXIMIZES, "Button",BS_AUTOCHECKBOX | WS_TABSTOP, 10, 140, 195,8
+
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
 // Cursor
 IDI_FIND                CURSOR  DISCARDABLE     "media/find.cur"
 

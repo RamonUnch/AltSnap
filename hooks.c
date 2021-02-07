@@ -188,6 +188,7 @@ struct {
     struct blacklist Pause;
     struct blacklist MMBLower;
     struct blacklist Scroll;
+//    struct blacklist F11Fullscreen;
 } BlkLst = { {NULL, 0, NULL}, {NULL, 0, NULL}, {NULL, 0, NULL}
            , {NULL, 0, NULL}, {NULL, 0, NULL}, {NULL, 0, NULL}
            , {NULL, 0, NULL}};
@@ -651,6 +652,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
         *wndheight = stickbottom-*posy + borders.bottom;
     }
 }
+/////////////////////////////////////////////////////////////////////////////
 // Call with SW_MAXIMIZE or SW_RESTORE or below.
 #define SW_TOGGLE_MAX_RESTORE 27
 #define SW_FULLSCREEN 28
@@ -666,15 +668,15 @@ static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR mo
     else
         wndpl.showCmd = sw_cmd;
 
-    if(sw_cmd == SW_MAXIMIZE || SW_FULLSCREEN) {
-        if(!monitor) monitor = MonitorFromPoint(*pt, MONITOR_DEFAULTTONEAREST);
+    if((sw_cmd == SW_MAXIMIZE || SW_FULLSCREEN)) {
+        HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        if(!monitor) monitor = pt?MonitorFromPoint(*pt, MONITOR_DEFAULTTONEAREST): wndmonitor;
         MONITORINFO mi = { sizeof(MONITORINFO) };
         GetMonitorInfo(monitor, &mi);
         RECT mon = mi.rcWork;
         fmon = mi.rcMonitor;
 
         // Center window on monitor, if needed
-        HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         if (monitor != wndmonitor) {
             int width  = wndpl.rcNormalPosition.right  - wndpl.rcNormalPosition.left;
             int height = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
@@ -901,12 +903,12 @@ static int IsHotkey(int key)
 static int IsWindowSnapped(HWND hwnd)
 {
     RECT rect;
-    if(!GetWindowRect(state.hwnd, &rect)) return 0;
+    if(!GetWindowRect(hwnd, &rect)) return 0;
     int W = rect.right  - rect.left;
     int H = rect.bottom - rect.top;
 
     WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
-    GetWindowPlacement(state.hwnd, &wndpl);
+    GetWindowPlacement(hwnd, &wndpl);
     wndpl.showCmd = SW_RESTORE;
     int nW = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
     int nH = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
@@ -965,10 +967,15 @@ static void RestoreOldWin(POINT *pt, int was_snapped, int index)
         state.offset.y = pt->y-wnd.top;
     }
 }
+//static void Send_F11(HWND hwnd)
+//{
+//    SendMessage(hwnd, WM_KEYDOWN, VK_F11, 0);
+//    SendMessage(hwnd, WM_KEYUP,   VK_F11, 0);
+//}
 ///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
 {
-    int posx, posy, wndwidth, wndheight;
+    int posx=0, posy=0, wndwidth=100, wndheight=100;
 
     // Check if window still exists
     if (!state.hwnd || !IsWindow(state.hwnd))
@@ -981,9 +988,9 @@ static void MouseMove(POINT pt)
     // Restore Aero snapped window
     int was_snapped=0;
     if(state.action == AC_MOVE && !was_moving){
-//        if(state.origin.fullscreen) {
-//            SendMessage(state.hwnd, WM_KEYDOWN, VK_F11, 0);
-//            SendMessage(state.hwnd, WM_KEYUP,   VK_F11, 0);
+//        if(state.origin.fullscreen && blacklisted(state.hwnd, &BlkLst.F11Fullscreen)) {
+//            Send_F11(state.hwnd);
+//            state.origin.fullscreen = 66;
 //        }
         was_snapped = IsWindowSnapped(state.hwnd);
         RestoreOldWin(&pt, was_snapped, 1);
@@ -1453,7 +1460,7 @@ static int ActionVolume(int delta)
 {
     static int HaveV=-1;
     static HINSTANCE hOLE32DLL=NULL, hMMdll=NULL;
-    if(HaveV == -1){
+    if (HaveV == -1) {
         hOLE32DLL = LoadLibraryA("OLE32.DLL");
         if(hOLE32DLL){
             myCoInitialize = (void *)GetProcAddress(hOLE32DLL, "CoInitialize");
@@ -2591,6 +2598,8 @@ __declspec(dllexport) void Load(void)
     readblacklist(inipath, &BlkLst.Pause,     L"Pause");
     readblacklist(inipath, &BlkLst.MMBLower,  L"MMBLower");
     readblacklist(inipath, &BlkLst.Scroll,    L"Scroll");
+//    readblacklist(inipath, &BlkLst.F11Fullscreen, L"F11Fullscreen");
+    
 
     // Allocate some memory
     monitors_alloc++;

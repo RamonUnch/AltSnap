@@ -87,3 +87,19 @@
 #define IDC_RZCENTER_NORM               2017
 #define IDC_RZCENTER_BR                 2018
 #define IDC_RZCENTER_MOVE               2019
+
+#define IDC_PEARCEDBCLICK               2020
+#define IDC_AUTOREMAXIMIZE              2021
+#define IDC_AEROTOPMAXIMIZES            2022
+#define IDC_MULTIPLEINSTANCES           2023
+#define IDC_CENTERFRACTION              2024
+#define IDC_CENTERFRACTION_H            2025
+#define IDC_AEROHOFFSET                 2026
+#define IDC_AEROHOFFSET_H               2027
+#define IDC_AEROVOFFSET                 2028
+#define IDC_AEROVOFFSET_H               2029
+#define IDC_SNAPTHRESHOLD               2030
+#define IDC_SNAPTHRESHOLD_H             2031
+#define IDC_AEROTHRESHOLD               2032
+#define IDC_AEROTHRESHOLD_H             2033
+#define IDC_NORMRESTORE                 2034

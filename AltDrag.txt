@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTDRAG for NT4 to Win10                         *
 *   Modified by Raymond Gillibert from original source by Stefan Sundin   *
-*                     release 1.36 (February 4, 2021)                     *
+*                    release 1.37 (February XX, 2021)                     *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltDrag/releases/         *
@@ -136,6 +136,25 @@ Note that this version has some more feature..
 
 ===========================================================================
 == CHANGELOG ==
+
+== AltDrag 1.37 ==
+
+* Fixed: Now moveable full screen windows should be restored to full screen
+  when changing monitor. This was not working properly in 1.36.
+
+* Fixed: Scroll actions will no longer ignore blacklist. In addition the
+  Scroll list was added in the [Blacklist] section of AltDrag.ini in order
+  to disable the scroll action for those windows.
+
+* More code cleanup, some code was moved to functions and potential NULL
+  pointer dereferencing were fixed.
+
+* GUI Fixed: Now the Snaplist has to be edited with the ini file and the
+  Scroll blacklist is visible instead (much more usefull). Snapplist is
+  a quite advanced detail anyway.
+
+* GUI Fixed: re-introduction of the Advanced tab in the options with more
+  options that previously required direct ini file edition.
 
 == AltDrag 1.36 ==
 

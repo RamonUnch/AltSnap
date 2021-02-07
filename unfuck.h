@@ -21,6 +21,7 @@
 
 #define WM_DPICHANGED 0x02E0
 
+#define flatten __attribute__((flatten))
 #ifndef SUBCLASSPROC
 typedef LRESULT (CALLBACK *SUBCLASSPROC)
     (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam

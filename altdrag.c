@@ -15,20 +15,20 @@
 #include <windows.h>
 
 // App
-#define APP_NAME            L"AltDrag"
-#define APP_NAMEA           "AltDrag"
-#define APP_VERSION         "1.37"
+#define APP_NAME       L"AltDrag"
+#define APP_NAMEA      "AltDrag"
+#define APP_VERSION    "1.37"
 
 // Messages
-#define WM_TRAY              (WM_USER+1)
-#define SWM_TOGGLE            (WM_APP+1)
-#define SWM_HIDE              (WM_APP+2)
-#define SWM_ELEVATE           (WM_APP+3)
-#define SWM_CONFIG            (WM_APP+4)
-#define SWM_ABOUT             (WM_APP+5)
-#define SWM_EXIT              (WM_APP+6)
-#define SWM_FIND              (WM_APP+7)
-#define SWM_HELP              (WM_APP+8)
+#define WM_TRAY       (WM_USER+1)
+#define SWM_TOGGLE     (WM_APP+1)
+#define SWM_HIDE       (WM_APP+2)
+#define SWM_ELEVATE    (WM_APP+3)
+#define SWM_CONFIG     (WM_APP+4)
+#define SWM_ABOUT      (WM_APP+5)
+#define SWM_EXIT       (WM_APP+6)
+#define SWM_FIND       (WM_APP+7)
+#define SWM_HELP       (WM_APP+8)
 
 // Boring stuff
 #define ENABLED() (keyhook)

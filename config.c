@@ -15,7 +15,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK InputPageDialogProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK BlacklistPageDialogProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK AboutPageDialogProc(HWND, UINT, WPARAM, LPARAM);
-//INT_PTR CALLBACK AdvancedPageDialogProc(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK AdvancedPageDialogProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK CursorProc(HWND, UINT, WPARAM, LPARAM);
 
 HWND g_cfgwnd = NULL;
@@ -108,7 +108,8 @@ void OpenConfig(int startpage)
         { IDD_GENERALPAGE,   GeneralPageDialogProc  },
         { IDD_INPUTPAGE,     InputPageDialogProc    },
         { IDD_BLACKLISTPAGE, BlacklistPageDialogProc},
-        { IDD_ABOUTPAGE,     AboutPageDialogProc    } };
+        { IDD_ABOUTPAGE,     AboutPageDialogProc    },
+        { IDD_ADVANCEDPAGE,  AdvancedPageDialogProc } };
 
     PROPSHEETPAGE psp[ARR_SZ(pages)] = { };
     size_t i;
@@ -472,10 +473,10 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         unsigned control;
         unsigned vkey;
     } hotkeys[] = {
-        { IDC_LEFTALT,     VK_LMENU    },
-        { IDC_RIGHTALT,    VK_RMENU    },
-        { IDC_LEFTWINKEY,  VK_LWIN     },
-        { IDC_RIGHTWINKEY, VK_RWIN     },
+        { IDC_LEFTALT,     VK_LMENU },
+        { IDC_RIGHTALT,    VK_RMENU },
+        { IDC_LEFTWINKEY,  VK_LWIN  },
+        { IDC_RIGHTWINKEY, VK_RWIN  },
     };
 
     if (msg == WM_INITDIALOG) {
@@ -616,8 +617,6 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             SetDlgItemText(hwnd, IDC_RIGHTALT,        l10n->input_hotkeys_rightalt);
             SetDlgItemText(hwnd, IDC_LEFTWINKEY,      l10n->input_hotkeys_leftwinkey);
             SetDlgItemText(hwnd, IDC_RIGHTWINKEY,     l10n->input_hotkeys_rightwinkey);
-//            SetDlgItemText(hwnd, IDC_LEFTCTRL,        l10n->input_hotkeys_leftctrl);
-//            SetDlgItemText(hwnd, IDC_RIGHTCTRL,       l10n->input_hotkeys_rightctrl);
             SetDlgItemText(hwnd, IDC_HOTKEYS_MORE,    l10n->input_hotkeys_more);
         }
     }
@@ -767,5 +766,78 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         }
     }
 
+    return FALSE;
+}
+/////////////////////////////////////////////////////////////////////////////
+INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    if (msg == WM_INITDIALOG) {
+        wchar_t txt[10];
+
+        int ret = GetPrivateProfileInt(L"Advanced", L"PearceDBClick", 0, inipath);
+        Button_SetCheck(GetDlgItem(hwnd, IDC_PEARCEDBCLICK), ret? BST_CHECKED: BST_UNCHECKED);
+
+        ret = GetPrivateProfileInt(L"Advanced", L"AutoRemaximize", 0, inipath);
+        Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOREMAXIMIZE), ret? BST_CHECKED: BST_UNCHECKED);
+
+        ret = GetPrivateProfileInt(L"Advanced", L"AeroTopMaximizes", 0, inipath);
+        Button_SetCheck(GetDlgItem(hwnd, IDC_AEROTOPMAXIMIZES), ret? BST_CHECKED: BST_UNCHECKED);
+
+        ret = GetPrivateProfileInt(L"Advanced", L"MultipleInstances", 0, inipath);
+        Button_SetCheck(GetDlgItem(hwnd, IDC_MULTIPLEINSTANCES), ret? BST_CHECKED: BST_UNCHECKED);
+
+        ret = GetPrivateProfileInt(L"General", L"NormRestore", 0, inipath);
+        Button_SetCheck(GetDlgItem(hwnd, IDC_NORMRESTORE), ret? BST_CHECKED: BST_UNCHECKED);
+
+        GetPrivateProfileString(L"General", L"CenterFraction", L"", txt, ARR_SZ(txt), inipath);
+        SetDlgItemText(hwnd, IDC_CENTERFRACTION, txt);
+
+        GetPrivateProfileString(L"General", L"AeroHoffset", L"", txt, ARR_SZ(txt), inipath);
+        SetDlgItemText(hwnd, IDC_AEROHOFFSET, txt);
+
+        GetPrivateProfileString(L"General", L"AeroVoffset", L"", txt, ARR_SZ(txt), inipath);
+        SetDlgItemText(hwnd, IDC_AEROVOFFSET, txt);
+
+        GetPrivateProfileString(L"Advanced", L"SnapThreshold", L"", txt, ARR_SZ(txt), inipath);
+        SetDlgItemText(hwnd, IDC_SNAPTHRESHOLD, txt);
+
+        GetPrivateProfileString(L"Advanced", L"AeroThreshold", L"", txt, ARR_SZ(txt), inipath);
+        SetDlgItemText(hwnd, IDC_AEROTHRESHOLD, txt);
+
+    } else if (msg == WM_COMMAND) {
+        int id = LOWORD(wParam);
+        int event = HIWORD(wParam);
+        HWND control = GetDlgItem(hwnd, id);
+        int val = Button_GetCheck(control);
+        wchar_t txt[10];
+
+        if (id == IDC_PEARCEDBCLICK) {
+            WritePrivateProfileString(L"Advanced",   L"PearceDBClick", _itow(val, txt, 10), inipath);
+        } else if (id == IDC_AUTOREMAXIMIZE) {
+            WritePrivateProfileString(L"Advanced",   L"AutoRemaximize", _itow(val, txt, 10), inipath);
+        } else if (id == IDC_AEROTOPMAXIMIZES) {
+            WritePrivateProfileString(L"Advanced",   L"AeroTopMaximizes", _itow(val, txt, 10), inipath);
+        } else if (id == IDC_MULTIPLEINSTANCES) {
+            WritePrivateProfileString(L"Advanced",   L"MultipleInstances", _itow(val, txt, 10), inipath);
+        } else if (id == IDC_NORMRESTORE) {
+            WritePrivateProfileString(L"General",    L"NormRestore", _itow(val, txt, 10), inipath);
+        }
+        if (event == EN_KILLFOCUS) {
+            Edit_GetText(control, txt, ARR_SZ(txt));
+            if (id == IDC_CENTERFRACTION) {
+                WritePrivateProfileString(L"General", L"CenterFraction", txt, inipath);
+            } else if (id == IDC_AEROHOFFSET) {
+                WritePrivateProfileString(L"General", L"AeroHoffset", txt, inipath);
+            } else if (id == IDC_AEROVOFFSET) {
+                WritePrivateProfileString(L"General", L"AeroVoffset", txt, inipath);
+            } else if (id == IDC_SNAPTHRESHOLD) {
+                WritePrivateProfileString(L"Advanced", L"SnapThreshold", txt, inipath);
+            } else if (id == IDC_AEROTHRESHOLD) {
+                WritePrivateProfileString(L"Advanced", L"AeroThreshold", txt, inipath);
+
+            }
+        }
+        UpdateSettings();
+    }
     return FALSE;
 }

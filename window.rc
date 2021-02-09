@@ -137,12 +137,13 @@ BEGIN
     LTEXT           "&Aero Threshold (pixels):",    IDC_AEROTHRESHOLD_H, 10,62,140,8
     EDITTEXT        IDC_AEROTHRESHOLD, 160, 60, 30, 12
 
-    GROUPBOX        "Behavior",IDC_FINDWINDOW_BOX,  3,85,212,95
-    CONTROL         "Allow multiple &instances of AltDrag",                   IDC_MULTIPLEINSTANCES,"Button",BS_AUTOCHECKBOX | WS_TABSTOP, 10, 100, 195,8
-    CONTROL         "Automatically &remaximize windows when changing monitor",IDC_AUTOREMAXIMIZE,   "Button",BS_AUTOCHECKBOX | WS_TABSTOP, 10, 110, 195,8
-    CONTROL         "&Double-click pearces through",                          IDC_PEARCEDBCLICK,    "Button",BS_AUTOCHECKBOX | WS_TABSTOP, 10, 120, 195,8
-    CONTROL         "Restore AltDrag snapped windows with &normal move",      IDC_NORMRESTORE,      "Button",BS_AUTOCHECKBOX | WS_TABSTOP, 10, 130, 195,8
-    CONTROL         "&Maximize windows snapped at top",                       IDC_AEROTOPMAXIMIZES, "Button",BS_AUTOCHECKBOX | WS_TABSTOP, 10, 140, 195,8
+    GROUPBOX  "Behavior", IDC_FINDWINDOW_BOX,  3,85,212,100
+    CONTROL   "Allow multiple &instances of AltDrag",                   IDC_MULTIPLEINSTANCES,"Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,100,195,8
+    CONTROL   "Automatically &remaximize windows when changing monitor",IDC_AUTOREMAXIMIZE,   "Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,110,195,8
+    CONTROL   "Restore AltDrag snapped windows with &normal move",      IDC_NORMRESTORE,      "Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,120,195,8
+    CONTROL   "&Maximize windows snapped at top",                       IDC_AEROTOPMAXIMIZES, "Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,130,195,8
+    CONTROL   "&Toggle maximize state with left-ckick while moving",    IDC_MAXWITHLCLICK,    "Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,140,195,8
+    CONTROL   "Restore window with single click like &original AltDrag",IDC_RESTOREONCLICK,   "Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,150,195,8
 
 END
 

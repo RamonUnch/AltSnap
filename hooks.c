@@ -1699,9 +1699,10 @@ static void AddWindowToDB(HWND hwndd)
 }
 /////////////////////////////////////////////////////////////////////////////
 // Roll/Unroll Window. If delta > 0: Roll if < 0: Unroll if =0: Toggle.
-static void RollWindow(int delta)
+static void RollWindow(HWND hwnd, int delta)
 {
     RECT rc;
+    state.hwnd = hwnd;
     state.origin.maximized = IsZoomed(state.hwnd);
     state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
 
@@ -1730,7 +1731,7 @@ static int ActionMove(POINT pt, HMONITOR monitor, DWORD button)
     // If this is a double-click
     if (GetTickCount()-state.clicktime <= conf.dbclktime) {
         if (state.shift) {
-            RollWindow(0); // Roll/Unroll Window...
+            RollWindow(state.hwnd, 0); // Roll/Unroll Window...
         } else if (IsResizable(state.hwnd)) {
             // Toggle Maximize window
             state.action = AC_NONE; // Stop move action
@@ -2045,7 +2046,7 @@ static int init_movement_and_actions(POINT pt, enum action action
             SetWindowPos(state.hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
         }
     } else if (action == AC_ROLL) {
-        RollWindow(0);
+        RollWindow(state.hwnd, 0);
     }
 
     // Send WM_ENTERSIZEMOVE
@@ -2135,8 +2136,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
 
         int area = SendMessage(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x, pt.y));
         if(area == HTCAPTION) {
-            state.hwnd = hwnd;
-            RollWindow(delta);
+            RollWindow(hwnd, delta);
             // Block original scroll event
             state.blockaltup = 1;
             return 1;
@@ -2169,8 +2169,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
             if(!ActionMaxRestMin(pt, delta))
                 return 0;
         } else if (conf.Mouse.Scroll == AC_ROLL){
-            state.hwnd = hwnd;
-            RollWindow(delta);
+            RollWindow(hwnd, delta);
         }
         // Block original scroll event
         state.blockaltup = 1;

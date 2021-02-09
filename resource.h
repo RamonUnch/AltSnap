@@ -103,3 +103,5 @@
 #define IDC_AEROTHRESHOLD               2032
 #define IDC_AEROTHRESHOLD_H             2033
 #define IDC_NORMRESTORE                 2034
+#define IDC_MAXWITHLCLICK               2035
+#define IDC_RESTOREONCLICK              2036

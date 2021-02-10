@@ -16,7 +16,7 @@ BEGIN
     LTEXT           "Created by Stefan Sundin",IDC_AUTHOR, 10, 40, 200, 8
     LTEXT           "https://stefansundin.com/", 0, 10,50,200,10
 
-    LTEXT           "Modified By Raymond Gillibert (raymond_gillibert@yahoo.fr)",0, 10, 65, 200, 8
+    LTEXT           "Modified By Raymond Gillibert",0, 10, 65, 200, 8
 
     LTEXT           "Free and open source software!", IDC_LICENSE,10, 80, 195, 20
 
@@ -31,21 +31,21 @@ CAPTION "Blacklist"
 FONT 8, "Ms Shell Dlg"
 BEGIN
 
-    GROUPBOX        "Blacklist",      IDC_BLACKLIST_BOX,           3,1,212,140
-    LTEXT           "Processes:",     IDC_PROCESSBLACKLIST_HEADER, 10,11,190,8
-    EDITTEXT        IDC_PROCESSBLACKLIST,10,20, 195,14,ES_AUTOHSCROLL
-    LTEXT           "Windows:",       IDC_BLACKLIST_HEADER,        10,36,190,8
-    EDITTEXT        IDC_BLACKLIST,       10,45, 195,14,ES_AUTOHSCROLL
-    LTEXT           "Scroll:",      IDC_SCROLLLIST_HEADER,         10,61,190,8
-    EDITTEXT        IDC_SCROLLLIST,      10,70, 195,14,ES_AUTOHSCROLL
-    LTEXT           "&MDIs:",         IDC_MDISBL_HEADER,          10,86,190,8
-    EDITTEXT        IDC_MDIS,            10,95,195,14,ES_AUTOHSCROLL
-    LTEXT           "Pau&se blacklist:",IDC_PAUSEBL_HEADER,         10,111,190,8
-    EDITTEXT        IDC_PAUSEBL,         10,120,195,14,ES_AUTOHSCROLL
+    GROUPBOX    "Blacklist",      IDC_BLACKLIST_BOX,           3,1,212,140
+    LTEXT       "Processes:",     IDC_PROCESSBLACKLIST_HEADER, 10,11,190,8
+    EDITTEXT    IDC_PROCESSBLACKLIST,10,20, 195,14,ES_AUTOHSCROLL
+    LTEXT       "Windows:",       IDC_BLACKLIST_HEADER,        10,36,190,8
+    EDITTEXT    IDC_BLACKLIST,       10,45, 195,14,ES_AUTOHSCROLL
+    LTEXT       "Scroll:",      IDC_SCROLLLIST_HEADER,         10,61,190,8
+    EDITTEXT    IDC_SCROLLLIST,      10,70, 195,14,ES_AUTOHSCROLL
+    LTEXT       "&MDIs:",         IDC_MDISBL_HEADER,          10,86,190,8
+    EDITTEXT    IDC_MDIS,            10,95,195,14,ES_AUTOHSCROLL
+    LTEXT       "Pau&se blacklist:",IDC_PAUSEBL_HEADER,         10,111,190,8
+    EDITTEXT    IDC_PAUSEBL,         10,120,195,14,ES_AUTOHSCROLL
 
-    GROUPBOX        "Identify window",IDC_FINDWINDOW_BOX,          3,145,212,40
-    ICON            IDI_FIND,         IDC_FINDWINDOW,              12,161,16,16, SS_NOTIFY |  SS_REALSIZEIMAGE
-    EDITTEXT        IDC_NEWRULE, 30,159,176,14,ES_AUTOHSCROLL
+    GROUPBOX    "Identify window",IDC_FINDWINDOW_BOX,          3,145,212,40
+    ICON        IDI_FIND,         IDC_FINDWINDOW,              12,161,16,16, SS_NOTIFY |  SS_REALSIZEIMAGE
+    EDITTEXT    IDC_NEWRULE, 30,159,176,14,ES_AUTOHSCROLL
 END
 
 /////////////////////////////////////////////////////////////////////////////
@@ -89,30 +89,29 @@ STYLE WS_CHILD | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | DS_3DLOOK
 CAPTION "Input"
 FONT 8, "Ms Shell Dlg"
 BEGIN
-    GROUPBOX        "Mouse",       IDC_MOUSE_BOX,    3,1,212,130
-    LTEXT           "LMB:", IDC_LMB_HEADER, 10,13,85,8
-    COMBOBOX        IDC_LMB,   105,10,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
-    LTEXT           "MMB:", IDC_MMB_HEADER, 10,27,85,8
-    COMBOBOX        IDC_MMB,   105,24,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
-    LTEXT           "RMB:", IDC_RMB_HEADER, 10,41,85,8
-    COMBOBOX        IDC_RMB,   105,38,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
-    LTEXT           "MB4:", IDC_MB4_HEADER, 10,55,85,8
-    COMBOBOX        IDC_MB4,   105,52,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
-    LTEXT           "MB5:", IDC_MB5_HEADER, 10,69,85,8
-    COMBOBOX        IDC_MB5,   105,66,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
-    LTEXT           "Scroll:",IDC_SCROLL_HEADER,10,83,85,8
-    COMBOBOX        IDC_SCROLL,105,80,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
+    GROUPBOX    "Mouse",       IDC_MOUSE_BOX,    3,1,212,130
+    LTEXT       "LMB:", IDC_LMB_HEADER, 10,13,85,8
+    COMBOBOX    IDC_LMB,   105,10,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
+    LTEXT       "MMB:", IDC_MMB_HEADER, 10,27,85,8
+    COMBOBOX    IDC_MMB,   105,24,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
+    LTEXT       "RMB:", IDC_RMB_HEADER, 10,41,85,8
+    COMBOBOX    IDC_RMB,   105,38,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
+    LTEXT       "MB4:", IDC_MB4_HEADER, 10,55,85,8
+    COMBOBOX    IDC_MB4,   105,52,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
+    LTEXT       "MB5:", IDC_MB5_HEADER, 10,69,85,8
+    COMBOBOX    IDC_MB5,   105,66,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
+    LTEXT       "Scroll:",IDC_SCROLL_HEADER,10,83,85,8
+    COMBOBOX    IDC_SCROLL,105,80,97,120, CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_TABSTOP
 
-    CONTROL         "LowerWithMMB",   IDC_LOWERWITHMMB,"Button", BS_AUTOCHECKBOX | WS_TABSTOP|BS_MULTILINE,10,95,195,16
-    CONTROL         "AggressivePause",IDC_AGGRESSIVEPAUSE,"Button", BS_AUTOCHECKBOX | WS_TABSTOP|BS_MULTILINE,10,112,195,16
+    CONTROL     "LowerWithMMB",   IDC_LOWERWITHMMB,"Button", BS_AUTOCHECKBOX | WS_TABSTOP|BS_MULTILINE,10,95,195,16
+    CONTROL     "AggressivePause",IDC_AGGRESSIVEPAUSE,"Button", BS_AUTOCHECKBOX | WS_TABSTOP|BS_MULTILINE,10,112,195,16
 
-    GROUPBOX        "Hotkeys",    IDC_HOTKEYS_BOX,  3,135,212,55
-    CONTROL         "LeftAlt",    IDC_LEFTALT,    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10 ,145,60,10
-    CONTROL         "RightAlt",   IDC_RIGHTALT,   "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10 ,156,60,10
-    CONTROL         "LeftWinkey", IDC_LEFTWINKEY, "Button",BS_AUTOCHECKBOX | WS_TABSTOP,71 ,145,72,10
-    CONTROL         "RightWinkey",IDC_RIGHTWINKEY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,71 ,156,72,10
-    LTEXT           "ini file",    IDC_HOTKEYS_MORE, 10,168,200,20
-
+    GROUPBOX    "Hotkeys",    IDC_HOTKEYS_BOX,  3,135,212,55
+    CONTROL     "LeftAlt",    IDC_LEFTALT,    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10 ,145,60,10
+    CONTROL     "RightAlt",   IDC_RIGHTALT,   "Button",BS_AUTOCHECKBOX | WS_TABSTOP,10 ,156,60,10
+    CONTROL     "LeftWinkey", IDC_LEFTWINKEY, "Button",BS_AUTOCHECKBOX | WS_TABSTOP,71 ,145,72,10
+    CONTROL     "RightWinkey",IDC_RIGHTWINKEY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,71 ,156,72,10
+    LTEXT       "ini file",    IDC_HOTKEYS_MORE, 10,168,200,20
 END
 
 
@@ -122,20 +121,19 @@ STYLE WS_CHILD | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | DS_3DLOOK
 CAPTION "Advanced"
 FONT 8, "Ms Shell Dlg"
 BEGIN
+    GROUPBOX  "Metrics",       IDC_ADVANCED_BOX,           3,1,212,80
+    LTEXT     "&Center Fraction (%):",    IDC_CENTERFRACTION_H, 10,17,140,8
+    EDITTEXT  IDC_CENTERFRACTION, 160, 15, 30, 12
 
-    GROUPBOX        "Metrics",       IDC_ADVANCED_BOX,           3,1,212,80
-    LTEXT           "&Center Fraction (%):",    IDC_CENTERFRACTION_H, 10,17,140,8
-    EDITTEXT        IDC_CENTERFRACTION, 160, 15, 30, 12
+    LTEXT     "Aero offset(%) &Horizontal: ",   IDC_AEROHOFFSET_H, 10,32,85,8
+    EDITTEXT  IDC_AEROHOFFSET, 95, 30, 30, 12
+    LTEXT     "&Vertical:", IDC_AEROHOFFSET_H, 132,32,26,8
+    EDITTEXT  IDC_AEROVOFFSET, 160, 30, 30, 12
 
-    LTEXT           "Aero offset(%) &Horizontal: ",   IDC_AEROHOFFSET_H, 10,32,90,8
-    EDITTEXT        IDC_AEROHOFFSET, 95, 30, 30, 12
-    LTEXT           "&Vertical:", IDC_AEROHOFFSET_H, 132,32,60,8
-    EDITTEXT        IDC_AEROVOFFSET, 160, 30, 30, 12
-
-    LTEXT           "&Snap Threshold (pixels):",    IDC_SNAPTHRESHOLD_H, 10,47,140,8
-    EDITTEXT        IDC_SNAPTHRESHOLD, 160, 45, 30, 12
-    LTEXT           "&Aero Threshold (pixels):",    IDC_AEROTHRESHOLD_H, 10,62,140,8
-    EDITTEXT        IDC_AEROTHRESHOLD, 160, 60, 30, 12
+    LTEXT     "&Snap Threshold (pixels):",    IDC_SNAPTHRESHOLD_H, 10,47,140,8
+    EDITTEXT  IDC_SNAPTHRESHOLD, 160, 45, 30, 12
+    LTEXT     "&Aero Threshold (pixels):",    IDC_AEROTHRESHOLD_H, 10,62,140,8
+    EDITTEXT  IDC_AEROTHRESHOLD, 160, 60, 30, 12
 
     GROUPBOX  "Behavior", IDC_FINDWINDOW_BOX,  3,85,212,100
     CONTROL   "Allow multiple &instances of AltDrag",                   IDC_MULTIPLEINSTANCES,"Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,100,195,8
@@ -143,8 +141,8 @@ BEGIN
     CONTROL   "Restore AltDrag snapped windows with &normal move",      IDC_NORMRESTORE,      "Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,120,195,8
     CONTROL   "&Maximize windows snapped at top",                       IDC_AEROTOPMAXIMIZES, "Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,130,195,8
     CONTROL   "&Toggle maximize state with left-ckick while moving",    IDC_MAXWITHLCLICK,    "Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,140,195,8
-    CONTROL   "Restore window with single click like &original AltDrag",IDC_RESTOREONCLICK,   "Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,150,195,8
-
+    CONTROL   "Rest&ore window with single click like original AltDrag",IDC_RESTOREONCLICK,   "Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,150,195,8
+    CONTROL   "Ro&ll/Unroll windows with Alt+Scroll on title bar",      IDC_ROLLWITHTBSCROLL, "Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,160,195,8
 END
 
 

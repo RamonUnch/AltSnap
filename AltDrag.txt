@@ -140,7 +140,8 @@ Note that this version has some more feature..
 == AltDrag 1.37 ==
 
 * Fixed: Now moveable full screen windows should be restored to full screen
-  when changing monitor. This was not working properly in 1.36.
+  when changing monitor. This was not working properly in 1.36. Note that
+  many full screen windows are really not moveable anyway.
 
 * Fixed: Scroll actions will no longer ignore blacklist. In addition the
   Scroll list was added in the [Blacklist] section of AltDrag.ini in order
@@ -154,7 +155,8 @@ Note that this version has some more feature..
   a quite advanced detail anyway.
 
 * GUI Fixed: re-introduction of the Advanced tab in the options with more
-  options that previously required direct ini file edition.
+  options that previously required direct ini file edition. This should be
+  helpfull for all users.
 
 == AltDrag 1.36 ==
 

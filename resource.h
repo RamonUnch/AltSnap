@@ -105,3 +105,4 @@
 #define IDC_NORMRESTORE                 2034
 #define IDC_MAXWITHLCLICK               2035
 #define IDC_RESTOREONCLICK              2036
+#define IDC_ROLLWITHTBSCROLL            2037

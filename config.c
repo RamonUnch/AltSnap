@@ -780,18 +780,21 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         ret = GetPrivateProfileInt(L"Advanced", L"AutoRemaximize", 0, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOREMAXIMIZE), ret? BST_CHECKED: BST_UNCHECKED);
 
-        ret = GetPrivateProfileInt(L"Advanced", L"AeroTopMaximizes", 0, inipath);
+        ret = GetPrivateProfileInt(L"Advanced", L"AeroTopMaximizes", 1, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_AEROTOPMAXIMIZES), ret? BST_CHECKED: BST_UNCHECKED);
 
         ret = GetPrivateProfileInt(L"Advanced", L"MultipleInstances", 0, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_MULTIPLEINSTANCES), ret? BST_CHECKED: BST_UNCHECKED);
 
-        ret = GetPrivateProfileInt(L"General", L"NormRestore", 1, inipath);
+        ret = GetPrivateProfileInt(L"General", L"NormRestore", 0, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_NORMRESTORE), ret? BST_CHECKED: BST_UNCHECKED);
 
-        ret = GetPrivateProfileInt(L"General", L"MMMaximize", 0, inipath);
+        ret = GetPrivateProfileInt(L"General", L"MMMaximize", 1, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_MAXWITHLCLICK), (ret&1)? BST_CHECKED: BST_UNCHECKED);
         Button_SetCheck(GetDlgItem(hwnd, IDC_RESTOREONCLICK), (ret&2)? BST_CHECKED: BST_UNCHECKED);
+
+        ret = GetPrivateProfileInt(L"Input",  L"RollWithTBScroll", 0, inipath);
+        Button_SetCheck(GetDlgItem(hwnd, IDC_ROLLWITHTBSCROLL), ret? BST_CHECKED: BST_UNCHECKED);
 
         GetPrivateProfileString(L"General", L"CenterFraction", L"", txt, ARR_SZ(txt), inipath);
         SetDlgItemText(hwnd, IDC_CENTERFRACTION, txt);
@@ -816,17 +819,19 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         wchar_t txt[10];
 
         if (id == IDC_AUTOREMAXIMIZE) {
-            WritePrivateProfileString(L"Advanced",   L"AutoRemaximize", _itow(val, txt, 10), inipath);
+            WritePrivateProfileString(L"Advanced",L"AutoRemaximize", _itow(val, txt, 10), inipath);
         } else if (id == IDC_AEROTOPMAXIMIZES) {
-            WritePrivateProfileString(L"Advanced",   L"AeroTopMaximizes", _itow(val, txt, 10), inipath);
+            WritePrivateProfileString(L"Advanced",L"AeroTopMaximizes", _itow(val, txt, 10), inipath);
         } else if (id == IDC_MULTIPLEINSTANCES) {
-            WritePrivateProfileString(L"Advanced",   L"MultipleInstances", _itow(val, txt, 10), inipath);
+            WritePrivateProfileString(L"Advanced",L"MultipleInstances", _itow(val, txt, 10), inipath);
         } else if (id == IDC_NORMRESTORE) {
-            WritePrivateProfileString(L"General",    L"NormRestore", _itow(val, txt, 10), inipath);
-        } else if (id == IDC_MAXWITHLCLICK || IDC_RESTOREONCLICK) {
+            WritePrivateProfileString(L"General", L"NormRestore", _itow(val, txt, 10), inipath);
+        } else if (id == IDC_ROLLWITHTBSCROLL) {
+            WritePrivateProfileString(L"Input",   L"RollWithTBScroll", _itow(val, txt, 10), inipath);
+        } else if (id == IDC_MAXWITHLCLICK || id == IDC_RESTOREONCLICK) {
             int ret = GetPrivateProfileInt(L"General", L"MMMaximize", 0, inipath);
             val = (id == IDC_MAXWITHLCLICK)? (val+2) & (ret|1): (val*2+1) & (ret|2);
-            WritePrivateProfileString(L"General",    L"MMMaximize", _itow(val, txt, 10), inipath);
+            WritePrivateProfileString(L"General", L"MMMaximize", _itow(val, txt, 10), inipath);
         }
         if (event == EN_KILLFOCUS) {
             Edit_GetText(control, txt, ARR_SZ(txt));

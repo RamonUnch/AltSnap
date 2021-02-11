@@ -1005,6 +1005,7 @@ static void MouseMove(POINT pt)
         static HMONITOR origMonitor;
         static RECT fmon;
         if(origMonitor != state.origin.monitor || !state.origin.monitor) {
+            origMonitor = state.origin.monitor;
             MONITORINFO mi = { sizeof(MONITORINFO) };
             GetMonitorInfo(state.origin.monitor, &mi);
             fmon = mi.rcMonitor;

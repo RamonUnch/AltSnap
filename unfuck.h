@@ -295,7 +295,7 @@ BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
             have_func=1;
         }
     case 1: /* We know we have the function */
-        return myGetMonitorInfoW(hMonitor, lpmi);
+        if(hMonitor) return myGetMonitorInfoW(hMonitor, lpmi);
     }
     static int saved=0;
     static RECT TaskbarRC, DesktopRC;

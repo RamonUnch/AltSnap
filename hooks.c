@@ -188,7 +188,6 @@ struct {
     struct blacklist Pause;
     struct blacklist MMBLower;
     struct blacklist Scroll;
-//    struct blacklist F11Fullscreen;
 } BlkLst = { {NULL, 0, NULL}, {NULL, 0, NULL}, {NULL, 0, NULL}
            , {NULL, 0, NULL}, {NULL, 0, NULL}, {NULL, 0, NULL}
            , {NULL, 0, NULL}};
@@ -967,11 +966,6 @@ static void RestoreOldWin(POINT *pt, int was_snapped, int index)
         state.offset.y = pt->y-wnd.top;
     }
 }
-//static void Send_F11(HWND hwnd)
-//{
-//    SendMessage(hwnd, WM_KEYDOWN, VK_F11, 0);
-//    SendMessage(hwnd, WM_KEYUP,   VK_F11, 0);
-//}
 ///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
 {
@@ -988,10 +982,6 @@ static void MouseMove(POINT pt)
     // Restore Aero snapped window
     int was_snapped=0;
     if(state.action == AC_MOVE && !was_moving){
-//        if(state.origin.fullscreen && blacklisted(state.hwnd, &BlkLst.F11Fullscreen)) {
-//            Send_F11(state.hwnd);
-//            state.origin.fullscreen = 66;
-//        }
         was_snapped = IsWindowSnapped(state.hwnd);
         RestoreOldWin(&pt, was_snapped, 1);
     }
@@ -1014,8 +1004,7 @@ static void MouseMove(POINT pt)
     if ((state.ctrl && !state.ignorectrl) || state.shift) {
         static HMONITOR origMonitor;
         static RECT fmon;
-        if(origMonitor != state.origin.monitor) {
-            origMonitor = state.origin.monitor;
+        if(origMonitor != state.origin.monitor || !state.origin.monitor) {
             MONITORINFO mi = { sizeof(MONITORINFO) };
             GetMonitorInfo(state.origin.monitor, &mi);
             fmon = mi.rcMonitor;
@@ -1551,7 +1540,8 @@ static int ActionVolume(int delta)
 static int ActionTransparency(HWND hwnd, int delta)
 {
     static int alpha=255;
-    if (blacklistedP(hwnd, &BlkLst.Processes))
+
+    if (blacklisted(hwnd, &BlkLst.Windows))
         return 0;
 
     int alpha_delta = (state.shift)?conf.AlphaDeltaShift:conf.AlphaDelta;
@@ -2000,7 +1990,7 @@ static int init_movement_and_actions(POINT pt, enum action action
     if (conf.AutoFocus) { SetForegroundWindow(state.hwnd); }
 
     // Do things depending on what button was pressed
-    HCURSOR cursor = NULL;
+    HCURSOR hcursor = NULL;
     if (action == AC_MOVE) { ////////////////
         GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
         int ret = ActionMove(pt, monitor, button);
@@ -2008,7 +1998,7 @@ static int init_movement_and_actions(POINT pt, enum action action
             return 0;
         else if (ret == 1)
             return 1;
-        cursor = cursors[HAND];
+        hcursor = cursors[HAND];
 
     } else if (action == AC_RESIZE) { ///////////////
         GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
@@ -2018,7 +2008,7 @@ static int init_movement_and_actions(POINT pt, enum action action
         if(ret==1) return 1;
         else if (ret==0) CallNextHookEx(NULL, nCode, wParam, lParam);
 
-        cursor = CursorToDraw();
+        hcursor = CursorToDraw();
 
     } else if (action == AC_MINIMIZE) {
         PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
@@ -2060,11 +2050,11 @@ static int init_movement_and_actions(POINT pt, enum action action
     state.clickpt = pt;
 
     // Update cursor
-    if (conf.UseCursor && cursorwnd && cursor) {
+    if (conf.UseCursor && cursorwnd && hcursor) {
         MoveWindow(cursorwnd, pt.x-20, pt.y-20, 41, 41, FALSE);
-//        SetClassLongPtr(cursorwnd, GCLP_HCURSOR, (LONG_PTR)cursor);
+//        SetClassLongPtr(cursorwnd, GCLP_HCURSOR, (LONG_PTR)hcursor);
         ShowWindow(cursorwnd, SW_SHOWNA);
-        SetCursor(cursor);
+        SetCursor(hcursor);
         SetCapture(cursorwnd);
     }
 
@@ -2144,7 +2134,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     }
     
     // Return if blacklisted
-    if (blacklisted(hwnd, &BlkLst.Windows) || blacklisted(hwnd, &BlkLst.Scroll))
+    if (blacklistedP(hwnd, &BlkLst.Processes) || blacklisted(hwnd, &BlkLst.Scroll))
         return 0;
 
     if (conf.Mouse.Scroll) {
@@ -2597,8 +2587,6 @@ __declspec(dllexport) void Load(void)
     readblacklist(inipath, &BlkLst.Pause,     L"Pause");
     readblacklist(inipath, &BlkLst.MMBLower,  L"MMBLower");
     readblacklist(inipath, &BlkLst.Scroll,    L"Scroll");
-//    readblacklist(inipath, &BlkLst.F11Fullscreen, L"F11Fullscreen");
-    
 
     // Allocate some memory
     monitors_alloc++;

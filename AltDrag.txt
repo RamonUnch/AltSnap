@@ -91,7 +91,11 @@ TRICKS YOU SHOULD KNOW ABOUT
 _____________
 CONFIGURATION
 To change the configuration from default, double-click on the tray icon, and
-you will be presented with a lot of choices.
+you will be presented with a lot of choices. 
+
+If you want to go further into the configuration, open the AltDrag.ini file
+by middle-clicking on the tray icon. You will see all the option there with
+a short description.
 _________
 LANGUAGES
 AltDrag is fully translated in French, Italian and mostly translated in many
@@ -101,23 +105,59 @@ associated ini file in the Lang directory, and no not forget to send it to
 me via a GitHub pull request/issue or PM me, so that everyone can enjoy your
 translation. You can use "Lang\_en_US baseline.txt" as a starting point if
 you want to translate everything to a new language.
-________
-ADVANCED
-If you want to go further into the configuration, open the AltDrag.ini file
-by middle-clicking on the tray icon. You will see all the option there with
-a short description.
-
-* Set NormRestore=1 if you want a normal click to be able to restore an
-  AltDrag snapped window.
-* Set CenterFraction to change the size in percents of the central area.
-* Set RollWithTBScroll=1 to Roll/Unroll Window when using the Alt+Scroll
-  wheel on its title bar.
 ______
 UPDATE
 To avoid useless bloat and potential vulnerability AltDrag no longer
 auto-updates. You can check for new versions on the GitHub page 
 If you want automation, install altdrag via the chocolatey package.
-> choco install altdrag --version X.XX
+-install with> choco install altdrag
+-update with> choco update altdrag
+-uninstall with > choco uninstall altdrag
+Note that the chocolatey package may take a few weeks before getting updated.
+_________
+BLACKLIST
+Sometime an AltDrag action interacts with a window you do not want.
+For example if you use Alt+Click on a specific window and you do not want
+altdrag to move the window you can add the window name to the windows
+blacklist. more details below:
+All the list are coma separated and take no spaces after or before the coma.
+A space can be present in the item itself.
+
+- Process blacklist: List of programs names for which move/resize from 
+  AltDrag is disabled. Exemple: Notepad.exe
+- Windows blacklist: List of windows with the title|class format for which
+  move/resize as well as the the scroll action from AltDrag are disabled 
+  Exemple: Program Manager|Progman,|Shell_TrayWnd,*|Notepad
+- Windos that should ignore the scroll action: List of windows with the
+  title|class format that for which the scroll action of AltDrag will not
+  apply. Exemple: *|Photoshop
+- MDIs not to be treated as such: List of windows for which AltDrag will not
+  try to find MDI subwindow. This only applies if the Support MDI is enabled
+  and by default contains *|PPTFrameClass,*|MMCMainFrame which correspond to
+  the powerpoint window and all the microsoft managment application such as
+  the  services.msc windows or the device drivers window.
+- Process not to be paused: Only applies for the Pause action when enabled on
+  Alt+Shift+Pause, this are program names.
+
+Program names are prety straightforward to find. however a finer control can 
+be done using the window's title|class information. they can be found for a
+specific window using the small target in the identify window section of the
+Blacklist tab. You can include all the possible names by using the *|class
+format. This is usefull for most programs that have a non constant title, for
+exemple notepad's title is actually the name of the file you are currently 
+editing.
+The other way around can be used and you can specify title|* which means that
+all the windows that have this title regardeless of their class name will be
+blacklisted. This is a much less comon usage.
+
+The title can also be empty for exemple: |Shell_TrayWnd corresponds to the
+Windows task bar and has an empty title, just a class name.
+
+Finally more blacklists can be found in the AltDrag.ini file:
+- Snaplist: List of windows with the name|clas format to which other windows
+  should snap. By default windows that have no borders cannot be snapped to.
+- MMBLower: List of windows that should not be lowered with mouse middle 
+  click on the title bar. Default: *|CASCADIA_HOSTING_WINDOW_CLASS
 
 ===========================================================================
 == USAGE ==
@@ -146,6 +186,9 @@ Note that this version has some more feature..
 * Fixed: Scroll actions will no longer ignore blacklist. In addition the
   Scroll list was added in the [Blacklist] section of AltDrag.ini in order
   to disable the scroll action for those windows.
+
+* Fixed bug when the origin monitor was a NULL pointer in some cases under
+  older windows versions.
 
 * More code cleanup, some code was moved to functions and potential NULL
   pointer dereferencing were fixed.

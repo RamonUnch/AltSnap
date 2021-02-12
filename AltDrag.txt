@@ -124,9 +124,9 @@ All the list are coma separated and take no spaces after or before the coma.
 A space can be present in the item itself.
 
 - Process blacklist: List of programs names for which move/resize from 
-  AltDrag is disabled. Exemple: Notepad.exe
+  AltDrag as well as the scroll actions are disabled. Exemple: Notepad.exe
 - Windows blacklist: List of windows with the title|class format for which
-  move/resize as well as the the scroll action from AltDrag are disabled 
+  move/resize actions from AltDrag will be disabled
   Exemple: Program Manager|Progman,|Shell_TrayWnd,*|Notepad
 - Windos that should ignore the scroll action: List of windows with the
   title|class format that for which the scroll action of AltDrag will not
@@ -192,6 +192,8 @@ Note that this version has some more feature..
 
 * More code cleanup, some code was moved to functions and potential NULL
   pointer dereferencing were fixed.
+
+* GUI New: now the Identify window option will show the program image name.
 
 * GUI Fixed: Now the Snaplist has to be edited with the ini file and the
   Scroll blacklist is visible instead (much more usefull). Snapplist is

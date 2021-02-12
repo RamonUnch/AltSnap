@@ -118,46 +118,47 @@ _________
 BLACKLIST
 Sometime an AltDrag action interacts with a window you do not want.
 For example if you use Alt+Click on a specific window and you do not want
-altdrag to move the window you can add the window name to the windows
+AltDrag to move the window you can add the window name to the windows
 blacklist. more details below:
 All the list are coma separated and take no spaces after or before the coma.
 A space can be present in the item itself.
 
 - Process blacklist: List of programs names for which move/resize from 
-  AltDrag as well as the scroll actions are disabled. Exemple: Notepad.exe
+  AltDrag as well as the scroll actions are disabled. Example: Notepad.exe
 - Windows blacklist: List of windows with the title|class format for which
   move/resize actions from AltDrag will be disabled
-  Exemple: Program Manager|Progman,|Shell_TrayWnd,*|Notepad
+  Example: Program Manager|Progman,|Shell_TrayWnd,*|Notepad
 - Windos that should ignore the scroll action: List of windows with the
   title|class format that for which the scroll action of AltDrag will not
-  apply. Exemple: *|Photoshop
+  apply. Example: *|Photoshop
 - MDIs not to be treated as such: List of windows for which AltDrag will not
   try to find MDI subwindow. This only applies if the Support MDI is enabled
   and by default contains *|PPTFrameClass,*|MMCMainFrame which correspond to
-  the powerpoint window and all the microsoft managment application such as
-  the  services.msc windows or the device drivers window.
+  the PowerPoint window and all the Microsoft Management application such as
+  the services.msc windows or the device drivers window.
 - Process not to be paused: Only applies for the Pause action when enabled on
   Alt+Shift+Pause, this are program names.
 
-Program names are prety straightforward to find. however a finer control can 
-be done using the window's title|class information. they can be found for a
+Program names are prety straightforward to find. However a finer control can 
+be done using the window's title|class information; they can be found for a
 specific window using the small target in the identify window section of the
 Blacklist tab. You can include all the possible names by using the *|class
-format. This is usefull for most programs that have a non constant title, for
-exemple notepad's title is actually the name of the file you are currently 
+format. This is useful for most programs that have a non-constant title, for
+example notepad's title is actually the name of the file you are currently 
 editing.
 The other way around can be used and you can specify title|* which means that
-all the windows that have this title regardeless of their class name will be
-blacklisted. This is a much less comon usage.
+all the windows that have this title regardless of their class name will be
+blacklisted. This is a much less common usage.
 
-The title can also be empty for exemple: |Shell_TrayWnd corresponds to the
+The title can also be empty for example: |Shell_TrayWnd corresponds to the
 Windows task bar and has an empty title, just a class name.
 
 Finally more blacklists can be found in the AltDrag.ini file:
 - Snaplist: List of windows with the name|clas format to which other windows
   should snap. By default windows that have no borders cannot be snapped to.
 - MMBLower: List of windows that should not be lowered with mouse middle 
-  click on the title bar. Default: *|CASCADIA_HOSTING_WINDOW_CLASS
+  click on the title bar. Default: *|CASCADIA_HOSTING_WINDOW_CLASS that 
+  corresponds to the Windows Terminal window.
 
 ===========================================================================
 == USAGE ==
@@ -182,7 +183,7 @@ Note that this version has some more feature..
 * Fixed: Now moveable full screen windows should be restored to full screen
   when changing monitor. This was not working properly in 1.36. Note that
   many full screen windows are really not moveable anyway.
-  Under Windows 10 the file explorer will behave correctly, not firefox.
+  Under Windows 10 the file explorer will behave correctly, not Firefox.
 
 * Fixed: the Scroll list was added in the [Blacklist] section of AltDrag.ini
   in order to disable the scroll action for any window. In addition the 
@@ -194,7 +195,7 @@ Note that this version has some more feature..
 * Fixed ini file: the proper name of the two settings about max aero speed
   are AeroMaxSpeed and AeroSpeedInt.
 
-* Fixed: manifest file now fallbacks to permonitor dpi awarness version 1
+* Fixed: manifest file now fallbacks to per monitor dpi awarness version 1
   if version 2 is not available ie. Win 8.1 and Win10 before build 1703.
 
 * More code cleanup, some code was moved to functions and potential NULL
@@ -203,12 +204,12 @@ Note that this version has some more feature..
 * GUI New: now the Identify window option will show the program image name.
 
 * GUI Fixed: Now the Snaplist has to be edited with the ini file and the
-  Scroll blacklist is visible instead (much more usefull). Snapplist is
+  Scroll blacklist is visible instead (much more useful). Snapplist is
   a quite advanced detail anyway.
 
 * GUI Fixed: re-introduction of the Advanced tab in the options with more
   options that previously required direct ini file edition. This should be
-  helpfull for all users.
+  helpful for all users. It is not yet translated though.
 
 == AltDrag 1.36 ==
 
@@ -230,7 +231,7 @@ Note that this version has some more feature..
   set it to 8-10, if you have a ~100Hz mouse (typical) keep it to 1 or 2.
   (ii) Set AeroMaxSpeed to a "high" value (like 50) and try to move fast
   a window between two monitors, if it get aero-snapped, decrease the value
-  until it "just" no longers snaps. (iii) Check that the window does snap
+  until it "just" no longer snaps. (iii) Check that the window does snap
   when you want it to sap, if the window tends to restore when you do not
   want, increase the AeroMaxSpeed value.
 

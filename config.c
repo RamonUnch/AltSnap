@@ -249,14 +249,14 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         ret = GetPrivateProfileInt(L"General", L"AutoFocus", 0, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOFOCUS), ret? BST_CHECKED : BST_UNCHECKED);
 
-        ret = GetPrivateProfileInt(L"General", L"Aero", 2, inipath);
+        ret = GetPrivateProfileInt(L"General", L"Aero", 1, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_AERO), ret? BST_CHECKED : BST_UNCHECKED);
 
         ret = GetPrivateProfileInt(L"General", L"InactiveScroll", 0, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_INACTIVESCROLL), ret? BST_CHECKED : BST_UNCHECKED);
         if(WIN10) Button_Enable(GetDlgItem(hwnd, IDC_INACTIVESCROLL), ret);
 
-        ret=GetPrivateProfileInt(L"General", L"MDI", 0, inipath);
+        ret=GetPrivateProfileInt(L"General", L"MDI", 1, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_MDI), ret? BST_CHECKED : BST_UNCHECKED);
 
         ret=GetPrivateProfileInt(L"Performance", L"FullWin", 1, inipath);
@@ -642,6 +642,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 
         GetPrivateProfileString(L"Blacklist", L"MDIs", L"", txt, ARR_SZ(txt), inipath);
         SetDlgItemText(hwnd, IDC_MDIS, txt);
+        Button_Enable(GetDlgItem(hwnd, IDC_MDIS), GetPrivateProfileInt(L"General", L"MDI", 1, inipath));
 
         GetPrivateProfileString(L"Blacklist", L"Pause", L"", txt, ARR_SZ(txt), inipath);
         SetDlgItemText(hwnd, IDC_PAUSEBL, txt);

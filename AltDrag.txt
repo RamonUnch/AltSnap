@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTDRAG for NT4 to Win10                         *
 *   Modified by Raymond Gillibert from original source by Stefan Sundin   *
-*                    release 1.37 (February XX, 2021)                     *
+*                    release 1.37 (February 12, 2021)                     *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltDrag/releases/         *
@@ -182,13 +182,20 @@ Note that this version has some more feature..
 * Fixed: Now moveable full screen windows should be restored to full screen
   when changing monitor. This was not working properly in 1.36. Note that
   many full screen windows are really not moveable anyway.
+  Under Windows 10 the file explorer will behave correctly, not firefox.
 
-* Fixed: Scroll actions will no longer ignore blacklist. In addition the
-  Scroll list was added in the [Blacklist] section of AltDrag.ini in order
-  to disable the scroll action for those windows.
+* Fixed: the Scroll list was added in the [Blacklist] section of AltDrag.ini
+  in order to disable the scroll action for any window. In addition the 
+  Processes blacklist will apply to scroll action as well.
 
 * Fixed bug when the origin monitor was a NULL pointer in some cases under
   older windows versions.
+
+* Fixed ini file: the proper name of the two settings about max aero speed
+  are AeroMaxSpeed and AeroSpeedInt.
+
+* Fixed: manifest file now fallbacks to permonitor dpi awarness version 1
+  if version 2 is not available ie. Win 8.1 and Win10 before build 1703.
 
 * More code cleanup, some code was moved to functions and potential NULL
   pointer dereferencing were fixed.

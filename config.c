@@ -685,7 +685,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
             wnd.hCursor = LoadCursor(g_hinst, MAKEINTRESOURCE(IDI_FIND));
             RegisterClassEx(&wnd);
             HWND findhwnd = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_TRANSPARENT
-                             , wnd.lpszClassName, NULL, WS_POPUP, left, top, width, height, NULL, NULL, g_hinst, NULL);
+                           , wnd.lpszClassName, NULL, WS_POPUP, left, top, width, height, NULL, NULL, g_hinst, NULL);
             ShowWindowAsync(findhwnd, SW_SHOWNA);
 
             // Hide icon
@@ -728,6 +728,11 @@ LRESULT CALLBACK CursorProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             wchar_t txt[1000];
             swprintf(txt, ARR_SZ(txt), L"%s|%s", title, classname);
             SetDlgItemText(page, IDC_NEWRULE, txt);
+            
+            if(GetWindowProgName(window, txt, ARR_SZ(txt))) {
+                PathStripPathL(txt);
+                SetDlgItemText(page, IDC_NEWPROGNAME, txt);
+            }
         }
         // Show icon again
         ShowWindowAsync(GetDlgItem(page, IDC_FINDWINDOW), SW_SHOW);

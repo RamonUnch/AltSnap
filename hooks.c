@@ -232,13 +232,10 @@ static int blacklistedP(HWND hwnd, struct blacklist *list)
     // Null hwnd or empty list
     if (! hwnd || !list || list->length == 0 || !list->items || !list->data)
         return 0;
-
+    
+    GetWindowProgName(hwnd, title, ARR_SZ(title));
+    
     // ProcessBlacklist is case-insensitive
-    DWORD pid;
-    GetWindowThreadProcessId(hwnd, &pid);
-    HANDLE proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
-    GetProcessImageFileNameL(proc, title, ARR_SZ(title));
-    CloseHandle(proc);
     PathStripPathL(title);
     for (i=0; i < list->length; i++) {
         if (!wcsicmp(title,list->items[i].title))

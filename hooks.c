@@ -79,6 +79,7 @@ struct {
     int Speed;
 
     char alt;
+    unsigned char alt1;
     char ctrl;
     char blockaltup;
     char blockmouseup;
@@ -87,7 +88,7 @@ struct {
     char ignoreclick;
     char shift;
     char snap;
-    
+
     char moving;
 
     struct {
@@ -166,6 +167,7 @@ struct {
     unsigned char AeroSpeedInt;
     char MMMaximize;
     char keepMousehook;
+    char KeyCombo;
 
     struct {
         unsigned char length;
@@ -1229,13 +1231,12 @@ static void RestrictToCurentMonitor()
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    if (nCode != HC_ACTION) return CallNextHookEx(NULL, nCode, wParam, lParam);
+    if (nCode != HC_ACTION || state.ignorectrl) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     int vkey = ((PKBDLLHOOKSTRUCT)lParam)->vkCode;
 
     if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
-        if (IsHotkey(vkey) && !state.alt) {
-
+        if (!state.alt && (!conf.KeyCombo || (state.alt1 && state.alt1 != vkey)) && IsHotkey(vkey)) {
             // Update state
             state.alt = 1;
             state.blockaltup = 0;
@@ -1251,6 +1252,8 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                     UnhookMouse();
                 }
             }
+        } else if (conf.KeyCombo && !state.alt1 && IsHotkey(vkey)) {
+            state.alt1 = vkey;
 
         } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
             if(!state.shift) RestrictToCurentMonitor();
@@ -1295,7 +1298,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 return 1;
             }
 
-        } else if ((vkey == VK_LCONTROL || vkey == VK_RCONTROL) && !state.ignorectrl && !state.ctrl) {
+        } else if ((vkey == VK_LCONTROL || vkey == VK_RCONTROL) && !state.ctrl) {
             RestrictToCurentMonitor();
             state.ctrl = 1;
             if(state.action == AC_MOVE || state.action == AC_RESIZE){
@@ -1313,7 +1316,8 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
             // Hotkeys have been released
             state.alt = 0;
-            state.ignorectrl = 0;
+            state.alt1 = 0;
+            state.ignorectrl = 0; // in case...
             if(conf.GrabWithAlt) state.action = AC_NONE; // Clear on AltUp
             // Unhook mouse if no actions is ongoing.
             if (!state.action) {
@@ -1323,7 +1327,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.shift = 0;
             state.snap = conf.AutoSnap;
             ClipCursor(NULL); // Release cursor trapping
-        } else if ((vkey == VK_LCONTROL || vkey == VK_RCONTROL) && !state.ignorectrl) {
+        } else if ((vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
             state.ctrl = 0;
             ClipCursor(NULL); // Release cursor trapping.
             // If there is no action then Control UP prevents AltDragging...
@@ -1764,7 +1768,7 @@ static int ActionMove(POINT pt, HMONITOR monitor)
         }
         // Prevent mousedown from propagating
         return 1;
-    } else if(conf.MMMaximize&2) {
+    } else if (conf.MMMaximize&2) {
         MouseMove(pt); // Restore with simple Click
     }
     return -1;
@@ -2588,6 +2592,7 @@ __declspec(dllexport) void Load(void)
     conf.LowerWithMMB    = GetPrivateProfileInt(L"Input", L"LowerWithMMB",    0, inipath);
     conf.AggressivePause = GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath);
     conf.RollWithTBScroll= GetPrivateProfileInt(L"Input", L"RollWithTBScroll",0, inipath);
+    conf.KeyCombo        = GetPrivateProfileInt(L"Input", L"KeyCombo",0, inipath);
 
     unsigned temp=0;
     int numread=0;
@@ -2637,9 +2642,9 @@ __declspec(dllexport) void Load(void)
     readblacklist(inipath, &BlkLst.Pause,     L"Pause");
     readblacklist(inipath, &BlkLst.MMBLower,  L"MMBLower");
     readblacklist(inipath, &BlkLst.Scroll,    L"Scroll");
-    
+
     conf.keepMousehook = (conf.LowerWithMMB || conf.NormRestore || conf.InactiveScroll || conf.Hotclick.length);
-    
+
     // Allocate some memory
     monitors_alloc++;
     monitors = realloc(monitors, monitors_alloc*sizeof(RECT));

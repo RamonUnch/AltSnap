@@ -80,12 +80,11 @@ struct {
 
     char alt;
     unsigned char alt1;
-    char ctrl;
     char blockaltup;
     char blockmouseup;
 
     char ignorectrl;
-    char ignoreclick;
+    char ctrl;
     char shift;
     char snap;
 
@@ -151,21 +150,20 @@ struct {
     char AeroTopMaximizes;
 
     char UseCursor;
-    char PearceDBClick;
     unsigned char CenterFraction;
     unsigned char RefreshRate;
+    char RollWithTBScroll;
 
+    char MMMaximize;
     unsigned char MinAlpha;
     unsigned char MoveTrans;
     char NormRestore;
-    char RollWithTBScroll;
 
     char AlphaDelta;
     char AlphaDeltaShift;
     unsigned short AeroMaxSpeed;
 
     unsigned char AeroSpeedInt;
-    char MMMaximize;
     char keepMousehook;
     char KeyCombo;
 
@@ -1196,27 +1194,6 @@ static void Send_CTRL()
     SendInput(2, input, sizeof(INPUT));
     state.ignorectrl = 0;
 }
-/////////////////////////////////////////////////////////////////////////////
-static void Send_DoubleClick(DWORD button)
-{
-    state.ignoreclick = 1;
-    if (!button) return;
-    DWORD MouseEvent = button&(~0x0001); // Remove the LSB
-    // In case of XButton (0x0080) set mouse data to 1 or 2
-    DWORD mdata = 0;
-    if(button&0x0080) mdata = 0x0001 + (button&0x0001);
-    MOUSEINPUT click[2] = { {0, 0, mdata, MouseEvent, 0, 0}
-                          , {0, 0, mdata, MouseEvent, 0, 0} };
-    click[0].dwExtraInfo = click[1].dwExtraInfo = GetMessageExtraInfo();
-    INPUT input[2] = { {INPUT_MOUSE, {.mi = click[0]}}, {INPUT_MOUSE, {.mi = click[1]}} };
-
-    SendInput(2, input, sizeof(INPUT));
-    Sleep(1);
-    click[0].dwExtraInfo = click[1].dwExtraInfo = GetMessageExtraInfo();
-    SendInput(2, input, sizeof(INPUT));
-    Sleep(1);
-    state.ignoreclick = 0;
-}
 ///////////////////////////////////////////////////////////////////////////
 static void RestrictToCurentMonitor()
 {
@@ -1758,13 +1735,8 @@ static int ActionMove(POINT pt, HMONITOR monitor)
             // Toggle Maximize window
             state.action = AC_NONE; // Stop move action
             state.clicktime = 0; // Reset double-click time
-
-            if (!conf.PearceDBClick) {
-                state.blockmouseup = 1; // Block the mouseup, otherwise it can trigger a context menu
-                Maximize_Restore_atpt(state.hwnd, NULL, SW_TOGGLE_MAX_RESTORE, monitor);
-            } else {
-                Send_DoubleClick(BT_LMB);
-            }
+            state.blockmouseup = 1; // Block the mouseup, otherwise it can trigger a context menu
+            Maximize_Restore_atpt(state.hwnd, NULL, SW_TOGGLE_MAX_RESTORE, monitor);
         }
         // Prevent mousedown from propagating
         return 1;
@@ -2203,7 +2175,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
 // pressed, or is always on when InactiveScroll or LowerWithMMB are enabled.
 __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    if (nCode != HC_ACTION || state.ignoreclick)
+    if (nCode != HC_ACTION)
         return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     // Set up some variables
@@ -2359,7 +2331,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
 static void HookMouse()
 {
     state.moving = 0; // Used to know the first time we call MouseMove.
-    state.ignoreclick = 0;
     if (conf.keepMousehook) {
         SendMessage(g_hwnd, WM_TIMER, REHOOK_TIMER, 0);
     }
@@ -2533,7 +2504,6 @@ __declspec(dllexport) void Load(void)
     conf.AeroThreshold = GetPrivateProfileInt(L"Advanced", L"AeroThreshold",   5, inipath);
     conf.AeroTopMaximizes=GetPrivateProfileInt(L"Advanced",L"AeroTopMaximizes",1, inipath);
     conf.UseCursor     = GetPrivateProfileInt(L"Advanced", L"UseCursor",       1, inipath);
-    conf.PearceDBClick = GetPrivateProfileInt(L"Advanced", L"PearceDBClick",   0, inipath);
     conf.MinAlpha      = CLAMP(1,    GetPrivateProfileInt(L"Advanced", L"MinAlpha", 8, inipath), 255);
     conf.AlphaDeltaShift=CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDeltaShift", 8, inipath), 127);
     conf.AlphaDelta    = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDelta", 64, inipath), 127);

@@ -164,6 +164,7 @@ struct {
     unsigned short AeroMaxSpeed;
 
     unsigned char AeroSpeedInt;
+    unsigned char ToggleRzMvKey;
     char keepMousehook;
     char KeyCombo;
 
@@ -1993,23 +1994,22 @@ static int init_movement_and_actions(POINT pt, enum action action)
 
     // Do things depending on what button was pressed
     HCURSOR hcursor = NULL;
-    if (action == AC_MOVE) { ////////////////
+    if (action == AC_MOVE || action == AC_RESIZE) { ////////////////
         GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
-        int ret = ActionMove(pt, monitor);
-        if (ret == 0)
-            return 0;
-        else if (ret == 1)
-            return 1;
-        hcursor = cursors[HAND];
+        int ret;
+        
+        // Toggle Resize and Move actions if the toggle key is Down
+        if (conf.ToggleRzMvKey && GetAsyncKeyState(conf.ToggleRzMvKey)&0x8000)
+            state.action = action = (action == AC_MOVE)? AC_RESIZE: AC_MOVE;
 
-    } else if (action == AC_RESIZE) { ///////////////
-        GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
-
-        int ret = ActionResize(pt, mdiclientpt, &wnd, mon);
+        if(action == AC_MOVE) {
+            ret = ActionMove(pt, monitor);
+        } else {
+            ret = ActionResize(pt, mdiclientpt, &wnd, mon);
+        }
         action = state.action;
-        if(ret==1) return 1;
-        else if (ret==0) return 0;
-
+        if (ret == 0) return 0;
+        else if (ret == 1) return 1;
         hcursor = CursorToDraw();
 
     } else if (action == AC_MINIMIZE) {
@@ -2563,7 +2563,7 @@ __declspec(dllexport) void Load(void)
     conf.AggressivePause = GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath);
     conf.RollWithTBScroll= GetPrivateProfileInt(L"Input", L"RollWithTBScroll",0, inipath);
     conf.KeyCombo        = GetPrivateProfileInt(L"Input", L"KeyCombo",0, inipath);
-
+    
     unsigned temp=0;
     int numread=0;
     GetPrivateProfileString(L"Input", L"Hotkeys", L"A4 A5", txt, ARR_SZ(txt), inipath);
@@ -2588,6 +2588,11 @@ __declspec(dllexport) void Load(void)
         conf.Hotclick.keys[conf.Hotclick.length++] = temp;
         pos += numread;
     }
+    // 
+    conf.ToggleRzMvKey = 0;
+    GetPrivateProfileString(L"Input", L"ToggleRzMvKey", L"", txt, ARR_SZ(txt), inipath);
+    temp = 0;
+    if(swscanf(txt, L"%02X%n", &temp, &numread)) conf.ToggleRzMvKey = temp;
 
     // Zero-out wnddb hwnds
     for (i=0; i < NUMWNDDB; i++) {

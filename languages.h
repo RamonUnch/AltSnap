@@ -255,7 +255,7 @@ struct {
   { &l10n_ini.input_actions_transparency,      L"InputActionTransparency" },
 
   { &l10n_ini.input_hotkeys_box,               L"InputHotkeysBox" },
-  { &l10n_ini.input_hotkeys_togglerzmvkey,     L"InputHotkeystogglerzmvkey" }, 
+  { &l10n_ini.input_hotkeys_togglerzmvkey,     L"InputHotkeystogglerzmvkey" },
   { &l10n_ini.input_hotclicks_box,             L"InputHotclicksBox" },
   { &l10n_ini.input_hotclicks_more,            L"InputHotclicksMore" },
   { &l10n_ini.input_hotkeys_leftalt,           L"InputHotkeysLeftAlt" },

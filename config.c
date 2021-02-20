@@ -243,6 +243,23 @@ BOOL CALLBACK PropSheetProc(HWND hwnd, UINT msg, LPARAM lParam)
     return TRUE;
 }
 /////////////////////////////////////////////////////////////////////////////
+static DWORD IsUACEnabled()
+{
+    DWORD uac_enabled = 0;
+    if (elevated) {
+        DWORD len = sizeof(uac_enabled);
+        HKEY key;
+        RegOpenKeyEx(
+            HKEY_LOCAL_MACHINE
+          , L"Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System"
+          , 0, KEY_QUERY_VALUE, &key);
+
+        RegQueryValueEx(key, L"EnableLUA", NULL, NULL, (LPBYTE) &uac_enabled, &len);
+        RegCloseKey(key);
+    }
+    return uac_enabled;
+}
+/////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     int updatestrings = 0;
@@ -348,23 +365,8 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         } else if (id == IDC_AUTOSTART_ELEVATE) {
             int hide = Button_GetCheck(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE));
             SetAutostart(1, hide, val);
-            if (val) {
-                // Don't nag if UAC is disabled, only check if elevated
-                DWORD uac_enabled = 1;
-                if (elevated) {
-                    DWORD len = sizeof(uac_enabled);
-                    HKEY key;
-                    RegOpenKeyEx(
-                        HKEY_LOCAL_MACHINE
-                      , L"Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System"
-                      , 0, KEY_QUERY_VALUE, &key);
-
-                    RegQueryValueEx(key, L"EnableLUA", NULL, NULL, (LPBYTE) & uac_enabled, &len);
-                    RegCloseKey(key);
-                }
-                if (uac_enabled) {
-                    MessageBox(NULL, l10n->general_autostart_elevate_tip, APP_NAME, MB_ICONINFORMATION | MB_OK);
-                }
+            if (val && IsUACEnabled()) {
+                MessageBox(NULL, l10n->general_autostart_elevate_tip, APP_NAME, MB_ICONINFORMATION | MB_OK);
             }
         } else if (id == IDC_ELEVATE) {
             return ElevateNow(1);
@@ -704,15 +706,15 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         int event = HIWORD(wParam);
         wchar_t txt[50] = L"";
         size_t i;
-        
+
         HWND control = GetDlgItem(hwnd, id);
         int val = Button_GetCheck(control);
-        
+
         if (id == IDC_AGGRESSIVEPAUSE) {
             WritePrivateProfileString(L"Input", L"AggressivePause", _itow(val, txt, 10), inipath);
         } else if (id == IDC_KEYCOMBO) {
             WritePrivateProfileString(L"Input", L"KeyCombo", _itow(val, txt, 10), inipath);
-       
+
         } else if (event == CBN_SELCHANGE) {
             int j = ComboBox_GetCurSel(control);
             if (id == IDC_GRABWITHALT) {
@@ -773,7 +775,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 }
             }
             ComboBox_SetCurSel(control, sel);
-            
+
             // ToggleRzMvKey init
             control = GetDlgItem(hwnd, IDC_TOGGLERZMVKEY);
             ComboBox_ResetContent(control);

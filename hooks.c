@@ -182,7 +182,7 @@ struct {
     struct {
         enum action LMB, MMB, RMB, MB4, MB5, Scroll;
     } Mouse;
-} conf ;
+} conf;
 
 // Blacklist (dynamically allocated)
 struct blacklistitem {
@@ -319,8 +319,7 @@ static BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
      && IsWindowVisible(window) && !IsIconic(window)
      &&( ((style=GetWindowLongPtr(window,GWL_STYLE))&WS_CAPTION) == WS_CAPTION
           || (style&WS_THICKFRAME) == WS_THICKFRAME
-          || blacklisted(window,&BlkLst.Snaplist)
-       )
+          || blacklisted(window,&BlkLst.Snaplist))
      && GetWindowRectL(window,&wnd) != 0 ) {
 
         // Maximized?
@@ -404,7 +403,7 @@ static void EnumMdi()
         }
         if (GetWindowRectL(window,&wnd) != 0) {
             wnds[numwnds++] =
-               (RECT) { wnd.left-mdiclientpt.x, wnd.top-mdiclientpt.y
+               (RECT) { wnd.left-mdiclientpt.x,  wnd.top-mdiclientpt.y
                       , wnd.right-mdiclientpt.x, wnd.bottom-mdiclientpt.y };
         }
         window = GetWindow(window, GW_HWNDNEXT);
@@ -677,9 +676,9 @@ static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR mo
     else
         wndpl.showCmd = sw_cmd;
 
-    if((sw_cmd == SW_MAXIMIZE || SW_FULLSCREEN)) {
+    if(sw_cmd == SW_MAXIMIZE || sw_cmd == SW_FULLSCREEN)) {
         HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-        if(!monitor) monitor = pt?MonitorFromPoint(*pt, MONITOR_DEFAULTTONEAREST): wndmonitor;
+        if(!monitor) monitor = pt? MonitorFromPoint(*pt, MONITOR_DEFAULTTONEAREST): wndmonitor;
         MONITORINFO mi = { sizeof(MONITORINFO) };
         GetMonitorInfo(monitor, &mi);
         RECT mon = mi.rcWork;
@@ -2199,7 +2198,7 @@ static void FinishMovement()
         GetCursorPos(&pt);
         HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
         if(monitor != state.origin.monitor) {
-            Sleep(10); // Wait a little for moveThread.
+            Sleep(10);  // Wait a little for moveThread.
             if(LastWin.hwnd) Sleep(100); // Wait more...
 
             if(state.origin.maximized){
@@ -2238,7 +2237,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
 
     // Handle mouse move and scroll
     if (wParam == WM_MOUSEMOVE) {
-
         // Store prevpt so we can check if the hook goes stale
         state.prevpt = pt;
 
@@ -2246,7 +2244,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         if (!IsSamePTT(pt, state.clickpt)) {
             state.clicktime = 0;
         }
-
         // Move the window
         if (state.action == AC_MOVE || state.action == AC_RESIZE) {
             // Move the window every few frames.
@@ -2267,11 +2264,9 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
             }
             return CallNextHookEx(NULL, nCode, wParam, lParam);
         }
-
     } else if (wParam == WM_MOUSEWHEEL || wParam == WM_MOUSEHWHEEL) {
         int ret = WheelActions(pt, msg, wParam);
         if (ret == 1) return 1;
-
         return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
 
@@ -2310,7 +2305,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
 
     // Block mousedown if we are busy with another action
     if (buttonstate == STATE_DOWN && state.action && state.action != conf.GrabWithAlt) {
-        
         // Maximize/Restore the window if pressing Move, Resize mouse buttons.
         if((conf.MMMaximize&1) && state.action == AC_MOVE && action == AC_RESIZE) {
             if(LastWin.hwnd) Sleep(10);
@@ -2331,7 +2325,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
         if(!ret) return CallNextHookEx(NULL, nCode, wParam, lParam);
         else     return 1; // block mousedown
 
-    // Button UP
+    // BUTTON UP
     } else if (buttonstate == STATE_UP) {
         if(state.blockmouseup) {
             state.blockmouseup = 0;
@@ -2598,10 +2592,10 @@ __declspec(dllexport) void Load(void)
     conf.LowerWithMMB    = GetPrivateProfileInt(L"Input", L"LowerWithMMB",    0, inipath);
     conf.AggressivePause = GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath);
     conf.RollWithTBScroll= GetPrivateProfileInt(L"Input", L"RollWithTBScroll",0, inipath);
-    conf.KeyCombo        = GetPrivateProfileInt(L"Input", L"KeyCombo",0, inipath);
+    conf.KeyCombo        = GetPrivateProfileInt(L"Input", L"KeyCombo",        0, inipath);
 
-    readhotkeys(inipath, L"Hotkeys", L"A4 A5", &conf.Hotkeys);
-    readhotkeys(inipath, L"Hotclicks",L"",     &conf.Hotclick);
+    readhotkeys(inipath, L"Hotkeys",  L"A4 A5", &conf.Hotkeys);
+    readhotkeys(inipath, L"Hotclicks",L"",      &conf.Hotclick);
 
     conf.ToggleRzMvKey = 0;
     GetPrivateProfileString(L"Input", L"ToggleRzMvKey", L"", txt, ARR_SZ(txt), inipath);

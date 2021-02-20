@@ -1,6 +1,6 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Compatibility layer for old NT OSes                                   *
- * Written by Raymond Gillibert in 2020                                  *
+ * Written by Raymond Gillibert in 2021                                  *
  * THIS FILE IS NOT UNDER GPL but under the WTFPL.                       *
  * DO WHAT THE FUCK YOU WANT WITH THIS CODE!                             *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

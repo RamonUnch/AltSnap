@@ -3,12 +3,14 @@
 #endif
 
 #define IDD_GENERALPAGE                  201
-#define IDD_INPUTPAGE                    202
-#define IDD_BLACKLISTPAGE                203
-#define IDD_ADVANCEDPAGE                 204
-#define IDD_ABOUTPAGE                    205
-#define IDI_FIND                         206
-#define IDI_BIGICON                      207
+#define IDD_MOUSEPAGE                    202
+#define IDD_KBPAGE                       203
+#define IDD_BLACKLISTPAGE                204
+#define IDD_ADVANCEDPAGE                 205
+#define IDD_ABOUTPAGE                    206
+
+#define IDI_FIND                         301
+#define IDI_BIGICON                      302
 
 #define IDC_AUTOSNAP_HEADER             1000
 #define IDC_FINDWINDOW                  1000
@@ -73,6 +75,7 @@
 #define IDC_LICENSE                     1517
 #define IDC_URL                         1518
 #define IDC_NEWPROGNAME                 1519
+#define IDC_HOTCLICKS_BOX               1520
 
 #define IDC_FULLWIN                     2008
 #define IDC_SHOWCURSOR                  2009
@@ -107,3 +110,15 @@
 #define IDC_MAXWITHLCLICK               2035
 #define IDC_RESTOREONCLICK              2036
 #define IDC_ROLLWITHTBSCROLL            2037
+#define IDC_MMB_HC                      2038
+#define IDC_MB4_HC                      2039
+#define IDC_MB5_HC                      2040
+#define IDC_KEYBOARD_BOX                2041
+#define IDC_KEYCOMBO                    2042
+#define IDC_HOTCLICKS_MORE              2043
+#define IDC_GRABWITHALT                 2044
+#define IDC_GRABWITHALT_H               2045
+#define IDC_METRICS_BOX                 2046
+#define IDC_BEHAVIOR_BOX                2047
+#define IDC_TOGGLERZMVKEY_H             2048
+#define IDC_TOGGLERZMVKEY               2049

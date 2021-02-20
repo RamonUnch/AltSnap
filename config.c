@@ -12,7 +12,8 @@
 
 BOOL    CALLBACK PropSheetProc(HWND, UINT, LPARAM);
 INT_PTR CALLBACK GeneralPageDialogProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK InputPageDialogProc(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK MousePageDialogProc(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK KeyboardPageDialogProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK BlacklistPageDialogProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK AboutPageDialogProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK AdvancedPageDialogProc(HWND, UINT, WPARAM, LPARAM);
@@ -106,10 +107,11 @@ void OpenConfig(int startpage)
         DLGPROC pfnDlgProc;
     } pages[] = {
         { IDD_GENERALPAGE,   GeneralPageDialogProc  },
-        { IDD_INPUTPAGE,     InputPageDialogProc    },
+        { IDD_MOUSEPAGE,     MousePageDialogProc    },
+        { IDD_KBPAGE,        KeyboardPageDialogProc },
         { IDD_BLACKLISTPAGE, BlacklistPageDialogProc},
-        { IDD_ABOUTPAGE,     AboutPageDialogProc    },
-        { IDD_ADVANCEDPAGE,  AdvancedPageDialogProc } };
+        { IDD_ADVANCEDPAGE,  AdvancedPageDialogProc },
+        { IDD_ABOUTPAGE,     AboutPageDialogProc    } };
 
     PROPSHEETPAGE psp[ARR_SZ(pages)] = { };
     size_t i;
@@ -153,8 +155,8 @@ void UpdateStrings()
     // Update tab titles
     HWND tc = PropSheet_GetTabControl(g_cfgwnd);
     int numrows_prev = TabCtrl_GetRowCount(tc);
-    wchar_t *titles[] = { l10n->tab_general,   l10n->tab_input
-                        , l10n->tab_blacklist, l10n->tab_about };
+    wchar_t *titles[] = { l10n->tab_general, l10n->tab_mouse, l10n->tab_keyboard
+                        , l10n->tab_blacklist, l10n->tab_advanced,l10n->tab_about };
     size_t i;
     for (i = 0; i < ARR_SZ(titles); i++) {
         TCITEM ti;
@@ -425,8 +427,9 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     }
     return FALSE;
 }
+
 /////////////////////////////////////////////////////////////////////////////
-INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     // Mouse actions
     struct {
@@ -439,6 +442,7 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         IDC_RMB, L"RMB"}, {
         IDC_MB4, L"MB4"}, {
     IDC_MB5, L"MB5"},};
+
     struct action {
         wchar_t *action;
         wchar_t *l10n;
@@ -472,11 +476,10 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     struct {
         unsigned control;
         unsigned vkey;
-    } hotkeys[] = {
-        { IDC_LEFTALT,     VK_LMENU },
-        { IDC_RIGHTALT,    VK_RMENU },
-        { IDC_LEFTWINKEY,  VK_LWIN  },
-        { IDC_RIGHTWINKEY, VK_RWIN  },
+    } hotclicks [] = {
+        { IDC_MMB_HC, 0x20 },
+        { IDC_MB4_HC, 0x80 },
+        { IDC_MB5_HC, 0X81 },
     };
 
     if (msg == WM_INITDIALOG) {
@@ -484,24 +487,23 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         int ret = GetPrivateProfileInt(L"Input", L"LowerWithMMB", 0, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_LOWERWITHMMB), ret? BST_CHECKED: BST_UNCHECKED);
 
-        // Agressive Pause
-        ret = GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath);
-        Button_SetCheck(GetDlgItem(hwnd, IDC_AGGRESSIVEPAUSE), ret? BST_CHECKED: BST_UNCHECKED);
-        Button_Enable(GetDlgItem(hwnd, IDC_AGGRESSIVEPAUSE), HaveProc("NTDLL.DLL", "NtResumeProcess"));
+        // Roll/Unroll
+        ret = GetPrivateProfileInt(L"Input",  L"RollWithTBScroll", 0, inipath);
+        Button_SetCheck(GetDlgItem(hwnd, IDC_ROLLWITHTBSCROLL), ret? BST_CHECKED: BST_UNCHECKED);
 
         // Hotkeys
         size_t i;
         unsigned temp;
         int numread;
         wchar_t txt[50];
-        GetPrivateProfileString(L"Input", L"Hotkeys", L"A4 A5", txt, ARR_SZ(txt), inipath);
+        GetPrivateProfileString(L"Input", L"Hotclicks", L"", txt, ARR_SZ(txt), inipath);
         wchar_t *pos = txt;
         while (*pos != '\0' && swscanf(pos, L"%02X%n", &temp, &numread) != EOF) {
             pos += numread;
             // What key was that?
-            for (i = 0; i < ARR_SZ(hotkeys); i++) {
-                if (temp == hotkeys[i].vkey) {
-                    Button_SetCheck(GetDlgItem(hwnd, hotkeys[i].control), BST_CHECKED);
+            for (i = 0; i < ARR_SZ(hotclicks); i++) {
+                if (temp == hotclicks[i].vkey) {
+                    Button_SetCheck(GetDlgItem(hwnd, hotclicks[i].control), BST_CHECKED);
                     break;
                 }
             }
@@ -529,15 +531,15 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         } else if (LOWORD(wParam) == IDC_LOWERWITHMMB) {
             int val = Button_GetCheck(GetDlgItem(hwnd, IDC_LOWERWITHMMB));
             WritePrivateProfileString(L"Input", L"LowerWithMMB", _itow(val, txt, 10), inipath);
-        } else if (LOWORD(wParam) == IDC_AGGRESSIVEPAUSE) {
-            int val = Button_GetCheck(GetDlgItem(hwnd, IDC_AGGRESSIVEPAUSE));
-            WritePrivateProfileString(L"Input", L"AggressivePause", _itow(val, txt, 10), inipath);
+        } else if (id == IDC_ROLLWITHTBSCROLL) {
+            int val = Button_GetCheck(GetDlgItem(hwnd, IDC_ROLLWITHTBSCROLL));
+            WritePrivateProfileString(L"Input",   L"RollWithTBScroll", _itow(val, txt, 10), inipath);
         } else {
-            // Hotkeys
+            // hotclicks
             unsigned vkey = 0;
-            for (i = 0; i < ARR_SZ(hotkeys); i++) {
-                if (wParam == hotkeys[i].control) {
-                    vkey = hotkeys[i].vkey;
+            for (i = 0; i < ARR_SZ(hotclicks); i++) {
+                if (wParam == hotclicks[i].control) {
+                    vkey = hotclicks[i].vkey;
                     break;
                 }
             }
@@ -545,7 +547,7 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 return FALSE;
 
             wchar_t keys[50];
-            GetPrivateProfileString(L"Input", L"Hotkeys", L"", keys, ARR_SZ(keys), inipath);
+            GetPrivateProfileString(L"Input", L"Hotclicks", L"", keys, ARR_SZ(keys), inipath);
             int add = Button_GetCheck(GetDlgItem(hwnd, wParam));
             if (add) {
                 if (*keys != '\0') {
@@ -565,7 +567,7 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                     pos += numread;
                 }
             }
-            WritePrivateProfileString(L"Input", L"Hotkeys", txt, inipath);
+            WritePrivateProfileString(L"Input", L"Hotclicks", txt, inipath);
         }
         UpdateSettings();
     } else if (msg == WM_NOTIFY) {
@@ -610,19 +612,199 @@ INT_PTR CALLBACK InputPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             SetDlgItemText(hwnd, IDC_MB4_HEADER,      l10n->input_mouse_mb4);
             SetDlgItemText(hwnd, IDC_MB5_HEADER,      l10n->input_mouse_mb5);
             SetDlgItemText(hwnd, IDC_SCROLL_HEADER,   l10n->input_mouse_scroll);
+
             SetDlgItemText(hwnd, IDC_LOWERWITHMMB,    l10n->input_mouse_lowerwithmmb);
-            SetDlgItemText(hwnd, IDC_AGGRESSIVEPAUSE, l10n->input_aggressive_pause);
-            SetDlgItemText(hwnd, IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box);
-            SetDlgItemText(hwnd, IDC_LEFTALT,         l10n->input_hotkeys_leftalt);
-            SetDlgItemText(hwnd, IDC_RIGHTALT,        l10n->input_hotkeys_rightalt);
-            SetDlgItemText(hwnd, IDC_LEFTWINKEY,      l10n->input_hotkeys_leftwinkey);
-            SetDlgItemText(hwnd, IDC_RIGHTWINKEY,     l10n->input_hotkeys_rightwinkey);
-            SetDlgItemText(hwnd, IDC_HOTKEYS_MORE,    l10n->input_hotkeys_more);
+            SetDlgItemText(hwnd, IDC_ROLLWITHTBSCROLL,l10n->input_mouse_rollwithtbscroll);
+
+            SetDlgItemText(hwnd, IDC_HOTCLICKS_BOX,   l10n->input_hotclicks_box);
+            SetDlgItemText(hwnd, IDC_HOTCLICKS_MORE,  l10n->input_hotclicks_more);
+            SetDlgItemText(hwnd, IDC_MMB_HC,          l10n->input_mouse_mmb_hc);
+            SetDlgItemText(hwnd, IDC_MB4_HC,          l10n->input_mouse_mb4_hc);
+            SetDlgItemText(hwnd, IDC_MB5_HC,          l10n->input_mouse_mb5_hc);
         }
     }
 
     return FALSE;
 }
+/////////////////////////////////////////////////////////////////////////////
+INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+
+    // Hotkeys
+    struct {
+        unsigned control;
+        unsigned vkey;
+    } hotkeys[] = {
+        { IDC_LEFTALT,     VK_LMENU },
+        { IDC_RIGHTALT,    VK_RMENU },
+        { IDC_LEFTWINKEY,  VK_LWIN  },
+        { IDC_RIGHTWINKEY, VK_RWIN  },
+    };
+    struct action {
+        wchar_t *action;
+        wchar_t *l10n;
+    };
+    struct action kb_actions[] = {
+        {L"Move",        l10n->input_actions_move},
+        {L"Resize",      l10n->input_actions_resize},
+        {L"Close",       l10n->input_actions_close},
+        {L"Minimize",    l10n->input_actions_minimize},
+        {L"Maximize",    l10n->input_actions_maximize},
+        {L"Lower",       l10n->input_actions_lower},
+        {L"Roll",        l10n->input_actions_roll},
+        {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
+        {L"Borderless",  l10n->input_actions_borderless},
+        {L"Center",      l10n->input_actions_center},
+        {L"Nothing",     l10n->input_actions_nothing},
+    };
+    // Hotkeys
+    struct {
+        wchar_t *action;
+        wchar_t *l10n;
+    } togglekeys[] = {
+        { L"",   l10n->input_actions_nothing},
+        { L"A4", l10n->input_hotkeys_leftalt2},
+        { L"A5", l10n->input_hotkeys_rightalt2},
+        { L"5B", l10n->input_hotkeys_leftwinkey2},
+        { L"5C", l10n->input_hotkeys_rightwinkey2},
+        { L"A2", l10n->input_hotkeys_leftctrl2},
+        { L"A3", l10n->input_hotkeys_rightctrl2},
+        { L"A0", l10n->input_hotkeys_leftshift2},
+        { L"A1", l10n->input_hotkeys_rightshift2},
+    };
+
+    if (msg == WM_INITDIALOG) {
+        // Agressive Pause
+        int ret = GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath);
+        Button_SetCheck(GetDlgItem(hwnd, IDC_AGGRESSIVEPAUSE), ret? BST_CHECKED: BST_UNCHECKED);
+        Button_Enable(GetDlgItem(hwnd, IDC_AGGRESSIVEPAUSE), HaveProc("NTDLL.DLL", "NtResumeProcess"));
+
+        ret = GetPrivateProfileInt(L"Input", L"KeyCombo", 0, inipath);
+        Button_SetCheck(GetDlgItem(hwnd, IDC_KEYCOMBO), ret? BST_CHECKED: BST_UNCHECKED);
+
+        // Hotkeys
+        size_t i;
+        unsigned temp;
+        int numread;
+        wchar_t txt[50];
+        GetPrivateProfileString(L"Input", L"Hotkeys", L"A4 A5", txt, ARR_SZ(txt), inipath);
+        wchar_t *pos = txt;
+        while (*pos != '\0' && swscanf(pos, L"%02X%n", &temp, &numread) != EOF) {
+            pos += numread;
+            // What key was that?
+            for (i = 0; i < ARR_SZ(hotkeys); i++) {
+                if (temp == hotkeys[i].vkey) {
+                    Button_SetCheck(GetDlgItem(hwnd, hotkeys[i].control), BST_CHECKED);
+                    break;
+                }
+            }
+        }
+    } else if (msg == WM_COMMAND) {
+        int id = LOWORD(wParam);
+        int event = HIWORD(wParam);
+        wchar_t txt[50] = L"";
+        size_t i;
+        
+        HWND control = GetDlgItem(hwnd, id);
+        int val = Button_GetCheck(control);
+        
+        if (id == IDC_AGGRESSIVEPAUSE) {
+            WritePrivateProfileString(L"Input", L"AggressivePause", _itow(val, txt, 10), inipath);
+        } else if (id == IDC_KEYCOMBO) {
+            WritePrivateProfileString(L"Input", L"KeyCombo", _itow(val, txt, 10), inipath);
+       
+        } else if (event == CBN_SELCHANGE) {
+            int j = ComboBox_GetCurSel(control);
+            if (id == IDC_GRABWITHALT) {
+                WritePrivateProfileString(L"Input", L"GrabWithAlt", kb_actions[j].action, inipath);
+            } else if (id == IDC_TOGGLERZMVKEY) {
+                WritePrivateProfileString(L"Input", L"ToggleRzMvKey", togglekeys[j].action, inipath);
+            }
+        } else {
+            // Hotkeys
+            unsigned vkey = 0;
+            for (i = 0; i < ARR_SZ(hotkeys); i++) {
+                if (wParam == hotkeys[i].control) {
+                    vkey = hotkeys[i].vkey;
+                    break;
+                }
+            }
+            if (!vkey)
+                return FALSE;
+
+            wchar_t keys[50];
+            GetPrivateProfileString(L"Input", L"Hotkeys", L"", keys, ARR_SZ(keys), inipath);
+            int add = Button_GetCheck(GetDlgItem(hwnd, wParam));
+            if (add) {
+                if (*keys != '\0') {
+                    wcscat(keys, L" ");
+                }
+                swprintf(txt, ARR_SZ(txt), L"%s%02X", keys, vkey);
+            } else {
+                unsigned int temp;
+                int numread;
+                wchar_t *pos = keys;
+                while (*pos != '\0' && swscanf(pos, L"%02X%n", &temp, &numread) != EOF) {
+                    if (temp == vkey) {
+                        wcsncpy(txt, keys, pos - keys);
+                        wcscat(txt, pos + numread);
+                        break;
+                    }
+                    pos += numread;
+                }
+            }
+            WritePrivateProfileString(L"Input", L"Hotkeys", txt, inipath);
+        }
+        UpdateSettings();
+    } else if (msg == WM_NOTIFY) {
+        LPNMHDR pnmh = (LPNMHDR) lParam;
+        if (pnmh->code == PSN_SETACTIVE) {
+            // GrabWithAlt
+            wchar_t txt[32];
+            HWND control = GetDlgItem(hwnd, IDC_GRABWITHALT);
+            ComboBox_ResetContent(control);
+            GetPrivateProfileString(L"Input", L"GrabWithAlt", L"Nothing", txt, ARR_SZ(txt), inipath);
+            int sel = ARR_SZ(kb_actions) - 1;
+            unsigned j;
+            for (j = 0; j < ARR_SZ(kb_actions); j++) {
+                ComboBox_AddString(control, kb_actions[j].l10n);
+                if (!wcscmp(txt, kb_actions[j].action)) {
+                    sel = j;
+                }
+            }
+            ComboBox_SetCurSel(control, sel);
+            
+            // ToggleRzMvKey init
+            control = GetDlgItem(hwnd, IDC_TOGGLERZMVKEY);
+            ComboBox_ResetContent(control);
+            GetPrivateProfileString(L"Input", L"ToggleRzMvKey", L"", txt, ARR_SZ(txt), inipath);
+            sel = ARR_SZ(togglekeys) - 1;
+            for (j = 0; j < ARR_SZ(togglekeys); j++) {
+                ComboBox_AddString(control, togglekeys[j].l10n);
+                if (!wcscmp(txt, togglekeys[j].action)) {
+                    sel = j;
+                }
+            }
+            ComboBox_SetCurSel(control, sel);
+
+            // Update text
+            SetDlgItemText(hwnd, IDC_KEYBOARD_BOX,    l10n->tab_keyboard);
+            SetDlgItemText(hwnd, IDC_AGGRESSIVEPAUSE, l10n->input_aggressive_pause);
+            SetDlgItemText(hwnd, IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box);
+            SetDlgItemText(hwnd, IDC_TOGGLERZMVKEY_H, l10n->input_hotkeys_togglerzmvkey);
+            SetDlgItemText(hwnd, IDC_LEFTALT,         l10n->input_hotkeys_leftalt);
+            SetDlgItemText(hwnd, IDC_RIGHTALT,        l10n->input_hotkeys_rightalt);
+            SetDlgItemText(hwnd, IDC_LEFTWINKEY,      l10n->input_hotkeys_leftwinkey);
+            SetDlgItemText(hwnd, IDC_RIGHTWINKEY,     l10n->input_hotkeys_rightwinkey);
+            SetDlgItemText(hwnd, IDC_HOTKEYS_MORE,    l10n->input_hotkeys_more);
+            SetDlgItemText(hwnd, IDC_KEYCOMBO,        l10n->input_keycombo);
+            SetDlgItemText(hwnd, IDC_GRABWITHALT_H,   l10n->input_grabwithalt);
+        }
+    }
+
+    return FALSE;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -665,7 +847,6 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
             } else if (control == IDC_PAUSEBL) {
                 WritePrivateProfileString(L"Blacklist", L"Pause", txt, inipath);
             }
-
             UpdateSettings();
         } else if (HIWORD(wParam) == STN_CLICKED && control == IDC_FINDWINDOW) {
             // Get size of workspace
@@ -729,7 +910,7 @@ LRESULT CALLBACK CursorProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             wchar_t txt[1000];
             swprintf(txt, ARR_SZ(txt), L"%s|%s", title, classname);
             SetDlgItemText(page, IDC_NEWRULE, txt);
-            
+
             if(GetWindowProgName(window, txt, ARR_SZ(txt))) {
                 PathStripPathL(txt);
                 SetDlgItemText(page, IDC_NEWPROGNAME, txt);
@@ -799,9 +980,6 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         Button_SetCheck(GetDlgItem(hwnd, IDC_MAXWITHLCLICK), (ret&1)? BST_CHECKED: BST_UNCHECKED);
         Button_SetCheck(GetDlgItem(hwnd, IDC_RESTOREONCLICK), (ret&2)? BST_CHECKED: BST_UNCHECKED);
 
-        ret = GetPrivateProfileInt(L"Input",  L"RollWithTBScroll", 0, inipath);
-        Button_SetCheck(GetDlgItem(hwnd, IDC_ROLLWITHTBSCROLL), ret? BST_CHECKED: BST_UNCHECKED);
-
         GetPrivateProfileString(L"General", L"CenterFraction", L"", txt, ARR_SZ(txt), inipath);
         SetDlgItemText(hwnd, IDC_CENTERFRACTION, txt);
 
@@ -832,8 +1010,6 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             WritePrivateProfileString(L"Advanced",L"MultipleInstances", _itow(val, txt, 10), inipath);
         } else if (id == IDC_NORMRESTORE) {
             WritePrivateProfileString(L"General", L"NormRestore", _itow(val, txt, 10), inipath);
-        } else if (id == IDC_ROLLWITHTBSCROLL) {
-            WritePrivateProfileString(L"Input",   L"RollWithTBScroll", _itow(val, txt, 10), inipath);
         } else if (id == IDC_MAXWITHLCLICK || id == IDC_RESTOREONCLICK) {
             int ret = GetPrivateProfileInt(L"General", L"MMMaximize", 0, inipath);
             val = (id == IDC_MAXWITHLCLICK)? (val+2) & (ret|1): (val*2+1) & (ret|2);
@@ -855,6 +1031,24 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             }
         }
         UpdateSettings();
+    } else if (msg == WM_NOTIFY) {
+        LPNMHDR pnmh = (LPNMHDR) lParam;
+        if (pnmh->code == PSN_SETACTIVE) {
+            // Update text
+            SetDlgItemText(hwnd, IDC_METRICS_BOX,      l10n->advanced_metrics_box);
+            SetDlgItemText(hwnd, IDC_CENTERFRACTION_H, l10n->advanced_centerfraction);
+            SetDlgItemText(hwnd, IDC_AEROHOFFSET_H,    l10n->advanced_aerohoffset);
+            SetDlgItemText(hwnd, IDC_AEROVOFFSET_H,    l10n->advanced_aerovoffset);
+            SetDlgItemText(hwnd, IDC_SNAPTHRESHOLD_H,  l10n->advanced_snapthreshold);
+            SetDlgItemText(hwnd, IDC_AEROTHRESHOLD_H,  l10n->advanced_aerothreshold);
+            SetDlgItemText(hwnd, IDC_BEHAVIOR_BOX,     l10n->advanced_behavior_box);
+            SetDlgItemText(hwnd, IDC_MULTIPLEINSTANCES,l10n->advanced_multipleinstances);
+            SetDlgItemText(hwnd, IDC_AUTOREMAXIMIZE,   l10n->advanced_autoremaximize);
+            SetDlgItemText(hwnd, IDC_NORMRESTORE,      l10n->advanced_normrestore);
+            SetDlgItemText(hwnd, IDC_AEROTOPMAXIMIZES, l10n->advanced_aerotopmaximizes);
+            SetDlgItemText(hwnd, IDC_MAXWITHLCLICK,    l10n->advanced_maxwithlclick);
+            SetDlgItemText(hwnd, IDC_RESTOREONCLICK,   l10n->advanced_restoreonclick);
+        }
     }
     return FALSE;
 }

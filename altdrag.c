@@ -17,7 +17,7 @@
 // App
 #define APP_NAME       L"AltDrag"
 #define APP_NAMEA      "AltDrag"
-#define APP_VERSION    "1.37"
+#define APP_VERSION    "1.38"
 
 // Messages
 #define WM_TRAY       (WM_USER+1)
@@ -178,7 +178,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         } else if (wmId == SWM_CONFIG) {
             SendMessage(hwnd, WM_OPENCONFIG, 0, 0);
         } else if (wmId == SWM_ABOUT) {
-            SendMessage(hwnd, WM_OPENCONFIG, 3, 0);
+            SendMessage(hwnd, WM_OPENCONFIG, 5, 0);
         } else if (wmId == SWM_EXIT) {
             DestroyWindow(hwnd);
         }

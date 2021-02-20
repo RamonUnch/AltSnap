@@ -39,7 +39,8 @@ struct strings {
   // config
   wchar_t *title;
   wchar_t *tab_general;
-  wchar_t *tab_input;
+  wchar_t *tab_mouse;
+  wchar_t *tab_keyboard;
   wchar_t *tab_blacklist;
   wchar_t *tab_advanced;
   wchar_t *tab_about;
@@ -84,7 +85,14 @@ struct strings {
   wchar_t *input_mouse_mb5;
   wchar_t *input_mouse_scroll;
   wchar_t *input_mouse_lowerwithmmb;
+  wchar_t *input_mouse_rollwithtbscroll;
+  wchar_t *input_mouse_mmb_hc;
+  wchar_t *input_mouse_mb4_hc;
+  wchar_t *input_mouse_mb5_hc;
+
   wchar_t *input_aggressive_pause;
+  wchar_t *input_keycombo;
+  wchar_t *input_grabwithalt;
 
   // actions
   wchar_t *input_actions_move;
@@ -104,10 +112,21 @@ struct strings {
 
   // hotkeys
   wchar_t *input_hotkeys_box;
+  wchar_t *input_hotkeys_togglerzmvkey;
+  wchar_t *input_hotclicks_box;
+  wchar_t *input_hotclicks_more;
   wchar_t *input_hotkeys_leftalt;
   wchar_t *input_hotkeys_rightalt;
   wchar_t *input_hotkeys_leftwinkey;
   wchar_t *input_hotkeys_rightwinkey;
+  wchar_t *input_hotkeys_leftalt2;
+  wchar_t *input_hotkeys_rightalt2;
+  wchar_t *input_hotkeys_leftwinkey2;
+  wchar_t *input_hotkeys_rightwinkey2;
+  wchar_t *input_hotkeys_leftctrl2;
+  wchar_t *input_hotkeys_rightctrl2;
+  wchar_t *input_hotkeys_leftshift2;
+  wchar_t *input_hotkeys_rightshift2;
   wchar_t *input_hotkeys_more;
 
   // blacklist
@@ -118,6 +137,22 @@ struct strings {
   wchar_t *blacklist_mdis;
   wchar_t *blacklist_pause;
   wchar_t *blacklist_findwindow_box;
+
+  // advanced
+  wchar_t *advanced_metrics_box;
+  wchar_t *advanced_centerfraction;
+  wchar_t *advanced_aerohoffset;
+  wchar_t *advanced_aerovoffset;
+  wchar_t *advanced_snapthreshold;
+  wchar_t *advanced_aerothreshold;
+
+  wchar_t *advanced_behavior_box;
+  wchar_t *advanced_multipleinstances;
+  wchar_t *advanced_autoremaximize;
+  wchar_t *advanced_normrestore;
+  wchar_t *advanced_aerotopmaximizes;
+  wchar_t *advanced_maxwithlclick;
+  wchar_t *advanced_restoreonclick;
 
   // about
   wchar_t *about_box;
@@ -153,7 +188,8 @@ struct {
 
   { &l10n_ini.title,                           L"ConfigTitle" },
   { &l10n_ini.tab_general,                     L"ConfigTabGeneral" },
-  { &l10n_ini.tab_input,                       L"ConfigTabInput" },
+  { &l10n_ini.tab_mouse,                       L"ConfigTabMouse" },
+  { &l10n_ini.tab_keyboard,                    L"ConfigTabKeyboard" },
   { &l10n_ini.tab_blacklist,                   L"ConfigTabBlacklist" },
   { &l10n_ini.tab_advanced,                    L"ConfigTabAdvanced" },
   { &l10n_ini.tab_about,                       L"ConfigTabAbout" },
@@ -194,7 +230,14 @@ struct {
   { &l10n_ini.input_mouse_mb5,                 L"InputMouseMB5" },
   { &l10n_ini.input_mouse_scroll,              L"InputMouseScroll" },
   { &l10n_ini.input_mouse_lowerwithmmb,        L"InputMouseLowerWithMMB" },
+  { &l10n_ini.input_mouse_rollwithtbscroll,    L"InputMouseRollWithTBScroll" },
+  { &l10n_ini.input_mouse_mmb_hc,              L"InputMouseMMBHC" },
+  { &l10n_ini.input_mouse_mb4_hc,              L"InputMouseMB4HC" },
+  { &l10n_ini.input_mouse_mb5_hc,              L"InputMouseMB5HC" },
+
   { &l10n_ini.input_aggressive_pause,          L"InputAggressivePause" },
+  { &l10n_ini.input_keycombo,                  L"InputKeyCombo" },
+  { &l10n_ini.input_grabwithalt,               L"InputGrabWithAlt" },
 
   { &l10n_ini.input_actions_move,              L"InputActionMove" },
   { &l10n_ini.input_actions_resize,            L"InputActionResize" },
@@ -212,10 +255,21 @@ struct {
   { &l10n_ini.input_actions_transparency,      L"InputActionTransparency" },
 
   { &l10n_ini.input_hotkeys_box,               L"InputHotkeysBox" },
+  { &l10n_ini.input_hotkeys_togglerzmvkey,     L"InputHotkeystogglerzmvkey" }, 
+  { &l10n_ini.input_hotclicks_box,             L"InputHotclicksBox" },
+  { &l10n_ini.input_hotclicks_more,            L"InputHotclicksMore" },
   { &l10n_ini.input_hotkeys_leftalt,           L"InputHotkeysLeftAlt" },
   { &l10n_ini.input_hotkeys_rightalt,          L"InputHotkeysRightAlt" },
   { &l10n_ini.input_hotkeys_leftwinkey,        L"InputHotkeysLeftWinkey" },
   { &l10n_ini.input_hotkeys_rightwinkey,       L"InputHotkeysRightWinkey" },
+  { &l10n_ini.input_hotkeys_leftalt2,          L"InputHotkeysLeftAlt2" },
+  { &l10n_ini.input_hotkeys_rightalt2,         L"InputHotkeysRightAlt2" },
+  { &l10n_ini.input_hotkeys_leftwinkey2,       L"InputHotkeysLeftWinkey2" },
+  { &l10n_ini.input_hotkeys_rightwinkey2,      L"InputHotkeysRightWinkey2" },
+  { &l10n_ini.input_hotkeys_leftctrl2,         L"InputHotkeysLeftCtrl2" },
+  { &l10n_ini.input_hotkeys_rightctrl2,        L"InputHotkeysRightCtrl2" },
+  { &l10n_ini.input_hotkeys_leftshift2,        L"InputHotkeysLeftShift2" },
+  { &l10n_ini.input_hotkeys_rightshift2,       L"InputHotkeysRightShift2" },
   { &l10n_ini.input_hotkeys_more,              L"InputHotkeysMore" },
 
   { &l10n_ini.blacklist_box,                   L"BlacklistBox" },
@@ -225,6 +279,21 @@ struct {
   { &l10n_ini.blacklist_mdis,                  L"BlacklistMDIs" },
   { &l10n_ini.blacklist_pause,                 L"BlacklistPause" },
   { &l10n_ini.blacklist_findwindow_box,        L"BlacklistFindWindowBox" },
+
+  { &l10n_ini.advanced_metrics_box,            L"AdvancedMetricsBox"},
+  { &l10n_ini.advanced_centerfraction,         L"AdvancedCenterFraction"},
+  { &l10n_ini.advanced_aerohoffset,            L"AdvancedAeroHoffset"},
+  { &l10n_ini.advanced_aerovoffset,            L"AdvancedAeroVoffset"},
+  { &l10n_ini.advanced_snapthreshold,          L"AdvancedSnapThreshold"},
+  { &l10n_ini.advanced_aerothreshold,          L"AdvancedAeroThreshold"},
+
+  { &l10n_ini.advanced_behavior_box,           L"AdvancedBehaviorBox"},
+  { &l10n_ini.advanced_multipleinstances,      L"AdvancedMultipleInstances"},
+  { &l10n_ini.advanced_autoremaximize,         L"AdvancedAutoRemaximize"},
+  { &l10n_ini.advanced_normrestore,            L"AdvancedNormRestore"},
+  { &l10n_ini.advanced_aerotopmaximizes,       L"AdvancedAeroTopMaximizes"},
+  { &l10n_ini.advanced_maxwithlclick,          L"AdvancedMaxWithLClick"},
+  { &l10n_ini.advanced_restoreonclick,         L"AdvancedRestoreOnClick"},
 
   { &l10n_ini.about_box,                       L"AboutBox" },
   { &l10n_ini.about_version,                   L"AboutVersion" },
@@ -260,7 +329,8 @@ struct strings en_US = {
  /* title              */ APP_NAME L" Configuration",
  /* tabs */
  /* general            */ L"General",
- /* input              */ L"Mouse and keyboard",
+ /* Mouse              */ L"Mouse",
+ /* Keybaord           */ L"Keyboard",
  /* blacklist          */ L"Blacklist",
  /* advanced           */ L"Advanced",
  /* about              */ L"About",
@@ -304,8 +374,14 @@ struct strings en_US = {
  /* mb5                */ L"Mouse button &5:",
  /* scroll             */ L"&Scroll wheel:",
  /* lowerwithmmb       */ L"&Lower windows by middle clicking on title bars",
- /* Aggressive Pause   */ L"&Pause process on Alt+Shift+Pause (Alt+Pause to resume)",
+ /* rollwithtbscroll   */ L"&Roll/Unroll windows with Alt+Scroll on title bar",
+ /* rmb                */ L"M&iddle mouse button",
+ /* mb4                */ L"M&ouse button 4",
+ /* mb5                */ L"Mo&use button 5",
 
+ /* Aggressive Pause   */ L"&Pause process on Alt+Shift+Pause (Alt+Pause to resume)",
+ /* KeyCombo           */ L"Use two keys &combo to activate",
+ /* GrabWithAlt        */ L"&Action without click:",
  /* actions */
  /* move               */ L"Move window",
  /* resize             */ L"Resize window",
@@ -324,10 +400,23 @@ struct strings en_US = {
 
  /* hotkeys */
  /* box                */ L"Hotkeys",
+ /* togglerzmvkey      */ L"Inver&t move and resize actions with:",
+ /* hotclicks box      */ L"Activate with click",
+ /* hotclicks more     */ L"Checked buttons will not be usable outside of AltDrag. They can be combined with an action.",
  /* leftalt            */ L"L&eft Alt",
  /* rightalt           */ L"&Right Alt",
  /* leftwinkey         */ L"Left &Winkey",
  /* rightwinkey        */ L"Right W&inkey",
+
+ /* leftalt2           */ L"Left Alt",
+ /* rightalt2          */ L"Right Alt",
+ /* leftwinkey2        */ L"Left Winkey",
+ /* rightwinkey2       */ L"Right Winkey",
+ /* leftctrl2          */ L"Left Ctrl",
+ /* rightctrl2         */ L"Right Ctrl",
+ /* leftshift2         */ L"Left Shift",
+ /* rightshift2        */ L"Right Shift",
+
  /* more               */ L"You can add any key by editing the ini file.\nUse the shift key to snap windows to each other.",
 
  /* blacklist tab */
@@ -338,6 +427,21 @@ struct strings en_US = {
  /* MDIs bl            */ L"&MDIs not to be treated as such:",
  /* Pause list         */ L"Processes not to be pa&used:",
  /* findwindow_box     */ L"Identify window",
+
+ /* advanced tab */
+ /* metrics_box      */   L"Metrics",
+ /* centerfraction   */   L"&Center fraction (%):",
+ /* aerohoffset      */   L"Aero offset(%) &Horizontal:",
+ /* aeroVoffset      */   L"&Vertical:",
+ /* snapthreshold    */   L"&Snap Threshold (pixels):",
+ /* aerothreshold    */   L"&Aero Threshold (pixels):",
+ /* behavior_box    */    L"Behavior",
+ /* multipleinstances*/   L"Allow multiple &instances of AltDrag",
+ /* autoremaximize   */   L"Automatically &remaximize windows when changing monitor",
+ /* normrestore      */   L"Restore AltDrag snapped windows with &normal move",
+ /* aerotopmaximizes */   L"&Maximize windows snapped at top",
+ /* maxwithlclick    */   L"&Toggle maximize state with left-ckick while moving",
+ /* restoreonclick   */   L"Rest&ore window with single click like original AltDrag",
 
  /* about tab */
  /* box                */ L"About "APP_NAME,

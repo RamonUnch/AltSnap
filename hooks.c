@@ -3,7 +3,7 @@
  * This program is free software: you can redistribute it and/or modify  *
  * it under the terms of the GNU General Public License as published by  *
  * the Free Software Foundation, either version 3 or later.              *
- * Modified By Raymond Gillibert in 2020                                 *
+ * Modified By Raymond Gillibert in 2021                                 *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #define UNICODE
@@ -39,7 +39,8 @@ enum button { BT_NONE=0, BT_LMB=0x0002, BT_MMB=0x0020, BT_RMB=0x0008, BT_MB4=0x0
 enum resize { RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER };
 enum cursor { HAND, SIZENWSE, SIZENESW, SIZENS, SIZEWE, SIZEALL };
 
-static int init_movement_and_actions(POINT pt, enum action action);
+static int init_movement_and_actions(POINT pt, enum action action, int button);
+static void FinishMovement();
 
 // Window database
 #define NUMWNDDB 64
@@ -89,6 +90,7 @@ struct {
     char snap;
 
     char moving;
+    unsigned char clickbutton;
 
     struct {
         char maximized;
@@ -122,6 +124,12 @@ HWND progman = NULL;
 
 // Settings
 #define MAXKEYS 9
+
+struct hotkeys_s {
+    unsigned char length;
+    unsigned char keys[MAXKEYS];
+};
+
 struct {
     enum action GrabWithAlt;
 
@@ -168,14 +176,8 @@ struct {
     char keepMousehook;
     char KeyCombo;
 
-    struct {
-        unsigned char length;
-        unsigned char keys[MAXKEYS];
-    } Hotkeys;
-    struct {
-        unsigned char length;
-        unsigned char keys[MAXKEYS];
-    } Hotclick;
+    struct hotkeys_s Hotkeys;
+    struct hotkeys_s Hotclick;
 
     struct {
         enum action LMB, MMB, RMB, MB4, MB5, Scroll;
@@ -1225,8 +1227,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             if(conf.GrabWithAlt) {
                 POINT pt;
                 GetCursorPos(&pt);
-                state.action = conf.GrabWithAlt;
-                if(!init_movement_and_actions(pt, conf.GrabWithAlt)) {
+                if(!init_movement_and_actions(pt, conf.GrabWithAlt, vkey)) {
                     UnhookMouse();
                 }
             }
@@ -1252,8 +1253,8 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             // Send WM_EXITSIZEMOVE
             SendSizeMove_on(state.action , 0);
 
-            state.moving = 0;
-            state.action = AC_NONE;
+            state.alt = 0;
+            state.alt1 = 0;
             LastWin.hwnd = NULL;
 
             UnhookMouse();
@@ -1296,7 +1297,10 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.alt = 0;
             state.alt1 = 0;
             state.ignorectrl = 0; // in case...
-            if(conf.GrabWithAlt) state.action = AC_NONE; // Clear on AltUp
+            if(state.action && conf.GrabWithAlt == state.action) {
+                FinishMovement();
+            }
+
             // Unhook mouse if no actions is ongoing.
             if (!state.action) {
                 UnhookMouse();
@@ -1726,10 +1730,10 @@ static void RollWindow(HWND hwnd, int delta)
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-static int ActionMove(POINT pt, HMONITOR monitor)
+static int ActionMove(POINT pt, HMONITOR monitor, int button)
 {
     // If this is a double-click
-    if (GetTickCount()-state.clicktime <= conf.dbclktime) {
+    if (GetTickCount()-state.clicktime <= conf.dbclktime && state.clickbutton == button) {
         if (state.shift) {
             RollWindow(state.hwnd, 0); // Roll/Unroll Window...
         } else if (IsResizable(state.hwnd)) {
@@ -1748,7 +1752,7 @@ static int ActionMove(POINT pt, HMONITOR monitor)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
+static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon, int button)
 {
     if(!IsResizable(state.hwnd)) {
         state.blockmouseup = 1;
@@ -1789,7 +1793,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon)
     state.origin.bottom = wnd->bottom-mdiclientpt.y;
 
     // Aero-move this window if this is a double-click
-    if (GetTickCount() - state.clicktime <= conf.dbclktime) {
+    if (GetTickCount() - state.clicktime <= conf.dbclktime && state.clickbutton == button) {
         state.action = AC_NONE; // Stop resize action
         state.clicktime = 0;    // Reset double-click time
         state.blockmouseup = 1; // Block the mouseup
@@ -1911,7 +1915,7 @@ static void GetMinMaxInfo_glob(HWND hwnd)
     state.mmi.Max = mmi.ptMaxTrackSize;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int init_movement_and_actions(POINT pt, enum action action)
+static int init_movement_and_actions(POINT pt, enum action action, int button)
 {
     RECT wnd;
 
@@ -1997,15 +2001,17 @@ static int init_movement_and_actions(POINT pt, enum action action)
     if (action == AC_MOVE || action == AC_RESIZE) { ////////////////
         GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
         int ret;
-        
-        // Toggle Resize and Move actions if the toggle key is Down
-        if (conf.ToggleRzMvKey && GetAsyncKeyState(conf.ToggleRzMvKey)&0x8000)
-            state.action = action = (action == AC_MOVE)? AC_RESIZE: AC_MOVE;
 
+        // Toggle Resize and Move actions if the toggle key is Down
+        if (conf.ToggleRzMvKey
+        && ((button == conf.ToggleRzMvKey && !conf.KeyCombo)
+          || GetAsyncKeyState(conf.ToggleRzMvKey)&0x8000) ) {
+            state.action = action = (action == AC_MOVE)? AC_RESIZE: AC_MOVE;
+        }
         if(action == AC_MOVE) {
-            ret = ActionMove(pt, monitor);
+            ret = ActionMove(pt, monitor, button);
         } else {
-            ret = ActionResize(pt, mdiclientpt, &wnd, mon);
+            ret = ActionResize(pt, mdiclientpt, &wnd, mon, button);
         }
         action = state.action;
         if (ret == 0) return 0;
@@ -2050,14 +2056,13 @@ static int init_movement_and_actions(POINT pt, enum action action)
     // Remember time of this click so we can check for double-click
     state.clicktime = GetTickCount();
     state.clickpt = pt;
+    state.clickbutton = button;
 
     // Update cursor
     if (conf.UseCursor && cursorwnd && hcursor) {
         MoveWindow(cursorwnd, pt.x-20, pt.y-20, 41, 41, FALSE);
-//        SetClassLongPtr(cursorwnd, GCLP_HCURSOR, (LONG_PTR)hcursor);
+        SetClassLongPtr(cursorwnd, GCLP_HCURSOR, (LONG_PTR)hcursor);
         ShowWindow(cursorwnd, SW_SHOWNA);
-        SetCursor(hcursor);
-//        SetCapture(cursorwnd);
     }
 
     // Prevent mousedown from propagating
@@ -2116,7 +2121,8 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     // 1st Scroll inactive windows.. If enabled
     if (!state.alt && !state.action && conf.InactiveScroll) {
         return ScrollPointedWindow(pt, msg->mouseData, wParam);
-    } else if(!state.alt || state.action) {
+    } else if(!state.alt || state.action != conf.GrabWithAlt
+          || (conf.GrabWithAlt && !IsSamePTT(pt, state.clickpt)) ) {
         return -1; // continue if no actions to be made
     }
 
@@ -2171,8 +2177,56 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     return -1;
 }
 /////////////////////////////////////////////////////////////////////////////
+// Called on MouseUp and on AltUp when using GrabWithAlt
+static void FinishMovement()
+{
+    if (state.moving && LastWin.hwnd) {
+         if(!conf.FullWin) // to erase the last rectangle...
+             Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
+
+         DWORD lpThreadId;
+         HANDLE thread;
+         thread = CreateThread(NULL, 0, EndMoveWindowThread, &LastWin, 0, &lpThreadId);
+         CloseHandle(thread);
+    }
+
+    // Auto Remaximize if option enabled and conditions are met.
+    if(conf.AutoRemaximize && state.moving
+      && (state.origin.maximized||state.origin.fullscreen)
+      && !state.shift && !state.mdiclient && state.action == AC_MOVE) {
+        state.action = AC_NONE;
+        POINT pt;
+        GetCursorPos(&pt);
+        HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+        if(monitor != state.origin.monitor) {
+            Sleep(10); // Wait a little for moveThread.
+            if(LastWin.hwnd) Sleep(100); // Wait more...
+
+            if(state.origin.maximized){
+                Maximize_Restore_atpt(state.hwnd, NULL, SW_MAXIMIZE, monitor);
+            }
+            if(state.origin.fullscreen){
+                Maximize_Restore_atpt(state.hwnd, NULL, SW_FULLSCREEN, monitor);
+            }
+        }
+    }
+    // Send WM_EXITSIZEMOVE
+    SendSizeMove_on(state.action, 0);
+
+    state.action = AC_NONE;
+    state.moving = 0;
+
+    // Unhook mouse if Alt is released
+    if (!state.alt) {
+        UnhookMouse();
+    } else {
+        // Just hide cursorwnd
+        ShowWindowAsync(cursorwnd, SW_HIDE);
+    }
+}
+/////////////////////////////////////////////////////////////////////////////
 // This is somewhat the main function, it is active only when the ALT key is
-// pressed, or is always on when InactiveScroll or LowerWithMMB are enabled.
+// pressed, or is always on when conf.keepMousehook is enabled.
 __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
     if (nCode != HC_ACTION)
@@ -2184,8 +2238,16 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
 
     // Handle mouse move and scroll
     if (wParam == WM_MOUSEMOVE) {
-        // Move the window
 
+        // Store prevpt so we can check if the hook goes stale
+        state.prevpt = pt;
+
+        // Reset double-click time
+        if (!IsSamePTT(pt, state.clickpt)) {
+            state.clicktime = 0;
+        }
+
+        // Move the window
         if (state.action == AC_MOVE || state.action == AC_RESIZE) {
             // Move the window every few frames.
             static char updaterate;
@@ -2203,20 +2265,17 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
                 state.Speed = max(abs(prevpt.x - pt.x), abs(prevpt.y - pt.y));
                 prevpt = pt;
             }
+            return CallNextHookEx(NULL, nCode, wParam, lParam);
         }
-        // Store prevpt so we can check if the hook goes stale
-        state.prevpt = pt;
 
-        // Reset double-click time
-        if (!IsSamePTT(pt, state.clickpt)) {
-            state.clicktime = 0;
-        }
     } else if (wParam == WM_MOUSEWHEEL || wParam == WM_MOUSEHWHEEL) {
         int ret = WheelActions(pt, msg, wParam);
         if (ret == 1) return 1;
-        else return CallNextHookEx(NULL, nCode, wParam, lParam);
+
+        return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
 
+    // Do some Actions without Alt Norm Restore and Lower with MMB
     int ret = ActionNoAlt(pt, wParam);
     if (ret == 0) return CallNextHookEx(NULL, nCode, wParam, lParam);
     else if (ret == 1) return 1;
@@ -2249,80 +2308,39 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
     // Return if no mouse action will be started
     if (!action) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
-    // Maximize the window if pressing Move, Resize mouse buttons.
-    if((conf.MMMaximize&1) && state.action == AC_MOVE && action == AC_RESIZE && buttonstate == STATE_DOWN) {
-        if(LastWin.hwnd) Sleep(10);
-        if(IsZoomed(state.hwnd)) {
-            state.moving = 0;
-            MouseMove(pt);
-        } else {
-            state.moving = 66;
-            Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
-        }
-        state.blockmouseup = 1;
-        return 1;
-    }
-
     // Block mousedown if we are busy with another action
-    if (state.action && buttonstate == STATE_DOWN) {
+    if (buttonstate == STATE_DOWN && state.action && state.action != conf.GrabWithAlt) {
+        
+        // Maximize/Restore the window if pressing Move, Resize mouse buttons.
+        if((conf.MMMaximize&1) && state.action == AC_MOVE && action == AC_RESIZE) {
+            if(LastWin.hwnd) Sleep(10);
+            if(IsZoomed(state.hwnd)) {
+                state.moving = 0;
+                MouseMove(pt);
+            } else {
+                state.moving = 66; // So that MouseMove will only move cursorwnd
+                Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
+            }
+            state.blockmouseup = 1;
+        }
         return 1; // Block mousedown so AltDrag.exe does not remove cursorwnd
-    } else if (buttonstate == STATE_UP && state.blockmouseup) {
-        // Block mouseup if asked
-        state.blockmouseup = 0;
-        return 1;
 
     // INIT ACTIONS on mouse down if Alt is down...
-    } else if (state.alt && buttonstate == STATE_DOWN) {
-        int ret = init_movement_and_actions(pt, action);
+    } else if (buttonstate == STATE_DOWN && state.alt) {
+        int ret = init_movement_and_actions(pt, action, button);
         if(!ret) return CallNextHookEx(NULL, nCode, wParam, lParam);
         else     return 1; // block mousedown
 
-    // FINISHING THE MOVE
-    } else if (buttonstate == STATE_UP && (state.action || is_hotclick)) {
-        if (state.moving && LastWin.hwnd) {
-             if(!conf.FullWin) // to erase the last rectangle...
-                 Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
-
-             DWORD lpThreadId;
-             HANDLE thread;
-             thread = CreateThread(NULL, 0, EndMoveWindowThread, &LastWin, 0, &lpThreadId);
-             CloseHandle(thread);
+    // Button UP
+    } else if (buttonstate == STATE_UP) {
+        if(state.blockmouseup) {
+            state.blockmouseup = 0;
+            return 1;
+        } else if (state.action || is_hotclick) {
+            FinishMovement();
+            // Prevent mouseup from propagating
+            return 1;
         }
-
-        // Auto Remaximize if option enabled and conditions are met.
-        if(conf.AutoRemaximize && state.moving
-          && (state.origin.maximized||state.origin.fullscreen)
-          && !state.shift && !state.mdiclient && state.action == AC_MOVE) {
-            state.action = AC_NONE;
-            HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-            if(monitor != state.origin.monitor) {
-                Sleep(10); // Wait a little for moveThread.
-                if(LastWin.hwnd) Sleep(100); // Wait more...
-
-                if(state.origin.maximized){
-                    Maximize_Restore_atpt(state.hwnd, NULL, SW_MAXIMIZE, monitor);
-                }
-                if(state.origin.fullscreen){
-                    Maximize_Restore_atpt(state.hwnd, NULL, SW_FULLSCREEN, monitor);
-                }
-            }
-        }
-        // Send WM_EXITSIZEMOVE
-        SendSizeMove_on(state.action, 0);
-
-        state.action = AC_NONE;
-        state.moving = 0;
-
-        // Unhook mouse if Alt is released
-        if (!state.alt) {
-            UnhookMouse();
-        } else {
-            // Just hide cursorwnd
-            // ReleaseCapture();
-            ShowWindowAsync(cursorwnd, SW_HIDE);
-        }
-        // Prevent mouseup from propagating
-        return 1;
     }
     return CallNextHookEx(NULL, nCode, wParam, lParam);
 } // END OF LL MOUSE PROCK
@@ -2353,15 +2371,13 @@ static void UnhookMouse()
     state.ctrl = 0;
     state.shift = 0;
     state.ignorectrl = 0;
+    state.moving = 0;
+
     if (conf.NormRestore) conf.NormRestore = 1;
-
-    state.moving = 0; // Just in case
-
     if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
     if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL; }
 
-    ShowWindowAsync(cursorwnd, SW_HIDE);
-//    ReleaseCapture();
+    ShowWindowAsync(cursorwnd, SW_HIDE); // Hide cursor
 
     ClipCursor(NULL);  // Release cursor trapping in case...
 
@@ -2466,6 +2482,26 @@ static void readblacklist(wchar_t *inipath, struct blacklist *blacklist, wchar_t
     } // end while
 }
 ///////////////////////////////////////////////////////////////////////////
+// Used to read Hotkeys and Hotclicks
+static void readhotkeys(wchar_t *inipath, wchar_t *name, wchar_t *def, struct hotkeys_s *HK)
+{
+    unsigned temp=0;
+    int numread=0;
+    wchar_t txt[2048];
+
+    GetPrivateProfileString(L"Input", name, def, txt, ARR_SZ(txt), inipath);
+    wchar_t *pos = txt;
+    while (*pos != '\0' && swscanf(pos,L"%02X%n",&temp,&numread) != EOF) {
+        // Bail if we are out of space
+        if (HK->length == MAXKEYS) {
+            break;
+        }
+        // Store key
+        HK->keys[HK->length++] = temp;
+        pos += numread;
+    }
+}
+///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.
 __declspec(dllexport) void Load(void)
 {
@@ -2563,36 +2599,14 @@ __declspec(dllexport) void Load(void)
     conf.AggressivePause = GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath);
     conf.RollWithTBScroll= GetPrivateProfileInt(L"Input", L"RollWithTBScroll",0, inipath);
     conf.KeyCombo        = GetPrivateProfileInt(L"Input", L"KeyCombo",0, inipath);
-    
-    unsigned temp=0;
-    int numread=0;
-    GetPrivateProfileString(L"Input", L"Hotkeys", L"A4 A5", txt, ARR_SZ(txt), inipath);
-    wchar_t *pos = txt;
-    while (*pos != '\0' && swscanf(pos,L"%02X%n",&temp,&numread) != EOF) {
-        // Bail if we are out of space
-        if (conf.Hotkeys.length == MAXKEYS) {
-            break;
-        }
-        // Store key
-        conf.Hotkeys.keys[conf.Hotkeys.length++] = temp;
-        pos += numread;
-    }
-    GetPrivateProfileString(L"Input", L"Hotclicks", L"", txt, ARR_SZ(txt), inipath);
-    pos = txt;
-    while (*pos != '\0' && swscanf(pos,L"%02X%n",&temp,&numread) != EOF) {
-        // Bail if we are out of space
-        if (conf.Hotclick.length == MAXKEYS) {
-            break;
-        }
-        // Store key
-        conf.Hotclick.keys[conf.Hotclick.length++] = temp;
-        pos += numread;
-    }
-    // 
+
+    readhotkeys(inipath, L"Hotkeys", L"A4 A5", &conf.Hotkeys);
+    readhotkeys(inipath, L"Hotclicks",L"",     &conf.Hotclick);
+
     conf.ToggleRzMvKey = 0;
     GetPrivateProfileString(L"Input", L"ToggleRzMvKey", L"", txt, ARR_SZ(txt), inipath);
-    temp = 0;
-    if(swscanf(txt, L"%02X%n", &temp, &numread)) conf.ToggleRzMvKey = temp;
+    int temp = 0;
+    if(swscanf(txt, L"%02X", &temp)) conf.ToggleRzMvKey = temp;
 
     // Zero-out wnddb hwnds
     for (i=0; i < NUMWNDDB; i++) {

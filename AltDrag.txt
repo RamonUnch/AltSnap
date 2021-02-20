@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTDRAG for NT4 to Win10                         *
 *   Modified by Raymond Gillibert from original source by Stefan Sundin   *
-*                    release 1.37 (February 12, 2021)                     *
+*                    release 1.38 (February 22, 2021)                     *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltDrag/releases/         *
@@ -91,7 +91,7 @@ TRICKS YOU SHOULD KNOW ABOUT
 _____________
 CONFIGURATION
 To change the configuration from default, double-click on the tray icon, and
-you will be presented with a lot of choices. 
+you will be presented with a lot of choices.
 
 If you want to go further into the configuration, open the AltDrag.ini file
 by middle-clicking on the tray icon. You will see all the option there with
@@ -100,7 +100,7 @@ _________
 LANGUAGES
 AltDrag is fully translated in French, Italian and mostly translated in many
 other languages. All translations are simple ini files encoded in UTF-16 LE.
-If you want to create or improve a translation, just add or modify the 
+If you want to create or improve a translation, just add or modify the
 associated ini file in the Lang directory, and no not forget to send it to
 me via a GitHub pull request/issue or PM me, so that everyone can enjoy your
 translation. You can use "Lang\_en_US baseline.txt" as a starting point if
@@ -108,7 +108,7 @@ you want to translate everything to a new language.
 ______
 UPDATE
 To avoid useless bloat and potential vulnerability AltDrag no longer
-auto-updates. You can check for new versions on the GitHub page 
+auto-updates. You can check for new versions on the GitHub page
 If you want automation, install altdrag via the chocolatey package.
 -install with> choco install altdrag
 -update with> choco update altdrag
@@ -123,7 +123,7 @@ blacklist. more details below:
 All the list are coma separated and take no spaces after or before the coma.
 A space can be present in the item itself.
 
-- Process blacklist: List of programs names for which move/resize from 
+- Process blacklist: List of programs names for which move/resize from
   AltDrag as well as the scroll actions are disabled. Example: Notepad.exe
 - Windows blacklist: List of windows with the title|class format for which
   move/resize actions from AltDrag will be disabled
@@ -139,12 +139,12 @@ A space can be present in the item itself.
 - Process not to be paused: Only applies for the Pause action when enabled on
   Alt+Shift+Pause, this are program names.
 
-Program names are prety straightforward to find. However a finer control can 
+Program names are prety straightforward to find. However a finer control can
 be done using the window's title|class information; they can be found for a
 specific window using the small target in the identify window section of the
 Blacklist tab. You can include all the possible names by using the *|class
 format. This is useful for most programs that have a non-constant title, for
-example notepad's title is actually the name of the file you are currently 
+example notepad's title is actually the name of the file you are currently
 editing.
 The other way around can be used and you can specify title|* which means that
 all the windows that have this title regardless of their class name will be
@@ -156,8 +156,8 @@ Windows task bar and has an empty title, just a class name.
 Finally more blacklists can be found in the AltDrag.ini file:
 - Snaplist: List of windows with the name|clas format to which other windows
   should snap. By default windows that have no borders cannot be snapped to.
-- MMBLower: List of windows that should not be lowered with mouse middle 
-  click on the title bar. Default: *|CASCADIA_HOSTING_WINDOW_CLASS that 
+- MMBLower: List of windows that should not be lowered with mouse middle
+  click on the title bar. Default: *|CASCADIA_HOSTING_WINDOW_CLASS that
   corresponds to the Windows Terminal window.
 
 ===========================================================================
@@ -177,8 +177,67 @@ Note that this version has some more feature..
 
 ===========================================================================
 == CHANGELOG ==
+== AltDrag 1.38 ==
+
++ GUI changed: Mouse and Keyboard are now separated tabs and contain more
+  options. All the new options should be available. Have a look!
+  Translation is supported but not updated outside of FR and IT.
+
++ New: You can now set the Hotclicks variable in the [Input] section of the
+  ini file to add the mouse buttons as hotkeys (hence the Hotclick name).
+  In the case the mouse button is also mapped to an action, the action will
+  be performed on a single click. For example you can set MB4=Move,
+  MB5=Resize and Hotclicks=80 81 and the mouse 4/5 button will respectively
+  Move/Resize the window without needing to press any other button or key.
+  In all cases this click will not be usable for anything else than AltDrag.
+  Action suggested by *displayerror*.
+
++ New Hotkey combo is now available. Set KeyCombo=1 in the [Input] section
+  of AltDrag.ini and you will need to press two of the hotkeys in order to
+  activate AltDrag. This was suggested by *MarqueIV*.
+
++ New: The keyboard can now be used to activate AltDrag without clicking.
+  For example set GrabWithAlt=Move in the [Input] section of AltDrag.ini.
+  Press Alt and the pointed window will directly be moved wen moving the
+  mouse without requiring a click. You can set any other action. I advise
+  to use a hotkey combo for this feature or to use a very useless key on
+  your keyboard. Action suggested by *pixelbase*.
+
++ New: A key can be set to toggle between move and resize action. it can be
+  used in order to have a single click configuration that will turn into the
+  other action when pressing this key. This later can be set with the
+  ToggleRsMvKey in the [Input] section of AltDrag.ini. You can set it to A2
+  for example and have Ctrl+Alt+LClic => Resize instead of Move. leave it
+  empty if you do not want this feature. Only one key can be specified.
+  It can also be combined with a hotkey. you could for example use Alt+LClick
+  to move and Win+LClick to resize with a single instance of AltDrag.
+
++ New: The Ctrl key can be presses and released when a hotkey is on in order
+  to disable AltDrag to grab the window.
+  Exemple: Alt+Clicl => Move window with AltDrag. Alt+Ctrl_down+Ctrl_up+Click
+  Will be like a Simple Alt+Click without AltDrag running.
+
+- Removed PearceDBClick option that was buggy and is now mostly unnecessary.
+
+* Fixed: Now the doubleclick actions will check that the same button/key
+  was used for both clicks.
+
+* Fixed: Ctrl delay problem. Now Alt+Ctrl should not need to wait for the
+  keyboard auto-repead delay. It was a stupid bug sorry for that...
+
+* Fixed potential bug in the hook chain.
+
+* Changed the cursor window no longers capture the input as it should not
+  be necessary and may lead to some bugs. The cursor code was also made a
+  bit more conservative.
 
 == AltDrag 1.37 ==
+
++ GUI New: now the Identify window option will show the program image name.
+
++ GUI Fixed: re-introduction of the Advanced tab in the options with more
+  options that previously required direct ini file edition. This should be
+  helpful for all users. It is not yet translated though.
 
 * Fixed: Now moveable full screen windows should be restored to full screen
   when changing monitor. This was not working properly in 1.36. Note that
@@ -186,7 +245,7 @@ Note that this version has some more feature..
   Under Windows 10 the file explorer will behave correctly, not Firefox.
 
 * Fixed: the Scroll list was added in the [Blacklist] section of AltDrag.ini
-  in order to disable the scroll action for any window. In addition the 
+  in order to disable the scroll action for any window. In addition the
   Processes blacklist will apply to scroll action as well.
 
 * Fixed bug when the origin monitor was a NULL pointer in some cases under
@@ -195,21 +254,15 @@ Note that this version has some more feature..
 * Fixed ini file: the proper name of the two settings about max aero speed
   are AeroMaxSpeed and AeroSpeedInt.
 
-* Fixed: manifest file now fallbacks to per monitor dpi awarness version 1
+* Fixed: manifest file now fallback to per monitor dpi awareness version 1
   if version 2 is not available ie. Win 8.1 and Win10 before build 1703.
 
 * More code cleanup, some code was moved to functions and potential NULL
   pointer dereferencing were fixed.
 
-* GUI New: now the Identify window option will show the program image name.
-
 * GUI Fixed: Now the Snaplist has to be edited with the ini file and the
   Scroll blacklist is visible instead (much more useful). Snapplist is
   a quite advanced detail anyway.
-
-* GUI Fixed: re-introduction of the Advanced tab in the options with more
-  options that previously required direct ini file edition. This should be
-  helpful for all users. It is not yet translated though.
 
 == AltDrag 1.36 ==
 
@@ -222,11 +275,11 @@ Note that this version has some more feature..
 
 + Now the AeroMaxSpeed value can be set to put a speed limit beyond which the
   moved window will not be Aero-Snapped. This is useful to move windows
-  between monitors without "flicker". You have to set AeroMaxSpeed and 
+  between monitors without "flicker". You have to set AeroMaxSpeed and
   AeroSpeedInt in the [Advanced] section of AltDrag.ini.
   AeroMaxSpeed is in pixels/X frames (from 1-65535)
   AeroSpeedInt to specifies the number of frames (default 1) from 1-255.
-  To set this value: (i) See the frequency of your mouse and set an 
+  To set this value: (i) See the frequency of your mouse and set an
   AeroSpeedInt to average over 10ms or so, so if you have a 1kHz mouse,
   set it to 8-10, if you have a ~100Hz mouse (typical) keep it to 1 or 2.
   (ii) Set AeroMaxSpeed to a "high" value (like 50) and try to move fast

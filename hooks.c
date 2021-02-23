@@ -676,7 +676,7 @@ static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR mo
     else
         wndpl.showCmd = sw_cmd;
 
-    if(sw_cmd == SW_MAXIMIZE || sw_cmd == SW_FULLSCREEN)) {
+    if(sw_cmd == SW_MAXIMIZE || sw_cmd == SW_FULLSCREEN) {
         HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         if(!monitor) monitor = pt? MonitorFromPoint(*pt, MONITOR_DEFAULTTONEAREST): wndmonitor;
         MONITORINFO mi = { sizeof(MONITORINFO) };
@@ -937,7 +937,7 @@ static int IsWindowSnapped(HWND hwnd)
         return 0;
 }
 /////////////////////////////////////////////////////////////////////////////
-// is pt is NULL then the window is not moved when restored.
+// if pt is NULL then the window is not moved when restored.
 // index 1 => normal restore on any move state.wndentry->restore = 1
 // index 2 => Rolled window state.wndentry->restore = 2
 // state.wndentry->restore = 3 => Both 1 & 2 ie: Maximized then rolled.
@@ -1296,7 +1296,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.alt = 0;
             state.alt1 = 0;
             state.ignorectrl = 0; // in case...
-            if(state.action && conf.GrabWithAlt == state.action) {
+            if(state.action && conf.GrabWithAlt) {
                 FinishMovement();
             }
 

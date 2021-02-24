@@ -1210,7 +1210,7 @@ static void RestrictToCurentMonitor()
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    if (nCode != HC_ACTION || state.ignorectrl) return CallNextHookEx(NULL, nCode, wParam, lParam);
+    if (nCode != HC_ACTION) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     int vkey = ((PKBDLLHOOKSTRUCT)lParam)->vkCode;
 
@@ -1276,7 +1276,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 return 1;
             }
 
-        } else if ((vkey == VK_LCONTROL || vkey == VK_RCONTROL) && !state.ctrl) {
+        } else if (!state.ctrl && !state.ignorectrl && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
             RestrictToCurentMonitor();
             state.ctrl = 1;
             if(state.action == AC_MOVE || state.action == AC_RESIZE){
@@ -1308,7 +1308,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.shift = 0;
             state.snap = conf.AutoSnap;
             ClipCursor(NULL); // Release cursor trapping
-        } else if ((vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
+        } else if (!state.ignorectrl && (vkey == VK_LCONTROL || vkey == VK_RCONTROL) ) {
             state.ctrl = 0;
             ClipCursor(NULL); // Release cursor trapping.
             // If there is no action then Control UP prevents AltDragging...

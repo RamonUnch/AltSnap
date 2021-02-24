@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTDRAG for NT4 to Win10                         *
 *   Modified by Raymond Gillibert from original source by Stefan Sundin   *
-*                    release 1.38 (February 22, 2021)                     *
+*                    release 1.38 (February 26, 2021)                     *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltDrag/releases/         *
@@ -84,9 +84,6 @@ TRICKS YOU SHOULD KNOW ABOUT
 * If you can't move a particular window, try elevating AltDrag.
   Normal programs can't interact with programs that are started with
   administrator privileges.
-* You can run multiple instances of AltDrag if you configure AltDrag.ini.
-  This is useful if you e.g. want Alt+LMB to move windows and Win+LMB to
-  resize windows.
 * Try to add the Shift modifier key for any action, usually it has an effect.
 _____________
 CONFIGURATION
@@ -139,7 +136,7 @@ A space can be present in the item itself.
 - Process not to be paused: Only applies for the Pause action when enabled on
   Alt+Shift+Pause, this are program names.
 
-Program names are prety straightforward to find. However a finer control can
+Program names are pretty straightforward to find. However a finer control can
 be done using the window's title|class information; they can be found for a
 specific window using the small target in the identify window section of the
 Blacklist tab. You can include all the possible names by using the *|class
@@ -207,13 +204,13 @@ Note that this version has some more feature..
   used in order to have a single click configuration that will turn into the
   other action when pressing this key. This later can be set with the
   ToggleRsMvKey in the [Input] section of AltDrag.ini. You can set it to A2
-  for example and have Ctrl+Alt+LClic => Resize instead of Move. leave it
+  for example and have Ctrl+Alt+LClic => Resize instead of Move. Leave it
   empty if you do not want this feature. Only one key can be specified.
-  It can also be combined with a hotkey. you could for example use Alt+LClick
+  It can also be combined with a hotkey. You could for example use Alt+LClick
   to move and Win+LClick to resize with a single instance of AltDrag.
 
 + New: The Ctrl key can be presses and released when a hotkey is on in order
-  to disable AltDrag to grab the window.
+  to prevent AltDrag from grabbing a window.
   Exemple: Alt+Clicl => Move window with AltDrag. Alt+Ctrl_down+Ctrl_up+Click
   Will be like a Simple Alt+Click without AltDrag running.
 
@@ -223,11 +220,11 @@ Note that this version has some more feature..
   was used for both clicks.
 
 * Fixed: Ctrl delay problem. Now Alt+Ctrl should not need to wait for the
-  keyboard auto-repead delay. It was a stupid bug sorry for that...
+  keyboard auto-repeat delay. It was a stupid bug sorry for that...
 
 * Fixed potential bug in the hook chain.
 
-* Changed the cursor window no longers capture the input as it should not
+* Changed the cursor window no longer capture the input as it should not
   be necessary and may lead to some bugs. The cursor code was also made a
   bit more conservative.
 

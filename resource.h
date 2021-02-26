@@ -122,3 +122,4 @@
 #define IDC_BEHAVIOR_BOX                2047
 #define IDC_TOGGLERZMVKEY_H             2048
 #define IDC_TOGGLERZMVKEY               2049
+#define IDC_AERODBCLICKSHIFT            2050

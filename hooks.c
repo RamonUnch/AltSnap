@@ -777,7 +777,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
         *posy = mon.bottom - *wndheight;
     } else if (pt.y < mon.top + AERO_TH) {
         // Top
-        if (!state.shift ^ !conf.AeroTopMaximizes) {
+        if (!state.shift ^ !(conf.AeroTopMaximizes&1)) {
             Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
             LastWin.hwnd=NULL;
             state.moving = 2;
@@ -1015,6 +1015,7 @@ static void MouseMove(POINT pt)
          || !ClientToScreen(state.mdiclient, &mdiclientpt)) {
             return;
         }
+        // Convert pt in MDI coordinates.
         pt.x -= mdiclientpt.x;
         pt.y -= mdiclientpt.y;
     }
@@ -1210,7 +1211,7 @@ static void RestrictToCurentMonitor()
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    if (nCode != HC_ACTION) return CallNextHookEx(NULL, nCode, wParam, lParam);
+    if (nCode != HC_ACTION || state.ignorectrl) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     int vkey = ((PKBDLLHOOKSTRUCT)lParam)->vkCode;
 
@@ -1276,7 +1277,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 return 1;
             }
 
-        } else if (!state.ctrl && !state.ignorectrl && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
+        } else if (!state.ctrl && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
             RestrictToCurentMonitor();
             state.ctrl = 1;
             if(state.action == AC_MOVE || state.action == AC_RESIZE){
@@ -1295,7 +1296,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             // Hotkeys have been released
             state.alt = 0;
             state.alt1 = 0;
-            state.ignorectrl = 0; // in case...
             if(state.action && conf.GrabWithAlt) {
                 FinishMovement();
             }
@@ -1308,7 +1308,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.shift = 0;
             state.snap = conf.AutoSnap;
             ClipCursor(NULL); // Release cursor trapping
-        } else if (!state.ignorectrl && (vkey == VK_LCONTROL || vkey == VK_RCONTROL) ) {
+        } else if (vkey == VK_LCONTROL || vkey == VK_RCONTROL) {
             state.ctrl = 0;
             ClipCursor(NULL); // Release cursor trapping.
             // If there is no action then Control UP prevents AltDragging...
@@ -1802,7 +1802,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon, int bu
         RECT bd;
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &bd);
 
-        if(state.shift) { /* Extend window's direction to monitor */
+        if(!state.shift ^ !(conf.AeroTopMaximizes&2)) { /* Extend window's borders to monitor */
             posx = wnd->left - mdiclientpt.x;
             posy = wnd->top - mdiclientpt.y;
             wndwidth = wnd->right - wnd->left;

@@ -180,6 +180,10 @@ Note that this version has some more feature..
   options. All the new options should be available. Have a look!
   Translation is supported but not updated outside of FR and IT.
 
++ New: You can now invert the behavior of the shift key for double-right-
+  click action (Resize) that aerosnaps or extends windows borders to monitor
+  depending on the state of the Shift key. See the advanced tab.
+
 + New: You can now set the Hotclicks variable in the [Input] section of the
   ini file to add the mouse buttons as hotkeys (hence the Hotclick name).
   In the case the mouse button is also mapped to an action, the action will

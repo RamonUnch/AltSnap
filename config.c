@@ -1006,7 +1006,9 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 
         if (id == IDC_AUTOREMAXIMIZE) {
             WritePrivateProfileString(L"Advanced",L"AutoRemaximize", _itow(val, txt, 10), inipath);
-        } else if (id == IDC_AEROTOPMAXIMIZES) {
+        } else if (id == IDC_AEROTOPMAXIMIZES || id == IDC_AERODBCLICKSHIFT) {
+            int ret = GetPrivateProfileInt(L"General", L"MMMaximize", 0, inipath);
+            val = (id == IDC_AEROTOPMAXIMIZES)? (val+2) & (ret|1): (val*2+1) & (ret|2);
             WritePrivateProfileString(L"Advanced",L"AeroTopMaximizes", _itow(val, txt, 10), inipath);
         } else if (id == IDC_MULTIPLEINSTANCES) {
             WritePrivateProfileString(L"Advanced",L"MultipleInstances", _itow(val, txt, 10), inipath);
@@ -1048,6 +1050,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_AUTOREMAXIMIZE,   l10n->advanced_autoremaximize);
             SetDlgItemText(hwnd, IDC_NORMRESTORE,      l10n->advanced_normrestore);
             SetDlgItemText(hwnd, IDC_AEROTOPMAXIMIZES, l10n->advanced_aerotopmaximizes);
+            SetDlgItemText(hwnd, IDC_AERODBCLICKSHIFT, l10n->advanced_aerodbclickshift);
             SetDlgItemText(hwnd, IDC_MAXWITHLCLICK,    l10n->advanced_maxwithlclick);
             SetDlgItemText(hwnd, IDC_RESTOREONCLICK,   l10n->advanced_restoreonclick);
         }

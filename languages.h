@@ -151,6 +151,7 @@ struct strings {
   wchar_t *advanced_autoremaximize;
   wchar_t *advanced_normrestore;
   wchar_t *advanced_aerotopmaximizes;
+  wchar_t *advanced_aerodbclickshift;
   wchar_t *advanced_maxwithlclick;
   wchar_t *advanced_restoreonclick;
 
@@ -292,6 +293,7 @@ struct {
   { &l10n_ini.advanced_autoremaximize,         L"AdvancedAutoRemaximize"},
   { &l10n_ini.advanced_normrestore,            L"AdvancedNormRestore"},
   { &l10n_ini.advanced_aerotopmaximizes,       L"AdvancedAeroTopMaximizes"},
+  { &l10n_ini.advanced_aerodbclickshift,       L"AdvancedAeroDBClickShift"},
   { &l10n_ini.advanced_maxwithlclick,          L"AdvancedMaxWithLClick"},
   { &l10n_ini.advanced_restoreonclick,         L"AdvancedRestoreOnClick"},
 
@@ -440,6 +442,7 @@ struct strings en_US = {
  /* autoremaximize   */   L"Automatically &remaximize windows when changing monitor",
  /* normrestore      */   L"Restore AltDrag snapped windows with &normal move",
  /* aerotopmaximizes */   L"&Maximize windows snapped at top",
+ /* aerodbclickshift */   L"Invert shift &behavior for doubleclick aero snapping",
  /* maxwithlclick    */   L"&Toggle maximize state with left-ckick while moving",
  /* restoreonclick   */   L"Rest&ore window with single click like original AltDrag",
 

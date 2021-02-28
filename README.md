@@ -63,6 +63,11 @@ ResizeAll=1
 
 ; Set to 1 to be able to resize all windows even those without borders.
 
+; Set to 2 to be able to move/resize all fullscreen windows.
+
+; Set to 3 for both of the above.
+
+
 AeroTopMaximizes=1
 
 ; Enable if you want the window to be maximized when snapped at the top of the monitor. You can always hold Shift to invert the behavior.
@@ -79,12 +84,18 @@ UseCursor=1
 ; Use 3 to always use the normal cursor, even when resizing.
 
 
-PearceDBClick=0
-
-; Set to 1 to disable the maximizing/restore on Alt+dboube-click. Instead the double-click will "pearce" through the move action.
-
 MinAlpha=8
-; Minimum alpha for the transparency action, from 0-255 (default 8).
+
+; Minimum alpha for the transparency action, from 1-255 (default 8).
+
+AlphaDelta=64
+
+AlphaDeltaShift=8
+
+; Alpha step for the transparency action, from -128 to +127 (default 64).
+
+; The other value is applied when Shift is pressed (default 8).
+
 
 And finally in [Performance] section
 RefreshRate=7

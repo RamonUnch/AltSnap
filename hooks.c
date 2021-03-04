@@ -79,7 +79,7 @@ struct {
     DWORD clicktime;
     int Speed;
 
-    char alt;
+    unsigned char alt;
     unsigned char alt1;
     char blockaltup;
     char blockmouseup;
@@ -91,7 +91,6 @@ struct {
 
     char moving;
     unsigned char clickbutton;
-
     struct {
         char maximized;
         char fullscreen;
@@ -123,8 +122,7 @@ int numhwnds = 0;
 HWND progman = NULL;
 
 // Settings
-#define MAXKEYS 9
-
+#define MAXKEYS 7
 struct hotkeys_s {
     unsigned char length;
     unsigned char keys[MAXKEYS];
@@ -890,27 +888,20 @@ static enum action GetAction(int button)
 }
 
 ///////////////////////////////////////////////////////////////////////////
-// Check if key is assigned
-static int IsHotkey(int key)
+// Check if key is assigned in the HKlist
+static int IsHotkeyy(int key, struct hotkeys_s *HKlist)
 {
     int i;
-    for (i=0; i < conf.Hotkeys.length; i++) {
-        if (key == conf.Hotkeys.keys[i]) {
+    for (i=0; i < HKlist->length; i++) {
+        if (key == HKlist->keys[i]) {
             return 1;
         }
     }
     return 0;
 }
-static int IsHotclick(int button)
-{
-    int i;
-    for (i=0; i < conf.Hotclick.length; i++) {
-        if (button == conf.Hotclick.keys[i]) {
-            return 1;
-        }
-    }
-    return 0;
-}
+#define IsHotkey(a)   IsHotkeyy(a, &conf.Hotkeys)
+#define IsHotclick(a) IsHotkeyy(a, &conf.Hotclick)
+
 /////////////////////////////////////////////////////////////////////////////
 // This is used to detect is the window was snapped normally outside of
 // AltDrag, in this case the window appears as normal
@@ -1106,10 +1097,10 @@ static void MouseMove(POINT pt)
 
         // Figure out new placement
         if (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER) {
+            wndwidth  = wnd.right-wnd.left + 2*(pt.x-state.offset.x);
+            wndheight = wnd.bottom-wnd.top + 2*(pt.y-state.offset.y);
             posx = wnd.left - (pt.x-state.offset.x) - mdiclientpt.x;
             posy = wnd.top - (pt.y-state.offset.y) - mdiclientpt.y;
-            wndwidth = wnd.right-wnd.left+2*(pt.x-state.offset.x);
-            wndheight = wnd.bottom-wnd.top+2*(pt.y-state.offset.y);
             state.offset.x = pt.x;
             state.offset.y = pt.y;
         } else {
@@ -1208,6 +1199,27 @@ static void RestrictToCurentMonitor()
     }
 }
 ///////////////////////////////////////////////////////////////////////////
+static void HotkeyUp()
+{
+    // Prevent the alt keyup from triggering the window menu to be selected
+    // The way this works is that the alt key is "disguised" by sending ctrl keydown/keyup events
+    if (state.blockaltup || state.action) {
+        Send_CTRL();
+    }
+
+    // Hotkeys have been released
+    state.alt = 0;
+    state.alt1 = 0;
+    if(state.action && conf.GrabWithAlt) {
+        FinishMovement();
+    }
+
+    // Unhook mouse if no actions is ongoing.
+    if (!state.action) {
+        UnhookMouse();
+    }
+}
+///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
@@ -1218,7 +1230,8 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
     if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
         if (!state.alt && (!conf.KeyCombo || (state.alt1 && state.alt1 != vkey)) && IsHotkey(vkey)) {
             // Update state
-            state.alt = 1;
+//            LOG("Hotkey DOWN\n");
+            state.alt = vkey;
             state.blockaltup = 0;
             state.blockmouseup = 0;
 
@@ -1246,7 +1259,11 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         } else if (vkey == VK_SPACE && state.action && state.snap) {
             state.snap = 0;
             return 1; // Block to avoid sys menu.
-        } else if (vkey == VK_ESCAPE && state.action != AC_NONE) {
+        } else if (state.alt && state.action == conf.GrabWithAlt && vkey == VK_TAB) {
+           // Release Hook on Alt+Tab in case there is DisplayFusion which creates an
+           // elevated Att+Tab windows that captures the AltUp key.
+            HotkeyUp();
+        } else if (vkey == VK_ESCAPE && (state.action || state.alt)) {
             if (!conf.FullWin && state.moving) {
                 Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
             }
@@ -1259,7 +1276,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
             UnhookMouse();
 
-            return 1;
+            if (state.action) return 1;
 
         } else if (conf.AggressivePause && vkey == VK_PAUSE && state.alt) {
             POINT pt;
@@ -1287,23 +1304,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
     } else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP) {
         if (IsHotkey(vkey)) {
-            // Prevent the alt keyup from triggering the window menu to be selected
-            // The way this works is that the alt key is "disguised" by sending ctrl keydown/keyup events
-            if (state.blockaltup || state.action) {
-                Send_CTRL();
-            }
-
-            // Hotkeys have been released
-            state.alt = 0;
-            state.alt1 = 0;
-            if(state.action && conf.GrabWithAlt) {
-                FinishMovement();
-            }
-
-            // Unhook mouse if no actions is ongoing.
-            if (!state.action) {
-                UnhookMouse();
-            }
+            HotkeyUp();
         } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
             state.shift = 0;
             state.snap = conf.AutoSnap;
@@ -1963,12 +1964,12 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     if (state.hwnd == progman
      || blacklistedP(state.hwnd, &BlkLst.Processes)
      || blacklisted(state.hwnd, &BlkLst.Windows)
-     || GetWindowPlacement(state.hwnd,&wndpl) == 0
-     || GetWindowRect(state.hwnd,&wnd) == 0
-     ||((style&WS_SYSMENU) != WS_SYSMENU
-     && ((style&WS_CAPTION) != WS_CAPTION) && (wnd.left == fmon.left && wnd.top == fmon.top
-     && wnd.right == fmon.right && wnd.bottom == fmon.bottom)
-     && !(conf.ResizeAll&2))) {
+     || GetWindowPlacement(state.hwnd, &wndpl) == 0
+     || GetWindowRect(state.hwnd, &wnd) == 0
+     ||( (style&WS_SYSMENU) != WS_SYSMENU
+       && ((style&WS_CAPTION) != WS_CAPTION) && (wnd.left == fmon.left && wnd.top == fmon.top
+       && wnd.right == fmon.right && wnd.bottom == fmon.bottom)
+       && !(conf.ResizeAll&2))) {
         return 0;
     }
     state.origin.fullscreen = ((style&WS_CAPTION) != WS_CAPTION) && (wnd.left == fmon.left && wnd.top == fmon.top
@@ -2331,8 +2332,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
             state.blockmouseup = 0;
             return 1;
         } else if (state.action || is_hotclick) {
-            FinishMovement();
-            // Prevent mouseup from propagating
+            FinishMovement(); 
             return 1;
         }
     }

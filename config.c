@@ -978,6 +978,9 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         ret = GetPrivateProfileInt(L"General", L"NormRestore", 0, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_NORMRESTORE), ret? BST_CHECKED: BST_UNCHECKED);
 
+        ret = GetPrivateProfileInt(L"Advanced", L"FullScreen", 1, inipath);
+        Button_SetCheck(GetDlgItem(hwnd, IDC_FULLSCREEN), ret? BST_CHECKED: BST_UNCHECKED);
+
         ret = GetPrivateProfileInt(L"General", L"MMMaximize", 1, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_MAXWITHLCLICK), (ret&1)? BST_CHECKED: BST_UNCHECKED);
         Button_SetCheck(GetDlgItem(hwnd, IDC_RESTOREONCLICK), (ret&2)? BST_CHECKED: BST_UNCHECKED);
@@ -1014,6 +1017,8 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             WritePrivateProfileString(L"Advanced",L"MultipleInstances", _itow(val, txt, 10), inipath);
         } else if (id == IDC_NORMRESTORE) {
             WritePrivateProfileString(L"General", L"NormRestore", _itow(val, txt, 10), inipath);
+        } else if (id == IDC_FULLSCREEN) {
+            WritePrivateProfileString(L"Advanced", L"FullScreen", _itow(val, txt, 10), inipath);
         } else if (id == IDC_MAXWITHLCLICK || id == IDC_RESTOREONCLICK) {
             int ret = GetPrivateProfileInt(L"General", L"MMMaximize", 0, inipath);
             val = (id == IDC_MAXWITHLCLICK)? (val+2) & (ret|1): (val*2+1) & (ret|2);
@@ -1053,6 +1058,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_AERODBCLICKSHIFT, l10n->advanced_aerodbclickshift);
             SetDlgItemText(hwnd, IDC_MAXWITHLCLICK,    l10n->advanced_maxwithlclick);
             SetDlgItemText(hwnd, IDC_RESTOREONCLICK,   l10n->advanced_restoreonclick);
+            SetDlgItemText(hwnd, IDC_FULLSCREEN,       l10n->advanced_fullscreen);
         }
     }
     return FALSE;

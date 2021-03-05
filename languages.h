@@ -154,6 +154,7 @@ struct strings {
   wchar_t *advanced_aerodbclickshift;
   wchar_t *advanced_maxwithlclick;
   wchar_t *advanced_restoreonclick;
+  wchar_t *advanced_fullscreen;
 
   // about
   wchar_t *about_box;
@@ -296,6 +297,7 @@ struct {
   { &l10n_ini.advanced_aerodbclickshift,       L"AdvancedAeroDBClickShift"},
   { &l10n_ini.advanced_maxwithlclick,          L"AdvancedMaxWithLClick"},
   { &l10n_ini.advanced_restoreonclick,         L"AdvancedRestoreOnClick"},
+  { &l10n_ini.advanced_fullscreen,             L"AdvancedFullScreen"},
 
   { &l10n_ini.about_box,                       L"AboutBox" },
   { &l10n_ini.about_version,                   L"AboutVersion" },
@@ -445,6 +447,7 @@ struct strings en_US = {
  /* aerodbclickshift */   L"Invert shift &behavior for doubleclick aero snapping",
  /* maxwithlclick    */   L"&Toggle maximize state with left-ckick while moving",
  /* restoreonclick   */   L"Rest&ore window with single click like original AltDrag",
+ /* fullscreen       */   L"Enable on &full screen windows",
 
  /* about tab */
  /* box                */ L"About "APP_NAME,

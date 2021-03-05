@@ -174,8 +174,11 @@ struct {
     char keepMousehook;
     char KeyCombo;
 
+    char FullScreen;
+
     struct hotkeys_s Hotkeys;
     struct hotkeys_s Hotclick;
+    struct hotkeys_s Killkey;
 
     struct {
         enum action LMB, MMB, RMB, MB4, MB5, Scroll;
@@ -832,12 +835,12 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
     return 0;
 }
 ///////////////////////////////////////////////////////////////////////////
-static RECT GetMonitorRect(POINT pt)
+static RECT GetMonitorRect(POINT pt, int full)
 {
     MONITORINFO mi = { sizeof(MONITORINFO) };
     GetMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi);
 
-    return mi.rcWork;
+    return full? mi.rcMonitor : mi.rcWork;
 }
 ///////////////////////////////////////////////////////////////////////////
 static int AeroResizeSnap(POINT pt, int *posx, int *posy
@@ -850,7 +853,7 @@ static int AeroResizeSnap(POINT pt, int *posx, int *posy
     static RECT borders = {0, 0, 0, 0};
     static RECT mon;
     if(!state.moving) {
-        if(!mon_) mon = GetMonitorRect(pt);
+        if(!mon_) mon = GetMonitorRect(pt, 0);
         else mon = *mon_;
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
     }
@@ -901,6 +904,7 @@ static int IsHotkeyy(int key, struct hotkeys_s *HKlist)
 }
 #define IsHotkey(a)   IsHotkeyy(a, &conf.Hotkeys)
 #define IsHotclick(a) IsHotkeyy(a, &conf.Hotclick)
+#define IsKillkey(a)  IsHotkeyy(a, &conf.Killkey)
 
 /////////////////////////////////////////////////////////////////////////////
 // This is used to detect is the window was snapped normally outside of
@@ -1042,7 +1046,7 @@ static void MouseMove(POINT pt)
         // Check if the window will snap anywhere
         if (state.snap) MoveSnap(&posx, &posy, wndwidth, wndheight);
         int ret = AeroMoveSnap(pt, &posx, &posy, &wndwidth, &wndheight
-                       , state.mdiclient? mdimon: GetMonitorRect(pt));
+                       , state.mdiclient? mdimon: GetMonitorRect(pt, 0));
         if ( ret == 1) return;
 
         // Restore window if maximized
@@ -1062,7 +1066,7 @@ static void MouseMove(POINT pt)
             GetWindowPlacement(state.hwnd, &wndpl);
 
             // Set size to monitor to prevent flickering
-            wnd = wndpl.rcNormalPosition = state.mdiclient? mdimon: GetMonitorRect(pt);
+            wnd = wndpl.rcNormalPosition = state.mdiclient? mdimon: GetMonitorRect(pt, 0);
 
             if (state.mdiclient) {
                 // Make it a little smaller since MDIClients by
@@ -1230,7 +1234,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
     if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
         if (!state.alt && (!conf.KeyCombo || (state.alt1 && state.alt1 != vkey)) && IsHotkey(vkey)) {
             // Update state
-//            LOG("Hotkey DOWN\n");
             state.alt = vkey;
             state.blockaltup = 0;
             state.blockmouseup = 0;
@@ -1259,7 +1262,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         } else if (vkey == VK_SPACE && state.action && state.snap) {
             state.snap = 0;
             return 1; // Block to avoid sys menu.
-        } else if (state.alt && state.action == conf.GrabWithAlt && vkey == VK_TAB) {
+        } else if (state.alt && state.action == conf.GrabWithAlt && IsKillkey(vkey)) {
            // Release Hook on Alt+Tab in case there is DisplayFusion which creates an
            // elevated Att+Tab windows that captures the AltUp key.
             HotkeyUp();
@@ -1915,6 +1918,19 @@ static void GetMinMaxInfo_glob(HWND hwnd)
     state.mmi.Max = mmi.ptMaxTrackSize;
 }
 /////////////////////////////////////////////////////////////////////////////
+static int IsFullscreen(HWND hwnd, RECT wnd, RECT fmon)
+{
+    LONG_PTR style = GetWindowLongPtr(state.hwnd, GWL_STYLE);
+
+    // no caption and fullscreen window => LSB to 1
+    int fs = ((style&WS_CAPTION) != WS_CAPTION)
+          && (wnd.left == fmon.left && wnd.top == fmon.top
+           && wnd.right == fmon.right && wnd.bottom == fmon.bottom);
+    fs |= ((style&WS_SYSMENU) != WS_SYSMENU)<<1 ; // &2 for sysmenu.
+
+    return fs; // = 1 for fulscreen, 2 for SYSMENU and 3 for both.
+}
+/////////////////////////////////////////////////////////////////////////////
 static int init_movement_and_actions(POINT pt, enum action action, int button)
 {
     RECT wnd;
@@ -1954,7 +1970,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         mon = fmon; // = MDI client rect
     }
 
-    LONG_PTR style = GetWindowLongPtr(state.hwnd, GWL_STYLE);
     WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
     // A full screen window has No caption and is to monitor size.
 
@@ -1966,14 +1981,10 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
      || blacklisted(state.hwnd, &BlkLst.Windows)
      || GetWindowPlacement(state.hwnd, &wndpl) == 0
      || GetWindowRect(state.hwnd, &wnd) == 0
-     ||( (style&WS_SYSMENU) != WS_SYSMENU
-       && ((style&WS_CAPTION) != WS_CAPTION) && (wnd.left == fmon.left && wnd.top == fmon.top
-       && wnd.right == fmon.right && wnd.bottom == fmon.bottom)
-       && !(conf.ResizeAll&2))) {
+     || ( (state.origin.fullscreen = IsFullscreen(state.hwnd, wnd, fmon)&conf.FullScreen) == conf.FullScreen )
+    ){
         return 0;
     }
-    state.origin.fullscreen = ((style&WS_CAPTION) != WS_CAPTION) && (wnd.left == fmon.left && wnd.top == fmon.top
-                           && wnd.right == fmon.right && wnd.bottom == fmon.bottom);
 
     // Update state
     state.action = action;
@@ -2143,9 +2154,17 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
         }
     }
 
-    // Return if blacklisted
-    if (blacklistedP(hwnd, &BlkLst.Processes) || blacklisted(hwnd, &BlkLst.Scroll))
+    // Return if blacklisted or fullscreen.
+    if (blacklistedP(hwnd, &BlkLst.Processes) || blacklisted(hwnd, &BlkLst.Scroll)) {
         return 0;
+    } else if(conf.FullScreen == 1) {
+        RECT wnd, fmon;
+        GetWindowRect(hwnd, &wnd);
+        fmon = GetMonitorRect(pt, 1);
+        if(IsFullscreen(hwnd, wnd, fmon))
+            return 0;
+    }
+
     if (conf.Mouse.Scroll) {
 
         if (conf.Mouse.Scroll == AC_ALTTAB && !state.shift) {
@@ -2332,7 +2351,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
             state.blockmouseup = 0;
             return 1;
         } else if (state.action || is_hotclick) {
-            FinishMovement(); 
+            FinishMovement();
             return 1;
         }
     }
@@ -2529,6 +2548,7 @@ __declspec(dllexport) void Load(void)
 
     // [Advanced]
     conf.ResizeAll     = GetPrivateProfileInt(L"Advanced", L"ResizeAll",       1, inipath);
+    conf.FullScreen    = 1 + 2 * !!GetPrivateProfileInt(L"Advanced", L"FullScreen", 1, inipath);
     conf.AutoRemaximize= GetPrivateProfileInt(L"Advanced", L"AutoRemaximize",  0, inipath);
     conf.SnapThreshold = GetPrivateProfileInt(L"Advanced", L"SnapThreshold",  20, inipath);
     conf.AeroThreshold = GetPrivateProfileInt(L"Advanced", L"AeroThreshold",   5, inipath);
@@ -2596,6 +2616,7 @@ __declspec(dllexport) void Load(void)
 
     readhotkeys(inipath, L"Hotkeys",  L"A4 A5", &conf.Hotkeys);
     readhotkeys(inipath, L"Hotclicks",L"",      &conf.Hotclick);
+    readhotkeys(inipath, L"Killkeys", L"09",    &conf.Killkey);
 
     conf.ToggleRzMvKey = 0;
     GetPrivateProfileString(L"Input", L"ToggleRzMvKey", L"", txt, ARR_SZ(txt), inipath);

@@ -123,3 +123,4 @@
 #define IDC_TOGGLERZMVKEY_H             2048
 #define IDC_TOGGLERZMVKEY               2049
 #define IDC_AERODBCLICKSHIFT            2050
+#define IDC_FULLSCREEN                  2051

@@ -166,6 +166,7 @@ BEGIN
     CONTROL   "InvertShiftDB",     IDC_AERODBCLICKSHIFT, "Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,140,195,8
     CONTROL   "TogglemaxLClick",   IDC_MAXWITHLCLICK,    "Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,150,195,8
     CONTROL   "SingleClickRestore",IDC_RESTOREONCLICK,   "Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,160,195,8
+    CONTROL   "FullScreen",        IDC_FULLSCREEN,       "Button",BS_AUTOCHECKBOX|WS_TABSTOP, 10,170,195,8
 END
 
 /////////////////////////////////////////////////////////////////////////////

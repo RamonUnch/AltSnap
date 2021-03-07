@@ -493,14 +493,14 @@ BOOL HaveDWM()
 BOOL HaveProc(char *DLLname, char *PROCname)
 {
     HINSTANCE hdll = LoadLibraryA(DLLname);
-
+    BOOL ret = FALSE;
     if (hdll) {
         if(GetProcAddress(hdll, PROCname)) {
-            FreeLibrary(hdll);
-            return TRUE ;
+            ret = TRUE ;
         }
+        FreeLibrary(hdll);
     }
-    return FALSE;
+    return ret;
 }
 
 DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)

@@ -378,14 +378,15 @@ struct strings en_US = {
  /* mb5                */ L"Mouse button &5:",
  /* scroll             */ L"&Scroll wheel:",
  /* lowerwithmmb       */ L"&Lower windows by middle clicking on title bars",
- /* rollwithtbscroll   */ L"&Roll/Unroll windows with Alt+Scroll on title bar",
- /* rmb                */ L"M&iddle mouse button",
- /* mb4                */ L"M&ouse button 4",
- /* mb5                */ L"Mo&use button 5",
+ /* rollwithtbscroll   */ L"&Roll/Unroll windows with Alt+Scroll on title bars",
+ /* mmb_hr             */ L"M&iddle mouse button",
+ /* mb4_hc             */ L"M&ouse button 4",
+ /* mb5_hc             */ L"Mo&use button 5",
 
  /* Aggressive Pause   */ L"&Pause process on Alt+Shift+Pause (Alt+Pause to resume)",
  /* KeyCombo           */ L"Use two keys &combo to activate",
  /* GrabWithAlt        */ L"&Action without click:",
+
  /* actions */
  /* move               */ L"Move window",
  /* resize             */ L"Resize window",

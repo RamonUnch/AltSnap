@@ -23,7 +23,7 @@ HWND g_cfgwnd = NULL;
 
 /////////////////////////////////////////////////////////////////////////////
 // No error reporting since we don't want the user to be interrupted
-void CheckAutostart(int *on, int *hidden, int *elevated)
+static void CheckAutostart(int *on, int *hidden, int *elevated)
 {
     *on = *hidden = *elevated = 0;
     // Read registry
@@ -50,7 +50,7 @@ void CheckAutostart(int *on, int *hidden, int *elevated)
     }
 }
 
-void SetAutostart(int on, int hide, int elevate)
+static void SetAutostart(int on, int hide, int elevate)
 {
     // Open key
     HKEY key;
@@ -147,7 +147,7 @@ void UpdateSettings()
     PostMessage(g_hwnd, WM_UPDATESETTINGS, 1, 0);
 }
 /////////////////////////////////////////////////////////////////////////////
-void UpdateStrings()
+static void UpdateStrings()
 {
     // Update window title
     PropSheet_SetTitle(g_cfgwnd, 0, l10n->title);

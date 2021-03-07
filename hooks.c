@@ -1267,6 +1267,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
            // elevated Att+Tab windows that captures the AltUp key.
             HotkeyUp();
         } else if (vkey == VK_ESCAPE && (state.action || state.alt)) {
+            int action = state.action;
             if (!conf.FullWin && state.moving) {
                 Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
             }
@@ -1279,7 +1280,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
             UnhookMouse();
 
-            if (state.action) return 1;
+            if (action) return 1;
 
         } else if (conf.AggressivePause && vkey == VK_PAUSE && state.alt) {
             POINT pt;
@@ -2084,8 +2085,10 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 // Or restore an AltDrad Aero-snapped window.
 static int ActionNoAlt(POINT pt, WPARAM wParam)
 {
-    if ((conf.LowerWithMMB || conf.NormRestore)
-      && !state.alt && !state.action && (wParam == WM_MBUTTONDOWN || wParam == WM_LBUTTONDOWN)) {
+    int willlower = ((conf.LowerWithMMB&1) == 1 && !state.alt)
+                 || ((conf.LowerWithMMB&2) == 2 &&  state.alt);
+    if ((willlower || conf.NormRestore)
+        && !state.action && (wParam == WM_MBUTTONDOWN || wParam == WM_LBUTTONDOWN)) {
         HWND hwnd = WindowFromPoint(pt);
         if (!hwnd) return 0;
         hwnd = GetAncestor(hwnd, GA_ROOT);
@@ -2094,7 +2097,7 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
 
         int area = SendMessage(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x,pt.y));
 
-        if (conf.LowerWithMMB && wParam == WM_MBUTTONDOWN
+        if (willlower && wParam == WM_MBUTTONDOWN
          && (area == HTCAPTION || area == HTTOP || area == HTTOPLEFT || area == HTTOPRIGHT
          || area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON || area == HTCLOSE)) {
             if (state.shift) {
@@ -2647,7 +2650,7 @@ __declspec(dllexport) void Load(void)
     readblacklist(inipath, &BlkLst.MMBLower,  L"MMBLower");
     readblacklist(inipath, &BlkLst.Scroll,    L"Scroll");
 
-    conf.keepMousehook = (conf.LowerWithMMB || conf.NormRestore || conf.InactiveScroll || conf.Hotclick.length);
+    conf.keepMousehook = ((conf.LowerWithMMB&1) || conf.NormRestore || conf.InactiveScroll || conf.Hotclick.length);
 
     // Allocate some memory
     monitors_alloc++;

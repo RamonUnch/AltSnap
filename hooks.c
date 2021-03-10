@@ -27,6 +27,10 @@
 #define REHOOK_TIMER  WM_APP+1
 #define INIT_TIMER    WM_APP+2
 
+// Cool stuff
+#define MC_ALWAYSONTOP          WM_APP+3
+#define MC_BORDERLESS          WM_APP+4
+
 HWND g_hwnd;
 static void UnhookMouse();
 static void HookMouse();
@@ -34,7 +38,7 @@ static void HookMouse();
 // Enumerators
 enum action { AC_NONE=0, AC_MOVE, AC_RESIZE, AC_MINIMIZE, AC_MAXIMIZE, AC_CENTER
             , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_ALTTAB, AC_VOLUME, AC_ROLL
-		    , AC_TRANSPARENCY, AC_BORDERLESS };
+		    , AC_TRANSPARENCY, AC_BORDERLESS, AC_MENU };
 enum button { BT_NONE=0, BT_LMB=0x0002, BT_MMB=0x0020, BT_RMB=0x0008, BT_MB4=0x0080, BT_MB5=0x0081 };
 enum resize { RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER };
 enum cursor { HAND, SIZENWSE, SIZENESW, SIZENS, SIZEWE, SIZEALL };
@@ -75,6 +79,7 @@ struct {
     POINT offset;
     HWND hwnd;
     HWND mdiclient;
+    HWND ctxhwnd;
     struct wnddata *wndentry;
     DWORD clicktime;
     int Speed;
@@ -2057,6 +2062,16 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         }
     } else if (action == AC_ROLL) {
         RollWindow(state.hwnd, 0);
+    } else if (action == AC_MENU) {
+        FinishMovement();
+        HMENU hPopupMenu = CreatePopupMenu();
+        // Capture the hwnd for the context menu
+        state.ctxhwnd = state.hwnd;
+        InsertMenu(hPopupMenu, 0, MF_BYPOSITION | MF_STRING, MC_ALWAYSONTOP, (LPCWSTR)L"AlwaysOnTop");
+        InsertMenu(hPopupMenu, 0, MF_BYPOSITION | MF_STRING, MC_BORDERLESS, (LPCWSTR)L"Borderless");
+        // SetForegroundWindow(g_hwnd);
+        TrackPopupMenu(hPopupMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, g_hwnd, NULL);
+        return 1;
     }
 
     // Send WM_ENTERSIZEMOVE
@@ -2430,6 +2445,13 @@ static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         }
     } else if (msg == WM_DESTROY) {
         KillTimer(g_hwnd, REHOOK_TIMER);
+    } else if (msg == WM_COMMAND) {
+        if (wParam == MC_ALWAYSONTOP) {
+            LONG_PTR topmost = GetWindowLongPtr(state.ctxhwnd,GWL_EXSTYLE)&WS_EX_TOPMOST;
+            SetWindowPos(state.ctxhwnd, (topmost?HWND_NOTOPMOST:HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE);
+        } else if (wParam == MC_BORDERLESS) {
+            ActionBorderless(state.ctxhwnd);
+        }
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
@@ -2519,7 +2541,7 @@ static void readhotkeys(wchar_t *inipath, wchar_t *name, wchar_t *def, struct ho
 }
 ///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.
-__declspec(dllexport) void Load(void)
+__declspec(dllexport) void Load(HWND altdrag_hwnd)
 {
     // Load settings
     wchar_t txt[1024];
@@ -2609,6 +2631,7 @@ __declspec(dllexport) void Load(void)
         else if (!wcsicmp(txt,L"Volume"))       *buttons[i].ptr = AC_VOLUME;
         else if (!wcsicmp(txt,L"Transparency")) *buttons[i].ptr = AC_TRANSPARENCY;
         else if (!wcsicmp(txt,L"Roll"))         *buttons[i].ptr = AC_ROLL;
+        else if (!wcsicmp(txt,L"Menu"))         *buttons[i].ptr = AC_MENU;
         else                                    *buttons[i].ptr = AC_NONE;
     }
 

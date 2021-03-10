@@ -2063,15 +2063,8 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     } else if (action == AC_ROLL) {
         RollWindow(state.hwnd, 0);
     } else if (action == AC_MENU) {
-        FinishMovement();
-        HMENU hPopupMenu = CreatePopupMenu();
         // Capture the hwnd for the context menu
         state.ctxhwnd = state.hwnd;
-        InsertMenu(hPopupMenu, 0, MF_BYPOSITION | MF_STRING, MC_ALWAYSONTOP, (LPCWSTR)L"AlwaysOnTop");
-        InsertMenu(hPopupMenu, 0, MF_BYPOSITION | MF_STRING, MC_BORDERLESS, (LPCWSTR)L"Borderless");
-        // SetForegroundWindow(g_hwnd);
-        TrackPopupMenu(hPopupMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, g_hwnd, NULL);
-        return 1;
     }
 
     // Send WM_ENTERSIZEMOVE
@@ -2369,7 +2362,16 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
             state.blockmouseup = 0;
             return 1;
         } else if (state.action || is_hotclick) {
-            FinishMovement();
+            if (state.action == AC_MENU) {
+                FinishMovement();
+                HMENU hPopupMenu = CreatePopupMenu();
+                InsertMenu(hPopupMenu, 0, MF_BYPOSITION | MF_STRING, MC_ALWAYSONTOP, (LPCWSTR)L"AlwaysOnTop");
+                InsertMenu(hPopupMenu, 0, MF_BYPOSITION | MF_STRING, MC_BORDERLESS, (LPCWSTR)L"Borderless");
+                SetForegroundWindow(g_hwnd);
+                TrackPopupMenu(hPopupMenu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, g_hwnd, NULL);
+            } else {
+                FinishMovement();
+            }
             return 1;
         }
     }

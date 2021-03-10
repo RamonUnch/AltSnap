@@ -2541,7 +2541,7 @@ static void readhotkeys(wchar_t *inipath, wchar_t *name, wchar_t *def, struct ho
 }
 ///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.
-__declspec(dllexport) void Load(HWND altdrag_hwnd)
+__declspec(dllexport) void Load()
 {
     // Load settings
     wchar_t txt[1024];

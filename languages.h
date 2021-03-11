@@ -399,7 +399,7 @@ struct strings en_US = {
  /* roll               */ L"&Roll/Unroll window",
  /* alwaysontop        */ L"Toggle always on &top",
  /* borderless         */ L"Toggle &borderless",
- /* center             */ L"Center &window on screen",
+ /* center             */ L"C&enter window on screen",
  /* nothing            */ L"Nothing",
  /* alttab             */ L"Alt+Tab",
  /* volume             */ L"Volume",

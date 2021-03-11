@@ -108,6 +108,7 @@ struct strings {
   wchar_t *input_actions_nothing;
   wchar_t *input_actions_alttab;
   wchar_t *input_actions_volume;
+  wchar_t *input_actions_menu;
   wchar_t *input_actions_transparency;
 
   // hotkeys
@@ -254,6 +255,7 @@ struct {
   { &l10n_ini.input_actions_nothing,           L"InputActionNothing" },
   { &l10n_ini.input_actions_alttab,            L"InputActionAltTab" },
   { &l10n_ini.input_actions_volume,            L"InputActionVolume" },
+  { &l10n_ini.input_actions_menu,              L"InputActionMenu" },
   { &l10n_ini.input_actions_transparency,      L"InputActionTransparency" },
 
   { &l10n_ini.input_hotkeys_box,               L"InputHotkeysBox" },
@@ -401,6 +403,7 @@ struct strings en_US = {
  /* nothing            */ L"Nothing",
  /* alttab             */ L"Alt+Tab",
  /* volume             */ L"Volume",
+ /* menu               */ L"Action menu",
  /* transparency       */ L"Transparency",
 
  /* hotkeys */

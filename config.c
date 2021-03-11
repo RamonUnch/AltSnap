@@ -586,7 +586,9 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 GetPrivateProfileString(L"Input", mouse_buttons[i].option, L"Nothing", txt, ARR_SZ(txt), inipath);
                 sel = ARR_SZ(mouse_actions) - 1;
                 for (j = 0; j < ARR_SZ(mouse_actions); j++) {
-                    ComboBox_AddString(control, mouse_actions[j].l10n);
+                    wchar_t action_name[256];
+                    wcscpy_noaccel(action_name, mouse_actions[j].l10n, ARR_SZ(action_name));
+                    ComboBox_AddString(control, action_name);
                     if (!wcscmp(txt, mouse_actions[j].action)) {
                         sel = j;
                     }
@@ -600,7 +602,9 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             GetPrivateProfileString(L"Input", L"Scroll", L"Nothing", txt, ARR_SZ(txt), inipath);
             sel = ARR_SZ(scroll_actions) - 1;
             for (j = 0; j < ARR_SZ(scroll_actions); j++) {
-                ComboBox_AddString(control, scroll_actions[j].l10n);
+                wchar_t action_name[256];
+                wcscpy_noaccel(action_name, scroll_actions[j].l10n, ARR_SZ(action_name));
+                ComboBox_AddString(control, action_name);
                 if (!wcscmp(txt, scroll_actions[j].action)) {
                     sel = j;
                 }
@@ -770,7 +774,9 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             int sel = ARR_SZ(kb_actions) - 1;
             unsigned j;
             for (j = 0; j < ARR_SZ(kb_actions); j++) {
-                ComboBox_AddString(control, kb_actions[j].l10n);
+                wchar_t action_name[256];
+                wcscpy_noaccel(action_name, kb_actions[j].l10n, ARR_SZ(action_name));
+                ComboBox_AddString(control, action_name);
                 if (!wcscmp(txt, kb_actions[j].action)) {
                     sel = j;
                 }

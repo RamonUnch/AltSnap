@@ -2417,7 +2417,7 @@ static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 // Window for single click commands
 static LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    if (msg != WM_COMMAND && state.sclickhwnd == NULL) {
+    if (msg != WM_COMMAND || state.sclickhwnd == NULL) {
         return DefWindowProc(hwnd, msg, wParam, lParam);
     }
     enum action action = wParam;

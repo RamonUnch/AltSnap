@@ -2033,7 +2033,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     } else if (action == AC_MINIMIZE || action == AC_MAXIMIZE || action == AC_CENTER || action == AC_ALWAYSONTOP 
             || action == AC_CLOSE || action == AC_LOWER || action == AC_ROLL || action == AC_BORDERLESS) {
         state.sclickhwnd = state.hwnd;
-        PostMessage(g_mchwnd, WM_COMMAND, SC_ACTION+action, 0);
+        PostMessage(g_mchwnd, WM_COMMAND, action, 0);
     } else if (action == AC_MENU) {
         state.sclickhwnd = state.hwnd;
         PostMessage(g_mainhwnd, WM_SCLICK, 0, 0);
@@ -2421,7 +2421,6 @@ static LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         return DefWindowProc(hwnd, msg, wParam, lParam);
     }
     enum action action = wParam;
-    action -= SC_ACTION;
     
     POINT pt;
     GetCursorPos(&pt);

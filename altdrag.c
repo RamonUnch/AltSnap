@@ -20,7 +20,7 @@
 #define APP_VERSION    "1.39"
 
 // Messages
-#define WM_TRAY       (WM_USER+1)
+#define WM_TRAY        (WM_USER+1)
 #define SWM_TOGGLE     (WM_APP+1)
 #define SWM_HIDE       (WM_APP+2)
 #define SWM_ELEVATE    (WM_APP+3)
@@ -34,6 +34,7 @@
 #define ENABLED() (keyhook)
 HINSTANCE g_hinst = NULL;
 HWND g_hwnd = NULL;
+HWND g_mchwnd = NULL;
 UINT WM_TASKBARCREATED = 0;
 UINT WM_UPDATESETTINGS = 0;
 UINT WM_ADDTRAY = 0;
@@ -53,6 +54,7 @@ char WinVer = 0;
 #include "languages.c"
 #include "tray.c"
 #include "config.c"
+#include "rpc.h"
 
 /////////////////////////////////////////////////////////////////////////////
 int HookSystem()
@@ -69,8 +71,10 @@ int HookSystem()
         if (!hinstDLL) {
             return 1;
         } else {
-            void (*Load) () = (void *)GetProcAddress(hinstDLL, "Load");
-            if(Load) Load();
+            HWND (*Load) (HWND) = (void *)GetProcAddress(hinstDLL, "Load");
+            if(Load) {
+                g_mchwnd = Load(g_hwnd);
+            }
         }
     }
     // Load keyboard hook
@@ -127,6 +131,25 @@ void ToggleState()
     }
 }
 /////////////////////////////////////////////////////////////////////////////
+void ShowSClickMenu() {
+    POINT pt;
+    GetCursorPos(&pt);
+    HMENU menu = CreatePopupMenu();
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, SC_ACTION+AC_ALWAYSONTOP, l10n->input_actions_alwaysontop);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, SC_ACTION+AC_BORDERLESS, l10n->input_actions_borderless);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, SC_ACTION+AC_CENTER, l10n->input_actions_center);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, SC_ACTION+AC_ROLL, l10n->input_actions_roll);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, SC_ACTION+AC_MAXIMIZE, l10n->input_actions_maximize);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, SC_ACTION+AC_MINIMIZE, l10n->input_actions_minimize);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, SC_ACTION+AC_CLOSE, l10n->input_actions_close);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, SC_ACTION+AC_NONE, L"Cancel");
+    SetForegroundWindow(g_mchwnd);
+    TrackPopupMenu(menu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, g_mchwnd, NULL);
+    DestroyMenu(menu);
+}
+/////////////////////////////////////////////////////////////////////////////
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_TRAY) {
@@ -143,6 +166,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         } else if (lParam == NIN_BALLOONTIMEOUT && hide) {
             RemoveTray();
         }
+    } else if (msg == WM_SCLICK && g_mchwnd != NULL) {
+        ShowSClickMenu();
     } else if (msg == WM_UPDATESETTINGS) {
         // Reload hooks
         if (ENABLED()) {

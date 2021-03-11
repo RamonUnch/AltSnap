@@ -139,6 +139,7 @@ void ShowSClickMenu() {
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, SC_ACTION+AC_BORDERLESS, l10n->input_actions_borderless);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, SC_ACTION+AC_CENTER, l10n->input_actions_center);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, SC_ACTION+AC_ROLL, l10n->input_actions_roll);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, SC_ACTION+AC_LOWER, l10n->input_actions_lower);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, SC_ACTION+AC_MAXIMIZE, l10n->input_actions_maximize);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, SC_ACTION+AC_MINIMIZE, l10n->input_actions_minimize);

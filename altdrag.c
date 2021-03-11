@@ -34,7 +34,6 @@
 #define ENABLED() (keyhook)
 HINSTANCE g_hinst = NULL;
 HWND g_hwnd = NULL;
-HWND g_mchwnd = NULL;
 UINT WM_TASKBARCREATED = 0;
 UINT WM_UPDATESETTINGS = 0;
 UINT WM_ADDTRAY = 0;
@@ -71,9 +70,9 @@ int HookSystem()
         if (!hinstDLL) {
             return 1;
         } else {
-            HWND (*Load) (HWND) = (void *)GetProcAddress(hinstDLL, "Load");
+            void (*Load) (HWND) = (void *)GetProcAddress(hinstDLL, "Load");
             if(Load) {
-                g_mchwnd = Load(g_hwnd);
+                Load(g_hwnd);
             }
         }
     }
@@ -131,7 +130,8 @@ void ToggleState()
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-void ShowSClickMenu() {
+void ShowSClickMenu(HWND hwnd) 
+{
     POINT pt;
     GetCursorPos(&pt);
     HMENU menu = CreatePopupMenu();
@@ -145,9 +145,9 @@ void ShowSClickMenu() {
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MINIMIZE, l10n->input_actions_minimize);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_CLOSE, l10n->input_actions_close);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_NONE, L"Cancel");
-    SetForegroundWindow(g_mchwnd);
-    TrackPopupMenu(menu, TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, g_mchwnd, NULL);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_NONE, l10n->input_actions_nothing);
+    SetForegroundWindow(hwnd);
+    TrackPopupMenu(menu, TPM_TOPALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, hwnd, NULL);
     DestroyMenu(menu);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -167,8 +167,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         } else if (lParam == NIN_BALLOONTIMEOUT && hide) {
             RemoveTray();
         }
-    } else if (msg == WM_SCLICK && g_mchwnd != NULL) {
-        ShowSClickMenu();
+    } else if (msg == WM_SCLICK && wParam) {
+        ShowSClickMenu((HWND)wParam);
     } else if (msg == WM_UPDATESETTINGS) {
         // Reload hooks
         if (ENABLED()) {

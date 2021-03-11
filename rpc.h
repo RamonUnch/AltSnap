@@ -2,11 +2,9 @@
 #define ALTDRAG_RPC_H
 
 #define WM_SCLICK       WM_USER+2
-#define SC_ACTION       WM_APP+1
 
 enum action { AC_NONE=0, AC_MOVE, AC_RESIZE, AC_MINIMIZE, AC_MAXIMIZE, AC_CENTER
             , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_ALTTAB, AC_VOLUME, AC_ROLL
 		    , AC_TRANSPARENCY, AC_BORDERLESS, AC_MENU };
 
-#endif /* ifndef ALTDRAG_RPC_H */
-
+#endif /* ALTDRAG_RPC_H */

@@ -19,22 +19,22 @@
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
 #include "unfuck.h"
+#include "rpc.h"
 
 // App
 #define APP_NAME L"AltDrag"
 
 // Boring stuff
-#define REHOOK_TIMER  WM_APP+1
-#define INIT_TIMER    WM_APP+2
+#define REHOOK_TIMER    WM_APP+1
+#define INIT_TIMER      WM_APP+2
 
-HWND g_hwnd;
+HWND g_timerhwnd;
+HWND g_mainhwnd;
+HWND g_mchwnd;
 static void UnhookMouse();
 static void HookMouse();
 
 // Enumerators
-enum action { AC_NONE=0, AC_MOVE, AC_RESIZE, AC_MINIMIZE, AC_MAXIMIZE, AC_CENTER
-            , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_ALTTAB, AC_VOLUME, AC_ROLL
-		    , AC_TRANSPARENCY, AC_BORDERLESS };
 enum button { BT_NONE=0, BT_LMB=0x0002, BT_MMB=0x0020, BT_RMB=0x0008, BT_MB4=0x0080, BT_MB5=0x0081 };
 enum resize { RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER };
 enum cursor { HAND, SIZENWSE, SIZENESW, SIZENS, SIZEWE, SIZEALL };
@@ -75,6 +75,7 @@ struct {
     POINT offset;
     HWND hwnd;
     HWND mdiclient;
+    HWND sclickhwnd;
     struct wnddata *wndentry;
     DWORD clicktime;
     int Speed;
@@ -2029,34 +2030,13 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         if (ret == 0) return 0;
         else if (ret == 1) return 1;
         hcursor = CursorToDraw();
-
-    } else if (action == AC_MINIMIZE) {
-        PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
-    } else if (action == AC_MAXIMIZE) {
-        if (state.shift) {
-            PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
-        } else if (IsResizable(state.hwnd)) {
-            Maximize_Restore_atpt(state.hwnd, NULL, SW_TOGGLE_MAX_RESTORE, monitor);
-        }
-    } else if (action == AC_CENTER) {
-        MoveWindow(state.hwnd, mon.left+(mon.right-mon.left)/2-state.origin.width/2
-                , mon.top+(mon.bottom-mon.top)/2-state.origin.height/2
-                , state.origin.width, state.origin.height, TRUE);
-    } else if (action == AC_ALWAYSONTOP) {
-        LONG_PTR topmost = GetWindowLongPtr(state.hwnd,GWL_EXSTYLE)&WS_EX_TOPMOST;
-        SetWindowPos(state.hwnd, (topmost?HWND_NOTOPMOST:HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE);
-    } else if (action == AC_BORDERLESS) {
-        ActionBorderless(state.hwnd);
-    } else if (action == AC_CLOSE) {
-        PostMessage(state.hwnd, WM_CLOSE, 0, 0);
-    } else if (action == AC_LOWER) {
-        if (state.shift) {
-            PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
-        } else {
-            SetWindowPos(state.hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
-        }
-    } else if (action == AC_ROLL) {
-        RollWindow(state.hwnd, 0);
+    } else if (action == AC_MINIMIZE || action == AC_MAXIMIZE || action == AC_CENTER || action == AC_ALWAYSONTOP 
+            || action == AC_CLOSE || action == AC_LOWER || action == AC_ROLL || action == AC_BORDERLESS) {
+        state.sclickhwnd = state.hwnd;
+        PostMessage(g_mchwnd, WM_COMMAND, action, 0);
+    } else if (action == AC_MENU) {
+        state.sclickhwnd = state.hwnd;
+        PostMessage(g_mainhwnd, WM_SCLICK, 0, 0);
     }
 
     // Send WM_ENTERSIZEMOVE
@@ -2366,7 +2346,7 @@ static void HookMouse()
 {
     state.moving = 0; // Used to know the first time we call MouseMove.
     if (conf.keepMousehook) {
-        SendMessage(g_hwnd, WM_TIMER, REHOOK_TIMER, 0);
+        SendMessage(g_timerhwnd, WM_TIMER, REHOOK_TIMER, 0);
     }
 
     // Check if mouse is already hooked
@@ -2411,12 +2391,12 @@ static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 {
     if (msg == WM_TIMER) {
         if (wParam == INIT_TIMER) {
-            KillTimer(g_hwnd, wParam);
+            KillTimer(g_timerhwnd, wParam);
 
             // Hook mouse if a permanent hook is needed
             if (conf.keepMousehook) {
                 HookMouse();
-                SetTimer(g_hwnd, REHOOK_TIMER, 5000, NULL); // Start rehook timer
+                SetTimer(g_timerhwnd, REHOOK_TIMER, 5000, NULL); // Start rehook timer
             }
         } else if (wParam == REHOOK_TIMER) {
             // Silently rehook hooks if they have been stopped (>= Win7 and LowLevelHooksTimeout)
@@ -2429,11 +2409,58 @@ static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             }
         }
     } else if (msg == WM_DESTROY) {
-        KillTimer(g_hwnd, REHOOK_TIMER);
+        KillTimer(g_timerhwnd, REHOOK_TIMER);
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
+/////////////////////////////////////////////////////////////////////////////
+// Window for single click commands
+static LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    if (msg != WM_COMMAND || state.sclickhwnd == NULL) {
+        return DefWindowProc(hwnd, msg, wParam, lParam);
+    }
+    enum action action = wParam;
+    
+    POINT pt;
+    GetCursorPos(&pt);
+    // Get monitor info
+    HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi = { sizeof(MONITORINFO) };
+    GetMonitorInfo(monitor, &mi);
+    RECT mon = mi.rcWork;
 
+    if (action == AC_MINIMIZE) {
+        PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+    } else if (action == AC_MAXIMIZE) {
+        if (state.shift) {
+            PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+        } else if (IsResizable(state.hwnd)) {
+            Maximize_Restore_atpt(state.hwnd, NULL, SW_TOGGLE_MAX_RESTORE, monitor);
+        }
+    } else if (action == AC_CENTER) {
+        MoveWindow(state.hwnd, mon.left+(mon.right-mon.left)/2-state.origin.width/2
+                , mon.top+(mon.bottom-mon.top)/2-state.origin.height/2
+                , state.origin.width, state.origin.height, TRUE);
+    } else if (action == AC_ALWAYSONTOP) {
+        LONG_PTR topmost = GetWindowLongPtr(state.hwnd,GWL_EXSTYLE)&WS_EX_TOPMOST;
+        SetWindowPos(state.hwnd, (topmost?HWND_NOTOPMOST:HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE);
+    } else if (action == AC_BORDERLESS) {
+        ActionBorderless(state.hwnd);
+    } else if (action == AC_CLOSE) {
+        PostMessage(state.hwnd, WM_CLOSE, 0, 0);
+    } else if (action == AC_LOWER) {
+        if (state.shift) {
+            PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+        } else {
+            SetWindowPos(state.hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
+        }
+    } else if (action == AC_ROLL) {
+        RollWindow(state.hwnd, 0);
+    }
+    state.sclickhwnd = NULL;
+    return DefWindowProc(hwnd, msg, wParam, lParam);
+}
 /////////////////////////////////////////////////////////////////////////////
 // To be called before Free Library. Ideally it should free everything
 __declspec(dllexport) void Unload()
@@ -2442,7 +2469,8 @@ __declspec(dllexport) void Unload()
     if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL; }
 
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
-    DestroyWindow(g_hwnd);
+    DestroyWindow(g_timerhwnd);
+    DestroyWindow(g_mchwnd);
 }
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated ans title and class are | separated.
@@ -2519,7 +2547,7 @@ static void readhotkeys(wchar_t *inipath, wchar_t *name, wchar_t *def, struct ho
 }
 ///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.
-__declspec(dllexport) void Load(void)
+__declspec(dllexport) HWND Load(HWND mainhwnd)
 {
     // Load settings
     wchar_t txt[1024];
@@ -2609,6 +2637,7 @@ __declspec(dllexport) void Load(void)
         else if (!wcsicmp(txt,L"Volume"))       *buttons[i].ptr = AC_VOLUME;
         else if (!wcsicmp(txt,L"Transparency")) *buttons[i].ptr = AC_TRANSPARENCY;
         else if (!wcsicmp(txt,L"Roll"))         *buttons[i].ptr = AC_ROLL;
+        else if (!wcsicmp(txt,L"Menu"))         *buttons[i].ptr = AC_MENU;
         else                                    *buttons[i].ptr = AC_NONE;
     }
 
@@ -2636,10 +2665,19 @@ __declspec(dllexport) void Load(void)
     WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0, TimerWindowProc, 0, 0, hinstDLL
                      , NULL, NULL, NULL, NULL, APP_NAME"-hooks", NULL };
     RegisterClassEx(&wnd);
-    g_hwnd = CreateWindowEx(0, wnd.lpszClassName, wnd.lpszClassName, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT
+    g_timerhwnd = CreateWindowEx(0, wnd.lpszClassName, wnd.lpszClassName, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT
                      , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, HWND_MESSAGE, NULL, hinstDLL, NULL);
     // Create a timer to do further initialization
-    SetTimer(g_hwnd, INIT_TIMER, 10, NULL);
+    SetTimer(g_timerhwnd, INIT_TIMER, 10, NULL);
+
+    // Create window for timers
+    WNDCLASSEX wnd2 = { sizeof(WNDCLASSEX), 0, SClickWindowProc, 0, 0, hinstDLL
+                     , NULL, NULL, NULL, NULL, APP_NAME"-sclick", NULL };
+    RegisterClassEx(&wnd2);
+    g_mchwnd = CreateWindowEx(0, wnd2.lpszClassName, wnd2.lpszClassName, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT
+                     , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, HWND_MESSAGE, NULL, hinstDLL, NULL);
+    // Capture main hwnd from caller
+    g_mainhwnd = mainhwnd;
 
     // [Blacklist]
     readblacklist(inipath, &BlkLst.Processes, L"Processes");
@@ -2657,6 +2695,8 @@ __declspec(dllexport) void Load(void)
     monitors = realloc(monitors, monitors_alloc*sizeof(RECT));
     wnds_alloc += 8;
     wnds = realloc(wnds, wnds_alloc*sizeof(RECT));
+
+    return g_mchwnd;
 }
 /////////////////////////////////////////////////////////////////////////////
 // Do not forget the -e_DllMain@12 for gcc...

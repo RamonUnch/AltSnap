@@ -34,7 +34,7 @@ static void UnhookMouse();
 static void HookMouse();
 
 // Enumerators
-enum button { BT_NONE=0, BT_LMB=0x0002, BT_MMB=0x0020, BT_RMB=0x0008, BT_MB4=0x0080, BT_MB5=0x0081 };
+enum button { BT_NONE=0, BT_LMB=0x02, BT_MMB=0x20, BT_RMB=0x08, BT_MB4=0x80, BT_MB5=0x81 };
 enum resize { RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER };
 enum cursor { HAND, SIZENWSE, SIZENESW, SIZENS, SIZEWE, SIZEALL };
 
@@ -888,7 +888,7 @@ static int AeroResizeSnap(POINT pt, int *posx, int *posy
 }
 ///////////////////////////////////////////////////////////////////////////
 // Get action of button
-static enum action GetAction(int button)
+static enum action GetAction(enum button button)
 {
     if      (button == BT_LMB) return conf.Mouse.LMB;
     else if (button == BT_MMB) return conf.Mouse.MMB;
@@ -2322,7 +2322,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wPara
     else if (ret == 1) return 1;
 
     // Get Button state
-    int button =
+    enum button button =
         (wParam==WM_LBUTTONDOWN||wParam==WM_LBUTTONUP)?BT_LMB:
         (wParam==WM_MBUTTONDOWN||wParam==WM_MBUTTONUP)?BT_MMB:
         (wParam==WM_RBUTTONDOWN||wParam==WM_RBUTTONUP)?BT_RMB:
@@ -2686,7 +2686,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     g_mchwnd = CreateWindowEx(0, wnd2.lpszClassName, wnd2.lpszClassName, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT
                      , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, HWND_MESSAGE, NULL, hinstDLL, NULL);
 
-    // Capture main hwnd from caller
+    // Capture main hwnd from caller. This is also the cursor wnd
     g_mainhwnd = mainhwnd;
 
     // [Blacklist]
@@ -2705,7 +2705,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     monitors = realloc(monitors, monitors_alloc*sizeof(RECT));
     wnds_alloc += 8;
     wnds = realloc(wnds, wnds_alloc*sizeof(RECT));
-
 }
 /////////////////////////////////////////////////////////////////////////////
 // Do not forget the -e_DllMain@12 for gcc...

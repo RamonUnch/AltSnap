@@ -662,6 +662,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
         {L"Borderless",  l10n->input_actions_borderless},
         {L"Center",      l10n->input_actions_center},
+        {L"Menu",        l10n->input_actions_menu},
         {L"Nothing",     l10n->input_actions_nothing},
     };
     // Hotkeys
@@ -670,14 +671,14 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         wchar_t *l10n;
     } togglekeys[] = {
         { L"",   l10n->input_actions_nothing},
-        { L"A4", l10n->input_hotkeys_leftalt2},
-        { L"A5", l10n->input_hotkeys_rightalt2},
-        { L"5B", l10n->input_hotkeys_leftwinkey2},
-        { L"5C", l10n->input_hotkeys_rightwinkey2},
-        { L"A2", l10n->input_hotkeys_leftctrl2},
-        { L"A3", l10n->input_hotkeys_rightctrl2},
-        { L"A0", l10n->input_hotkeys_leftshift2},
-        { L"A1", l10n->input_hotkeys_rightshift2},
+        { L"A4", l10n->input_hotkeys_leftalt},
+        { L"A5", l10n->input_hotkeys_rightalt},
+        { L"5B", l10n->input_hotkeys_leftwinkey},
+        { L"5C", l10n->input_hotkeys_rightwinkey},
+        { L"A2", l10n->input_hotkeys_leftctrl},
+        { L"A3", l10n->input_hotkeys_rightctrl},
+        { L"A0", l10n->input_hotkeys_leftshift},
+        { L"A1", l10n->input_hotkeys_rightshift},
     };
 
     if (msg == WM_INITDIALOG) {
@@ -789,7 +790,9 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             GetPrivateProfileString(L"Input", L"ToggleRzMvKey", L"", txt, ARR_SZ(txt), inipath);
             sel = ARR_SZ(togglekeys) - 1;
             for (j = 0; j < ARR_SZ(togglekeys); j++) {
-                ComboBox_AddString(control, togglekeys[j].l10n);
+                wchar_t key_name[256];
+                wcscpy_noaccel(key_name, togglekeys[j].l10n, ARR_SZ(key_name));
+                ComboBox_AddString(control, key_name);
                 if (!wcscmp(txt, togglekeys[j].action)) {
                     sel = j;
                 }

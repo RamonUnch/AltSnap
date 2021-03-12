@@ -111,7 +111,7 @@ BEGIN
     CONTROL     "MMB",    IDC_MMB_HC,   "Button",BS_AUTOCHECKBOX|WS_TABSTOP,10 ,150,80,10
     CONTROL     "MB4",    IDC_MB4_HC,   "Button",BS_AUTOCHECKBOX|WS_TABSTOP,10 ,160,80,10
     CONTROL     "MB5",    IDC_MB5_HC,   "Button",BS_AUTOCHECKBOX|WS_TABSTOP,10 ,170,80,10
-    LTEXT       "More",   IDC_HOTCLICKS_MORE, 100,150,110,30
+    LTEXT       "More",   IDC_HOTCLICKS_MORE, 100,147,110,33
 END
 
 /////////////////////////////////////////////////////////////////////////////

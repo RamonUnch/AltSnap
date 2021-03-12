@@ -120,14 +120,10 @@ struct strings {
   wchar_t *input_hotkeys_rightalt;
   wchar_t *input_hotkeys_leftwinkey;
   wchar_t *input_hotkeys_rightwinkey;
-  wchar_t *input_hotkeys_leftalt2;
-  wchar_t *input_hotkeys_rightalt2;
-  wchar_t *input_hotkeys_leftwinkey2;
-  wchar_t *input_hotkeys_rightwinkey2;
-  wchar_t *input_hotkeys_leftctrl2;
-  wchar_t *input_hotkeys_rightctrl2;
-  wchar_t *input_hotkeys_leftshift2;
-  wchar_t *input_hotkeys_rightshift2;
+  wchar_t *input_hotkeys_leftctrl;
+  wchar_t *input_hotkeys_rightctrl;
+  wchar_t *input_hotkeys_leftshift;
+  wchar_t *input_hotkeys_rightshift;
   wchar_t *input_hotkeys_more;
 
   // blacklist
@@ -266,14 +262,10 @@ struct {
   { &l10n_ini.input_hotkeys_rightalt,          L"InputHotkeysRightAlt" },
   { &l10n_ini.input_hotkeys_leftwinkey,        L"InputHotkeysLeftWinkey" },
   { &l10n_ini.input_hotkeys_rightwinkey,       L"InputHotkeysRightWinkey" },
-  { &l10n_ini.input_hotkeys_leftalt2,          L"InputHotkeysLeftAlt2" },
-  { &l10n_ini.input_hotkeys_rightalt2,         L"InputHotkeysRightAlt2" },
-  { &l10n_ini.input_hotkeys_leftwinkey2,       L"InputHotkeysLeftWinkey2" },
-  { &l10n_ini.input_hotkeys_rightwinkey2,      L"InputHotkeysRightWinkey2" },
-  { &l10n_ini.input_hotkeys_leftctrl2,         L"InputHotkeysLeftCtrl2" },
-  { &l10n_ini.input_hotkeys_rightctrl2,        L"InputHotkeysRightCtrl2" },
-  { &l10n_ini.input_hotkeys_leftshift2,        L"InputHotkeysLeftShift2" },
-  { &l10n_ini.input_hotkeys_rightshift2,       L"InputHotkeysRightShift2" },
+  { &l10n_ini.input_hotkeys_leftctrl,         L"InputHotkeysLeftCtrl" },
+  { &l10n_ini.input_hotkeys_rightctrl,        L"InputHotkeysRightCtrl" },
+  { &l10n_ini.input_hotkeys_leftshift,        L"InputHotkeysLeftShift" },
+  { &l10n_ini.input_hotkeys_rightshift,       L"InputHotkeysRightShift" },
   { &l10n_ini.input_hotkeys_more,              L"InputHotkeysMore" },
 
   { &l10n_ini.blacklist_box,                   L"BlacklistBox" },
@@ -416,14 +408,10 @@ struct strings en_US = {
  /* leftwinkey         */ L"Left &Winkey",
  /* rightwinkey        */ L"Right W&inkey",
 
- /* leftalt2           */ L"Left Alt",
- /* rightalt2          */ L"Right Alt",
- /* leftwinkey2        */ L"Left Winkey",
- /* rightwinkey2       */ L"Right Winkey",
- /* leftctrl2          */ L"Left Ctrl",
- /* rightctrl2         */ L"Right Ctrl",
- /* leftshift2         */ L"Left Shift",
- /* rightshift2        */ L"Right Shift",
+ /* leftctrl           */ L"Left Ctrl",
+ /* rightctrl          */ L"Right Ctrl",
+ /* leftshift          */ L"Left Shift",
+ /* rightshift         */ L"Right Shift",
 
  /* more               */ L"You can add any key by editing the ini file.\nUse the shift key to snap windows to each other.",
 

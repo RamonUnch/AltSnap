@@ -130,7 +130,7 @@ void ToggleState()
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-void ShowSClickMenu(HWND hwnd)
+void ShowSClickMenu(HWND hwnd, LPARAM param)
 {
     POINT pt;
     GetCursorPos(&pt);
@@ -144,6 +144,10 @@ void ShowSClickMenu(HWND hwnd)
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MAXIMIZE, l10n->input_actions_maximize);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MINIMIZE, l10n->input_actions_minimize);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_CLOSE, l10n->input_actions_close);
+    if (param) {
+        InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
+        InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_KILL, l10n->input_actions_kill);
+    }
     InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_NONE, l10n->input_actions_nothing);
     SetForegroundWindow(hwnd);
@@ -168,7 +172,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             RemoveTray();
         }
     } else if (msg == WM_SCLICK && wParam) {
-        ShowSClickMenu((HWND)wParam);
+        ShowSClickMenu((HWND)wParam, lParam);
     } else if (msg == WM_UPDATESETTINGS) {
         // Reload hooks
         if (ENABLED()) {

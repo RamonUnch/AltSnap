@@ -124,3 +124,4 @@
 #define IDC_TOGGLERZMVKEY               2049
 #define IDC_AERODBCLICKSHIFT            2050
 #define IDC_FULLSCREEN                  2051
+#define IDC_AGGRESSIVEKILL              2052

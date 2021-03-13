@@ -177,8 +177,11 @@ Note that this version has some more feature..
 
 == AltDrag 1.40 ==
 
-* NEW: Action menu can now be selected as a mouse action and will pop up
++ NEW: Action menu can now be selected as a mouse action and will pop up
   a menu that let you chose a list of others actions.
+
++ New a kill action was added and can be activated with Ctrl+Alt+F4 or
+  by using the Action menu, after activating the option.
 
 * Fixed: Makefile mk.bat is now compatible with MingW's GCC 10.2
 

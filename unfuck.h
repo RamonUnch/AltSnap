@@ -508,10 +508,11 @@ DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
     DWORD pid;
     GetWindowThreadProcessId(hwnd, &pid);
     HANDLE proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
-    DWORD ret = GetProcessImageFileNameL(proc, title, title_len);
+    int ret = GetProcessImageFileNameL(proc, title, title_len);
     CloseHandle(proc);
-
-    return ret;
+    
+    PathStripPathL(title);
+    return ret? pid: 0;
 }
 
 #endif

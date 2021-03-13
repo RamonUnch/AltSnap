@@ -91,6 +91,7 @@ struct strings {
   wchar_t *input_mouse_mb5_hc;
 
   wchar_t *input_aggressive_pause;
+  wchar_t *input_aggressive_kill;
   wchar_t *input_keycombo;
   wchar_t *input_grabwithalt;
 
@@ -98,6 +99,7 @@ struct strings {
   wchar_t *input_actions_move;
   wchar_t *input_actions_resize;
   wchar_t *input_actions_close;
+  wchar_t *input_actions_kill;
   wchar_t *input_actions_minimize;
   wchar_t *input_actions_maximize;
   wchar_t *input_actions_lower;
@@ -235,12 +237,14 @@ struct {
   { &l10n_ini.input_mouse_mb5_hc,              L"InputMouseMB5HC" },
 
   { &l10n_ini.input_aggressive_pause,          L"InputAggressivePause" },
+  { &l10n_ini.input_aggressive_kill,           L"InputAggressiveKill" },
   { &l10n_ini.input_keycombo,                  L"InputKeyCombo" },
   { &l10n_ini.input_grabwithalt,               L"InputGrabWithAlt" },
 
   { &l10n_ini.input_actions_move,              L"InputActionMove" },
   { &l10n_ini.input_actions_resize,            L"InputActionResize" },
   { &l10n_ini.input_actions_close,             L"InputActionClose" },
+  { &l10n_ini.input_actions_kill,              L"InputActionKill" },
   { &l10n_ini.input_actions_minimize,          L"InputActionMinimize" },
   { &l10n_ini.input_actions_maximize,          L"InputActionMaximize" },
   { &l10n_ini.input_actions_lower,             L"InputActionLower" },
@@ -378,6 +382,7 @@ struct strings en_US = {
  /* mb5_hc             */ L"Mo&use button 5",
 
  /* Aggressive Pause   */ L"&Pause process on Alt+Shift+Pause (Alt+Pause to resume)",
+ /* Aggressive Kill    */ L"&Kill process on Ctrl+Alt+F4\nAlso adds the kill option to the action menu",
  /* KeyCombo           */ L"Use two keys &combo to activate",
  /* GrabWithAlt        */ L"&Action without click:",
 
@@ -385,6 +390,7 @@ struct strings en_US = {
  /* move               */ L"Move window",
  /* resize             */ L"Resize window",
  /* close              */ L"&Close window",
+ /* kill               */ L"&Kill program",
  /* minimize           */ L"Mi&nimize window",
  /* maximize           */ L"Ma&ximize window",
  /* lower              */ L"&Lower window",

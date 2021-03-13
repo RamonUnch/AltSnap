@@ -453,6 +453,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"Move",        l10n->input_actions_move},
         {L"Resize",      l10n->input_actions_resize},
         {L"Close",       l10n->input_actions_close},
+        {L"Kill",        l10n->input_actions_kill},
         {L"Minimize",    l10n->input_actions_minimize},
         {L"Maximize",    l10n->input_actions_maximize},
         {L"Lower",       l10n->input_actions_lower},
@@ -687,6 +688,9 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         Button_SetCheck(GetDlgItem(hwnd, IDC_AGGRESSIVEPAUSE), ret? BST_CHECKED: BST_UNCHECKED);
         Button_Enable(GetDlgItem(hwnd, IDC_AGGRESSIVEPAUSE), HaveProc("NTDLL.DLL", "NtResumeProcess"));
 
+        ret = GetPrivateProfileInt(L"Input", L"AggressiveKill", 0, inipath);
+        Button_SetCheck(GetDlgItem(hwnd, IDC_AGGRESSIVEKILL), ret? BST_CHECKED: BST_UNCHECKED);
+
         ret = GetPrivateProfileInt(L"Input", L"KeyCombo", 0, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_KEYCOMBO), ret? BST_CHECKED: BST_UNCHECKED);
 
@@ -718,6 +722,8 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 
         if (id == IDC_AGGRESSIVEPAUSE) {
             WritePrivateProfileString(L"Input", L"AggressivePause", _itow(val, txt, 10), inipath);
+        } else if (id == IDC_AGGRESSIVEKILL) {
+            WritePrivateProfileString(L"Input", L"AggressiveKill", _itow(val, txt, 10), inipath);
         } else if (id == IDC_KEYCOMBO) {
             WritePrivateProfileString(L"Input", L"KeyCombo", _itow(val, txt, 10), inipath);
 
@@ -802,6 +808,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             // Update text
             SetDlgItemText(hwnd, IDC_KEYBOARD_BOX,    l10n->tab_keyboard);
             SetDlgItemText(hwnd, IDC_AGGRESSIVEPAUSE, l10n->input_aggressive_pause);
+            SetDlgItemText(hwnd, IDC_AGGRESSIVEKILL,  l10n->input_aggressive_kill);
             SetDlgItemText(hwnd, IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box);
             SetDlgItemText(hwnd, IDC_TOGGLERZMVKEY_H, l10n->input_hotkeys_togglerzmvkey);
             SetDlgItemText(hwnd, IDC_LEFTALT,         l10n->input_hotkeys_leftalt);
@@ -924,7 +931,6 @@ LRESULT CALLBACK CursorProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             SetDlgItemText(page, IDC_NEWRULE, txt);
 
             if(GetWindowProgName(window, txt, ARR_SZ(txt))) {
-                PathStripPathL(txt);
                 SetDlgItemText(page, IDC_NEWPROGNAME, txt);
             }
         }

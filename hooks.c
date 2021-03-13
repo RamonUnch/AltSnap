@@ -20,7 +20,6 @@
 #include <endpointvolume.h>
 #include "unfuck.h"
 #include "rpc.h"
-
 // App
 #define APP_NAME L"AltDrag"
 
@@ -175,6 +174,7 @@ struct {
     char KeyCombo;
 
     char FullScreen;
+    char AggressiveKill;
 
     struct hotkeys_s Hotkeys;
     struct hotkeys_s Hotclick;
@@ -251,7 +251,6 @@ static int blacklistedP(HWND hwnd, struct blacklist *list)
     GetWindowProgName(hwnd, title, ARR_SZ(title));
 
     // ProcessBlacklist is case-insensitive
-    PathStripPathL(title);
     for (i=0; i < list->length; i++) {
         if (!wcsicmp(title,list->items[i].title))
             return 1;
@@ -1232,6 +1231,40 @@ static void HotkeyUp()
         UnhookMouse();
     }
 }
+static int ActionPause(HWND hwnd, char pause)
+{
+    if (!blacklistedP(hwnd, &BlkLst.Pause)) {
+        DWORD pid;
+        GetWindowThreadProcessId(hwnd, &pid);
+        HANDLE ProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+        if (ProcessHandle) {
+            if (pause) NtSuspendProcess(ProcessHandle);
+            else       NtResumeProcess(ProcessHandle);
+        }
+        CloseHandle(ProcessHandle);
+        return 1;
+    }
+    return 0;
+}
+///////////////////////////////////////////////////////////////////////////
+// Kill the process from hwnd
+static int ActionKill(HWND hwnd)
+{
+    if(!hwnd || blacklistedP(hwnd, &BlkLst.Pause))
+        return 0;
+
+    DWORD pid;
+    GetWindowThreadProcessId(hwnd, &pid);
+
+    // Open the process
+    HANDLE proc = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+    if (proc) {
+        int ret = TerminateProcess(proc, 1);
+        CloseHandle(proc);
+        return ret;
+    }
+    return 0;
+}
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -1293,20 +1326,14 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
         } else if (conf.AggressivePause && vkey == VK_PAUSE && state.alt) {
             POINT pt;
-            DWORD pid;
             GetCursorPos(&pt);
             HWND hwnd = WindowFromPoint(pt);
-            if (!blacklistedP(hwnd, &BlkLst.Pause)) {
-                GetWindowThreadProcessId(hwnd, &pid);
-                HANDLE ProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
-                if(ProcessHandle){
-                    if(state.shift) NtSuspendProcess(ProcessHandle);
-                    else            NtResumeProcess(ProcessHandle);
-                }
-                CloseHandle(ProcessHandle);
-                return 1;
-            }
-
+            if (ActionPause(hwnd, state.shift)) return 1;
+        } else if (conf.AggressiveKill && vkey == VK_F4 && state.alt && state.ctrl) {
+            // Kill on Ctrl+Alt+F4
+            POINT pt; GetCursorPos(&pt);
+            HWND hwnd = WindowFromPoint(pt);
+            if(ActionKill(hwnd)) return 1;
         } else if (!state.ctrl && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
             RestrictToCurentMonitor();
             state.ctrl = 1;
@@ -1974,6 +2001,8 @@ static void SClicActions(HWND hwnd, enum action action)
         }
     } else if (action == AC_ROLL) {
         RollWindow(hwnd, 0);
+    } else if (action == AC_KILL) {
+        ActionKill(hwnd);
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -2076,7 +2105,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         hcursor = CursorToDraw();
     } else if (action == AC_MENU) {
         state.sclickhwnd = state.hwnd;
-        PostMessage(g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd, 0);
+        PostMessage(g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd, conf.AggressiveKill);
         return 1;
     } else {
         SClicActions(state.hwnd, action);
@@ -2647,11 +2676,13 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         else if (!wcsicmp(txt,L"Transparency")) *buttons[i].ptr = AC_TRANSPARENCY;
         else if (!wcsicmp(txt,L"Roll"))         *buttons[i].ptr = AC_ROLL;
         else if (!wcsicmp(txt,L"Menu"))         *buttons[i].ptr = AC_MENU;
+        else if (!wcsicmp(txt,L"Kill"))         *buttons[i].ptr = AC_KILL;
         else                                    *buttons[i].ptr = AC_NONE;
     }
 
     conf.LowerWithMMB    = GetPrivateProfileInt(L"Input", L"LowerWithMMB",    0, inipath);
     conf.AggressivePause = GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath);
+    conf.AggressiveKill  = GetPrivateProfileInt(L"Input", L"AggressiveKill",  0, inipath);
     conf.RollWithTBScroll= GetPrivateProfileInt(L"Input", L"RollWithTBScroll",0, inipath);
     conf.KeyCombo        = GetPrivateProfileInt(L"Input", L"KeyCombo",        0, inipath);
 

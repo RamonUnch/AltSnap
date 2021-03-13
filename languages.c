@@ -10,15 +10,15 @@
 struct strings *l10n = &en_US;
 
 /////////////////////////////////////////////////////////////////////////////
-// Comies and remove the accelerators & sign. maybe more in the future.
+// Copies and remove the accelerators & sign. and ends the string at '('
 static size_t wcscpy_noaccel(wchar_t *dest, wchar_t *source, size_t destlen)
 {
     size_t i=0, j=0;
     while(i < destlen && source[i]) {
-        dest[j] = source[i];
+        dest[j] = source[i] !   = '('? source[i]: '\0';
         j += source[i++] != '&';
     }
-    dest[j]='\0';
+    dest[j] = '\0';
     return j;
 }
 /////////////////////////////////////////////////////////////////////////////

@@ -130,7 +130,7 @@ void ToggleState()
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-void ShowSClickMenu(HWND hwnd) 
+void ShowSClickMenu(HWND hwnd)
 {
     POINT pt;
     GetCursorPos(&pt);

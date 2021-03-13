@@ -175,19 +175,32 @@ Note that this version has some more feature..
 ===========================================================================
 == CHANGELOG ==
 
+== AltDrag 1.40 ==
+
+* NEW: Action menu can now be selected as a mouse action and will pop up
+  a menu that let you chose a list of others actions.
+
+* Fixed: Makefile mk.bat is now compatible with MingW's GCC 10.2
+
+* More fixes to French Translation by *TroudhuK*.
+
+* Russian translation improvement by *Alexandr Smolnikov* (bigcrush).
+
+* Chinese translation improvement by *Yatao Li* (yalti).
+
 == AltDrag 1.39 ==
 
 * New the LowerWithMMB option can now be set to 2 and you will need Alt to
   be pressed to lower the windows with middle click on title bar.
 
 * New: An 'Enable on full screen windows' option was added in the advanced
-  tab of AltDrag default is on like previous versions. A fullscreen window
-  is a windows that fits ecactly into the monitor and has no title bar.
+  tab of AltDrag default is on like previous versions. A full screen window
+  is a windows that fits exactly into the monitor and has no title bar.
 
-* New/fix: A Killkey list was added in the [Input] section of AltDragh.ini. 
-  It contains a list of key that will Disable altdrag when pressed down.
+* New/fix: A Killkeys list was added in the [Input] section of AltDragh.ini.
+  It contains a list of key that will disable AltDrag when pressed down.
   Default value is 09 for the TAB key. This fixes a bug with DisplayFusion's
-  Alt+Tab feature (Thanks *Daniele-f*)
+  Alt+Tab feature (Thanks *Daniele-f*).
 
 * Fix: Made ESC key a bit more aggressive in disabling AltDrag.
 
@@ -570,7 +583,6 @@ Note that this version has some more feature..
   using gcc -Wall parameter.
 
 * Minor GUI improvement for WinNT4 and Win2000.
-
 
 == AltDrag 1.27 ==
 

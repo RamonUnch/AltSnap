@@ -10,13 +10,20 @@
 struct strings *l10n = &en_US;
 
 /////////////////////////////////////////////////////////////////////////////
-// Copies and remove the accelerators & sign. and ends the string at '('
+// Copies and remove the accelerators & sign. and txt between ( ).
 static size_t wcscpy_noaccel(wchar_t *dest, wchar_t *source, size_t destlen)
 {
     size_t i=0, j=0;
     while(i < destlen && source[i]) {
-        dest[j] = source[i] !   = '('? source[i]: '\0';
-        j += source[i++] != '&';
+        dest[j] = source[i];
+        if (source[i] == '(') {
+            // If we found a '(' go to the closing one ')'.
+            while(i < destlen && source[i] && source[i] != ')') i++;
+            i++;
+            i += source[i] == ' '; // Remove space after ) if there is one.
+        } else {
+            j += source[i++] != '&';
+        }
     }
     dest[j] = '\0';
     return j;

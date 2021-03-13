@@ -1248,22 +1248,30 @@ static int ActionPause(HWND hwnd, char pause)
 }
 ///////////////////////////////////////////////////////////////////////////
 // Kill the process from hwnd
-static int ActionKill(HWND hwnd)
+static DWORD WINAPI ActionKillThread(LPVOID hwnd)
 {
-    if(!hwnd || blacklistedP(hwnd, &BlkLst.Pause))
-        return 0;
-
     DWORD pid;
     GetWindowThreadProcessId(hwnd, &pid);
 
     // Open the process
     HANDLE proc = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
     if (proc) {
-        int ret = TerminateProcess(proc, 1);
+        TerminateProcess(proc, 1);
         CloseHandle(proc);
-        return ret;
     }
-    return 0;
+    return 1;
+}
+static int ActionKill(HWND hwnd)
+{
+    if(!hwnd || blacklistedP(hwnd, &BlkLst.Pause))
+       return 0;
+    
+    DWORD lpThreadId;
+    HANDLE thread;
+    thread = CreateThread(NULL, 0, ActionKillThread, hwnd, 0, &lpThreadId);
+    CloseHandle(thread);
+    
+    return 1;
 }
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.

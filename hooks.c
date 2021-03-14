@@ -846,6 +846,10 @@ static RECT GetMonitorRect(POINT *pt, int full)
     if (pt) ptt=*pt;
     else GetCursorPos(&ptt);
     GetMonitorInfo(MonitorFromPoint(ptt, MONITOR_DEFAULTTONEAREST), &mi);
+    if (state.mdiclient) {
+        if (GetClientRect(state.mdiclient, &mi.rcMonitor))
+            return mi.rcMonitor;
+    }
 
     return full? mi.rcMonitor : mi.rcWork;
 }
@@ -1332,12 +1336,12 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
             if (action) return 1;
 
-        } else if (conf.AggressivePause && vkey == VK_PAUSE && state.alt) {
+        } else if (conf.AggressivePause && state.alt && vkey == VK_PAUSE) {
             POINT pt;
             GetCursorPos(&pt);
             HWND hwnd = WindowFromPoint(pt);
             if (ActionPause(hwnd, state.shift)) return 1;
-        } else if (conf.AggressiveKill && vkey == VK_F4 && state.alt && state.ctrl) {
+        } else if (conf.AggressiveKill && state.alt && state.ctrl && vkey == VK_F4) {
             // Kill on Ctrl+Alt+F4
             POINT pt; GetCursorPos(&pt);
             HWND hwnd = WindowFromPoint(pt);
@@ -1991,9 +1995,11 @@ static void SClicActions(HWND hwnd, enum action action)
         }
     } else if (action == AC_CENTER) {
         RECT mon = GetMonitorRect(NULL, 0);
-        MoveWindow(hwnd, mon.left+(mon.right-mon.left)/2-state.origin.width/2
-                , mon.top+(mon.bottom-mon.top)/2-state.origin.height/2
-                , state.origin.width, state.origin.height, TRUE);
+        MoveWindow(hwnd
+                , mon.left+ ((mon.right-mon.left)-state.origin.width)/2
+                , mon.top + ((mon.bottom-mon.top)-state.origin.height)/2
+                , state.origin.width
+                , state.origin.height, TRUE);
     } else if (action == AC_ALWAYSONTOP) {
         LONG_PTR topmost = GetWindowLongPtr(hwnd,GWL_EXSTYLE)&WS_EX_TOPMOST;
         SetWindowPos(hwnd, (topmost?HWND_NOTOPMOST:HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE);
@@ -2011,7 +2017,7 @@ static void SClicActions(HWND hwnd, enum action action)
         RollWindow(hwnd, 0);
     } else if (action == AC_KILL) {
         ActionKill(hwnd);
-    }
+    } 
 }
 /////////////////////////////////////////////////////////////////////////////
 static int init_movement_and_actions(POINT pt, enum action action, int button)

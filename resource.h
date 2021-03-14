@@ -125,3 +125,4 @@
 #define IDC_AERODBCLICKSHIFT            2050
 #define IDC_FULLSCREEN                  2051
 #define IDC_AGGRESSIVEKILL              2052
+#define IDC_TESTWINDOW                  2053

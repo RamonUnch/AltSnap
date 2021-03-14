@@ -141,6 +141,7 @@ void OpenConfig(int startpage)
 void CloseConfig()
 {
     PostMessage(g_cfgwnd, WM_CLOSE, 0, 0);
+    UnregisterClass(APP_NAME"-Test", g_hinst);
 }
 void UpdateSettings()
 {
@@ -882,7 +883,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 
             // Create window
             WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0, CursorProc, 0, 0, g_hinst, NULL, NULL
-                             , (HBRUSH) (COLOR_WINDOW + 1), NULL, APP_NAME "-find", NULL };
+                             , (HBRUSH) (COLOR_WINDOW + 1), NULL, APP_NAME"-find", NULL };
             wnd.hCursor = LoadCursor(g_hinst, MAKEINTRESOURCE(IDI_FIND));
             RegisterClassEx(&wnd);
             HWND findhwnd = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_TRANSPARENT
@@ -938,6 +939,7 @@ LRESULT CALLBACK CursorProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         ShowWindowAsync(GetDlgItem(page, IDC_FINDWINDOW), SW_SHOW);
 
         DestroyWindow(hwnd);
+        UnregisterClass(APP_NAME"-find", g_hinst);
     } else if (wParam && (msg == WM_PAINT || msg == WM_ERASEBKGND)){
         return 0;
     }
@@ -972,6 +974,58 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     }
 
     return FALSE;
+}
+/////////////////////////////////////////////////////////////////////////////
+// 
+LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    static int centerfrac=24;
+    switch (msg) {
+    case WM_PAINT:;
+        RECT cRect, wRect;
+        HPEN pen = (HPEN) CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+
+        GetWindowRect(hwnd, &wRect);
+        GetClientRect(hwnd, &cRect);
+        POINT Offset = { wRect.left, wRect.top };
+        ScreenToClient(hwnd, &Offset);
+
+        SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
+        SelectObject(hdc, pen);
+        SetROP2(hdc, R2_BLACK);
+        int width = wRect.right - wRect.left;
+        int height = wRect.bottom - wRect.top;
+        
+        FillRect(hdc, &cRect, GetStockObject(WHITE_BRUSH));
+        Rectangle(hdc
+            , Offset.x+(width-width*centerfrac/100)/2
+            , Offset.y
+            , (width+width*centerfrac/100)/2 + Offset.x
+            , height);
+        Rectangle(hdc
+            , Offset.x
+            , Offset.y+(height-height*centerfrac/100)/2
+            , width
+            , (height+height*centerfrac/100)/2 + Offset.y);
+
+        DeleteObject(pen);
+
+        EndPaint(hwnd, &ps);
+        return 0;
+        break;
+
+    case WM_ERASEBKGND:
+        return 0;
+        break;
+
+    case WM_UPDCFRACTION:
+        centerfrac = lParam;
+        return 0;
+        break;
+    }
+    return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -1022,6 +1076,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         HWND control = GetDlgItem(hwnd, id);
         int val = Button_GetCheck(control);
         wchar_t txt[10];
+        static HWND testwnd=NULL;
 
         if (id == IDC_AUTOREMAXIMIZE) {
             WritePrivateProfileString(L"Advanced",L"AutoRemaximize", _itow(val, txt, 10), inipath);
@@ -1039,11 +1094,39 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             int ret = GetPrivateProfileInt(L"General", L"MMMaximize", 0, inipath);
             val = (id == IDC_MAXWITHLCLICK)? (val+2) & (ret|1): (val*2+1) & (ret|2);
             WritePrivateProfileString(L"General", L"MMMaximize", _itow(val, txt, 10), inipath);
+        } else if (id == IDC_TESTWINDOW) {
+            if (testwnd && IsWindow(testwnd)){
+                return FALSE;
+            }
+            WNDCLASSEX wnd =
+                { sizeof(WNDCLASSEX)
+                , CS_HREDRAW|CS_VREDRAW
+                , TestWindowProc
+                , 0, 0, g_hinst
+                , icon[1]
+                , LoadCursor(NULL, IDC_ARROW)
+                , (HBRUSH)(COLOR_BACKGROUND+1)
+                , NULL, APP_NAME"-Test", NULL };
+            RegisterClassEx(&wnd);
+            wchar_t wintitle[256];
+            wcscpy_noaccel(wintitle, l10n->advanced_testwindow, ARR_SZ(wintitle));
+            testwnd = CreateWindowEx(0
+                 , wnd.lpszClassName
+                 , wintitle, WS_CAPTION|WS_OVERLAPPEDWINDOW
+                 , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT
+                 , NULL, NULL, g_hinst, NULL);
+            PostMessage(testwnd, WM_UPDCFRACTION, 0
+                 , GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath));
+            ShowWindow(testwnd, SW_SHOW);
         }
         if (event == EN_KILLFOCUS) {
             Edit_GetText(control, txt, ARR_SZ(txt));
             if (id == IDC_CENTERFRACTION) {
                 WritePrivateProfileString(L"General", L"CenterFraction", txt, inipath);
+                if (testwnd && IsWindow(testwnd)) {
+                    PostMessage(testwnd, WM_UPDCFRACTION, 0
+                       , GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath));
+                }
             } else if (id == IDC_AEROHOFFSET) {
                 WritePrivateProfileString(L"General", L"AeroHoffset", txt, inipath);
             } else if (id == IDC_AEROVOFFSET) {
@@ -1052,7 +1135,6 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 WritePrivateProfileString(L"Advanced", L"SnapThreshold", txt, inipath);
             } else if (id == IDC_AEROTHRESHOLD) {
                 WritePrivateProfileString(L"Advanced", L"AeroThreshold", txt, inipath);
-
             }
         }
         UpdateSettings();
@@ -1066,6 +1148,8 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_AEROVOFFSET_H,    l10n->advanced_aerovoffset);
             SetDlgItemText(hwnd, IDC_SNAPTHRESHOLD_H,  l10n->advanced_snapthreshold);
             SetDlgItemText(hwnd, IDC_AEROTHRESHOLD_H,  l10n->advanced_aerothreshold);
+            SetDlgItemText(hwnd, IDC_TESTWINDOW,       l10n->advanced_testwindow);
+
             SetDlgItemText(hwnd, IDC_BEHAVIOR_BOX,     l10n->advanced_behavior_box);
             SetDlgItemText(hwnd, IDC_MULTIPLEINSTANCES,l10n->advanced_multipleinstances);
             SetDlgItemText(hwnd, IDC_AUTOREMAXIMIZE,   l10n->advanced_autoremaximize);

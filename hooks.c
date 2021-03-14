@@ -1269,12 +1269,12 @@ static int ActionKill(HWND hwnd)
 {
     if(!hwnd || blacklistedP(hwnd, &BlkLst.Pause))
        return 0;
-    
+
     DWORD lpThreadId;
     HANDLE thread;
     thread = CreateThread(NULL, 0, ActionKillThread, hwnd, 0, &lpThreadId);
     CloseHandle(thread);
-    
+
     return 1;
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -1971,7 +1971,7 @@ static void GetMinMaxInfo_glob(HWND hwnd)
 /////////////////////////////////////////////////////////////////////////////
 static int IsFullscreen(HWND hwnd, RECT wnd, RECT fmon)
 {
-    LONG_PTR style = GetWindowLongPtr(state.hwnd, GWL_STYLE);
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
 
     // no caption and fullscreen window => LSB to 1
     int fs = ((style&WS_CAPTION) != WS_CAPTION)
@@ -1996,10 +1996,10 @@ static void SClicActions(HWND hwnd, enum action action)
     } else if (action == AC_CENTER) {
         RECT mon = GetMonitorRect(NULL, 0);
         MoveWindow(hwnd
-                , mon.left+ ((mon.right-mon.left)-state.origin.width)/2
-                , mon.top + ((mon.bottom-mon.top)-state.origin.height)/2
-                , state.origin.width
-                , state.origin.height, TRUE);
+            , mon.left+ ((mon.right-mon.left)-state.origin.width)/2
+            , mon.top + ((mon.bottom-mon.top)-state.origin.height)/2
+            , state.origin.width
+            , state.origin.height, TRUE);
     } else if (action == AC_ALWAYSONTOP) {
         LONG_PTR topmost = GetWindowLongPtr(hwnd,GWL_EXSTYLE)&WS_EX_TOPMOST;
         SetWindowPos(hwnd, (topmost?HWND_NOTOPMOST:HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE);
@@ -2017,7 +2017,7 @@ static void SClicActions(HWND hwnd, enum action action)
         RollWindow(hwnd, 0);
     } else if (action == AC_KILL) {
         ActionKill(hwnd);
-    } 
+    }
 }
 /////////////////////////////////////////////////////////////////////////////
 static int init_movement_and_actions(POINT pt, enum action action, int button)
@@ -2522,7 +2522,9 @@ __declspec(dllexport) void Unload()
     if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL; }
 
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
+    UnregisterClass(APP_NAME"-Timers", hinstDLL);
     DestroyWindow(g_timerhwnd);
+    UnregisterClass(APP_NAME"-SClick", hinstDLL);
     DestroyWindow(g_mchwnd);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -2717,7 +2719,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     // Create window for timers
     WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0, TimerWindowProc, 0, 0, hinstDLL
-                     , NULL, NULL, NULL, NULL, APP_NAME"-hooks", NULL };
+                     , NULL, NULL, NULL, NULL, APP_NAME"-Timers", NULL };
     RegisterClassEx(&wnd);
     g_timerhwnd = CreateWindowEx(0, wnd.lpszClassName, wnd.lpszClassName, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT
                      , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, HWND_MESSAGE, NULL, hinstDLL, NULL);
@@ -2726,7 +2728,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     // Window for Action Menu
     WNDCLASSEX wnd2 = { sizeof(WNDCLASSEX), 0, SClickWindowProc, 0, 0, hinstDLL
-                     , NULL, NULL, NULL, NULL, APP_NAME"-sclick", NULL };
+                     , NULL, NULL, NULL, NULL, APP_NAME"-SClick", NULL };
     RegisterClassEx(&wnd2);
     g_mchwnd = CreateWindowEx(0, wnd2.lpszClassName, wnd2.lpszClassName, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT
                      , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, HWND_MESSAGE, NULL, hinstDLL, NULL);

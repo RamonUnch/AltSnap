@@ -20,7 +20,6 @@
 #define APP_VERSION    "1.40"
 
 // Messages
-#define WM_TRAY        (WM_USER+1)
 #define SWM_TOGGLE     (WM_APP+1)
 #define SWM_HIDE       (WM_APP+2)
 #define SWM_ELEVATE    (WM_APP+3)
@@ -49,11 +48,11 @@ char elevated = 0;
 char WinVer = 0;
 
 // Include stuff
+#include "rpc.h"
 #include "unfuck.h"
 #include "languages.c"
 #include "tray.c"
 #include "config.c"
-#include "rpc.h"
 
 /////////////////////////////////////////////////////////////////////////////
 int HookSystem()
@@ -355,7 +354,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
             DispatchMessage(&msg);
         }
     }
-
+    // EXIT
+    UnregisterClass(APP_NAME, hInst);
+    DestroyWindow(g_hwnd);
     return msg.wParam;
 }
 /////////////////////////////////////////////////////////////////////////////

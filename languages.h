@@ -144,6 +144,7 @@ struct strings {
   wchar_t *advanced_aerovoffset;
   wchar_t *advanced_snapthreshold;
   wchar_t *advanced_aerothreshold;
+  wchar_t *advanced_testwindow;
 
   wchar_t *advanced_behavior_box;
   wchar_t *advanced_multipleinstances;
@@ -266,10 +267,10 @@ struct {
   { &l10n_ini.input_hotkeys_rightalt,          L"InputHotkeysRightAlt" },
   { &l10n_ini.input_hotkeys_leftwinkey,        L"InputHotkeysLeftWinkey" },
   { &l10n_ini.input_hotkeys_rightwinkey,       L"InputHotkeysRightWinkey" },
-  { &l10n_ini.input_hotkeys_leftctrl,         L"InputHotkeysLeftCtrl" },
-  { &l10n_ini.input_hotkeys_rightctrl,        L"InputHotkeysRightCtrl" },
-  { &l10n_ini.input_hotkeys_leftshift,        L"InputHotkeysLeftShift" },
-  { &l10n_ini.input_hotkeys_rightshift,       L"InputHotkeysRightShift" },
+  { &l10n_ini.input_hotkeys_leftctrl,          L"InputHotkeysLeftCtrl" },
+  { &l10n_ini.input_hotkeys_rightctrl,         L"InputHotkeysRightCtrl" },
+  { &l10n_ini.input_hotkeys_leftshift,         L"InputHotkeysLeftShift" },
+  { &l10n_ini.input_hotkeys_rightshift,        L"InputHotkeysRightShift" },
   { &l10n_ini.input_hotkeys_more,              L"InputHotkeysMore" },
 
   { &l10n_ini.blacklist_box,                   L"BlacklistBox" },
@@ -286,6 +287,7 @@ struct {
   { &l10n_ini.advanced_aerovoffset,            L"AdvancedAeroVoffset"},
   { &l10n_ini.advanced_snapthreshold,          L"AdvancedSnapThreshold"},
   { &l10n_ini.advanced_aerothreshold,          L"AdvancedAeroThreshold"},
+  { &l10n_ini.advanced_testwindow,             L"AdvancedTestWindow"},
 
   { &l10n_ini.advanced_behavior_box,           L"AdvancedBehaviorBox"},
   { &l10n_ini.advanced_multipleinstances,      L"AdvancedMultipleInstances"},
@@ -437,7 +439,8 @@ struct strings en_US = {
  /* aeroVoffset      */   L"&Vertical:",
  /* snapthreshold    */   L"&Snap Threshold (pixels):",
  /* aerothreshold    */   L"&Aero Threshold (pixels):",
- /* behavior_box    */    L"Behavior",
+ /* testwindow       */   L"Test &Window",
+ /* behavior_box     */   L"Behavior",
  /* multipleinstances*/   L"Allow multiple &instances of AltDrag",
  /* autoremaximize   */   L"Automatically &remaximize windows when changing monitor",
  /* normrestore      */   L"Restore AltDrag snapped windows with &normal move",

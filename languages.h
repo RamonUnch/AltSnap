@@ -429,7 +429,7 @@ struct strings en_US = {
  /* blacklist          */ L"&Windows blacklist:",
  /* scrolllist         */ L"Windows that should ignore &scroll action:",
  /* MDIs bl            */ L"&MDIs not to be treated as such:",
- /* Pause list         */ L"Processes not to be pa&used:",
+ /* Pause list         */ L"Processes not to be pa&used or killed:",
  /* findwindow_box     */ L"Identify window",
 
  /* advanced tab */

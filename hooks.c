@@ -2717,12 +2717,15 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     }
     wnddb.pos = &wnddb.items[0];
 
+    // Capture main hwnd from caller. This is also the cursor wnd
+    g_mainhwnd = mainhwnd;
+
     // Create window for timers
     WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0, TimerWindowProc, 0, 0, hinstDLL
                      , NULL, NULL, NULL, NULL, APP_NAME"-Timers", NULL };
     RegisterClassEx(&wnd);
-    g_timerhwnd = CreateWindowEx(0, wnd.lpszClassName, wnd.lpszClassName, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT
-                     , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, HWND_MESSAGE, NULL, hinstDLL, NULL);
+    g_timerhwnd = CreateWindowEx(0, wnd.lpszClassName, NULL, 0
+                     , 0, 0, 0, 0, g_mainhwnd, NULL, hinstDLL, NULL);
     // Create a timer to do further initialization
     SetTimer(g_timerhwnd, INIT_TIMER, 10, NULL);
 
@@ -2730,11 +2733,8 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     WNDCLASSEX wnd2 = { sizeof(WNDCLASSEX), 0, SClickWindowProc, 0, 0, hinstDLL
                      , NULL, NULL, NULL, NULL, APP_NAME"-SClick", NULL };
     RegisterClassEx(&wnd2);
-    g_mchwnd = CreateWindowEx(0, wnd2.lpszClassName, wnd2.lpszClassName, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT
-                     , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, HWND_MESSAGE, NULL, hinstDLL, NULL);
-
-    // Capture main hwnd from caller. This is also the cursor wnd
-    g_mainhwnd = mainhwnd;
+    g_mchwnd = CreateWindowEx(0, wnd2.lpszClassName, NULL, 0
+                           , 0, 0, 0 , 0, g_mainhwnd, NULL, hinstDLL, NULL);
 
     // [Blacklist]
     readblacklist(inipath, &BlkLst.Processes, L"Processes");

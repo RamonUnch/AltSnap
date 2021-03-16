@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTDRAG for NT4 to Win10                         *
 *   Modified by Raymond Gillibert from original source by Stefan Sundin   *
-*                      release 1.39 (March 8, 2021)                       *
+*                      release 1.40 (March 16, 2021)                      *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltDrag/releases/         *
@@ -179,9 +179,19 @@ Note that this version has some more feature..
 
 + NEW: Action menu can now be selected as a mouse action and will pop up
   a menu that let you chose a list of others actions.
+  Thanks to *Yatao Li* (yalti) for implementing this action.
 
-+ New a kill action was added and can be activated with Ctrl+Alt+F4 or
-  by using the Action menu, after activating the option.
++ New a kill action was added and can be activated with Ctrl+Alt+F4 or by
+  using the Action menu, after activating the option. The Pause blacklist
+  applies to this action.
+
++ New Test Window that shows the resizing regions was implemented and is
+  available in the Advanced tab (suggested by *redactedscribe*).
+
+* Fixed: Some windows could not be created under older WinNT versions.
+
+* Fixed: Now the windows registered by hooks.dll will be unregistered when
+  unloading it (Under Win9x it was unnecessary but we are under NT...).
 
 * Fixed: Makefile mk.bat is now compatible with MingW's GCC 10.2
 

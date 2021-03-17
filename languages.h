@@ -445,8 +445,8 @@ struct strings en_US = {
  /* autoremaximize   */   L"Automatically &remaximize windows when changing monitor",
  /* normrestore      */   L"Restore AltDrag snapped windows with &normal move",
  /* aerotopmaximizes */   L"&Maximize windows snapped at top",
- /* aerodbclickshift */   L"Invert shift &behavior for doubleclick aero snapping",
- /* maxwithlclick    */   L"&Toggle maximize state with left-ckick while moving",
+ /* aerodbclickshift */   L"Invert shift &behavior for double-click aero snapping",
+ /* maxwithlclick    */   L"&Toggle maximize state with right-click while moving",
  /* restoreonclick   */   L"Rest&ore window with single click like original AltDrag",
  /* fullscreen       */   L"Enable on &full screen windows",
 

@@ -9,7 +9,6 @@
 #define _UNFUCK_NT_
 
 #include <windows.h>
-#include <commctrl.h>
 #include <dwmapi.h>
 
 #define ARR_SZ(x) (sizeof(x) / sizeof((x)[0]))
@@ -18,8 +17,6 @@
 #ifndef NIIF_USER
 #define NIIF_USER 0x00000004
 #endif
-
-#define WM_DPICHANGED 0x02E0
 
 #define flatten __attribute__((flatten))
 #ifndef SUBCLASSPROC
@@ -32,7 +29,9 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
 #define LOG(X, ...) { FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fclose(LOG); }
 
 /* Stuff missing in MinGW */
+#ifndef WM_MOUSEHWHEEL
 #define WM_MOUSEHWHEEL 0x020E
+#endif
 CLSID my_CLSID_MMDeviceEnumerator= {0xBCDE0395,0xE52F,0x467C,{0x8E,0x3D,0xC4,0x57,0x92,0x91,0x69,0x2E}};
 GUID  my_IID_IMMDeviceEnumerator = {0xA95664D2,0x9614,0x4F35,{0xA7,0x46,0xDE,0x8D,0xB6,0x36,0x17,0xE6}};
 GUID  my_IID_IAudioEndpointVolume= {0x5CDF2C82,0x841E,0x4546,{0x97,0x22,0x0C,0xF7,0x40,0x78,0x22,0x9A}};

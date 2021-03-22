@@ -17,7 +17,7 @@
 // App
 #define APP_NAME       L"AltDrag"
 #define APP_NAMEA      "AltDrag"
-#define APP_VERSION    "1.40"
+#define APP_VERSION    "1.41"
 
 // Messages
 #define SWM_TOGGLE     (WM_APP+1)
@@ -48,7 +48,7 @@ char elevated = 0;
 char WinVer = 0;
 
 // Include stuff
-#include "rpc.h"
+#include "hooks.h"
 #include "unfuck.h"
 #include "languages.c"
 #include "tray.c"

@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTDRAG for NT4 to Win10                         *
 *   Modified by Raymond Gillibert from original source by Stefan Sundin   *
-*                      release 1.40 (March 16, 2021)                      *
+*                      release 1.41 (March 20, 2021)                      *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltDrag/releases/         *
@@ -174,6 +174,22 @@ Note that this version has some more feature..
 
 ===========================================================================
 == CHANGELOG ==
+
+== AltDrag 1.42 ==
+
+* Fixed: The scroll action is no more disabled on non full screen windows
+  when they have no system menu. it fixes problems with VS Code and Discord.
+
+== AltDrag 1.41 ==
+
+* Fixed compilation flags in the release build and Switched to NSIS 2.46
+  and TDMGCC. to avoid false positives with some antiviruses. This also
+  results in even smaller exe and dll.
+
+* Minor dialog adjustement to help with russian language.
+
+* More translation corrections and improvements from *Alexandr Smolnikov*,
+  *Yatao Li* and myself.
 
 == AltDrag 1.40 ==
 

@@ -1,7 +1,7 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # define the name of the installer
 !define APP_NAME "AltDrag"
-!define APP_VERSION "1.40"
+!define APP_VERSION "1.41"
 
 # define the name of the installer
 OutFile "${APP_NAME}${APP_VERSION}-inst.exe"
@@ -19,8 +19,6 @@ SetCompressor /SOLID lzma
 
 ; The text to prompt the user to enter a directory
 DirText "This will install AltDrag on your computer. Choose a directory"
-
-SetCompressor /SOLID lzma
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # DEFAULT SECTION
@@ -48,7 +46,23 @@ Section
     File hooks.dll
     File License.txt
     SetOutPath $INSTDIR\Lang
-    File Lang\*.*
+    File "Lang\_en_US baseline.txt"
+    File Lang\ca_ES.ini
+    File Lang\de_DE.ini
+    File Lang\es_ES.ini
+    File Lang\fr_FR.ini
+    File Lang\gl_ES.ini
+    File Lang\it_IT.ini
+    File Lang\ja_JP.ini
+    File Lang\ko_KR.ini
+    File Lang\nb_NO.ini
+    File Lang\nl_NL.ini
+    File Lang\pl_PL.ini
+    File Lang\pt_PR.ini
+    File Lang\ru_RU.ini
+    File Lang\sz_SK.ini
+    File Lang\zh_CN.ini
+    File Lang\zh_TW.ini
 
     SetOutPath $INSTDIR
     CreateShortcut "$SMPROGRAMS\AltDrag.lnk" "$INSTDIR\AltDrag.exe"
@@ -116,7 +130,23 @@ Section "Uninstall"
     Delete AltDrag-old.ini
     Delete hooks.dll
     Delete License.txt
-    Delete Lang\*.*
+    Delete "Lang\_en_US baseline.txt"
+    Delete Lang\ca_ES.ini
+    Delete Lang\de_DE.ini
+    Delete Lang\es_ES.ini
+    Delete Lang\fr_FR.ini
+    Delete Lang\gl_ES.ini
+    Delete Lang\it_IT.ini
+    Delete Lang\ja_JP.ini
+    Delete Lang\ko_KR.ini
+    Delete Lang\nb_NO.ini
+    Delete Lang\nl_NL.ini
+    Delete Lang\pl_PL.ini
+    Delete Lang\pt_PR.ini
+    Delete Lang\ru_RU.ini
+    Delete Lang\sz_SK.ini
+    Delete Lang\zh_CN.ini
+    Delete Lang\zh_TW.ini
     RMDir "$INSTDIR\Lang"
 
     SetOutPath $APPDATA

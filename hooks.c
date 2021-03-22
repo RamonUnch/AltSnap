@@ -19,7 +19,7 @@
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
 #include "unfuck.h"
-#include "rpc.h"
+#include "hooks.h"
 // App
 #define APP_NAME L"AltDrag"
 
@@ -2224,13 +2224,11 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     }
 
     // Return if blacklisted or fullscreen.
+    RECT wnd;
     if (blacklistedP(hwnd, &BlkLst.Processes) || blacklisted(hwnd, &BlkLst.Scroll)) {
         return 0;
-    } else if(conf.FullScreen == 1) {
-        RECT wnd, fmon;
-        GetWindowRect(hwnd, &wnd);
-        fmon = GetMonitorRect(&pt, 1);
-        if(IsFullscreen(hwnd, wnd, fmon))
+    } else if(conf.FullScreen == 1 && GetWindowRect(hwnd, &wnd)
+          && (IsFullscreen(hwnd, wnd, GetMonitorRect(&pt, 1))&conf.FullScreen) == conf.FullScreen) {
             return 0;
     }
 

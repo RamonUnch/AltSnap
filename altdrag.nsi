@@ -1,7 +1,7 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # define the name of the installer
 !define APP_NAME "AltDrag"
-!define APP_VERSION "1.41"
+!define APP_VERSION "1.42"
 
 # define the name of the installer
 OutFile "${APP_NAME}${APP_VERSION}-inst.exe"
@@ -9,13 +9,12 @@ Name "${APP_NAME} ${APP_VERSION}"
 
 InstallDir "$APPDATA\${APP_NAME}\"
 InstallDirRegKey HKCU "Software\${APP_NAME}" "Install_Dir"
-RequestExecutionLevel user
+;RequestExecutionLevel user
 ShowInstDetails show
 ShowUninstDetails show
 SetCompressor /SOLID lzma
 
-!include "LogicLib.nsh"
-!include "FileFunc.nsh"
+;!include "FileFunc.nsh"
 
 ; The text to prompt the user to enter a directory
 DirText "This will install AltDrag on your computer. Choose a directory"
@@ -84,9 +83,9 @@ Section
     WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "NoRepair" 1
 
     ; Compute size for uninstall information
-    ${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
-    IntFmt $0 "0x%08X" $0
-    WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "EstimatedSize" "$0"
+    ;${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
+    ;IntFmt $0 "0x%08X" $0
+    WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "EstimatedSize" "283"
 
 SectionEnd
 

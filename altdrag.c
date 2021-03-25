@@ -17,7 +17,7 @@
 // App
 #define APP_NAME       L"AltDrag"
 #define APP_NAMEA      "AltDrag"
-#define APP_VERSION    "1.41"
+#define APP_VERSION    "1.42"
 
 // Messages
 #define SWM_TOGGLE     (WM_APP+1)

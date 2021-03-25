@@ -395,10 +395,12 @@ void FixDWMRect(HWND hwnd, int *posx, int *posy, int *wndwidth, int *wndheight, 
         border.right = rect.right - frame.right;
         border.bottom = rect.bottom - frame.bottom;
         if(bbb)  *bbb = border;
-        if(posx) *posx -= border.left;
-        if(posy) *posy -= border.top;
-        if(wndwidth)  *wndwidth += border.left + border.right;
-        if(wndheight) *wndheight += border.top + border.bottom;
+        if(wndwidth) {
+            *posx -= border.left;
+            *posy -= border.top;
+            *wndwidth += border.left + border.right;
+            *wndheight += border.top + border.bottom;
+        }
         return;
     }
     if(bbb) bbb->top = bbb->bottom = bbb->left = bbb->right = 0;

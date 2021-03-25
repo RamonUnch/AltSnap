@@ -727,6 +727,8 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
     struct windowRR *lw = LastWinV;
 
     ret = MoveWindow(lw->hwnd, lw->x, lw->y, lw->width, lw->height, TRUE);
+//    ret = SetWindowPos(lw->hwnd, NULL, lw->x, lw->y, lw->width, lw->height
+//                    , SWP_NOACTIVATE|SWP_NOREPOSITION|SWP_NOSENDCHANGING|SWP_DEFERERASE|SWP_ASYNCWINDOWPOS); //
     if(conf.RefreshRate) Sleep(conf.RefreshRate);
 
     lw->hwnd = NULL;
@@ -982,10 +984,10 @@ static void RestoreOldWin(POINT *pt, int was_snapped, int index)
             state.offset.y = pt->y-wnd.top;
         }
         SetWindowPos(state.hwnd, NULL
-                    , pt? pt->x - state.offset.x - mdiclientpt.x: 0
-                    , pt? pt->y - state.offset.y - mdiclientpt.y: 0
-                    , state.origin.width, state.origin.height
-                    , pt? SWP_NOZORDER: SWP_NOMOVE|SWP_NOZORDER);
+                , pt? pt->x - state.offset.x - mdiclientpt.x: 0
+                , pt? pt->y - state.offset.y - mdiclientpt.y: 0
+                , state.origin.width, state.origin.height
+                , SWP_NOZORDER|(pt? SWP_NOZORDER: SWP_NOMOVE));
     } else if (pt) {
         state.offset.x = pt->x-wnd.left;
         state.offset.y = pt->y-wnd.top;
@@ -1767,20 +1769,23 @@ static void RollWindow(HWND hwnd, int delta)
     AddWindowToDB(state.hwnd);
 
     if (state.wndentry->restore & 2 && delta <= 0) { // Restore
-        if(state.origin.maximized){
+        if (state.origin.maximized) {
             PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
             PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
-            state.wndentry->restore = 0;
+            state.wndentry->restore=0;
         } else {
             RestoreOldWin(NULL, 2, 2);
         }
-    } else if(!(state.wndentry->restore & 2) && delta >= 0){ // ROLL
+    } else if ((!(state.wndentry->restore & 2) && delta == 0) || delta > 0 ){ // ROLL
         GetWindowRect(state.hwnd, &rc);
-        SetWindowPos(state.hwnd, NULL, 0, 0, rc.right - rc.left,
-                 GetSystemMetrics(SM_CYMIN), SWP_NOMOVE|SWP_NOZORDER);
-        state.wndentry->width = rc.right - rc.left;
-        state.wndentry->height = rc.bottom - rc.top;
-        state.wndentry->restore = 2 + state.origin.maximized ;
+        SetWindowPos(state.hwnd, NULL, 0, 0, rc.right - rc.left
+              , GetSystemMetrics(SM_CYMIN)
+              , SWP_NOMOVE|SWP_NOZORDER|SWP_NOSENDCHANGING|SWP_ASYNCWINDOWPOS);
+        if(!(state.wndentry->restore & 2)) { // Save window size if not saved already.
+            state.wndentry->width = rc.right - rc.left;
+            state.wndentry->height = rc.bottom - rc.top;
+            state.wndentry->restore = 2 + state.origin.maximized ;
+        }
     }
 }
 /////////////////////////////////////////////////////////////////////////////

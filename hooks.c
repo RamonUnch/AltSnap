@@ -994,6 +994,20 @@ static void RestoreOldWin(POINT *pt, int was_snapped, int index)
     }
 }
 ///////////////////////////////////////////////////////////////////////////
+// Do not reclip the cursor if it is already clipped
+// Do not unclip the cursor if it was not clipped by AltDrag.
+static void ClipCursorOnce(RECT *clip)
+{
+    static char trapped=0;
+    if (trapped && !clip) {
+        ClipCursor(NULL);
+        trapped=0;
+    } else if(!trapped && clip) {
+        ClipCursor(clip);
+        trapped = 1;
+    }
+}
+///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
 {
     int posx=0, posy=0, wndwidth=100, wndheight=100;
@@ -1043,8 +1057,7 @@ static void MouseMove(POINT pt)
         RECT clip = !state.mdiclient?fmon: (RECT)
                   { mdiclientpt.x, mdiclientpt.y
                   , mdiclientpt.x + mdimon.right, mdiclientpt.y + mdimon.bottom};
-        if(state.ctrl == 1) { ClipCursor(&clip); state.ctrl = 2; }
-        if(state.shift == 1) { ClipCursor(&clip); state.shift = 2; }
+        if (state.ctrl || state.shift) { ClipCursorOnce(&clip); }
         pt.x = CLAMP(fmon.left, pt.x, fmon.right);
         pt.y = CLAMP(fmon.top, pt.y, fmon.bottom);
     }
@@ -1362,12 +1375,12 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         if (IsHotkey(vkey)) {
             HotkeyUp();
         } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
+            ClipCursorOnce(NULL); // Release cursor trapping
             state.shift = 0;
             state.snap = conf.AutoSnap;
-            ClipCursor(NULL); // Release cursor trapping
         } else if (vkey == VK_LCONTROL || vkey == VK_RCONTROL) {
+            ClipCursorOnce(NULL); // Release cursor trapping
             state.ctrl = 0;
-            ClipCursor(NULL); // Release cursor trapping.
             // If there is no action then Control UP prevents AltDragging...
             if(!state.action) state.alt = 0;
         }
@@ -2464,7 +2477,8 @@ static void UnhookMouse()
 
     ShowWindowAsync(g_mainhwnd, SW_HIDE); // Hide cursor
 
-    ClipCursor(NULL);  // Release cursor trapping in case...
+    // Release cursor trapping in case...
+    ClipCursorOnce(NULL);
 
     // Do not unhook if not hooked or if the hook is still used for something
     if (!mousehook || conf.keepMousehook)

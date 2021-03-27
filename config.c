@@ -644,10 +644,13 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         unsigned control;
         unsigned vkey;
     } hotkeys[] = {
-        { IDC_LEFTALT,     VK_LMENU },
-        { IDC_RIGHTALT,    VK_RMENU },
-        { IDC_LEFTWINKEY,  VK_LWIN  },
-        { IDC_RIGHTWINKEY, VK_RWIN  },
+        { IDC_LEFTALT,     VK_LMENU    },
+        { IDC_RIGHTALT,    VK_RMENU    },
+        { IDC_LEFTWINKEY,  VK_LWIN     },
+        { IDC_RIGHTWINKEY, VK_RWIN     },
+        { IDC_LEFTCTRL,    VK_LCONTROL },
+        { IDC_RIGHTCTRL,   VK_RCONTROL },
+
     };
     struct action {
         wchar_t *action;
@@ -816,6 +819,8 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_RIGHTALT,        l10n->input_hotkeys_rightalt);
             SetDlgItemText(hwnd, IDC_LEFTWINKEY,      l10n->input_hotkeys_leftwinkey);
             SetDlgItemText(hwnd, IDC_RIGHTWINKEY,     l10n->input_hotkeys_rightwinkey);
+            SetDlgItemText(hwnd, IDC_LEFTCTRL,        l10n->input_hotkeys_leftctrl);
+            SetDlgItemText(hwnd, IDC_RIGHTCTRL,       l10n->input_hotkeys_rightctrl);
             SetDlgItemText(hwnd, IDC_HOTKEYS_MORE,    l10n->input_hotkeys_more);
             SetDlgItemText(hwnd, IDC_KEYCOMBO,        l10n->input_keycombo);
             SetDlgItemText(hwnd, IDC_GRABWITHALT_H,   l10n->input_grabwithalt);
@@ -976,7 +981,7 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     return FALSE;
 }
 /////////////////////////////////////////////////////////////////////////////
-// 
+//
 LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     static int centerfrac=24;
@@ -997,7 +1002,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         SetROP2(hdc, R2_BLACK);
         int width = wRect.right - wRect.left;
         int height = wRect.bottom - wRect.top;
-        
+
         FillRect(hdc, &cRect, GetStockObject(WHITE_BRUSH));
         Rectangle(hdc
             , Offset.x+(width-width*centerfrac/100)/2

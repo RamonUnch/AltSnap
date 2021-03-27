@@ -416,8 +416,8 @@ struct strings en_US = {
  /* leftwinkey         */ L"Left &Winkey",
  /* rightwinkey        */ L"Right W&inkey",
 
- /* leftctrl           */ L"Left Ctrl",
- /* rightctrl          */ L"Right Ctrl",
+ /* leftctrl           */ L"&Left Ctrl",
+ /* rightctrl          */ L"Ri&ght Ctrl",
  /* leftshift          */ L"Left Shift",
  /* rightshift         */ L"Right Shift",
 

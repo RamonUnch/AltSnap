@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTDRAG for NT4 to Win10                         *
 *   Modified by Raymond Gillibert from original source by Stefan Sundin   *
-*                      release 1.41 (March 20, 2021)                      *
+*                      release 1.42 (April XX, 2021)                      *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltDrag/releases/         *
@@ -84,6 +84,13 @@ TRICKS YOU SHOULD KNOW ABOUT
 * If you can't move a particular window, try elevating AltDrag.
   Normal programs can't interact with programs that are started with
   administrator privileges.
+* If you need to Alt+Clic on a programm and do not want to blacklist the
+  program, you can use the Winkey instead of Alt, If this is not enough
+  or if you do not want to use the Winkey, you can hit Ctrl and release it
+  while keeping Alt pressed and then click.
+* A key combo can be used in order to activate AltDrag, this allows to use
+  Alt+Winkey to drag windo and leaves alone the Win+Click and the Alt+Click
+  that somme programs ay require.
 * Try to add the Shift modifier key for any action, usually it has an effect.
 _____________
 CONFIGURATION
@@ -133,8 +140,9 @@ A space can be present in the item itself.
   and by default contains *|PPTFrameClass,*|MMCMainFrame which correspond to
   the PowerPoint window and all the Microsoft Management application such as
   the services.msc windows or the device drivers window.
-- Process not to be paused: Only applies for the Pause action when enabled on
-  Alt+Shift+Pause, this are program names.
+- Process not to be paused or killed: Only applies for the Pause and kill 
+  action when enabled on Alt+Shift+Pause of Ctrl+Alt+F4,
+  this are program names.
 
 Program names are pretty straightforward to find. However a finer control can
 be done using the window's title|class information; they can be found for a
@@ -177,8 +185,21 @@ Note that this version has some more feature..
 
 == AltDrag 1.42 ==
 
+* Improved the Roll/Unroll window action: now the file explorer windows will
+  be really reduced to the titlebarn until the user moves it. In this case it
+  will still be in the rolled state but will have window defined min height.
+
+* Re-introduced left and right control option in the GUI keyboard tab.
+
+* Fixed: The LowLevelMouseProc@12 should never have been exported by 
+  hooks.dll, because it is only internally used. It does not change anything
+  for the user but fixes potential vulnerabilities.
+
 * Fixed: The scroll action is no more disabled on non full screen windows
   when they have no system menu. it fixes problems with VS Code and Discord.
+
+* Fixed: The cursor will no longer be unconditionally uncliped when releasing
+  Shift or Ctrl keys.
 
 == AltDrag 1.41 ==
 

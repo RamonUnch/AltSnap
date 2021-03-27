@@ -85,7 +85,7 @@ Section
     ; Compute size for uninstall information
     ;${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
     ;IntFmt $0 "0x%08X" $0
-    WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "EstimatedSize" "283"
+    WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "EstimatedSize" "286"
 
 SectionEnd
 

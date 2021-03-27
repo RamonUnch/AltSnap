@@ -511,7 +511,7 @@ DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
     HANDLE proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
     int ret = GetProcessImageFileNameL(proc, title, title_len);
     CloseHandle(proc);
-    
+
     PathStripPathL(title);
     return ret? pid: 0;
 }

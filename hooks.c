@@ -1771,7 +1771,7 @@ static void AddWindowToDB(HWND hwndd)
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-// Roll/Unroll Window. If delta > 0: Roll if < 0: Unroll if =0: Toggle.
+// Roll/Unroll Window. If delta > 0: Roll if < 0: Unroll if == 0: Toggle.
 static void RollWindow(HWND hwnd, int delta)
 {
     RECT rc;
@@ -2331,7 +2331,7 @@ static void FinishMovement()
 /////////////////////////////////////////////////////////////////////////////
 // This is somewhat the main function, it is active only when the ALT key is
 // pressed, or is always on when conf.keepMousehook is enabled.
-__declspec(dllexport) LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
+static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
     if (nCode != HC_ACTION)
         return CallNextHookEx(NULL, nCode, wParam, lParam);

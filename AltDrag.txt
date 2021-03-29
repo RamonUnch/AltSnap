@@ -186,13 +186,16 @@ Note that this version has some more feature..
 == AltDrag 1.42 ==
 
 * Improved the Roll/Unroll window action: now the file explorer windows will
-  be really reduced to the titlebarn until the user moves it. In this case it
-  will still be in the rolled state but will have window defined min height.
+  be really reduced to the titlebar under Win10, until the user moves it.
 
 * Re-introduced left and right control option in the GUI keyboard tab.
 
+* Fixed: Icon on Alt+Tab is now properly displayed for the config dialog.
+
+* Fixed: Process blacklists, now compatible with all versions of PSAPI.DLL.
+
 * Fixed: The LowLevelMouseProc@12 should never have been exported by 
-  hooks.dll, because it is only internally used. It does not change anything
+  hooks.dll because it is only internally used. It does not change anything
   for the user but fixes potential vulnerabilities.
 
 * Fixed: The scroll action is no more disabled on non full screen windows

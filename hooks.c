@@ -76,23 +76,23 @@ struct {
     HWND mdiclient;
     struct wnddata *wndentry;
     DWORD clicktime;
-    int Speed;
+    unsigned Speed;
 
-    unsigned char alt;
-    unsigned char alt1;
-    char blockaltup;
-    char blockmouseup;
+    UCHAR alt;
+    UCHAR alt1;
+    UCHAR blockaltup;
+    UCHAR blockmouseup;
 
-    char ignorectrl;
-    char ctrl;
-    char shift;
-    char snap;
+    UCHAR ignorectrl;
+    UCHAR ctrl;
+    UCHAR shift;
+    UCHAR snap;
 
-    char moving;
-    unsigned char clickbutton;
+    UCHAR moving;
+    UCHAR clickbutton;
     struct {
-        char maximized;
-        char fullscreen;
+        UCHAR maximized;
+        UCHAR fullscreen;
         HMONITOR monitor;
         int width;
         int height;
@@ -130,51 +130,51 @@ struct hotkeys_s {
 struct {
     enum action GrabWithAlt;
 
-    char AutoFocus;
-    char AutoSnap;
-    char AutoRemaximize;
-    char Aero;
+    UCHAR AutoFocus;
+    UCHAR AutoSnap;
+    UCHAR AutoRemaximize;
+    UCHAR Aero;
 
-    char MDI;
-    char InactiveScroll;
-    char LowerWithMMB;
-    char ResizeCenter;
+    UCHAR MDI;
+    UCHAR InactiveScroll;
+    UCHAR LowerWithMMB;
+    UCHAR ResizeCenter;
 
-    unsigned char MoveRate;
-    unsigned char ResizeRate;
-    unsigned char SnapThreshold;
-    unsigned char AeroThreshold;
+    UCHAR MoveRate;
+    UCHAR ResizeRate;
+    UCHAR SnapThreshold;
+    UCHAR AeroThreshold;
 
-    unsigned char AVoff;
-    unsigned char AHoff;
+    UCHAR AVoff;
+    UCHAR AHoff;
     unsigned short dbclktime;
 
-    char FullWin;
-    char ResizeAll;
-    char AggressivePause;
-    char AeroTopMaximizes;
+    UCHAR FullWin;
+    UCHAR ResizeAll;
+    UCHAR AggressivePause;
+    UCHAR AeroTopMaximizes;
 
-    char UseCursor;
-    unsigned char CenterFraction;
-    unsigned char RefreshRate;
-    char RollWithTBScroll;
+    UCHAR UseCursor;
+    UCHAR CenterFraction;
+    UCHAR RefreshRate;
+    UCHAR RollWithTBScroll;
 
-    char MMMaximize;
-    unsigned char MinAlpha;
-    unsigned char MoveTrans;
-    char NormRestore;
+    UCHAR MMMaximize;
+    UCHAR MinAlpha;
+    UCHAR MoveTrans;
+    UCHAR NormRestore;
 
     char AlphaDelta;
     char AlphaDeltaShift;
     unsigned short AeroMaxSpeed;
 
-    unsigned char AeroSpeedInt;
-    unsigned char ToggleRzMvKey;
-    char keepMousehook;
-    char KeyCombo;
+    UCHAR AeroSpeedInt;
+    UCHAR ToggleRzMvKey;
+    UCHAR keepMousehook;
+    UCHAR KeyCombo;
 
-    char FullScreen;
-    char AggressiveKill;
+    UCHAR FullScreen;
+    UCHAR AggressiveKill;
 
     struct hotkeys_s Hotkeys;
     struct hotkeys_s Hotclick;
@@ -258,7 +258,7 @@ static int blacklistedP(HWND hwnd, struct blacklist *list)
     return 0;
 }
 // Limit x between l and h
-static inline int CLAMP(int _l, int _x, int _h)
+static xpure inline int CLAMP(int _l, int _x, int _h)
 {
     return (_x<_l)? _l: ((_x>_h)? _h: _x);
 }
@@ -270,7 +270,7 @@ static inline int IsResizable(HWND hwnd)
     return (conf.ResizeAll || GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME);
 }
 /////////////////////////////////////////////////////////////////////////////
-static inline int IsSamePTT(POINT pt, POINT ptt)
+static xpure inline int IsSamePTT(POINT pt, POINT ptt)
 {
     return !( pt.x > ptt.x+4 || pt.y > ptt.y+4 ||pt.x < ptt.x-4 || pt.y < ptt.y-4 );
 }
@@ -893,7 +893,7 @@ static int AeroResizeSnap(POINT pt, int *posx, int *posy
 }
 ///////////////////////////////////////////////////////////////////////////
 // Get action of button
-static enum action GetAction(enum button button)
+static pure enum action GetAction(enum button button)
 {
     if      (button == BT_LMB) return conf.Mouse.LMB;
     else if (button == BT_MMB) return conf.Mouse.MMB;
@@ -905,7 +905,7 @@ static enum action GetAction(enum button button)
 
 ///////////////////////////////////////////////////////////////////////////
 // Check if key is assigned in the HKlist
-static int IsHotkeyy(unsigned char key, struct hotkeys_s *HKlist)
+static int pure IsHotkeyy(unsigned char key, struct hotkeys_s *HKlist)
 {
     int i;
     for (i=0; i < HKlist->length; i++) {
@@ -1714,7 +1714,7 @@ static int ActionMaxRestMin(POINT pt, int delta)
     return -1;
 }
 /////////////////////////////////////////////////////////////////////////////
-static HCURSOR CursorToDraw()
+static pure HCURSOR CursorToDraw()
 {
     HCURSOR cursor;
 
@@ -1740,24 +1740,22 @@ static HCURSOR CursorToDraw()
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// Return 1 if it was already in db.
-static int GetWindowInDB(HWND hwndd)
+// Return the entry if it was already in db.
+static pure struct wnddata *GetWindowInDB(HWND hwndd)
 {
     // Check if window is already in the wnddb database
     // And set it in the current state
-    state.wndentry = NULL;
     int i;
     for (i=0; i < NUMWNDDB; i++) {
         if (wnddb.items[i].hwnd == hwndd) {
-            state.wndentry = &wnddb.items[i];
-            return 1;
+            return &wnddb.items[i];
         }
     }
-    return 0;
+    return NULL;
 }
 static void AddWindowToDB(HWND hwndd)
 {
-    GetWindowInDB(hwndd);
+    state.wndentry = GetWindowInDB(hwndd);
 
     // Find a nice place in wnddb if not already present
     int i;
@@ -2195,7 +2193,7 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
             return 1;
         } else if (conf.NormRestore && wParam == WM_LBUTTONDOWN && area == HTCAPTION
                && !IsZoomed(hwnd) && !IsWindowSnapped(hwnd)) {
-            if (GetWindowInDB(hwnd)) {
+            if ((state.wndentry=GetWindowInDB(hwnd))) {
                 // Set NormRestore to 2 in order to signal that
                 // The window should be restored
                 conf.NormRestore=2;

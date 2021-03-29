@@ -321,7 +321,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
 
     // Create window
     WNDCLASSEX wnd =
-        { sizeof(WNDCLASSEX), 0, WindowProc, 0, 0, hInst, NULL, NULL
+        { sizeof(WNDCLASSEX), 0, WindowProc, 0, 0, hInst, LoadIconA(hInst, "app_icon"), NULL
         , (HBRUSH) (COLOR_WINDOW + 1), NULL, APP_NAME, NULL };
     RegisterClassEx(&wnd);
     g_hwnd = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST| WS_EX_TRANSPARENT, wnd.lpszClassName,

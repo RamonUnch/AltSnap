@@ -19,6 +19,8 @@
 #endif
 
 #define flatten __attribute__((flatten))
+#define xpure __attribute__((const))
+#define pure __attribute__((pure))
 #ifndef SUBCLASSPROC
 typedef LRESULT (CALLBACK *SUBCLASSPROC)
     (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
@@ -50,9 +52,6 @@ static BOOL (WINAPI *myGetMonitorInfoW)(HMONITOR hMonitor, LPMONITORINFO lpmi);
 static HMONITOR (WINAPI *myMonitorFromPoint)(POINT pt, DWORD dwFlags);
 static HMONITOR (WINAPI *myMonitorFromWindow)(HWND hwnd, DWORD dwFlags);
 
-/* PSAPI.DLL */
-static DWORD (WINAPI *myGetProcessImageFileName)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize);
-
 /* DWMAPI.DLL */
 static HRESULT (WINAPI *myDwmGetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c);
 static HRESULT (WINAPI *myDwmIsCompositionEnabled)(BOOL *pfEnabled);
@@ -74,35 +73,6 @@ MMRESULT (WINAPI *mywaveOutSetVolume)(HWAVEOUT hwo, DWORD dwVolume);
 
 #define VISTA (WinVer >= 6)
 #define WIN10 (WinVer >= 10)
-
-DWORD GetProcessImageFileNameL(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize)
-{
-    HINSTANCE hPSAPIdll=NULL;
-    static char have_func=HAVE_FUNC;
-
-    switch(have_func){
-    case -1:
-        hPSAPIdll = LoadLibraryA("PSAPI.DLL");
-        if(!hPSAPIdll) {
-            have_func = 0;
-            break;
-        } else {
-            myGetProcessImageFileName=(void *)GetProcAddress(hPSAPIdll, "GetProcessImageFileNameW");
-            if(myGetProcessImageFileName){
-                have_func = 1;
-            } else {
-                FreeLibrary(hPSAPIdll);
-                hPSAPIdll = NULL;
-                have_func = 0;
-                break;
-            }
-        }
-    case 1:
-        return myGetProcessImageFileName(hProcess, lpImageFileName, nSize);
-    }
-    return 0;
-}
-#define GetProcessImageFileName GetProcessImageFileNameL
 
 BOOL PathRemoveFileSpecL(LPTSTR p)
 {
@@ -504,12 +474,40 @@ BOOL HaveProc(char *DLLname, char *PROCname)
     return ret;
 }
 
+/* PSAPI.DLL */
+static DWORD (WINAPI *myGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize);
+static DWORD GetModuleFileNameExL(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize)
+{
+    HINSTANCE hPSAPIdll=NULL;
+    static char have_func=HAVE_FUNC;
+
+    switch(have_func){
+    case -1:
+        hPSAPIdll = LoadLibraryA("PSAPI.DLL");
+        if(!hPSAPIdll) {
+            have_func = 0;
+            break;
+        } else {
+            myGetModuleFileNameEx=(void *)GetProcAddress(hPSAPIdll, "GetModuleFileNameExW");
+            if(myGetModuleFileNameEx){
+                have_func = 1;
+            } else {
+                FreeLibrary(hPSAPIdll);
+                have_func = 0;
+                break;
+            }
+        }
+    case 1:
+        return myGetModuleFileNameEx(hProcess, hModule, lpFilename, nSize);
+    }
+    return 0;
+}
 DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
 {
     DWORD pid;
     GetWindowThreadProcessId(hwnd, &pid);
-    HANDLE proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
-    int ret = GetProcessImageFileNameL(proc, title, title_len);
+    HANDLE proc = OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ, FALSE, pid);
+    int ret = GetModuleFileNameExL(proc, NULL, title, title_len);
     CloseHandle(proc);
 
     PathStripPathL(title);

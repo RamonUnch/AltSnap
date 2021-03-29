@@ -124,8 +124,8 @@ void OpenConfig(int startpage)
 
     // Define the property sheet
     PROPSHEETHEADER psh = { sizeof(PROPSHEETHEADER) };
-    psh.dwFlags = PSH_PROPSHEETPAGE | PSH_USECALLBACK | PSH_USEHICON | PSH_NOAPPLYNOW;
-    psh.hwndParent = NULL;
+    psh.dwFlags = PSH_PROPSHEETPAGE | PSH_USECALLBACK | PSH_USEHICON | PSH_NOAPPLYNOW ;
+    psh.hwndParent = g_hwnd;
     psh.hInstance = g_hinst;
     psh.hIcon = icon[1];
     psh.pszCaption = APP_NAME;
@@ -836,7 +836,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
     if (msg == WM_INITDIALOG) {
 
         wchar_t txt[2048];
-        BOOL haveProcessBL = HaveProc("PSAPI.DLL", "GetProcessImageFileNameW");
+        BOOL haveProcessBL = HaveProc("PSAPI.DLL", "GetModuleFileNameExW");
         GetPrivateProfileString(L"Blacklist", L"Processes", L"", txt, ARR_SZ(txt), inipath);
         SetDlgItemText(hwnd, IDC_PROCESSBLACKLIST, txt);
         Button_Enable(GetDlgItem(hwnd, IDC_PROCESSBLACKLIST), haveProcessBL);

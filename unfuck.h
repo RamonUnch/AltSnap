@@ -21,7 +21,7 @@
 #define flatten __attribute__((flatten))
 #define xpure __attribute__((const))
 #define pure __attribute__((pure))
-#define nonnull __attribute__((nonnull))
+
 #ifndef SUBCLASSPROC
 typedef LRESULT (CALLBACK *SUBCLASSPROC)
     (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
@@ -75,7 +75,7 @@ MMRESULT (WINAPI *mywaveOutSetVolume)(HWAVEOUT hwo, DWORD dwVolume);
 #define VISTA (WinVer >= 6)
 #define WIN10 (WinVer >= 10)
 
-BOOL PathRemoveFileSpecL(LPTSTR p)
+static BOOL PathRemoveFileSpecL(LPTSTR p)
 {
     if (!p) return FALSE;
     int i=0;
@@ -87,7 +87,7 @@ BOOL PathRemoveFileSpecL(LPTSTR p)
     return TRUE;
 }
 
-void PathStripPathL(LPTSTR p)
+static void PathStripPathL(LPTSTR p)
 {
     int i=0, j;
     if (!p) return;
@@ -99,7 +99,7 @@ void PathStripPathL(LPTSTR p)
     p[j]= '\0';
 }
 
-HWND GetAncestorL(HWND hwnd, UINT gaFlags)
+static HWND GetAncestorL(HWND hwnd, UINT gaFlags)
 {
     static char have_func=HAVE_FUNC;
     HWND hlast, hprevious;
@@ -129,7 +129,7 @@ HWND GetAncestorL(HWND hwnd, UINT gaFlags)
 }
 #define GetAncestor GetAncestorL
 
-BOOL GetLayeredWindowAttributesL(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWORD *pdwFlags)
+static BOOL GetLayeredWindowAttributesL(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWORD *pdwFlags)
 {
     static char have_func=HAVE_FUNC;
 
@@ -149,7 +149,7 @@ BOOL GetLayeredWindowAttributesL(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWO
 }
 #define GetLayeredWindowAttributes GetLayeredWindowAttributesL
 
-BOOL SetLayeredWindowAttributesL(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)
+static BOOL SetLayeredWindowAttributesL(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)
 {
     static char have_func=HAVE_FUNC;
 
@@ -170,7 +170,7 @@ BOOL SetLayeredWindowAttributesL(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD d
 #define SetLayeredWindowAttributes SetLayeredWindowAttributesL
 
 
-LRESULT DefSubclassProcL(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+static LRESULT DefSubclassProcL(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     static char have_func=HAVE_FUNC;
 
@@ -190,7 +190,7 @@ LRESULT DefSubclassProcL(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 }
 #define DefSubclassProc DefSubclassProcL
 
-BOOL RemoveWindowSubclassL(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR uIdSubclass)
+static BOOL RemoveWindowSubclassL(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR uIdSubclass)
 {
     static char have_func=HAVE_FUNC;
 
@@ -210,7 +210,7 @@ BOOL RemoveWindowSubclassL(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR uIdSubc
 }
 #define RemoveWindowSubclass RemoveWindowSubclassL
 
-BOOL SetWindowSubclassL(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+static BOOL SetWindowSubclassL(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
     static char have_func=HAVE_FUNC;
 
@@ -230,7 +230,7 @@ BOOL SetWindowSubclassL(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR uIdSubclas
 }
 #define SetWindowSubclass SetWindowSubclassL
 
-BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, LPARAM dwData)
+static BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, LPARAM dwData)
 {
     static char have_func=HAVE_FUNC;
 
@@ -251,7 +251,7 @@ BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, L
 #define EnumDisplayMonitors EnumDisplayMonitorsL
 
 
-BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
+static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
 {
     static char have_func=HAVE_FUNC;
 
@@ -284,7 +284,7 @@ BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
 #define GetMonitorInfo GetMonitorInfoL
 
 
-HMONITOR MonitorFromPointL(POINT pt, DWORD dwFlags)
+static HMONITOR MonitorFromPointL(POINT pt, DWORD dwFlags)
 {
     static char have_func=HAVE_FUNC;
 
@@ -305,7 +305,7 @@ HMONITOR MonitorFromPointL(POINT pt, DWORD dwFlags)
 #define MonitorFromPoint MonitorFromPointL
 
 
-HMONITOR MonitorFromWindowL(HWND hwnd, DWORD dwFlags)
+static HMONITOR MonitorFromWindowL(HWND hwnd, DWORD dwFlags)
 {
     static char have_func=HAVE_FUNC;
 
@@ -325,7 +325,7 @@ HMONITOR MonitorFromWindowL(HWND hwnd, DWORD dwFlags)
 }
 #define MonitorFromWindow MonitorFromWindowL
 
-HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
+static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 {
     HINSTANCE hdll=NULL;
     static char have_func=HAVE_FUNC;
@@ -354,7 +354,7 @@ HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 }
 /* #define DwmGetWindowAttribute DwmGetWindowAttributeL */
 
-void FixDWMRect(HWND hwnd, int *posx, int *posy, int *wndwidth, int *wndheight, RECT *bbb)
+static void FixDWMRect(HWND hwnd, int *posx, int *posy, int *wndwidth, int *wndheight, RECT *bbb)
 {
     RECT rect, frame;
 
@@ -382,14 +382,14 @@ void FixDWMRect(HWND hwnd, int *posx, int *posy, int *wndwidth, int *wndheight, 
  * sense, this is the case on Windows 7 and 8.x for example
  * We use DWM api when available in order to get the REAL client area
  */
-BOOL GetWindowRectL(HWND hwnd, RECT *rect)
+static BOOL GetWindowRectL(HWND hwnd, RECT *rect)
 {
     HRESULT ret = DwmGetWindowAttributeL(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, rect, sizeof(RECT));
     if( ret == S_OK) return 1;
     else return GetWindowRect(hwnd, rect); /* Fallback to normal */
 }
 
-LONG NtSuspendProcessL(HANDLE ProcessHandle)
+static LONG NtSuspendProcessL(HANDLE ProcessHandle)
 {
     static char have_func=HAVE_FUNC;
 
@@ -409,7 +409,7 @@ LONG NtSuspendProcessL(HANDLE ProcessHandle)
 }
 #define NtSuspendProcess NtSuspendProcessL
 
-LONG NtResumeProcessL(HANDLE ProcessHandle)
+static LONG NtResumeProcessL(HANDLE ProcessHandle)
 {
     static char have_func=HAVE_FUNC;
 
@@ -429,7 +429,7 @@ LONG NtResumeProcessL(HANDLE ProcessHandle)
 }
 #define NtResumeProcess NtResumeProcessL
 
-HRESULT DwmIsCompositionEnabledL(BOOL *pfEnabled)
+static HRESULT DwmIsCompositionEnabledL(BOOL *pfEnabled)
 {
     HINSTANCE hdll=NULL;
     HRESULT ret ;
@@ -451,7 +451,7 @@ HRESULT DwmIsCompositionEnabledL(BOOL *pfEnabled)
     return ret;
 }
 
-BOOL HaveDWM()
+static BOOL HaveDWM()
 {
     static int first=1;
     static BOOL have_dwm = FALSE;
@@ -462,7 +462,7 @@ BOOL HaveDWM()
     return have_dwm;
 }
 
-BOOL HaveProc(char *DLLname, char *PROCname)
+static BOOL HaveProc(char *DLLname, char *PROCname)
 {
     HINSTANCE hdll = LoadLibraryA(DLLname);
     BOOL ret = FALSE;
@@ -503,7 +503,7 @@ static DWORD GetModuleFileNameExL(HANDLE hProcess, HMODULE hModule, LPTSTR lpFil
     }
     return 0;
 }
-DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
+static DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
 {
     DWORD pid;
     GetWindowThreadProcessId(hwnd, &pid);
@@ -514,7 +514,8 @@ DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
     PathStripPathL(title);
     return ret? pid: 0;
 }
-static inline nonnull wchar_t *wcschrL(wchar_t *str, const wchar_t c)
+
+static inline wchar_t *wcschrL(wchar_t *str, const wchar_t c)
 {
     while(*str != c) {
         if(!*str) return NULL;
@@ -523,7 +524,8 @@ static inline nonnull wchar_t *wcschrL(wchar_t *str, const wchar_t c)
     return str;
 }
 #define wcschr wcschrL
-static inline nonnull size_t wcslenL(wchar_t *str)
+
+static inline size_t wcslenL(wchar_t *str)
 {
     wchar_t *ptr;
     for (ptr=str; *ptr != '\0'; ptr++);
@@ -531,18 +533,19 @@ static inline nonnull size_t wcslenL(wchar_t *str)
 }
 #define wcslen wcslenL
 
-static inline nonnull int wcscmpL(const wchar_t *a, const wchar_t *b) 
+static inline int wcscmpL(const wchar_t *a, const wchar_t *b) 
 {
     while(*a && (*a == *b)) { a++; b++; }
     return *a - *b;
 }
 #define wcscmp wcscmpL
 
-static inline nonnull wchar_t *wcscpyL(wchar_t *dest, const wchar_t *in)
+static inline wchar_t *wcscpyL(wchar_t *dest, const wchar_t *in)
 {
     wchar_t *ret = dest;
     while ((*dest++ = *in++));
     return ret;
 }
 #define wcscpy wcscpyL
+
 #endif

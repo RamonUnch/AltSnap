@@ -125,7 +125,7 @@ void OpenConfig(int startpage)
     // Define the property sheet
     PROPSHEETHEADER psh = { sizeof(PROPSHEETHEADER) };
     psh.dwFlags = PSH_PROPSHEETPAGE | PSH_USECALLBACK | PSH_USEHICON | PSH_NOAPPLYNOW ;
-    psh.hwndParent = g_hwnd;
+    psh.hwndParent = NULL;
     psh.hInstance = g_hinst;
     psh.hIcon = icon[1];
     psh.pszCaption = APP_NAME;

@@ -252,7 +252,7 @@ static int blacklistedP(HWND hwnd, struct blacklist *list)
 
     // ProcessBlacklist is case-insensitive
     for (i=0; i < list->length; i++) {
-        if (!wcsicmp(title,list->items[i].title))
+        if (!wcsicmp(title, list->items[i].title))
             return 1;
     }
     return 0;
@@ -1361,7 +1361,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             POINT pt; GetCursorPos(&pt);
             HWND hwnd = WindowFromPoint(pt);
             if(ActionKill(hwnd)) return 1;
-        } else if (!state.ctrl && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
+        } else if (!state.ctrl && state.alt!=vkey &&(vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
             RestrictToCurentMonitor();
             state.ctrl = 1;
             if(state.action == AC_MOVE || state.action == AC_RESIZE){
@@ -1806,6 +1806,8 @@ static int ActionMove(POINT pt, HMONITOR monitor, int button)
     if (GetTickCount()-state.clicktime <= conf.dbclktime && state.clickbutton == button) {
         if (state.shift) {
             RollWindow(state.hwnd, 0); // Roll/Unroll Window...
+        } else if (state.ctrl) {
+            PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
         } else if (IsResizable(state.hwnd)) {
             // Toggle Maximize window
             state.action = AC_NONE; // Stop move action
@@ -1998,6 +2000,16 @@ static int IsFullscreen(HWND hwnd, RECT wnd, RECT fmon)
     return fs; // = 1 for fulscreen, 2 for SYSMENU and 3 for both.
 }
 /////////////////////////////////////////////////////////////////////////////
+static void CenterWindow(HWND hwnd)
+{
+    RECT mon = GetMonitorRect(NULL, 0);
+    MoveWindow(hwnd
+        , mon.left+ ((mon.right-mon.left)-state.origin.width)/2
+        , mon.top + ((mon.bottom-mon.top)-state.origin.height)/2
+        , state.origin.width
+        , state.origin.height, TRUE);
+}
+/////////////////////////////////////////////////////////////////////////////
 // Single click commands
 static void SClicActions(HWND hwnd, enum action action)
 {
@@ -2010,12 +2022,7 @@ static void SClicActions(HWND hwnd, enum action action)
             Maximize_Restore_atpt(hwnd, NULL, SW_TOGGLE_MAX_RESTORE, NULL);
         }
     } else if (action == AC_CENTER) {
-        RECT mon = GetMonitorRect(NULL, 0);
-        MoveWindow(hwnd
-            , mon.left+ ((mon.right-mon.left)-state.origin.width)/2
-            , mon.top + ((mon.bottom-mon.top)-state.origin.height)/2
-            , state.origin.width
-            , state.origin.height, TRUE);
+        CenterWindow(hwnd);
     } else if (action == AC_ALWAYSONTOP) {
         LONG_PTR topmost = GetWindowLongPtr(hwnd,GWL_EXSTYLE)&WS_EX_TOPMOST;
         SetWindowPos(hwnd, (topmost?HWND_NOTOPMOST:HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE);
@@ -2555,16 +2562,16 @@ static void readblacklist(wchar_t *inipath, struct blacklist *blacklist, wchar_t
         blacklist->items = NULL;
         return;
     }
-    blacklist->data = malloc((wcslen(txt)+1)*sizeof(wchar_t));
+    blacklist->data = realloc(blacklist->data, (wcslen(txt)+1)*sizeof(wchar_t));
     wcscpy(blacklist->data, txt);
     wchar_t *pos = blacklist->data;
 
     while (pos) {
         wchar_t *title = pos;
-        wchar_t *class = wcsstr(pos, L"|");
+        wchar_t *class = wcschr(pos, L'|');
 
         // Move pos to next item (if any)
-        pos = wcsstr(pos, L",");
+        pos = wcschr(pos, L',');
         if (pos) {
             *pos = '\0';
             pos++;
@@ -2579,10 +2586,10 @@ static void readblacklist(wchar_t *inipath, struct blacklist *blacklist, wchar_t
         if (title) {
             if (title[0] == '\0') {
                 title = L"";
-            } else if (!wcscmp(title,L"*")) {
+            } else if (*title == '*') {
                 title = NULL;
             }
-            if (class && !wcscmp(class,L"*")) {
+            if (class && *class == '*') {
                 class = NULL;
             }
             // Allocate space

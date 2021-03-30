@@ -21,6 +21,7 @@
 #define flatten __attribute__((flatten))
 #define xpure __attribute__((const))
 #define pure __attribute__((pure))
+#define nonnull __attribute__((nonnull))
 #ifndef SUBCLASSPROC
 typedef LRESULT (CALLBACK *SUBCLASSPROC)
     (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
@@ -513,5 +514,35 @@ DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
     PathStripPathL(title);
     return ret? pid: 0;
 }
+static inline nonnull wchar_t *wcschrL(wchar_t *str, const wchar_t c)
+{
+    while(*str != c) {
+        if(!*str) return NULL;
+        str++;
+    }
+    return str;
+}
+#define wcschr wcschrL
+static inline nonnull size_t wcslenL(wchar_t *str)
+{
+    wchar_t *ptr;
+    for (ptr=str; *ptr != '\0'; ptr++);
+    return ptr-str;
+}
+#define wcslen wcslenL
 
+static inline nonnull int wcscmpL(const wchar_t *a, const wchar_t *b) 
+{
+    while(*a && (*a == *b)) { a++; b++; }
+    return *a - *b;
+}
+#define wcscmp wcscmpL
+
+static inline nonnull wchar_t *wcscpyL(wchar_t *dest, const wchar_t *in)
+{
+    wchar_t *ret = dest;
+    while ((*dest++ = *in++));
+    return ret;
+}
+#define wcscpy wcscpyL
 #endif

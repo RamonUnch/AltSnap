@@ -515,7 +515,7 @@ static DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
     return ret? pid: 0;
 }
 
-static inline wchar_t *wcschrL(wchar_t *str, const wchar_t c)
+static inline wchar_t *wcschrL(wchar_t *__restrict__ str, const wchar_t c)
 {
     while(*str != c) {
         if(!*str) return NULL;
@@ -525,7 +525,7 @@ static inline wchar_t *wcschrL(wchar_t *str, const wchar_t c)
 }
 #define wcschr wcschrL
 
-static inline size_t wcslenL(wchar_t *str)
+static inline size_t wcslenL(wchar_t *__restrict__ str)
 {
     wchar_t *ptr;
     for (ptr=str; *ptr != '\0'; ptr++);
@@ -533,14 +533,14 @@ static inline size_t wcslenL(wchar_t *str)
 }
 #define wcslen wcslenL
 
-static inline int wcscmpL(const wchar_t *a, const wchar_t *b) 
+static inline int wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b) 
 {
     while(*a && (*a == *b)) { a++; b++; }
     return *a - *b;
 }
 #define wcscmp wcscmpL
 
-static inline wchar_t *wcscpyL(wchar_t *dest, const wchar_t *in)
+static inline wchar_t *wcscpyL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ in)
 {
     wchar_t *ret = dest;
     while ((*dest++ = *in++));

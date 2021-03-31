@@ -9,11 +9,13 @@ Name "${APP_NAME} ${APP_VERSION}"
 
 InstallDir "$APPDATA\${APP_NAME}\"
 InstallDirRegKey HKCU "Software\${APP_NAME}" "Install_Dir"
-;RequestExecutionLevel user
+RequestExecutionLevel user
 ShowInstDetails show
 ShowUninstDetails show
 SetCompressor /SOLID lzma
 
+
+;!include "LogicLib.nsh"
 ;!include "FileFunc.nsh"
 
 ; The text to prompt the user to enter a directory

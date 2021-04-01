@@ -482,9 +482,9 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         unsigned control;
         unsigned vkey;
     } hotclicks [] = {
-        { IDC_MMB_HC, 0x20 },
-        { IDC_MB4_HC, 0x80 },
-        { IDC_MB5_HC, 0X81 },
+        { IDC_MMB_HC, 0x04 },
+        { IDC_MB4_HC, 0x05 },
+        { IDC_MB5_HC, 0X06 },
     };
 
     if (msg == WM_INITDIALOG) {

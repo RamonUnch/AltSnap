@@ -33,7 +33,7 @@ static void UnhookMouse();
 static void HookMouse();
 
 // Enumerators
-enum button { BT_NONE=0, BT_LMB=0x02, BT_MMB=0x20, BT_RMB=0x08, BT_MB4=0x80, BT_MB5=0x81 };
+enum button { BT_NONE=0, BT_LMB=0x01, BT_RMB=0x02, BT_MMB=0x04, BT_MB4=0x05, BT_MB5=0x06 };
 enum resize { RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER };
 enum cursor { HAND, SIZENWSE, SIZENESW, SIZENS, SIZEWE, SIZEALL };
 
@@ -2334,6 +2334,16 @@ static void FinishMovement()
     }
 }
 /////////////////////////////////////////////////////////////////////////////
+static int IsHotKeyDown(struct hotkeys_s *hk)
+{
+    int i;
+    for (i=0; i < hk->length; i++) {
+        if (GetAsyncKeyState(hk->keys[i])&0x8000)
+            return 1;
+    }
+    return 0;
+}
+/////////////////////////////////////////////////////////////////////////////
 // This is somewhat the main function, it is active only when the ALT key is
 // pressed, or is always on when conf.keepMousehook is enabled.
 static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -2404,7 +2414,7 @@ static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lPara
     // Check if the click is is a Hotclick and should enable ALT.
     int is_hotclick = IsHotclick(button);
     if(is_hotclick && buttonstate == STATE_DOWN) {
-        state.alt = 1;
+        state.alt = button;
         if(!action) return 1;
     } else if (is_hotclick && buttonstate == STATE_UP) {
         state.alt = 0;
@@ -2431,6 +2441,13 @@ static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lPara
 
     // INIT ACTIONS on mouse down if Alt is down...
     } else if (buttonstate == STATE_DOWN && state.alt) {
+        // Double ckeck some hotkey is pressed.
+        if( !state.action
+         && !IsHotclick(state.alt)
+         && !IsHotKeyDown(&conf.Hotkeys)) { 
+            UnhookMouse();
+            return  CallNextHookEx(NULL, nCode, wParam, lParam);
+        }
         int ret = init_movement_and_actions(pt, action, button);
         if(!ret) return CallNextHookEx(NULL, nCode, wParam, lParam);
         else     return 1; // block mousedown
@@ -2726,7 +2743,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     readhotkeys(inipath, L"Hotkeys",  L"A4 A5", &conf.Hotkeys);
     readhotkeys(inipath, L"Hotclicks",L"",      &conf.Hotclick);
-    readhotkeys(inipath, L"Killkeys", L"09",    &conf.Killkey);
+    readhotkeys(inipath, L"Killkeys", L"09 4C", &conf.Killkey);
 
     conf.ToggleRzMvKey = 0;
     GetPrivateProfileString(L"Input", L"ToggleRzMvKey", L"", txt, ARR_SZ(txt), inipath);

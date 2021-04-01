@@ -11,7 +11,7 @@ struct strings *l10n = &en_US;
 
 /////////////////////////////////////////////////////////////////////////////
 // Copies and remove the accelerators & sign. and txt between ( ).
-static size_t wcscpy_noaccel(wchar_t *dest, wchar_t *source, size_t destlen)
+static size_t wcscpy_noaccel(wchar_t *__restrict__ dest, wchar_t *__restrict__ source, size_t destlen)
 {
     size_t i=0, j=0;
     while(i < destlen && source[i]) {
@@ -29,7 +29,7 @@ static size_t wcscpy_noaccel(wchar_t *dest, wchar_t *source, size_t destlen)
     return j;
 }
 /////////////////////////////////////////////////////////////////////////////
-static size_t wcslen_resolved(wchar_t *str)
+static size_t wcslen_resolved(wchar_t *__restrict__ str)
 {
     // Return the length of str, having resolved escape sequences
     wchar_t *ptr;
@@ -43,7 +43,7 @@ static size_t wcslen_resolved(wchar_t *str)
     return ptr-str-num_escape_sequences;
 }
 
-static void wcscpy_resolve(wchar_t *dest, wchar_t *source)
+static void wcscpy_resolve(wchar_t *__restrict__ dest, wchar_t *__restrict__ source)
 {
     // Copy from source to dest, resolving \\n to \n
     for (; *source != '\0'; source++,dest++) {
@@ -59,7 +59,7 @@ static void wcscpy_resolve(wchar_t *dest, wchar_t *source)
 
 /////////////////////////////////////////////////////////////////////////////
 #define txt_len 2048
-static void LoadTranslation(wchar_t *ini)
+static void LoadTranslation(wchar_t *__restrict__ ini)
 {
     wchar_t txt[txt_len];
     size_t i;

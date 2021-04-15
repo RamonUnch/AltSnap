@@ -939,10 +939,7 @@ static int IsWindowSnapped(HWND hwnd)
     int nW = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
     int nH = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
 
-    if(W != nW || H != nH)
-        return 1;
-    else
-        return 0;
+    return (W != nW || H != nH);
 }
 /////////////////////////////////////////////////////////////////////////////
 // if pt is NULL then the window is not moved when restored.
@@ -968,8 +965,8 @@ static void RestoreOldWin(POINT *pt, int was_snapped, int index)
 
     // Set offset
     if (pt) {
-        state.offset.x = (state.origin.width  * (pt->x-wnd.left))/(wnd.right-wnd.left);
-        state.offset.y = (state.origin.height * (pt->y-wnd.top)) /(wnd.bottom-wnd.top);
+        state.offset.x = (state.origin.width  * (pt->x-wnd.left))/max(wnd.right-wnd.left,1);
+        state.offset.y = (state.origin.height * (pt->y-wnd.top)) /max(wnd.bottom-wnd.top,1);
     }
     if (state.origin.maximized || was_snapped == 1) {
         if(state.wndentry->restore & 2 || restore == 3) {
@@ -2444,7 +2441,7 @@ static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lPara
         // Double ckeck some hotkey is pressed.
         if( !state.action
          && !IsHotclick(state.alt)
-         && !IsHotKeyDown(&conf.Hotkeys)) { 
+         && !IsHotKeyDown(&conf.Hotkeys)) {
             UnhookMouse();
             return  CallNextHookEx(NULL, nCode, wParam, lParam);
         }

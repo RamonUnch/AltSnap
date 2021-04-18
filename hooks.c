@@ -287,6 +287,34 @@ static void SendSizeMove_on(enum action action, int on)
     }
 }
 /////////////////////////////////////////////////////////////////////////////
+// Use NULL to restore old transparency.
+static void SetWindowTrans(HWND hwnd)
+{
+    static BYTE oldtrans;
+    static HWND oldhwnd;
+    if(conf.MoveTrans == 0 || conf.MoveTrans == 255 || !conf.FullWin) return;
+
+    if(hwnd) {
+        oldhwnd = hwnd;
+        LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+        if (exstyle&WS_EX_LAYERED) {
+            GetLayeredWindowAttributes(hwnd, NULL, &oldtrans, NULL);
+        } else {
+            SetWindowLongPtr(hwnd, GWL_EXSTYLE, exstyle|WS_EX_LAYERED);
+            oldtrans = 255;
+        }
+        SetLayeredWindowAttributes(hwnd, 0, conf.MoveTrans, LWA_ALPHA);
+    } else if (oldhwnd) { // restore old trans;
+        LONG_PTR exstyle = GetWindowLongPtr(oldhwnd, GWL_EXSTYLE);
+        if(oldtrans == 255) {
+            SetWindowLongPtr(oldhwnd, GWL_EXSTYLE, exstyle & ~WS_EX_LAYERED);
+        } else {
+            SetLayeredWindowAttributes(oldhwnd, 0, oldtrans, LWA_ALPHA);
+        }
+        oldhwnd = NULL;
+    }
+}
+/////////////////////////////////////////////////////////////////////////////
 // Enumerate callback proc
 int monitors_alloc = 0;
 static BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
@@ -935,7 +963,6 @@ static int IsWindowSnapped(HWND hwnd)
 
     WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
     GetWindowPlacement(hwnd, &wndpl);
-    wndpl.showCmd = SW_RESTORE;
     int nW = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
     int nH = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
 
@@ -2120,6 +2147,8 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     HCURSOR hcursor = NULL;
     if (action == AC_MOVE || action == AC_RESIZE) { ////////////////
         GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
+        SetWindowTrans(state.hwnd);
+
         int ret;
 
         // Toggle Resize and Move actions if the toggle key is Down
@@ -2318,6 +2347,7 @@ static void FinishMovement()
     }
     // Send WM_EXITSIZEMOVE
     SendSizeMove_on(state.action, 0);
+    SetWindowTrans(NULL);
 
     state.action = AC_NONE;
     state.moving = 0;
@@ -2489,6 +2519,8 @@ static void UnhookMouse()
     state.shift = 0;
     state.ignorectrl = 0;
     state.moving = 0;
+
+    SetWindowTrans(NULL);
 
     if (conf.NormRestore) conf.NormRestore = 1;
     if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
@@ -2666,6 +2698,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.CenterFraction=CLAMP(0, GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath), 100);
     conf.AHoff        = CLAMP(0, GetPrivateProfileInt(L"General", L"AeroHoffset", 50, inipath),    100);
     conf.AVoff        = CLAMP(0, GetPrivateProfileInt(L"General", L"AeroVoffset", 50, inipath),    100);
+    conf.MoveTrans    = CLAMP(0, GetPrivateProfileInt(L"General",  L"MoveTrans", 0, inipath), 255);
     conf.MMMaximize   = GetPrivateProfileInt(L"General", L"MMMaximize", 1, inipath);
 
     // [Advanced]
@@ -2680,7 +2713,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AlphaDeltaShift=CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDeltaShift", 8, inipath), 127);
     conf.AlphaDelta    = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDelta", 64, inipath), 127);
     conf.AeroMaxSpeed  = CLAMP(0, GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath), 65535);
-    conf.AeroSpeedInt  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedInt", 1, inipath), 256);
+    conf.AeroSpeedInt  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedInt", 1, inipath), 255);
 
     // CURSOR STUFF
     cursors[HAND]     = conf.UseCursor>1? LoadCursor(NULL, IDC_ARROW): LoadCursor(NULL, IDC_HAND);

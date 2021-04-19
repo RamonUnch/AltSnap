@@ -2347,7 +2347,6 @@ static void FinishMovement()
     }
     // Send WM_EXITSIZEMOVE
     SendSizeMove_on(state.action, 0);
-    SetWindowTrans(NULL);
 
     state.action = AC_NONE;
     state.moving = 0;
@@ -2481,6 +2480,7 @@ static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lPara
 
     // BUTTON UP
     } else if (buttonstate == STATE_UP) {
+        SetWindowTrans(NULL);
         if(state.blockmouseup) {
             state.blockmouseup = 0;
             return 1;

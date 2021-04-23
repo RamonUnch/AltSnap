@@ -24,8 +24,9 @@
 #define APP_NAME L"AltDrag"
 
 // Boring stuff
-#define REHOOK_TIMER    WM_APP+1
-#define INIT_TIMER      WM_APP+2
+#define INIT_TIMER      WM_APP+1
+#define REHOOK_TIMER    WM_APP+2
+#define SPEED_TIMER     WM_APP+3
 
 HWND g_timerhwnd;
 HWND g_mchwnd;
@@ -168,7 +169,7 @@ struct {
     char AlphaDeltaShift;
     unsigned short AeroMaxSpeed;
 
-    UCHAR AeroSpeedInt;
+    UCHAR AeroSpeedTau;
     UCHAR ToggleRzMvKey;
     UCHAR keepMousehook;
     UCHAR KeyCombo;
@@ -2148,6 +2149,8 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     if (action == AC_MOVE || action == AC_RESIZE) { ////////////////
         GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
         SetWindowTrans(state.hwnd);
+        
+        SetTimer(g_timerhwnd, SPEED_TIMER, conf.AeroSpeedTau, NULL);
 
         int ret;
 
@@ -2324,7 +2327,8 @@ static void FinishMovement()
          thread = CreateThread(NULL, 0, EndMoveWindowThread, &LastWin, 0, &lpThreadId);
          CloseHandle(thread);
     }
-
+    KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
+    
     // Auto Remaximize if option enabled and conditions are met.
     if(conf.AutoRemaximize && state.moving
       && (state.origin.maximized||state.origin.fullscreen)
@@ -2399,15 +2403,7 @@ static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lPara
             if (updaterate == 0) {
                 MouseMove(pt);
             }
-
-            // Update Speed every few frames.
-            static char speedrate;
-            speedrate = (speedrate+1)%conf.AeroSpeedInt;
-            if(speedrate == 0) {
-                static POINT prevpt;
-                state.Speed = max(abs(prevpt.x - pt.x), abs(prevpt.y - pt.y));
-                prevpt = pt;
-            }
+            // Start speed measurement
             return CallNextHookEx(NULL, nCode, wParam, lParam);
         }
     } else if (wParam == WM_MOUSEWHEEL || wParam == WM_MOUSEHWHEEL) {
@@ -2521,6 +2517,7 @@ static void UnhookMouse()
     state.moving = 0;
 
     SetWindowTrans(NULL);
+    KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
 
     if (conf.NormRestore) conf.NormRestore = 1;
     if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
@@ -2546,7 +2543,7 @@ static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
     if (msg == WM_TIMER) {
         if (wParam == INIT_TIMER) {
             KillTimer(g_timerhwnd, wParam);
-
+            
             // Hook mouse if a permanent hook is needed
             if (conf.keepMousehook) {
                 HookMouse();
@@ -2561,9 +2558,16 @@ static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 UnhookWindowsHookEx(mousehook);
                 mousehook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, hinstDLL, 0);
             }
+        } else if (wParam == SPEED_TIMER) {
+            static POINT oldpt;
+            if(state.moving) state.Speed=max(abs(oldpt.x-state.prevpt.x), abs(oldpt.y-state.prevpt.y));
+            else state.Speed=0;
+            // LOG("speed=%u\n", state.Speed);
+            oldpt = state.prevpt;
         }
     } else if (msg == WM_DESTROY) {
         KillTimer(g_timerhwnd, REHOOK_TIMER);
+        KillTimer(g_timerhwnd, SPEED_TIMER);
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
@@ -2618,9 +2622,11 @@ static void readblacklist(wchar_t *inipath, struct blacklist *blacklist, wchar_t
 
         // Move pos to next item (if any)
         pos = wcschr(pos, L',');
-        if (pos) {
-            *pos = '\0';
-            pos++;
+        // Zero out the coma and eventual spaces
+        if (pos)
+            do {
+                *pos++ = '\0';
+            } while(*pos == ' ');
         }
 
         // Split the item with NULL
@@ -2713,7 +2719,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AlphaDeltaShift=CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDeltaShift", 8, inipath), 127);
     conf.AlphaDelta    = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDelta", 64, inipath), 127);
     conf.AeroMaxSpeed  = CLAMP(0, GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath), 65535);
-    conf.AeroSpeedInt  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedInt", 1, inipath), 255);
+    conf.AeroSpeedTau  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedTau", 16, inipath), 255);
 
     // CURSOR STUFF
     cursors[HAND]     = conf.UseCursor>1? LoadCursor(NULL, IDC_ARROW): LoadCursor(NULL, IDC_HAND);

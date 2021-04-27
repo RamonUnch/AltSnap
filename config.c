@@ -292,18 +292,12 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
         HWND control = GetDlgItem(hwnd, IDC_LANGUAGE);
         ComboBox_ResetContent(control);
-        if (0 /*l10n == &l10n_ini*/) {
-            ComboBox_AddString(control, l10n->lang);
-            ComboBox_SetCurSel(control, 0);
-            ComboBox_Enable(control, FALSE);
-        } else {
-            ComboBox_Enable(control, TRUE);
-            int i;
-            for (i = 0; i < nlanguages; i++) {
-                ComboBox_AddString(control, langinfo[i].lang);
-                if (langinfo[i].code && !wcsicmp(l10n->code, langinfo[i].code) ) {
-                    ComboBox_SetCurSel(control, i);
-                }
+        ComboBox_Enable(control, TRUE);
+        int i;
+        for (i = 0; i < nlanguages; i++) {
+            ComboBox_AddString(control, langinfo[i].lang);
+            if (langinfo[i].code && !wcsicmp(l10n->code, langinfo[i].code) ) {
+                ComboBox_SetCurSel(control, i);
             }
         }
 

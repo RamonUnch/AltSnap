@@ -28,7 +28,6 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
     , UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 #endif
 
-#define wcsicmp _wcsicmp
 #define LOG(X, ...) { FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fclose(LOG); }
 
 /* Stuff missing in MinGW */
@@ -230,27 +229,6 @@ static BOOL SetWindowSubclassL(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR uId
 }
 #define SetWindowSubclass SetWindowSubclassL
 
-static BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, LPARAM dwData)
-{
-    static char have_func=HAVE_FUNC;
-
-    switch(have_func){
-    case -1: /* First time */
-        myEnumDisplayMonitors=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "EnumDisplayMonitors");
-        if(!myEnumDisplayMonitors) {
-            have_func=0;
-            break;
-        } else {
-            have_func=1;
-        }
-    case 1: /* We know we have the function */
-        return myEnumDisplayMonitors(hdc, lprcClip, lpfnEnum, dwData);
-    }
-    return FALSE;
-}
-#define EnumDisplayMonitors EnumDisplayMonitorsL
-
-
 static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
 {
     static char have_func=HAVE_FUNC;
@@ -283,6 +261,30 @@ static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
 #undef GetMonitorInfo
 #define GetMonitorInfo GetMonitorInfoL
 
+static BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, LPARAM dwData)
+{
+    static char have_func=HAVE_FUNC;
+
+    switch(have_func){
+    case -1: /* First time */
+        myEnumDisplayMonitors=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "EnumDisplayMonitors");
+        if(!myEnumDisplayMonitors) {
+            have_func=0;
+            break;
+        } else {
+            have_func=1;
+        }
+    case 1: /* We know we have the function */
+        return myEnumDisplayMonitors(hdc, lprcClip, lpfnEnum, dwData);
+    }
+    MONITORINFO mi;
+    GetMonitorInfoL(NULL, &mi);
+
+    lpfnEnum(NULL, NULL, &mi.rcMonitor, 0); // Callback function
+
+    return TRUE;
+}
+#define EnumDisplayMonitors EnumDisplayMonitorsL
 
 static HMONITOR MonitorFromPointL(POINT pt, DWORD dwFlags)
 {
@@ -525,6 +527,17 @@ static inline wchar_t *wcschrL(wchar_t *__restrict__ str, const wchar_t c)
 }
 #define wcschr wcschrL
 
+static inline char *strchrL(char *__restrict__ str, const char c)
+{
+    while(*str != c) {
+        if(!*str) return NULL;
+        str++;
+    }
+    return str;
+}
+#define strchr strchrL
+
+
 static inline size_t wcslenL(wchar_t *__restrict__ str)
 {
     wchar_t *ptr;
@@ -533,7 +546,7 @@ static inline size_t wcslenL(wchar_t *__restrict__ str)
 }
 #define wcslen wcslenL
 
-static inline int wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b) 
+static inline int wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 {
     while(*a && (*a == *b)) { a++; b++; }
     return *a - *b;
@@ -547,5 +560,78 @@ static inline wchar_t *wcscpyL(wchar_t *__restrict__ dest, const wchar_t *__rest
     return ret;
 }
 #define wcscpy wcscpyL
+
+static wchar_t *wcsncpyL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src, size_t n) 
+{
+    wchar_t *orig = dest;
+    for (; dest<orig+n && (*dest=*src); ++src,++dest) ;
+    for (; dest<orig+n; ++dest) *dest=0;
+    return orig;
+}
+#define wcsncpy wcsncpyL
+
+static inline char *strcpyL(char *__restrict__ dest, const char *__restrict__ in)
+{
+    char *ret = dest;
+    while ((*dest++ = *in++));
+    return ret;
+}
+#define strcpy strcpyL
+
+static int wcsicmpL(const wchar_t* s1, const wchar_t* s2)
+{
+    unsigned x1, x2;
+
+    while (1) {
+        x2 = *s2 - 'A'; if (x2 < 26u) x2 += 32;
+        x1 = *s1 - 'A'; if (x1 < 26u) x1 += 32;
+        s1++; s2++;
+        if (x2 != x1)
+            break;
+        if (x1 == (unsigned)-'A')
+            break;
+    }
+    return x1 - x2;
+}
+#define wcsicmp wcsicmpL
+
+static inline int strcmpL(const char *X, const char *Y)
+{
+    while (*X && *X == *Y) {
+        X++;
+        Y++;
+    }
+    return *(const unsigned char*)X - *(const unsigned char*)Y;
+}
+#define strcmp strcmpL
+
+static inline unsigned h2u(const wchar_t c) 
+{
+    if(c >= '0' && c <= '9') return c - '0';
+    else return c-'A'+10;
+}
+static unsigned whex2u(const wchar_t s[2])
+{
+    return h2u(s[0]) << 4 | h2u(s[1]);
+}
+
+static inline void *reallocL(void *mem, size_t sz)
+{
+    if(!mem) return HeapAlloc(GetProcessHeap(), 0, sz);
+    return HeapReAlloc(GetProcessHeap(), 0, mem, sz);
+}
+#define realloc reallocL
+
+static inline void *mallocL(size_t sz)
+{
+    return HeapAlloc(GetProcessHeap(), 0, sz);
+}
+#define malloc mallocL
+
+static inline void *callocL(size_t sz, size_t mult)
+{
+    return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sz*mult);
+}
+#define calloc callocL
 
 #endif

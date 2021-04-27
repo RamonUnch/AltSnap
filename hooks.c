@@ -61,6 +61,7 @@ HDWP hWinPosInfo;
 
 struct windowRR {
     HWND hwnd;
+    int end;
     int x;
     int y;
     int width;
@@ -204,9 +205,10 @@ struct {
     struct blacklist Pause;
     struct blacklist MMBLower;
     struct blacklist Scroll;
+    struct blacklist SSizeMove;
 } BlkLst = { {NULL, 0, NULL}, {NULL, 0, NULL}, {NULL, 0, NULL}
            , {NULL, 0, NULL}, {NULL, 0, NULL}, {NULL, 0, NULL}
-           , {NULL, 0, NULL}};
+           , {NULL, 0, NULL}, {NULL, 0, NULL} };
 
 // Cursor data
 HWND g_mainhwnd = NULL;
@@ -230,7 +232,9 @@ static int blacklisted(HWND hwnd, struct blacklist *list)
     GetWindowText(hwnd, title, ARR_SZ(title));
     GetClassName(hwnd, classname, ARR_SZ(classname));
     for (i=0; i < list->length; i++) {
-        if ((!list->items[i].title && !wcscmp(classname,list->items[i].classname))
+        if(!list->items[i].title && !list->items[i].classname)
+            return 1;
+        if ((!list->items[i].title && !wcscmp(classname, list->items[i].classname))
          || (!list->items[i].classname && !wcscmp(title,list->items[i].title))
          || ( list->items[i].title && list->items[i].classname
             && !wcscmp(title,list->items[i].title)
@@ -279,10 +283,8 @@ static xpure inline int IsSamePTT(POINT pt, POINT ptt)
 static void SendSizeMove_on(enum action action, int on)
 {
     if (action == AC_MOVE || action == AC_RESIZE) {
-        // Don't send WM_ENTER/EXIT SIZEMOVE if the window is iTunes
-        wchar_t classname[8] = L"";
-        GetClassName(state.hwnd, classname, ARR_SZ(classname));
-        if (wcscmp(classname, L"iTunes")) {
+        // Don't send WM_ENTER/EXIT SIZEMOVE if the window is in SSizeMove BL
+        if(!blacklisted(state.hwnd, &BlkLst.SSizeMove)) {
             SendMessage(state.hwnd, on? WM_ENTERSIZEMOVE: WM_EXITSIZEMOVE, 0, 0);
         }
     }
@@ -335,7 +337,7 @@ int wnds_alloc = 0;
 static BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    if (numwnds == wnds_alloc) {
+    if (numwnds >= wnds_alloc) {
         wnds_alloc += 8;
         wnds = realloc(wnds, wnds_alloc*sizeof(RECT));
     }
@@ -426,7 +428,7 @@ static void EnumMdi()
             window = GetWindow(window, GW_HWNDNEXT);
             continue;
         }
-        if (numwnds == wnds_alloc) {
+        if (numwnds >= wnds_alloc) {
             wnds_alloc += 8;
             wnds = realloc(wnds, wnds_alloc*sizeof(RECT));
         }
@@ -464,6 +466,10 @@ static void Enum()
     HWND taskbar = FindWindow(L"Shell_TrayWnd", NULL);
     RECT wnd;
     if (taskbar != NULL && GetWindowRectL(taskbar,&wnd) != 0) {
+        if (numwnds >= wnds_alloc) {
+            wnds_alloc += 8;
+            wnds = realloc(wnds, wnds_alloc*sizeof(RECT));
+        }
         wnds[numwnds++] = wnd;
     }
     if (state.snap >= 2) {
@@ -730,49 +736,42 @@ static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR mo
     }
     SetWindowPlacement(hwnd, &wndpl);
     if (sw_cmd == SW_FULLSCREEN) {
-        MoveWindow(hwnd, fmon.left, fmon.top, fmon.right-fmon.left, fmon.bottom-fmon.top, TRUE);
+        SetWindowPos(hwnd, NULL, fmon.left, fmon.top, fmon.right-fmon.left, fmon.bottom-fmon.top
+                   ,  SWP_NOACTIVATE|SWP_NOREPOSITION|SWP_ASYNCWINDOWPOS);
     }
 }
 /////////////////////////////////////////////////////////////////////////////
 // Move the windows in a thread in case it is very slow to resize
-static DWORD WINAPI EndMoveWindowThread(LPVOID LastWinV)
-{
-    int ret;
-    struct windowRR *lw = LastWinV;
-
-    if(!lw->hwnd || !IsWindow(lw->hwnd)) {return 1;}
-
-    ret = MoveWindow(lw->hwnd, lw->x, lw->y, lw->width, lw->height, TRUE);
-    if(!conf.FullWin)
-        RedrawWindow(lw->hwnd, NULL, NULL, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE|RDW_ALLCHILDREN);
-
-    lw->hwnd = NULL;
-
-    return !ret;
-}
 static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
     int ret;
     struct windowRR *lw = LastWinV;
+    if(!lw->hwnd) return 1;
 
-    ret = MoveWindow(lw->hwnd, lw->x, lw->y, lw->width, lw->height, TRUE);
-//    ret = SetWindowPos(lw->hwnd, NULL, lw->x, lw->y, lw->width, lw->height
-//                    , SWP_NOACTIVATE|SWP_NOREPOSITION|SWP_NOSENDCHANGING|SWP_DEFERERASE|SWP_ASYNCWINDOWPOS); //
+    ret = SetWindowPos(lw->hwnd, NULL, lw->x, lw->y, lw->width, lw->height
+                    , SWP_NOACTIVATE|SWP_NOREPOSITION); // |SWP_NOSENDCHANGING|SWP_DEFERERASE
+    if(LastWin.end){
+        RedrawWindow(lw->hwnd, NULL, NULL, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE|RDW_ALLCHILDREN);
+        lw->hwnd = NULL;
+        return !ret;
+    }
+
     if(conf.RefreshRate) Sleep(conf.RefreshRate);
 
     lw->hwnd = NULL;
 
     return !ret;
 }
+
 ///////////////////////////////////////////////////////////////////////////
-#define MM_THREAD_ON (LastWin.hwnd && conf.FullWin)
 #define AERO_TH conf.AeroThreshold
+#define MM_THREAD_ON (LastWin.hwnd && conf.FullWin)
 static int AeroMoveSnap(POINT pt, int *posx, int *posy
                       , int *wndwidth, int *wndheight, RECT mon)
 {
     // Return if moving too fast...
     // return if last resizing is not finished or no Aero or not resizable.
-    if(!conf.Aero || MM_THREAD_ON || state.Speed > (int)conf.AeroMaxSpeed) return 0;
+    if(!conf.Aero || MM_THREAD_ON) return 0;
     static int resizable=1;
     if (!resizable) return 0;
     if (!state.moving && !(resizable=IsResizable(state.hwnd)) ) return 0;
@@ -862,6 +861,9 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
         state.wndentry->height = state.origin.height;
 
         FixDWMRect(state.hwnd, posx, posy, wndwidth, wndheight, NULL);
+
+        // If we go too fast then donot move the window
+        if(state.Speed > (int)conf.AeroMaxSpeed) return 1;
         if(conf.FullWin) {
             MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
             return 1;
@@ -870,7 +872,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
     return 0;
 }
 ///////////////////////////////////////////////////////////////////////////
-static RECT GetMonitorRect(POINT *pt, int full)
+RECT GetMonitorRect(POINT *pt, int full)
 {
     MONITORINFO mi = { sizeof(MONITORINFO) };
     POINT ptt;
@@ -1045,9 +1047,9 @@ static void MouseMove(POINT pt)
 
     if(state.moving == 66) return; // Movement blocked...
 
-    // Restore Aero snapped window
+    // Restore Aero snapped window when movement starts
     int was_snapped=0;
-    if(state.action == AC_MOVE && !state.moving){
+    if(state.action == AC_MOVE && !state.moving) {
         was_snapped = IsWindowSnapped(state.hwnd);
         RestoreOldWin(&pt, was_snapped, 1);
     }
@@ -1098,9 +1100,9 @@ static void MouseMove(POINT pt)
         if (state.snap) MoveSnap(&posx, &posy, wndwidth, wndheight);
         int ret = AeroMoveSnap(pt, &posx, &posy, &wndwidth, &wndheight
                        , state.mdiclient? mdimon: GetMonitorRect(&pt, 0));
-        if ( ret == 1) return;
+        if ( ret == 1) { state.moving = 1; return; }
 
-        // Restore window if maximized
+        // Restore window if maximized when starting
         if (was_snapped || IsZoomed(state.hwnd)) {
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
@@ -1194,6 +1196,7 @@ static void MouseMove(POINT pt)
     // LastWin is GLOBAL !
     int mouse_thread_finished = !LastWin.hwnd;
     LastWin.hwnd   = state.hwnd;
+    LastWin.end    = 0;
     LastWin.x      = posx;
     LastWin.y      = posy;
     LastWin.width  = wndwidth;
@@ -1763,7 +1766,6 @@ static pure HCURSOR CursorToDraw()
     }
     return cursor;
 }
-
 /////////////////////////////////////////////////////////////////////////////
 // Return the entry if it was already in db.
 static pure struct wnddata *GetWindowInDB(HWND hwndd)
@@ -2149,8 +2151,8 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     if (action == AC_MOVE || action == AC_RESIZE) { ////////////////
         GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
         SetWindowTrans(state.hwnd);
-        
-        SetTimer(g_timerhwnd, SPEED_TIMER, conf.AeroSpeedTau, NULL);
+        if(conf.AeroMaxSpeed < 65000)
+            SetTimer(g_timerhwnd, SPEED_TIMER, conf.AeroSpeedTau, NULL);
 
         int ret;
 
@@ -2324,11 +2326,15 @@ static void FinishMovement()
 
          DWORD lpThreadId;
          HANDLE thread;
-         thread = CreateThread(NULL, 0, EndMoveWindowThread, &LastWin, 0, &lpThreadId);
-         CloseHandle(thread);
+         if(LastWin.hwnd && IsWindow(LastWin.hwnd)) {
+             LastWin.end = 1;
+             thread = CreateThread(NULL, 0, MoveWindowThread, &LastWin, 0, &lpThreadId);
+             CloseHandle(thread);
+         }
     }
-    KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
-    
+    if(conf.AeroMaxSpeed < 65000)
+        KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
+
     // Auto Remaximize if option enabled and conditions are met.
     if(conf.AutoRemaximize && state.moving
       && (state.origin.maximized||state.origin.fullscreen)
@@ -2517,7 +2523,8 @@ static void UnhookMouse()
     state.moving = 0;
 
     SetWindowTrans(NULL);
-    KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
+    if(conf.AeroMaxSpeed < 65000)
+        KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
 
     if (conf.NormRestore) conf.NormRestore = 1;
     if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
@@ -2543,7 +2550,7 @@ static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
     if (msg == WM_TIMER) {
         if (wParam == INIT_TIMER) {
             KillTimer(g_timerhwnd, wParam);
-            
+
             // Hook mouse if a permanent hook is needed
             if (conf.keepMousehook) {
                 HookMouse();
@@ -2560,10 +2567,13 @@ static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             }
         } else if (wParam == SPEED_TIMER) {
             static POINT oldpt;
+            static char rate;
             if(state.moving) state.Speed=max(abs(oldpt.x-state.prevpt.x), abs(oldpt.y-state.prevpt.y));
             else state.Speed=0;
-            // LOG("speed=%u\n", state.Speed);
             oldpt = state.prevpt;
+            if(state.moving && state.Speed == 0 && !(rate++%2)) {
+                MouseMove(state.prevpt);
+            }
         }
     } else if (msg == WM_DESTROY) {
         KillTimer(g_timerhwnd, REHOOK_TIMER);
@@ -2601,12 +2611,12 @@ __declspec(dllexport) void Unload()
 }
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated ans title and class are | separated.
-static void readblacklist(wchar_t *inipath, struct blacklist *blacklist, wchar_t *blacklist_str)
+static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist, const wchar_t *blacklist_str)
 {
     wchar_t txt[2048];
 
     DWORD ret = GetPrivateProfileString(L"Blacklist", blacklist_str, L"", txt, ARR_SZ(txt), inipath);
-    if(!ret || txt[0] == '\0'){
+    if(!ret || txt[0] == '\0') {
         blacklist->data = NULL;
         blacklist->length = 0;
         blacklist->items = NULL;
@@ -2623,7 +2633,7 @@ static void readblacklist(wchar_t *inipath, struct blacklist *blacklist, wchar_t
         // Move pos to next item (if any)
         pos = wcschr(pos, L',');
         // Zero out the coma and eventual spaces
-        if (pos)
+        if (pos) {
             do {
                 *pos++ = '\0';
             } while(*pos == ' ');
@@ -2656,22 +2666,17 @@ static void readblacklist(wchar_t *inipath, struct blacklist *blacklist, wchar_t
 }
 ///////////////////////////////////////////////////////////////////////////
 // Used to read Hotkeys and Hotclicks
-static void readhotkeys(wchar_t *inipath, wchar_t *name, wchar_t *def, struct hotkeys_s *HK)
+static void readhotkeys(const wchar_t *inipath, const wchar_t *name, const wchar_t *def, struct hotkeys_s *HK)
 {
-    unsigned temp=0;
-    int numread=0;
     wchar_t txt[2048];
 
     GetPrivateProfileString(L"Input", name, def, txt, ARR_SZ(txt), inipath);
     wchar_t *pos = txt;
-    while (*pos != '\0' && swscanf(pos,L"%02X%n",&temp,&numread) != EOF) {
-        // Bail if we are out of space
-        if (HK->length == MAXKEYS) {
-            break;
-        }
+    while (*pos) {
         // Store key
-        HK->keys[HK->length++] = temp;
-        pos += numread;
+        if(HK->length == MAXKEYS) break;
+        HK->keys[HK->length++] = whex2u(pos);
+        pos +=3;
     }
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -2722,7 +2727,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AeroSpeedTau  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedTau", 16, inipath), 255);
 
     // CURSOR STUFF
-    cursors[HAND]     = conf.UseCursor>1? LoadCursor(NULL, IDC_ARROW): LoadCursor(NULL, IDC_HAND);
+    cursors[HAND]     = LoadCursor(NULL, conf.UseCursor>1? IDC_ARROW: IDC_HAND);
     cursors[SIZENWSE] = LoadCursor(NULL, IDC_SIZENWSE);
     cursors[SIZENESW] = LoadCursor(NULL, IDC_SIZENESW);
     cursors[SIZENS]   = LoadCursor(NULL, IDC_SIZENS);
@@ -2783,8 +2788,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     conf.ToggleRzMvKey = 0;
     GetPrivateProfileString(L"Input", L"ToggleRzMvKey", L"", txt, ARR_SZ(txt), inipath);
-    int temp = 0;
-    if(swscanf(txt, L"%02X", &temp)) conf.ToggleRzMvKey = temp;
+    if(*txt) conf.ToggleRzMvKey = whex2u(txt);
 
     // Zero-out wnddb hwnds
     for (i=0; i < NUMWNDDB; i++) {
@@ -2809,7 +2813,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
                      , NULL, NULL, NULL, NULL, APP_NAME"-SClick", NULL };
     RegisterClassEx(&wnd2);
     g_mchwnd = CreateWindowEx(0, wnd2.lpszClassName, NULL, 0
-                           , 0, 0, 0 , 0, g_mainhwnd, NULL, hinstDLL, NULL);
+                     , 0, 0, 0 , 0, g_mainhwnd, NULL, hinstDLL, NULL);
 
     // [Blacklist]
     readblacklist(inipath, &BlkLst.Processes, L"Processes");
@@ -2819,14 +2823,9 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     readblacklist(inipath, &BlkLst.Pause,     L"Pause");
     readblacklist(inipath, &BlkLst.MMBLower,  L"MMBLower");
     readblacklist(inipath, &BlkLst.Scroll,    L"Scroll");
+    readblacklist(inipath, &BlkLst.SSizeMove, L"SSizeMove");
 
     conf.keepMousehook = ((conf.LowerWithMMB&1) || conf.NormRestore || conf.InactiveScroll || conf.Hotclick.length);
-
-    // Allocate some memory
-    monitors_alloc++;
-    monitors = realloc(monitors, monitors_alloc*sizeof(RECT));
-    wnds_alloc += 8;
-    wnds = realloc(wnds, wnds_alloc*sizeof(RECT));
 }
 /////////////////////////////////////////////////////////////////////////////
 // Do not forget the -e_DllMain@12 for gcc...

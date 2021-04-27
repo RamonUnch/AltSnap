@@ -16,7 +16,7 @@
 // App
 #define APP_NAME       L"AltDrag"
 #define APP_NAMEA      "AltDrag"
-#define APP_VERSION    "1.42"
+#define APP_VERSION    "1.43"
 
 // Messages
 #define SWM_TOGGLE     (WM_APP+1)
@@ -236,7 +236,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     // Get ini path
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
     wcscpy(&inipath[wcslen(inipath)-3], L"ini");
-
+#if 1
     // Convert szCmdLine to argv and argc (max 10 arguments)
     char *argv[10];
     int argc = 1;
@@ -268,6 +268,14 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
             multi = 1;
         }
     }
+#else
+    int elevate = 0, quiet = 0, config = -1, multi = 0;
+
+    hide    = !!strstr(szCmdLine, "-h");
+    quiet   = !!strstr(szCmdLine, "-q");
+    elevate = !!strstr(szCmdLine, "-e");
+    multi   = !!strstr(szCmdLine, "-m");
+#endif
 
     // Check if elevated if in >= WinVer
     OSVERSIONINFO vi = { sizeof(OSVERSIONINFO) };
@@ -297,7 +305,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
         HWND previnst = FindWindow(APP_NAME, NULL);
         if (previnst) {
             PostMessage(previnst, WM_UPDATESETTINGS, 0, 0);
-            PostMessage(previnst, hide && config? WM_CLOSECONFIG: WM_OPENCONFIG, config, 0);
+            PostMessage(previnst, hide && (config!=-1)? WM_CLOSECONFIG: WM_OPENCONFIG, config, 0);
             PostMessage(previnst, hide? WM_HIDETRAY : WM_ADDTRAY, 0, 0);
             return 0;
         }

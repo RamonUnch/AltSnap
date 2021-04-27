@@ -30,7 +30,7 @@ int InitTray()
     tray.uCallbackMessage = WM_TRAY;
     // Balloon tooltip
     tray.uTimeout = 10000;
-    strncpy(tray.szInfoTitle, APP_NAMEA, ARR_SZ(tray.szInfoTitle));
+    strcpy(tray.szInfoTitle, APP_NAMEA);
     tray.dwInfoFlags = NIIF_USER;
 
     // Register TaskbarCreated so we can re-add the tray icon if (when) explorer.exe crashes
@@ -42,7 +42,7 @@ int InitTray()
 /////////////////////////////////////////////////////////////////////////////
 int UpdateTray()
 {
-    strncpy(tray.szTip, (ENABLED()? "AltDrag (On)": "AltDrag (Off)"), ARR_SZ(tray.szTip));
+    strcpy(tray.szTip, ENABLED()? "AltDrag (On)": "AltDrag (Off)");
     tray.hIcon = icon[ENABLED()?1:0];
 
     // Only add or modify if not hidden or if balloon will be displayed

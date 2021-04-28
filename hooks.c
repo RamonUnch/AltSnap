@@ -872,7 +872,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
     return 0;
 }
 ///////////////////////////////////////////////////////////////////////////
-RECT GetMonitorRect(POINT *pt, int full)
+static RECT GetMonitorRect(POINT *pt, int full)
 {
     MONITORINFO mi = { sizeof(MONITORINFO) };
     POINT ptt;
@@ -2596,6 +2596,12 @@ static LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         return DefWindowProc(hwnd, msg, wParam, lParam);
     }
 }
+static void freeblacklist(struct blacklist *list)
+{
+    free(list->data);
+    free(list->items);
+    list->length = 0;
+}
 /////////////////////////////////////////////////////////////////////////////
 // To be called before Free Library. Ideally it should free everything
 __declspec(dllexport) void Unload()
@@ -2608,6 +2614,31 @@ __declspec(dllexport) void Unload()
     DestroyWindow(g_timerhwnd);
     UnregisterClass(APP_NAME"-SClick", hinstDLL);
     DestroyWindow(g_mchwnd);
+
+    freeblacklist(&BlkLst.Processes);
+    freeblacklist(&BlkLst.Windows);
+    freeblacklist(&BlkLst.Snaplist);
+    freeblacklist(&BlkLst.MDIs);
+    freeblacklist(&BlkLst.Pause);
+    freeblacklist(&BlkLst.MMBLower);
+    freeblacklist(&BlkLst.Scroll);
+    freeblacklist(&BlkLst.MMBLower);
+    freeblacklist(&BlkLst.SSizeMove);
+
+    free(monitors);
+    monitors = NULL;
+    nummonitors = 0;
+    monitors_alloc = 0;
+
+    free(hwnds);
+    hwnds = NULL;
+    numhwnds = 0;
+    hwnds_alloc = 0;
+
+    free(wnds);
+    wnds = NULL;
+    numwnds = 0;
+    wnds_alloc = 0;
 }
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated ans title and class are | separated.
@@ -2622,7 +2653,7 @@ static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist, c
         blacklist->items = NULL;
         return;
     }
-    blacklist->data = realloc(blacklist->data, (wcslen(txt)+1)*sizeof(wchar_t));
+    blacklist->data = malloc((wcslen(txt)+1)*sizeof(wchar_t));
     wcscpy(blacklist->data, txt);
     wchar_t *pos = blacklist->data;
 
@@ -2678,6 +2709,7 @@ static void readhotkeys(const wchar_t *inipath, const wchar_t *name, const wchar
         HK->keys[HK->length++] = whex2u(pos);
         pos +=3;
     }
+
 }
 ///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.

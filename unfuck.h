@@ -21,6 +21,7 @@
 #define flatten __attribute__((flatten))
 #define xpure __attribute__((const))
 #define pure __attribute__((pure))
+#define noreturn __attribute__((noreturn))
 
 #ifndef SUBCLASSPROC
 typedef LRESULT (CALLBACK *SUBCLASSPROC)
@@ -633,5 +634,12 @@ static inline void *callocL(size_t sz, size_t mult)
     return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sz*mult);
 }
 #define calloc callocL
+
+static inline BOOL freeL(void *mem)
+{
+    return HeapFree(GetProcessHeap(), 0, mem);
+}
+#define free freeL
+
 
 #endif

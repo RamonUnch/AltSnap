@@ -145,6 +145,7 @@ struct strings {
   wchar_t *advanced_snapthreshold;
   wchar_t *advanced_aerothreshold;
   wchar_t *advanced_testwindow;
+  wchar_t *advanced_movetrans;
 
   wchar_t *advanced_behavior_box;
   wchar_t *advanced_multipleinstances;
@@ -288,6 +289,7 @@ struct {
   { &l10n_ini.advanced_snapthreshold,          L"AdvancedSnapThreshold"},
   { &l10n_ini.advanced_aerothreshold,          L"AdvancedAeroThreshold"},
   { &l10n_ini.advanced_testwindow,             L"AdvancedTestWindow"},
+  { &l10n_ini.advanced_movetrans,              L"AdvancedMoveTrans"},
 
   { &l10n_ini.advanced_behavior_box,           L"AdvancedBehaviorBox"},
   { &l10n_ini.advanced_multipleinstances,      L"AdvancedMultipleInstances"},
@@ -440,6 +442,8 @@ struct strings en_US = {
  /* snapthreshold    */   L"&Snap Threshold (pixels):",
  /* aerothreshold    */   L"&Aero Threshold (pixels):",
  /* testwindow       */   L"Test &Window",
+ /* movetrans        */   L"Opacit&y when moving:",
+ 
  /* behavior_box     */   L"Behavior",
  /* multipleinstances*/   L"Allow multiple &instances of AltDrag",
  /* autoremaximize   */   L"Automatically &remaximize windows when changing monitor",

@@ -34,18 +34,21 @@ static void CheckAutostart(int *on, int *hidden, int *elevated)
     RegQueryValueEx(key, APP_NAME, NULL, NULL, (LPBYTE)value, &len);
     RegCloseKey(key);
     // Compare
-    wchar_t path[MAX_PATH], compare[MAX_PATH+20];
-    GetModuleFileName(NULL, path, ARR_SZ(path));
-    swprintf(compare, ARR_SZ(compare), L"\"%s\"", path);
-    if (wcsstr(value,compare) != value) {
+
+    wchar_t compare[MAX_PATH+20];
+    GetModuleFileName(NULL, &compare[1], MAX_PATH);
+    unsigned ll = wcslen(compare);
+    compare[0] = compare[ll] = '\"'; compare[++ll]='\0';
+
+    if (wcsstr(value, compare) != value) {
         return;
     }
     // Autostart is on, check arguments
     *on = 1;
-    if (wcsstr(value,L" -hide") != NULL) {
+    if (wcsstr(value, L" -hide") != NULL) {
         *hidden = 1;
     }
-    if (wcsstr(value,L" -elevate") != NULL) {
+    if (wcsstr(value, L" -elevate") != NULL) {
         *elevated = 1;
     }
 }
@@ -1069,6 +1072,9 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         GetPrivateProfileString(L"Advanced", L"AeroThreshold", L"", txt, ARR_SZ(txt), inipath);
         SetDlgItemText(hwnd, IDC_AEROTHRESHOLD, txt);
 
+        GetPrivateProfileString(L"General", L"MoveTrans", L"", txt, ARR_SZ(txt), inipath);
+        SetDlgItemText(hwnd, IDC_MOVETRANS, txt);
+
     } else if (msg == WM_COMMAND) {
         int id = LOWORD(wParam);
         int event = HIWORD(wParam);
@@ -1134,6 +1140,8 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 WritePrivateProfileString(L"Advanced", L"SnapThreshold", txt, inipath);
             } else if (id == IDC_AEROTHRESHOLD) {
                 WritePrivateProfileString(L"Advanced", L"AeroThreshold", txt, inipath);
+            } else if (id == IDC_MOVETRANS) {
+                WritePrivateProfileString(L"General", L"MoveTrans", txt, inipath);
             }
         }
         UpdateSettings();
@@ -1147,6 +1155,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_AEROVOFFSET_H,    l10n->advanced_aerovoffset);
             SetDlgItemText(hwnd, IDC_SNAPTHRESHOLD_H,  l10n->advanced_snapthreshold);
             SetDlgItemText(hwnd, IDC_AEROTHRESHOLD_H,  l10n->advanced_aerothreshold);
+            SetDlgItemText(hwnd, IDC_MOVETRANS_H,      l10n->advanced_movetrans);
             SetDlgItemText(hwnd, IDC_TESTWINDOW,       l10n->advanced_testwindow);
 
             SetDlgItemText(hwnd, IDC_BEHAVIOR_BOX,     l10n->advanced_behavior_box);

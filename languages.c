@@ -29,7 +29,7 @@ static size_t wcscpy_noaccel(wchar_t *__restrict__ dest, wchar_t *__restrict__ s
     return j;
 }
 /////////////////////////////////////////////////////////////////////////////
-static size_t wcslen_resolved(wchar_t *__restrict__ str)
+static pure size_t wcslen_resolved(wchar_t *__restrict__ str)
 {
     // Return the length of str, having resolved escape sequences
     wchar_t *ptr;
@@ -58,7 +58,7 @@ static void wcscpy_resolve(wchar_t *__restrict__ dest, wchar_t *__restrict__ sou
 }
 
 /////////////////////////////////////////////////////////////////////////////
-#define txt_len 2048
+#define txt_len 1024
 static void LoadTranslation(wchar_t *__restrict__ ini)
 {
     wchar_t txt[txt_len];

@@ -128,3 +128,5 @@
 #define IDC_FULLSCREEN                  2051
 #define IDC_AGGRESSIVEKILL              2052
 #define IDC_TESTWINDOW                  2053
+#define IDC_MOVETRANS_H                 2054
+#define IDC_MOVETRANS                   2055

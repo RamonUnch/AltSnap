@@ -74,6 +74,7 @@ int HookSystem()
             }
         }
     }
+
     // Load keyboard hook
     HOOKPROC procaddr;
     if (!keyhook) {
@@ -236,46 +237,19 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     // Get ini path
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
     wcscpy(&inipath[wcslen(inipath)-3], L"ini");
-#if 1
-    // Convert szCmdLine to argv and argc (max 10 arguments)
-    char *argv[10];
-    int argc = 1;
-    argv[0] = szCmdLine;
-    while (argc<=10 && (argv[argc] = strchr(argv[argc - 1], ' ')) ) {
-        *argv[argc] = '\0';
-        argv[argc++]++;
-    }
 
-    // Check arguments
-    int i;
-    int elevate = 0, quiet = 0, config = -1, multi = 0;
-    for (i = 0; i < argc; i++) {
-        if (!strcmp(argv[i], "-hide") || !strcmp(argv[i], "-h")) {
-            // -hide = do not add tray icon, hide it if already running
-            hide = 1;
-        } else if (!strcmp(argv[i], "-quiet") || !strcmp(argv[i], "-q")) {
-            // -quiet = do nothing if already running
-            quiet = 1;
-        } else if (!strcmp(argv[i], "-elevate") || !strcmp(argv[i], "-e")) {
-            // -elevate = create a new instance with administrator privileges
-            elevate = 1;
-        } else if (!strcmp(argv[i], "-config") || !strcmp(argv[i], "-c")) {
-            // -config = open config (with requested page)
-            config = (i + 1 < argc) ? atoi(argv[i + 1]) : 0;
-        } else if (!strcmp(argv[i], "-multi")) {
-            // -multi = allow multiple instances,
-            // used internally when elevating via config window
-            multi = 1;
-        }
-    }
-#else
-    int elevate = 0, quiet = 0, config = -1, multi = 0;
+    // Read parameters on command line
+    int elevate = 0, quiet = 0, config =0, multi = 0;
+    char *params = szCmdLine;
+    while (*params++);
+    while (szCmdLine < params && *params-- != '\\');
+    while (*params && *params != ' ') params++;
 
-    hide    = !!strstr(szCmdLine, "-h");
-    quiet   = !!strstr(szCmdLine, "-q");
-    elevate = !!strstr(szCmdLine, "-e");
-    multi   = !!strstr(szCmdLine, "-m");
-#endif
+    hide    = !!strstr(params, "-h");
+    quiet   = !!strstr(params, "-q");
+    elevate = !!strstr(params, "-e");
+    multi   = !!strstr(params, "-m");
+    config  = !!strstr(params, "-c");
 
     // Check if elevated if in >= WinVer
     OSVERSIONINFO vi = { sizeof(OSVERSIONINFO) };
@@ -305,7 +279,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
         HWND previnst = FindWindow(APP_NAME, NULL);
         if (previnst) {
             PostMessage(previnst, WM_UPDATESETTINGS, 0, 0);
-            PostMessage(previnst, hide && (config!=-1)? WM_CLOSECONFIG: WM_OPENCONFIG, config, 0);
+            if(hide)   PostMessage(previnst, WM_CLOSECONFIG, 1, 0);
+            if(config) PostMessage(previnst, WM_OPENCONFIG, 1, 0);
             PostMessage(previnst, hide? WM_HIDETRAY : WM_ADDTRAY, 0, 0);
             return 0;
         }
@@ -318,7 +293,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
         if (elevate) {
             wchar_t path[MAX_PATH];
             GetModuleFileName(NULL, path, ARR_SZ(path));
-            HINSTANCE ret = ShellExecute(NULL, L"runas", path, (hide? L"-hide": NULL), NULL, SW_SHOWNORMAL);
+            HINSTANCE ret = ShellExecute(NULL, L"runas", path, (hide? L"-h": NULL), NULL, SW_SHOWNORMAL);
             if ((int)ret > 32) return 0;
         }
     }
@@ -347,8 +322,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
         UpdateTray();
     }
     // Open config if -config was supplied
-    if (config != -1) {
-        PostMessage(g_hwnd, WM_OPENCONFIG, config, 0);
+    if (config) {
+        PostMessage(g_hwnd, WM_OPENCONFIG, 1, 0);
     }
     // Message loop
     BOOL ret;

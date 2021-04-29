@@ -1,7 +1,7 @@
 #ifndef NANOLIBC_H
 #define NANOLIBC_H
 
-static inline const wchar_t *wcschrL(const wchar_t *__restrict__ str, const wchar_t c)
+static inline wchar_t *wcschrL(wchar_t *__restrict__ str, const wchar_t c)
 {
     while(*str != c) {
         if(!*str) return NULL;
@@ -21,7 +21,7 @@ static inline const char *strchrL(const char *__restrict__ str, const char c)
 }
 #define strchr strchrL
 
-static int _wtoi(const wchar_t *s) 
+static int wtoiL(const wchar_t *s) 
 {
     long int v=0;
     int sign=1;
@@ -36,6 +36,7 @@ static int _wtoi(const wchar_t *s)
     }
     return sign==-1?-v:v;
 }
+#define _wtoi wtoiL
 
 static inline void reverse(wchar_t *str, int length)
 {
@@ -72,7 +73,7 @@ static wchar_t *itowL(int num, wchar_t *str, int base)
     // Process individual digits
     while (num != 0) {
         int rem = num % base;
-        str[i++] = (rem > 9)? (rem-10) + 'a' : rem + '0';
+        str[i++] = (rem > 9)? (rem-10) + 'A' : rem + '0';
         num = num/base;
     }
 
@@ -188,12 +189,15 @@ static const char *strstrL(const char *haystack, const char *needle)
 
 static inline unsigned h2u(const wchar_t c) 
 {
-    if(c >= '0' && c <= '9') return c - '0';
-    else return c-'A'+10;
+    if      (c >= '0' && c <= '9') return c - '0';
+    else if (c >= 'A' && c <= 'F') return c-'A'+10;
+    else if (c >= 'a' && c <= 'f') return c-'a'+10;
+    else return 0;
 }
 static unsigned whex2u(const wchar_t s[2])
 {
-    return h2u(s[0]) << 4 | h2u(s[1]);
+    if(h2u(s[1])) return h2u(s[0]) << 4 | h2u(s[1]);
+    else return h2u(s[0]);
 }
 
 static inline void *reallocL(void *mem, size_t sz)

@@ -37,8 +37,9 @@ static void CheckAutostart(int *on, int *hidden, int *elevated)
 
     wchar_t compare[MAX_PATH+20];
     GetModuleFileName(NULL, &compare[1], MAX_PATH);
+    compare[0] = '\"';
     unsigned ll = wcslen(compare);
-    compare[0] = compare[ll] = '\"'; compare[++ll]='\0';
+    compare[ll] = '\"'; compare[++ll]='\0';
 
     if (wcsstr(value, compare) != value) {
         return;
@@ -63,17 +64,19 @@ static void SetAutostart(int on, int hide, int elevate)
     if (error != ERROR_SUCCESS) return;
     if (on) {
         // Get path
-        wchar_t path[MAX_PATH], value[MAX_PATH+20];
-        GetModuleFileName(NULL, path, ARR_SZ(path));
-        swprintf(value, ARR_SZ(value), L"\"%s\"%s%s", path, (hide?L" -hide":L""), (elevate?L" -elevate":L""));
+        wchar_t value[MAX_PATH+20];
+        GetModuleFileName(NULL, &value[1], MAX_PATH);
+        value[0] = '\"';
+        unsigned ll = wcslen(value);
+        value[ll] = '\"'; value[++ll]='\0';
+        // Add -hide or -elevate flags
+        if(hide)    wcscat(value, L" -hide");
+        if(elevate) wcscat(value, L" -elevate");
         // Set autostart
-        error = RegSetValueEx(key, APP_NAME, 0, REG_SZ, (LPBYTE)value, (wcslen(value)+1)*sizeof(value[0]));
-        if (error != ERROR_SUCCESS) return;
-
+        RegSetValueEx(key, APP_NAME, 0, REG_SZ, (LPBYTE)value, (wcslen(value)+1)*sizeof(value[0]));
     } else {
         // Remove
-        error = RegDeleteValue(key, APP_NAME);
-        if (error != ERROR_SUCCESS) return;
+        RegDeleteValue(key, APP_NAME);
     }
     // Close key
     RegCloseKey(key);
@@ -427,6 +430,63 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     }
     return FALSE;
 }
+static void AddvKeytoList(wchar_t *keys, int vkey)
+{
+    // Add a key to the hotkeys list
+    if (*keys != '\0') {
+        wcscat(keys, L" ");
+    }
+    wchar_t buf[8];
+    wcscat(keys, _itow(vkey, buf, 16));
+}
+static void RemoveKeyFromList(wchar_t *keys, unsigned vkey)
+{
+    // Remove the key from the hotclick list
+    unsigned temp, numread;
+    wchar_t *pos = keys;
+    while (*pos != '\0') {
+        numread = 0;
+        temp = whex2u(pos);
+        while(pos[numread] && pos[numread] != ' ') numread++;
+        while(pos[numread] == ' ') numread++;
+        if (temp == vkey) {
+            keys[pos - keys] = '\0';
+            wcscat(keys, pos + numread);
+            break;
+        }
+        pos += numread;
+    }
+    // Strip eventual remaining spaces
+    unsigned ll = wcslen(keys);
+    while(keys[--ll] == ' ') keys[ll]='\0';
+}
+struct hk_struct {
+    unsigned control;
+    unsigned vkey;
+};
+/////////////////////////////////////////////////////////////////////////////
+static void CheckConfigHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *hotkeystr, wchar_t* def)
+{
+    // Hotkeys
+    size_t i;
+    unsigned temp;
+    wchar_t txt[32];
+    GetPrivateProfileString(L"Input", hotkeystr, def, txt, ARR_SZ(txt), inipath);
+    wchar_t *pos = txt;
+    while (*pos != '\0') {
+        temp = whex2u(pos);
+        while(*pos && *pos != ' ') pos++;
+        while(*pos == ' ') pos++;
+
+        // What key was that?
+        for (i = 0; hotkeys[i].control ; i++) {
+            if (temp == hotkeys[i].vkey) {
+                Button_SetCheck(GetDlgItem(hwnd, hotkeys[i].control), BST_CHECKED);
+                break;
+            }
+        }
+    }
+}
 
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -436,12 +496,11 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         int control;
         wchar_t *option;
     } mouse_buttons[] = {
-        {
-        IDC_LMB, L"LMB"}, {
-        IDC_MMB, L"MMB"}, {
-        IDC_RMB, L"RMB"}, {
-        IDC_MB4, L"MB4"}, {
-    IDC_MB5, L"MB5"},};
+        { IDC_LMB, L"LMB" },
+        { IDC_MMB, L"MMB" },
+        { IDC_RMB, L"RMB" },
+        { IDC_MB4, L"MB4" },
+        { IDC_MB5, L"MB5" },};
 
     struct action {
         wchar_t *action;
@@ -475,13 +534,11 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     };
 
     // Hotkeys
-    struct {
-        unsigned control;
-        unsigned vkey;
-    } hotclicks [] = {
+    struct hk_struct hotclicks [] = {
         { IDC_MMB_HC, 0x04 },
         { IDC_MB4_HC, 0x05 },
         { IDC_MB5_HC, 0X06 },
+        { 0, 0 }
     };
 
     if (msg == WM_INITDIALOG) {
@@ -493,27 +550,12 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         ret = GetPrivateProfileInt(L"Input",  L"RollWithTBScroll", 0, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_ROLLWITHTBSCROLL), ret? BST_CHECKED: BST_UNCHECKED);
 
-        // Hotkeys
-        size_t i;
-        unsigned temp;
-        int numread;
-        wchar_t txt[50];
-        GetPrivateProfileString(L"Input", L"Hotclicks", L"", txt, ARR_SZ(txt), inipath);
-        wchar_t *pos = txt;
-        while (*pos != '\0' && swscanf(pos, L"%02X%n", &temp, &numread) != EOF) {
-            pos += numread;
-            // What key was that?
-            for (i = 0; i < ARR_SZ(hotclicks); i++) {
-                if (temp == hotclicks[i].vkey) {
-                    Button_SetCheck(GetDlgItem(hwnd, hotclicks[i].control), BST_CHECKED);
-                    break;
-                }
-            }
-        }
+        // Hotclicks buttons
+        CheckConfigHotKeys(hotclicks, hwnd, L"Hotclicks", L"");
     } else if (msg == WM_COMMAND) {
         int id = LOWORD(wParam);
         int event = HIWORD(wParam);
-        wchar_t txt[50] = L"";
+        wchar_t txt[32] = L"";
         size_t i;
         if (event == CBN_SELCHANGE) {
             HWND control = GetDlgItem(hwnd, id);
@@ -545,31 +587,17 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                     break;
                 }
             }
-            if (!vkey)
-                return FALSE;
+            if (!vkey) return FALSE;
 
-            wchar_t keys[50];
+            wchar_t keys[32];
             GetPrivateProfileString(L"Input", L"Hotclicks", L"", keys, ARR_SZ(keys), inipath);
             int add = Button_GetCheck(GetDlgItem(hwnd, wParam));
             if (add) {
-                if (*keys != '\0') {
-                    wcscat(keys, L" ");
-                }
-                swprintf(txt, ARR_SZ(txt), L"%s%02X", keys, vkey);
+                AddvKeytoList(keys, vkey);
             } else {
-                unsigned int temp;
-                int numread;
-                wchar_t *pos = keys;
-                while (*pos != '\0' && swscanf(pos, L"%02X%n", &temp, &numread) != EOF) {
-                    if (temp == vkey) {
-                        wcsncpy(txt, keys, pos - keys);
-                        wcscat(txt, pos + numread);
-                        break;
-                    }
-                    pos += numread;
-                }
+                RemoveKeyFromList(keys, vkey);
             }
-            WritePrivateProfileString(L"Input", L"Hotclicks", txt, inipath);
+            WritePrivateProfileString(L"Input", L"Hotclicks", keys, inipath);
         }
         UpdateSettings();
     } else if (msg == WM_NOTIFY) {
@@ -632,22 +660,20 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 
     return FALSE;
 }
+
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 
     // Hotkeys
-    struct {
-        unsigned control;
-        unsigned vkey;
-    } hotkeys[] = {
+    struct hk_struct hotkeys[] = {
         { IDC_LEFTALT,     VK_LMENU    },
         { IDC_RIGHTALT,    VK_RMENU    },
         { IDC_LEFTWINKEY,  VK_LWIN     },
         { IDC_RIGHTWINKEY, VK_RWIN     },
         { IDC_LEFTCTRL,    VK_LCONTROL },
         { IDC_RIGHTCTRL,   VK_RCONTROL },
-
+        { 0, 0}
     };
     struct action {
         wchar_t *action;
@@ -695,27 +721,12 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         ret = GetPrivateProfileInt(L"Input", L"KeyCombo", 0, inipath);
         Button_SetCheck(GetDlgItem(hwnd, IDC_KEYCOMBO), ret? BST_CHECKED: BST_UNCHECKED);
 
-        // Hotkeys
-        size_t i;
-        unsigned temp;
-        int numread;
-        wchar_t txt[50];
-        GetPrivateProfileString(L"Input", L"Hotkeys", L"A4 A5", txt, ARR_SZ(txt), inipath);
-        wchar_t *pos = txt;
-        while (*pos != '\0' && swscanf(pos, L"%02X%n", &temp, &numread) != EOF) {
-            pos += numread;
-            // What key was that?
-            for (i = 0; i < ARR_SZ(hotkeys); i++) {
-                if (temp == hotkeys[i].vkey) {
-                    Button_SetCheck(GetDlgItem(hwnd, hotkeys[i].control), BST_CHECKED);
-                    break;
-                }
-            }
-        }
+        CheckConfigHotKeys(hotkeys, hwnd, L"Hotkeys", L"A4 A5");
+
     } else if (msg == WM_COMMAND) {
         int id = LOWORD(wParam);
         int event = HIWORD(wParam);
-        wchar_t txt[50] = L"";
+        wchar_t txt[32] = L"";
         size_t i;
 
         HWND control = GetDlgItem(hwnd, id);
@@ -747,28 +758,15 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             if (!vkey)
                 return FALSE;
 
-            wchar_t keys[50];
+            wchar_t keys[32];
             GetPrivateProfileString(L"Input", L"Hotkeys", L"", keys, ARR_SZ(keys), inipath);
             int add = Button_GetCheck(GetDlgItem(hwnd, wParam));
             if (add) {
-                if (*keys != '\0') {
-                    wcscat(keys, L" ");
-                }
-                swprintf(txt, ARR_SZ(txt), L"%s%02X", keys, vkey);
+                AddvKeytoList(keys, vkey);
             } else {
-                unsigned int temp;
-                int numread;
-                wchar_t *pos = keys;
-                while (*pos != '\0' && swscanf(pos, L"%02X%n", &temp, &numread) != EOF) {
-                    if (temp == vkey) {
-                        wcsncpy(txt, keys, pos - keys);
-                        wcscat(txt, pos + numread);
-                        break;
-                    }
-                    pos += numread;
-                }
+                RemoveKeyFromList(keys, vkey);
             }
-            WritePrivateProfileString(L"Input", L"Hotkeys", txt, inipath);
+            WritePrivateProfileString(L"Input", L"Hotkeys", keys, inipath);
         }
         UpdateSettings();
     } else if (msg == WM_NOTIFY) {
@@ -832,7 +830,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 {
     if (msg == WM_INITDIALOG) {
 
-        wchar_t txt[2048];
+        wchar_t txt[1024];
         BOOL haveProcessBL = HaveProc("PSAPI.DLL", "GetModuleFileNameExW");
         GetPrivateProfileString(L"Blacklist", L"Processes", L"", txt, ARR_SZ(txt), inipath);
         SetDlgItemText(hwnd, IDC_PROCESSBLACKLIST, txt);
@@ -853,7 +851,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         Button_Enable(GetDlgItem(hwnd, IDC_PAUSEBL), haveProcessBL);
 
     } else if (msg == WM_COMMAND) {
-        wchar_t txt[2048];
+        wchar_t txt[1024];
         int control = LOWORD(wParam);
 
         if (HIWORD(wParam) == EN_KILLFOCUS) {
@@ -929,8 +927,9 @@ LRESULT CALLBACK CursorProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             GetWindowText(window, title, ARR_SZ(title));
             GetClassName(window, classname, ARR_SZ(classname));
 
-            wchar_t txt[1000];
-            swprintf(txt, ARR_SZ(txt), L"%s|%s", title, classname);
+            wchar_t txt[512];
+            txt[0] = '\0';
+            wcscat(txt, title); wcscat(txt, L"|"); wcscat(txt, classname);
             SetDlgItemText(page, IDC_NEWRULE, txt);
 
             if(GetWindowProgName(window, txt, ARR_SZ(txt))) {

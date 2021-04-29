@@ -2646,7 +2646,7 @@ __declspec(dllexport) void Unload()
 // blacklist is coma separated ans title and class are | separated.
 static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist, const wchar_t *blacklist_str)
 {
-    wchar_t txt[2048];
+    wchar_t txt[1024];
 
     DWORD ret = GetPrivateProfileString(L"Blacklist", blacklist_str, L"", txt, ARR_SZ(txt), inipath);
     if(!ret || txt[0] == '\0') {
@@ -2701,7 +2701,7 @@ static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist, c
 // Used to read Hotkeys and Hotclicks
 static void readhotkeys(const wchar_t *inipath, const wchar_t *name, const wchar_t *def, struct hotkeys_s *HK)
 {
-    wchar_t txt[2048];
+    wchar_t txt[32];
 
     GetPrivateProfileString(L"Input", name, def, txt, ARR_SZ(txt), inipath);
     wchar_t *pos = txt;
@@ -2718,7 +2718,7 @@ static void readhotkeys(const wchar_t *inipath, const wchar_t *name, const wchar
 __declspec(dllexport) void Load(HWND mainhwnd)
 {
     // Load settings
-    wchar_t txt[1024];
+    wchar_t txt[32];
     wchar_t inipath[MAX_PATH];
     state.action = AC_NONE;
     state.shift = 0;

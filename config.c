@@ -17,7 +17,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK BlacklistPageDialogProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK AboutPageDialogProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK AdvancedPageDialogProc(HWND, UINT, WPARAM, LPARAM);
-LRESULT CALLBACK CursorProc(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK FindWindowProc(HWND, UINT, WPARAM, LPARAM);
 
 HWND g_cfgwnd = NULL;
 
@@ -33,8 +33,8 @@ static void CheckAutostart(int *on, int *hidden, int *elevated)
     RegOpenKeyEx(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_QUERY_VALUE, &key);
     RegQueryValueEx(key, APP_NAME, NULL, NULL, (LPBYTE)value, &len);
     RegCloseKey(key);
-    // Compare
 
+    // Compare to what it should be
     wchar_t compare[MAX_PATH+20];
     GetModuleFileName(NULL, &compare[1], MAX_PATH);
     compare[0] = '\"';
@@ -54,6 +54,7 @@ static void CheckAutostart(int *on, int *hidden, int *elevated)
     }
 }
 
+/////////////////////////////////////////////////////////////////////////////
 static void SetAutostart(int on, int hide, int elevate)
 {
     // Open key
@@ -81,6 +82,9 @@ static void SetAutostart(int on, int hide, int elevate)
     // Close key
     RegCloseKey(key);
 }
+
+/////////////////////////////////////////////////////////////////////////////
+// Only used in the case of Vista+
 BOOL ElevateNow(int showconfig)
 {
         wchar_t path[MAX_PATH];
@@ -147,7 +151,6 @@ void OpenConfig(int startpage)
 void CloseConfig()
 {
     PostMessage(g_cfgwnd, WM_CLOSE, 0, 0);
-    UnregisterClass(APP_NAME"-Test", g_hinst);
 }
 void UpdateSettings()
 {
@@ -881,14 +884,14 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
                  height= GetSystemMetrics(SM_CYFULLSCREEN)+256;
              }
 
-            // Create window
-            WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0, CursorProc, 0, 0, g_hinst, NULL, NULL
+            // Create Transparent window vovering the whole workspace
+            WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0, FindWindowProc, 0, 0, g_hinst, NULL, NULL
                              , (HBRUSH) (COLOR_WINDOW + 1), NULL, APP_NAME"-find", NULL };
             wnd.hCursor = LoadCursor(g_hinst, MAKEINTRESOURCE(IDI_FIND));
             RegisterClassEx(&wnd);
             HWND findhwnd = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_TRANSPARENT
                            , wnd.lpszClassName, NULL, WS_POPUP, left, top, width, height, NULL, NULL, g_hinst, NULL);
-            ShowWindowAsync(findhwnd, SW_SHOWNA);
+            ShowWindowAsync(findhwnd, SW_SHOWNA); // And show it
 
             // Hide icon
             ShowWindowAsync(GetDlgItem(hwnd, IDC_FINDWINDOW), SW_HIDE);
@@ -911,7 +914,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
     return FALSE;
 }
 /////////////////////////////////////////////////////////////////////////////
-LRESULT CALLBACK CursorProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_LBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_RBUTTONDOWN) {
         ShowWindow(hwnd, SW_HIDE);
@@ -1025,6 +1028,10 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         centerfrac = lParam;
         return 0;
         break;
+    case WM_CLOSE:
+        DestroyWindow(hwnd);
+        UnregisterClass(APP_NAME"-Test", g_hinst);
+        break;
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
@@ -1102,15 +1109,15 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             if (testwnd && IsWindow(testwnd)){
                 return FALSE;
             }
-            WNDCLASSEX wnd =
-                { sizeof(WNDCLASSEX)
-                , CS_HREDRAW|CS_VREDRAW
-                , TestWindowProc
-                , 0, 0, g_hinst
-                , icon[1]
-                , LoadCursor(NULL, IDC_ARROW)
-                , (HBRUSH)(COLOR_BACKGROUND+1)
-                , NULL, APP_NAME"-Test", NULL };
+            WNDCLASSEX wnd = {
+                sizeof(WNDCLASSEX)
+              , CS_HREDRAW|CS_VREDRAW
+              , TestWindowProc
+              , 0, 0, g_hinst, icon[1]
+              , LoadCursor(NULL, IDC_ARROW)
+              , (HBRUSH)(COLOR_BACKGROUND+1)
+              , NULL, APP_NAME"-Test", NULL
+            };
             RegisterClassEx(&wnd);
             wchar_t wintitle[256];
             wcscpy_noaccel(wintitle, l10n->advanced_testwindow, ARR_SZ(wintitle));
@@ -1130,6 +1137,8 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 if (testwnd && IsWindow(testwnd)) {
                     PostMessage(testwnd, WM_UPDCFRACTION, 0
                        , GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath));
+                    SetWindowPos(testwnd, NULL, 0, 0, 0, 0
+                       , SWP_NOCOPYBITS|SWP_NOMOVE|SWP_NOREPOSITION|SWP_NOSIZE );
                 }
             } else if (id == IDC_AEROHOFFSET) {
                 WritePrivateProfileString(L"General", L"AeroHoffset", txt, inipath);

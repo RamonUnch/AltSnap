@@ -2598,7 +2598,7 @@ static LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 }
 static void freeblacklist(struct blacklist *list)
 {
-    free(list->data); 
+    free(list->data);
     list->data = NULL;
     free(list->items);
     list->items = NULL;

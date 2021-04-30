@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTDRAG for NT4 to Win10                         *
 *   Modified by Raymond Gillibert from original source by Stefan Sundin   *
-*                      release 1.42 (April 01, 2021)                      *
+*                       release 1.43 (May XX, 2021)                       *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltDrag/releases/         *
@@ -117,7 +117,7 @@ If you want automation, install altdrag via the chocolatey package.
 -install with> choco install altdrag
 -update with> choco update altdrag
 -uninstall with > choco uninstall altdrag
-Note that the chocolatey package may take a few weeks before getting updated.
+Note that the chocolatey package may take a few days before getting updated.
 _________
 BLACKLIST
 Sometime an AltDrag action interacts with a window you do not want.
@@ -183,9 +183,53 @@ Note that this version has some more feature..
 ===========================================================================
 == CHANGELOG ==
 
+== AltDrag 1.43 ==
+
++ New: An option to make the window translucent while dragging was added.
+  See MoveTrans in the [General] section of AltDrag.ini. You can change it
+  via the Advanced tab, using the Opacity while moving option, from 1-254.
+  Use 255 or 0 to disable (default).
+
+* Removed dependency to msvcrt.dll. This avoids some mess and reduce the
+  suspiciousness of the AltDrag.exe file to antiviruses. This also reduces
+  the size of the exe.
+
+* Fixed potential segmentation fault in the Enum Windows code.
+
+* Fixed potential division by zero.
+
+* Now all the memory should be unallocated when unloading hooks.dll. This
+  avoids memory leaks of a couple of KB when disabling/enabling AltDrag.
+
+* Fixed some occasional problem with snapping in older windows versions.
+
+* Now the AeroMaxSpeed calculus is based on a timer rather than the number
+  of mouse frames the time intervals for the measurement can be specified
+  using the AeroSpeedTau variable in miliseconds in the [Advanced] section
+  of AltDrag.ini (default 32ms). Put AeroMaxSpeed=65535, to disable it.
+
+* Fixed: Now in a blacklist spaces can be added after a coma.
+
+* Added StartMenuExperienceHost.exe,SearchApp.exe to the default process
+  blacklist, thanks *LittleboyHarry*.
+
+* Added *|classFoxitReader to the default MDI blacklist.
+
+* Minor code cleanup.
+
 == AltDrag 1.42 ==
 
 + Now Ctrl+Alt+Double-Left-Click will minimize the pointed window.
+
+* Avoid some more 'Stuck alt' bugs by better checking the key state.
+
+* WARNING: The Hotclick values have changed, check your configuration if you
+  use mouse button to activate AltDrag.
+
+* Now the Killkeys list also contains tle 'L' key (4C) by default, this will
+  fix AltDrag problem if you use Win as a hotkey and use Win+L
+
+* The MDIs blacklist was also updated with *|classFoxitReader.
 
 * Improved the Roll/Unroll window action: now the file explorer windows will
   be really reduced to the title bar under Win10, until the user moves it.

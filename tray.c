@@ -49,7 +49,7 @@ int UpdateTray()
     if (!hide || tray.uFlags&NIF_INFO) {
         // Try a few times, sleep 100 ms between each attempt
         int i=0;
-        while (!Shell_NotifyIconA((tray_added?NIM_MODIFY:NIM_ADD),&tray) ) {
+        while (!Shell_NotifyIconA(tray_added? NIM_MODIFY: NIM_ADD, &tray) ) {
             if (i > 3) break;
             Sleep(100);
             i++;
@@ -66,7 +66,7 @@ int RemoveTray()
     if (!tray_added)
         return 1;
 
-    if (!Shell_NotifyIconA(NIM_DELETE,&tray))
+    if (!Shell_NotifyIconA(NIM_DELETE, &tray))
         return 1;
 
     // Success

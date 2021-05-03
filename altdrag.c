@@ -9,8 +9,6 @@
 #define UNICODE
 #define _UNICODE
 #define _WIN32_WINNT 0x0400
-#include <stdio.h>
-#include <stdlib.h>
 #include <windows.h>
 
 // App

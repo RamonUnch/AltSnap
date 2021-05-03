@@ -21,20 +21,21 @@ static inline const char *strchrL(const char *__restrict__ str, const char c)
 }
 #define strchr strchrL
 
-static int wtoiL(const wchar_t *s) 
+static int wtoiL(const wchar_t *s)
 {
     long int v=0;
     int sign=1;
-    while ( *s == ' '  ||  (unsigned int)(*s - 9) < 5u) s++;
+    while (*s == ' ') s++; /*  ||  (unsigned int)(*s - 9) < 5u */
+    
     switch (*s) {
     case '-': sign=-1; /* fall through */
     case '+': ++s;
     }
-    while ((unsigned int) (*s - '0') < 10u) {
-        v = v * 10 + *s - '0';
+    while ((unsigned)(*s - '0') < 10u) {
+        v = v * 10 + (*s - '0');
         ++s;
     }
-    return sign==-1?-v:v;
+    return sign*v;
 }
 #define _wtoi wtoiL
 
@@ -44,7 +45,7 @@ static inline void reverse(wchar_t *str, int length)
     int end = length -1;
     while (start < end) {
         wchar_t tmp;
-        tmp = str[start]; 
+        tmp = str[start];
         str[start] = str[end];
         str[end] = tmp;
         start++;
@@ -70,20 +71,23 @@ static wchar_t *itowL(int num, wchar_t *str, int base)
         num = -num;
     }
 
-    // Process individual digits
+    /* Process individual digits */
     while (num != 0) {
         int rem = num % base;
-        str[i++] = (rem > 9)? (rem-10) + 'A' : rem + '0';
+        /* str[i++] = (rem > 9)? (rem-10) + 'A' : rem + '0'; */
+
+        str[i++] = rem + '0' + (rem > 9) * (10 + 'A' - '0'); /* branchless version */
+
         num = num/base;
     }
 
-    // If number is negative, append '-'
+    /* If number is negative, append '-' */
     if (isNegative)
         str[i++] = '-';
 
-    str[i] = '\0'; // Append string terminator
+    str[i] = '\0'; /* Append string terminator */
 
-    // Reverse the string
+    /* Reverse the string */
     reverse(str, i);
 
     return str;
@@ -100,7 +104,7 @@ static inline size_t wcslenL(wchar_t *__restrict__ str)
 
 static inline int wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 {
-    while(*a && (*a == *b)) { a++; b++; }
+    while(*a && *a == *b) { a++; b++; }
     return *a - *b;
 }
 #define wcscmp wcscmpL
@@ -113,11 +117,11 @@ static inline wchar_t *wcscpyL(wchar_t *__restrict__ dest, const wchar_t *__rest
 }
 #define wcscpy wcscpyL
 
-static wchar_t *wcsncpyL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src, size_t n) 
+static wchar_t *wcsncpyL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src, size_t n)
 {
     wchar_t *orig = dest;
-    for (; dest<orig+n && (*dest=*src); ++src,++dest) ;
-    for (; dest<orig+n; ++dest) *dest=0;
+    for (; dest < orig+n && (*dest=*src); ++src, ++dest) ;
+    for (; dest < orig+n; ++dest) *dest=0;
     return orig;
 }
 #define wcsncpy wcsncpyL
@@ -135,8 +139,12 @@ static int wcsicmpL(const wchar_t* s1, const wchar_t* s2)
     unsigned x1, x2;
 
     while (1) {
-        x2 = *s2 - 'A'; if (x2 < 26u) x2 += 32;
-        x1 = *s1 - 'A'; if (x1 < 26u) x1 += 32;
+        x2 = *s2 - 'A';
+        x2 |= (x2 < 26u) << 5; /* Add 32 if UPPERCASE. */
+
+        x1 = *s1 - 'A';
+        x1 |= (x1 < 26u) << 5;
+
         s1++; s2++;
         if (x2 != x1)
             break;
@@ -149,10 +157,10 @@ static int wcsicmpL(const wchar_t* s1, const wchar_t* s2)
 
 wchar_t* wcscat(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
 {
-  wchar_t *orig=dest;
-  for (; *dest; ++dest) ;	/* go to end of dest */
-  for (; (*dest=*src); ++src,++dest) ;	/* then append from src */
-  return orig;
+    wchar_t *orig=dest;
+    for (; *dest; ++dest) ;	/* go to end of dest */
+    for (; (*dest=*src); ++src,++dest) ;	/* then append from src */
+    return orig;
 }
 
 static inline int strcmpL(const char *X, const char *Y)
@@ -165,29 +173,29 @@ static inline int strcmpL(const char *X, const char *Y)
 }
 #define strcmp strcmpL
 
-static const wchar_t *wcsstrL(const wchar_t *haystack, const wchar_t *needle) 
+static const wchar_t *wcsstrL(const wchar_t *haystack, const wchar_t *needle)
 {
-  size_t i,j;
-  for (i=0; haystack[i]; ++i) {
-    for (j=0; haystack[i+j]==needle[j] && needle[j]; ++j) ;
-    if (!needle[j]) return &haystack[i];
-  }
-  return NULL;
+    size_t i,j;
+    for (i=0; haystack[i]; ++i) {
+        for (j=0; haystack[i+j]==needle[j] && needle[j]; ++j) ;
+        if (!needle[j]) return &haystack[i];
+    }
+    return NULL;
 }
 #define wcsstr wcsstrL
 
-static const char *strstrL(const char *haystack, const char *needle) 
+static const char *strstrL(const char *haystack, const char *needle)
 {
-  size_t i,j;
-  for (i=0; haystack[i]; ++i) {
-    for (j=0; haystack[i+j]==needle[j] && needle[j]; ++j) ;
-    if (!needle[j]) return &haystack[i];
-  }
-  return NULL;
+    size_t i,j;
+    for (i=0; haystack[i]; ++i) {
+        for (j=0; haystack[i+j]==needle[j] && needle[j]; ++j) ;
+        if (!needle[j]) return &haystack[i];
+    }
+    return NULL;
 }
 #define strstr strstrL
 
-static inline unsigned h2u(const wchar_t c) 
+static inline unsigned h2u(const wchar_t c)
 {
     if      (c >= '0' && c <= '9') return c - '0';
     else if (c >= 'A' && c <= 'F') return c-'A'+10;

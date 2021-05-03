@@ -9,12 +9,7 @@
 #define UNICODE
 #define _UNICODE
 #define _WIN32_WINNT 0x0400
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <time.h>
 #include <windows.h>
-#include <commctrl.h>
 #define COBJMACROS
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
@@ -27,6 +22,10 @@
 #define INIT_TIMER      WM_APP+1
 #define REHOOK_TIMER    WM_APP+2
 #define SPEED_TIMER     WM_APP+3
+
+#define CURSOR_ONLY 66
+#define NOT_MOVED 33
+
 
 HWND g_timerhwnd;
 HWND g_mchwnd;
@@ -748,9 +747,10 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
     struct windowRR *lw = LastWinV;
     if(!lw->hwnd) return 1;
 
+//    ret = MoveWindow(lw->hwnd, lw->x, lw->y, lw->width, lw->height, TRUE);
     ret = SetWindowPos(lw->hwnd, NULL, lw->x, lw->y, lw->width, lw->height
-                    , SWP_NOACTIVATE|SWP_NOREPOSITION); // |SWP_NOSENDCHANGING|SWP_DEFERERASE
-    if(LastWin.end){
+                    , SWP_NOACTIVATE|SWP_NOREPOSITION); // |WP_NOSENDCHANGING|SWP_DEFERERASE
+    if(lw->end){
         RedrawWindow(lw->hwnd, NULL, NULL, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE|RDW_ALLCHILDREN);
         lw->hwnd = NULL;
         return !ret;
@@ -814,7 +814,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
         // Top
         if (!state.shift ^ !(conf.AeroTopMaximizes&1)) {
             Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
-            LastWin.hwnd=NULL;
+            LastWin.hwnd = NULL;
             state.moving = 2;
             return 1;
         } else {
@@ -1043,9 +1043,9 @@ static void MouseMove(POINT pt)
     if (!state.hwnd || !IsWindow(state.hwnd))
         { LastWin.hwnd = NULL; UnhookMouse(); return; }
 
-    MoveWindow(g_mainhwnd, pt.x-127, pt.y-127, 256, 256, FALSE);
+    if(conf.UseCursor) MoveWindow(g_mainhwnd, pt.x-20, pt.y-20, 41, 41, FALSE);
 
-    if(state.moving == 66) return; // Movement blocked...
+    if(state.moving == CURSOR_ONLY) return; // Movement blocked...
 
     // Restore Aero snapped window when movement starts
     int was_snapped=0;
@@ -1225,16 +1225,16 @@ static void MouseMove(POINT pt)
             Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
 
         oldRect=newRect; // oldRect is GLOBAL!
+        state.moving = 1;
 
     } else if (mouse_thread_finished) {
         DWORD lpThreadId;
-        HANDLE thread;
-        thread = CreateThread(NULL, 0, MoveWindowThread, &LastWin, 0, &lpThreadId);
-        CloseHandle(thread);
+        CloseHandle(CreateThread(NULL, 0, MoveWindowThread, &LastWin, 0, &lpThreadId));
+        state.moving = 1;
     } else {
         Sleep(0);
+        state.moving = NOT_MOVED; // Could not Move Window
     }
-    state.moving = 1;
 }
 /////////////////////////////////////////////////////////////////////////////
 static void Send_KEY(unsigned char vkey)
@@ -2194,7 +2194,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     if (conf.UseCursor && g_mainhwnd && hcursor) {
         MoveWindow(g_mainhwnd, pt.x-20, pt.y-20, 41, 41, FALSE);
         SetClassLongPtr(g_mainhwnd, GCLP_HCURSOR, (LONG_PTR)hcursor);
-        ShowWindow(g_mainhwnd, SW_SHOWNA);
+        ShowWindowAsync(g_mainhwnd, SW_SHOWNA);
     }
 
     // Prevent mousedown from propagating
@@ -2320,17 +2320,15 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
 // Called on MouseUp and on AltUp when using GrabWithAlt
 static void FinishMovement()
 {
-    if (state.moving && LastWin.hwnd) {
-         if(!conf.FullWin) // to erase the last rectangle...
-             Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
+    if (LastWin.hwnd && (state.moving == NOT_MOVED || (!conf.FullWin&&state.moving))) {
+        // to erase the last rectangle...
+        if(!conf.FullWin) Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
 
-         DWORD lpThreadId;
-         HANDLE thread;
-         if(LastWin.hwnd && IsWindow(LastWin.hwnd)) {
-             LastWin.end = 1;
-             thread = CreateThread(NULL, 0, MoveWindowThread, &LastWin, 0, &lpThreadId);
-             CloseHandle(thread);
-         }
+        if(IsWindow(LastWin.hwnd)) {
+            DWORD lpThreadId;
+            LastWin.end = 1;
+            CloseHandle(CreateThread(NULL, 0, MoveWindowThread, &LastWin, 0, &lpThreadId));
+        }
     }
     if(conf.AeroMaxSpeed < 65000)
         KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
@@ -2460,7 +2458,7 @@ static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lPara
                 state.moving = 0;
                 MouseMove(pt);
             } else {
-                state.moving = 66; // So that MouseMove will only move g_mainhwnd
+                state.moving = CURSOR_ONLY; // So that MouseMove will only move g_mainhwnd
                 Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
             }
             state.blockmouseup = 1;
@@ -2567,13 +2565,15 @@ static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             }
         } else if (wParam == SPEED_TIMER) {
             static POINT oldpt;
-            static char rate;
+            static int has_moved_to_fixed_pt;
             if(state.moving) state.Speed=max(abs(oldpt.x-state.prevpt.x), abs(oldpt.y-state.prevpt.y));
             else state.Speed=0;
             oldpt = state.prevpt;
-            if(state.moving && state.Speed == 0 && !(rate++%2)) {
+            if(state.moving && state.Speed == 0 && !has_moved_to_fixed_pt && !MM_THREAD_ON) {
+                has_moved_to_fixed_pt = 1;
                 MouseMove(state.prevpt);
             }
+            if(state.Speed) has_moved_to_fixed_pt = 0;
         }
     } else if (msg == WM_DESTROY) {
         KillTimer(g_timerhwnd, REHOOK_TIMER);
@@ -2644,11 +2644,12 @@ __declspec(dllexport) void Unload()
 }
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated ans title and class are | separated.
-static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist, const wchar_t *blacklist_str)
+static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist
+                        , const wchar_t *blacklist_str, const wchar_t *def)
 {
     wchar_t txt[1024];
 
-    DWORD ret = GetPrivateProfileString(L"Blacklist", blacklist_str, L"", txt, ARR_SZ(txt), inipath);
+    DWORD ret = GetPrivateProfileString(L"Blacklist", blacklist_str, def, txt, ARR_SZ(txt), inipath);
     if(!ret || txt[0] == '\0') {
         blacklist->data = NULL;
         blacklist->length = 0;
@@ -2850,14 +2851,14 @@ __declspec(dllexport) void Load(HWND mainhwnd)
                      , 0, 0, 0 , 0, g_mainhwnd, NULL, hinstDLL, NULL);
 
     // [Blacklist]
-    readblacklist(inipath, &BlkLst.Processes, L"Processes");
-    readblacklist(inipath, &BlkLst.Windows,   L"Windows");
-    readblacklist(inipath, &BlkLst.Snaplist,  L"Snaplist");
-    readblacklist(inipath, &BlkLst.MDIs,      L"MDIs");
-    readblacklist(inipath, &BlkLst.Pause,     L"Pause");
-    readblacklist(inipath, &BlkLst.MMBLower,  L"MMBLower");
-    readblacklist(inipath, &BlkLst.Scroll,    L"Scroll");
-    readblacklist(inipath, &BlkLst.SSizeMove, L"SSizeMove");
+    readblacklist(inipath, &BlkLst.Processes, L"Processes", L"");
+    readblacklist(inipath, &BlkLst.Windows,   L"Windows",   L"");
+    readblacklist(inipath, &BlkLst.Snaplist,  L"Snaplist",  L"");
+    readblacklist(inipath, &BlkLst.MDIs,      L"MDIs",      L"");
+    readblacklist(inipath, &BlkLst.Pause,     L"Pause",     L"");
+    readblacklist(inipath, &BlkLst.MMBLower,  L"MMBLower",  L"");
+    readblacklist(inipath, &BlkLst.Scroll,    L"Scroll",    L"");
+    readblacklist(inipath, &BlkLst.SSizeMove, L"SSizeMove", L"*|iTunes");
 
     conf.keepMousehook = ((conf.LowerWithMMB&1) || conf.NormRestore || conf.InactiveScroll || conf.Hotclick.length);
 }

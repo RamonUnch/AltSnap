@@ -9,6 +9,7 @@
 #define _UNFUCK_NT_
 
 #include <windows.h>
+#include <stdio.h>
 #include <dwmapi.h>
 #include "nanolibc.h"
 

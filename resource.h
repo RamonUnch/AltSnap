@@ -130,3 +130,6 @@
 #define IDC_TESTWINDOW                  2053
 #define IDC_MOVETRANS_H                 2054
 #define IDC_MOVETRANS                   2055
+#define IDC_AEROSPEED_H                 2056
+#define IDC_AEROSPEED                   2057
+#define IDC_AEROSPEEDTAU                2058

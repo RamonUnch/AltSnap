@@ -1078,6 +1078,12 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         GetPrivateProfileString(L"Advanced", L"AeroThreshold", L"", txt, ARR_SZ(txt), inipath);
         SetDlgItemText(hwnd, IDC_AEROTHRESHOLD, txt);
 
+        GetPrivateProfileString(L"Advanced", L"AeroMaxSpeed", L"", txt, ARR_SZ(txt), inipath);
+        SetDlgItemText(hwnd, IDC_AEROSPEED, txt);
+        GetPrivateProfileString(L"Advanced", L"AeroSpeedTau", L"", txt, ARR_SZ(txt), inipath);
+        wcscat(txt, L" ms");
+        SetDlgItemText(hwnd, IDC_AEROSPEEDTAU, txt);
+        
         GetPrivateProfileString(L"General", L"MoveTrans", L"", txt, ARR_SZ(txt), inipath);
         SetDlgItemText(hwnd, IDC_MOVETRANS, txt);
 
@@ -1148,6 +1154,8 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 WritePrivateProfileString(L"Advanced", L"SnapThreshold", txt, inipath);
             } else if (id == IDC_AEROTHRESHOLD) {
                 WritePrivateProfileString(L"Advanced", L"AeroThreshold", txt, inipath);
+            } else if (id == IDC_AEROSPEED){
+                WritePrivateProfileString(L"Advanced", L"AeroMaxSpeed", txt, inipath);
             } else if (id == IDC_MOVETRANS) {
                 WritePrivateProfileString(L"General", L"MoveTrans", txt, inipath);
             }
@@ -1163,6 +1171,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_AEROVOFFSET_H,    l10n->advanced_aerovoffset);
             SetDlgItemText(hwnd, IDC_SNAPTHRESHOLD_H,  l10n->advanced_snapthreshold);
             SetDlgItemText(hwnd, IDC_AEROTHRESHOLD_H,  l10n->advanced_aerothreshold);
+            SetDlgItemText(hwnd, IDC_AEROSPEED_H,      l10n->advanced_aerospeed);
             SetDlgItemText(hwnd, IDC_MOVETRANS_H,      l10n->advanced_movetrans);
             SetDlgItemText(hwnd, IDC_TESTWINDOW,       l10n->advanced_testwindow);
 

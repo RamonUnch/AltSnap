@@ -31,11 +31,6 @@ struct strings {
   wchar_t *menu_about;
   wchar_t *menu_exit;
 
-  // update
-  wchar_t *update_balloon;
-  wchar_t *update_dialog;
-  wchar_t *update_nonew;
-
   // config
   wchar_t *title;
   wchar_t *tab_general;
@@ -144,6 +139,7 @@ struct strings {
   wchar_t *advanced_aerovoffset;
   wchar_t *advanced_snapthreshold;
   wchar_t *advanced_aerothreshold;
+  wchar_t *advanced_aerospeed;
   wchar_t *advanced_testwindow;
   wchar_t *advanced_movetrans;
 
@@ -185,9 +181,6 @@ struct {
   { &l10n_ini.menu_config,                     L"MenuConfigure" },
   { &l10n_ini.menu_about,                      L"MenuAbout" },
   { &l10n_ini.menu_exit,                       L"MenuExit" },
-  { &l10n_ini.update_balloon,                  L"UpdateBalloon" },
-  { &l10n_ini.update_dialog,                   L"UpdateDialog" },
-  { &l10n_ini.update_nonew,                    L"UpdateLatest" },
 
   { &l10n_ini.title,                           L"ConfigTitle" },
   { &l10n_ini.tab_general,                     L"ConfigTabGeneral" },
@@ -288,6 +281,7 @@ struct {
   { &l10n_ini.advanced_aerovoffset,            L"AdvancedAeroVoffset"},
   { &l10n_ini.advanced_snapthreshold,          L"AdvancedSnapThreshold"},
   { &l10n_ini.advanced_aerothreshold,          L"AdvancedAeroThreshold"},
+  { &l10n_ini.advanced_aerospeed,              L"AdvancedAeroSpeed"},
   { &l10n_ini.advanced_testwindow,             L"AdvancedTestWindow"},
   { &l10n_ini.advanced_movetrans,              L"AdvancedMoveTrans"},
 
@@ -325,11 +319,6 @@ struct strings en_US = {
  /* config             */ L"&Configure",
  /* about              */ L"&About",
  /* exit               */ L"E&xit",
-
- /* update */
- /* balloon            */ L"New version found!",
- /* dialog             */ L"A new version is available. Go to website?",
- /* nonew              */ L"No update available.",
 
  /* === config === */
  /* title              */ APP_NAME L" Configuration",
@@ -441,6 +430,7 @@ struct strings en_US = {
  /* aeroVoffset      */   L"&Vertical:",
  /* snapthreshold    */   L"&Snap Threshold (pixels):",
  /* aerothreshold    */   L"&Aero Threshold (pixels):",
+ /* aerospeed        */   L"Ma&x snapping speed (pixels)",
  /* testwindow       */   L"Test &Window",
  /* movetrans        */   L"Opacit&y when moving:",
  

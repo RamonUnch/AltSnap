@@ -1363,22 +1363,27 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
            // Release Hook on Alt+Tab in case there is DisplayFusion which creates an
            // elevated Att+Tab windows that captures the AltUp key.
             HotkeyUp();
-        } else if (vkey == VK_ESCAPE && (state.action || state.alt)) {
-            int action = state.action;
-            if (!conf.FullWin && state.moving) {
-                Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
+        } else if (vkey == VK_ESCAPE) { // USER PRESSED ESCAPE!
+            // Alsays disable shift and ctrl, in case of Ctrl+Shift+ESC.
+            state.ctrl = 0;
+            state.shift = 0;
+            // Stop current action
+            if (state.action || state.alt) {
+                int action = state.action;
+                if (!conf.FullWin && state.moving) {
+                    Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
+                }
+                // Send WM_EXITSIZEMOVE
+                SendSizeMove_on(state.action , 0);
+
+                state.alt = 0;
+                state.alt1 = 0;
+                LastWin.hwnd = NULL;
+
+                UnhookMouse();
+
+                if (action) return 1;
             }
-            // Send WM_EXITSIZEMOVE
-            SendSizeMove_on(state.action , 0);
-
-            state.alt = 0;
-            state.alt1 = 0;
-            LastWin.hwnd = NULL;
-
-            UnhookMouse();
-
-            if (action) return 1;
-
         } else if (conf.AggressivePause && state.alt && vkey == VK_PAUSE) {
             POINT pt;
             GetCursorPos(&pt);
@@ -2817,9 +2822,9 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.RollWithTBScroll= GetPrivateProfileInt(L"Input", L"RollWithTBScroll",0, inipath);
     conf.KeyCombo        = GetPrivateProfileInt(L"Input", L"KeyCombo",        0, inipath);
 
-    readhotkeys(inipath, L"Hotkeys",  L"A4 A5", &conf.Hotkeys);
-    readhotkeys(inipath, L"Hotclicks",L"",      &conf.Hotclick);
-    readhotkeys(inipath, L"Killkeys", L"09 4C", &conf.Killkey);
+    readhotkeys(inipath, L"Hotkeys",  L"A4 A5",   &conf.Hotkeys);
+    readhotkeys(inipath, L"Hotclicks",L"",        &conf.Hotclick);
+    readhotkeys(inipath, L"Killkeys", L"09 4C 2E",&conf.Killkey);
 
     conf.ToggleRzMvKey = 0;
     GetPrivateProfileString(L"Input", L"ToggleRzMvKey", L"", txt, ARR_SZ(txt), inipath);

@@ -11,6 +11,8 @@
 #define _WIN32_WINNT 0x0400
 #include <windows.h>
 
+#define LOG_STUFF 0
+
 // App
 #define APP_NAME       L"AltDrag"
 #define APP_NAMEA      "AltDrag"
@@ -55,6 +57,7 @@ char WinVer = 0;
 int HookSystem()
 {
     if (keyhook) return 1; // System already hooked
+    LOG("Going to Hook the system...\n"); 
 
     // Load library
     if (!hinstDLL) {
@@ -64,6 +67,7 @@ int HookSystem()
         wcscat(path, L"\\hooks.dll");
         hinstDLL = LoadLibraryA("HOOKS.DLL");
         if (!hinstDLL) {
+            LOG("Could not load HOOKS.DLL!!!");
             return 1;
         } else {
             void (*Load) (HWND) = (void *)GetProcAddress(hinstDLL, "Load");
@@ -72,6 +76,7 @@ int HookSystem()
             }
         }
     }
+    LOG("HOOKS.DLL Loaded\n");
 
     // Load keyboard hook
     HOOKPROC procaddr;
@@ -79,14 +84,17 @@ int HookSystem()
         // Get address to keyboard hook (beware name mangling)
         procaddr = (HOOKPROC) GetProcAddress(hinstDLL, "LowLevelKeyboardProc@12");
         if (procaddr == NULL) {
+            LOG("Could not find LowLevelKeyboardProc@12 entry point in HOOKS.DLL\n");
             return 1;
         }
         // Set up the keyboard hook
         keyhook = SetWindowsHookEx(WH_KEYBOARD_LL, procaddr, hinstDLL, 0);
         if (keyhook == NULL) {
+            LOG("Keyboard HOOK could not be set\n");
             return 1;
         }
     }
+    LOG("Keyboard HOOK set\n");
 
     UpdateTray();
     return 0;
@@ -233,6 +241,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     g_hinst = hInst;
 
     // Get ini path
+    LOG("\nALTDRAG STARTED WITH HINSTANCE 0x%X\n", (unsigned) hInst);
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
     wcscpy(&inipath[wcslen(inipath)-3], L"ini");
 
@@ -264,49 +273,66 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
             CloseHandle(token);
         }
     }
+    LOG("Command line parameters read\n");
+
     // Register some messages
     WM_UPDATESETTINGS = RegisterWindowMessage(L"UpdateSettings");
     WM_OPENCONFIG     = RegisterWindowMessage(L"OpenConfig");
     WM_CLOSECONFIG    = RegisterWindowMessage(L"CloseConfig");
     WM_ADDTRAY        = RegisterWindowMessage(L"AddTray");
     WM_HIDETRAY       = RegisterWindowMessage(L"HideTray");
+    LOG("Messages Registered: %s\n"
+      , WM_UPDATESETTINGS && WM_OPENCONFIG && WM_CLOSECONFIG && WM_ADDTRAY && WM_HIDETRAY
+        ? "OK": "Some messages Failed to register");
 
     // Look for previous instance
     if (!multi && !GetPrivateProfileInt(L"Advanced", L"MultipleInstances", 0, inipath)){
         if (quiet) return 0;
         HWND previnst = FindWindow(APP_NAME, NULL);
         if (previnst) {
+            LOG("Previous instance found and no -multi mode\n")
             PostMessage(previnst, WM_UPDATESETTINGS, 0, 0);
             if(hide)   PostMessage(previnst, WM_CLOSECONFIG, 1, 0);
             if(config) PostMessage(previnst, WM_OPENCONFIG, 1, 0);
             PostMessage(previnst, hide? WM_HIDETRAY : WM_ADDTRAY, 0, 0);
+            LOG("Updated old instance and NORMAL EXIT\n");
             return 0;
         }
+        LOG("No previous instance found\n");
     }
+
     // Check AlwaysElevate
     if (!elevated) {
         elevate = GetPrivateProfileInt(L"Advanced", L"AlwaysElevate", 0, inipath);
 
         // Handle request to elevate to administrator privileges
         if (elevate) {
+            LOG("Elevation requested\n");
             wchar_t path[MAX_PATH];
             GetModuleFileName(NULL, path, ARR_SZ(path));
             HINSTANCE ret = ShellExecute(NULL, L"runas", path, (hide? L"-h": NULL), NULL, SW_SHOWNORMAL);
-            if ((int)ret > 32) return 0;
-        }
+            if ((int)ret > 32){
+                LOG("Elevation Faild => Not cool NORMAL EXIT\n");
+                return 0;
+            }
+            LOG("Elevation sucess\n");
+        } else LOG("No Elevation requested\n");
+        
     }
     // Language
     memset(&l10n_ini, 0, sizeof(l10n_ini));
-    ListAllTranslations();
-    UpdateLanguage();
+    ListAllTranslations(); LOG("All translations listed\n");
+    UpdateLanguage(); LOG("Language updated\n");
 
     // Create window
     WNDCLASSEX wnd =
         { sizeof(WNDCLASSEX), 0, WindowProc, 0, 0, hInst, NULL, NULL
         , (HBRUSH) (COLOR_WINDOW + 1), NULL, APP_NAME, NULL };
-    RegisterClassEx(&wnd);
+    BOOL regg = RegisterClassEx(&wnd);
+    LOG("Register main APP Window: %s\n", regg? "Sucess": "Failed");
     g_hwnd = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST| WS_EX_TRANSPARENT, wnd.lpszClassName,
                             NULL, WS_POPUP, 0, 0, 0, 0, NULL, NULL, hInst, NULL);
+    LOG("Create main APP Window: %s\n", g_hwnd? "Sucess": "Failed");
     // Tray icon
     InitTray();
     UpdateTray();
@@ -324,6 +350,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
         PostMessage(g_hwnd, WM_OPENCONFIG, 1, 0);
     }
     // Message loop
+    LOG("Starting AltDrag message loop...\n");
     BOOL ret;
     MSG msg;
     while ((ret = GetMessage( &msg, NULL, 0, 0 )) != 0) {
@@ -337,6 +364,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     // EXIT
     UnregisterClass(APP_NAME, hInst);
     DestroyWindow(g_hwnd);
+    LOG("GOOD NORMAL EXIT\n");
     return msg.wParam;
 }
 /////////////////////////////////////////////////////////////////////////////

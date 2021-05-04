@@ -19,6 +19,7 @@ int InitTray()
     icon[1] = LoadIconA(g_hinst, "tray_enabled");
 
     if (icon[0] == NULL || icon[1] == NULL) {
+        LOG("Could not Load Icons for tray\n");
         return 1;
     }
 
@@ -35,6 +36,7 @@ int InitTray()
 
     // Register TaskbarCreated so we can re-add the tray icon if (when) explorer.exe crashes
     WM_TASKBARCREATED = RegisterWindowMessage(L"TaskbarCreated");
+    LOG("Register TaskbarCreated message: %s\n", WM_TASKBARCREATED? "OK": "Fail!");
 
     return 0;
 }
@@ -49,8 +51,13 @@ int UpdateTray()
     if (!hide || tray.uFlags&NIF_INFO) {
         // Try a few times, sleep 100 ms between each attempt
         int i=0;
+        LOG("Updating tray icon\n");
         while (!Shell_NotifyIconA(tray_added? NIM_MODIFY: NIM_ADD, &tray) ) {
-            if (i > 3) break;
+            LOG("Failed in try No. %d\n", i);
+            if (i > 3) {
+                LOG("Failed all atempts!!\n");
+                return 1;
+            }
             Sleep(100);
             i++;
         }

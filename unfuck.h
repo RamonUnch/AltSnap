@@ -31,7 +31,7 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
     , UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 #endif
 
-#define LOG(X, ...) { FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fclose(LOG); }
+#define LOG(X, ...) if(LOG_STUFF) { FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fclose(LOG); }
 
 /* Stuff missing in MinGW */
 #ifndef WM_MOUSEHWHEEL

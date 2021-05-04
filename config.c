@@ -1080,7 +1080,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 
         GetPrivateProfileString(L"Advanced", L"AeroMaxSpeed", L"", txt, ARR_SZ(txt), inipath);
         SetDlgItemText(hwnd, IDC_AEROSPEED, txt);
-        GetPrivateProfileString(L"Advanced", L"AeroSpeedTau", L"", txt, ARR_SZ(txt), inipath);
+        GetPrivateProfileString(L"Advanced", L"AeroSpeedTau", L"32", txt, ARR_SZ(txt), inipath);
         wcscat(txt, L" ms");
         SetDlgItemText(hwnd, IDC_AEROSPEEDTAU, txt);
         

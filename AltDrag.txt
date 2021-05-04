@@ -124,8 +124,8 @@ Sometime an AltDrag action interacts with a window you do not want.
 For example if you use Alt+Click on a specific window and you do not want
 AltDrag to move the window you can add the window name to the windows
 blacklist. more details below:
-All the list are coma separated and take no spaces after or before the coma.
-A space can be present in the item itself.
+All the list are coma separated and take no spaces before the coma.
+A space can be present in the item itself or before the item.
 
 - Process blacklist: List of programs names for which move/resize from
   AltDrag as well as the scroll actions are disabled. Example: Notepad.exe
@@ -188,7 +188,24 @@ Note that this version has some more feature..
 + New: An option to make the window translucent while dragging was added.
   See MoveTrans in the [General] section of AltDrag.ini. You can change it
   via the Advanced tab, using the Opacity while moving option, from 1-254.
-  Use 255 or 0 to disable (default).
+  Use 255, 0 or empty to disable (default).
+
++ Now the AeroMaxSpeed calculus is based on a timer rather than the number
+  of mouse frames. The time intervals for the measurement can be specified
+  using the AeroSpeedTau variable in miliseconds in the [Advanced] section
+  of AltDrag.ini (default 32ms). The max speed can now be specified in the
+  Advanced tab of the config. Good values are around 10-100px/32ms.
+  Use 65535 or an empty value to disable (default).
+
++ New: SSizeMove blacklist was added in the [Blacklist] section of the ini.
+  Any windows added in this list will NOT receave the WM_ENTERSIZEMOVE and
+  WM_EXITSIZEMOVE messages when moving or resizing. This is useful for some
+  buggy applications such as iTunes (default value is *|iTunes).
+
+* Fixed: Now the esc key will always release Ctrl and Shift.
+
+* Fixed strange cropping bug that occasionally occured with Chromium based
+  Programms such as several Browsers and VSCode.
 
 * Removed dependency to msvcrt.dll. This avoids some mess and reduce the
   suspiciousness of the AltDrag.exe file to antiviruses. This also reduces
@@ -203,12 +220,7 @@ Note that this version has some more feature..
 
 * Fixed some occasional problem with snapping in older windows versions.
 
-* Now the AeroMaxSpeed calculus is based on a timer rather than the number
-  of mouse frames the time intervals for the measurement can be specified
-  using the AeroSpeedTau variable in miliseconds in the [Advanced] section
-  of AltDrag.ini (default 32ms). Put AeroMaxSpeed=65535, to disable it.
-
-* Fixed: Now in a blacklist spaces can be added after a coma.
+* Fixed: Now spaces can be added after a coma in a blacklist.
 
 * Added StartMenuExperienceHost.exe,SearchApp.exe to the default process
   blacklist, thanks *LittleboyHarry*.

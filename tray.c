@@ -56,7 +56,7 @@ int UpdateTray()
             LOG("Failed in try No. %d\n", i);
             if (i > 3) {
                 LOG("Failed all atempts!!\n");
-                return 1;
+                break;
             }
             Sleep(100);
             i++;

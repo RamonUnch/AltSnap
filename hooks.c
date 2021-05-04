@@ -745,6 +745,8 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
     int ret;
     struct windowRR *lw = LastWinV;
+    
+    if(lw->end && conf.FullWin) Sleep(conf.RefreshRate+5);
     if(!lw->hwnd) return 1;
 
 //    ret = MoveWindow(lw->hwnd, lw->x, lw->y, lw->width, lw->height, TRUE);
@@ -2764,7 +2766,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AlphaDeltaShift=CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDeltaShift", 8, inipath), 127);
     conf.AlphaDelta    = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDelta", 64, inipath), 127);
     conf.AeroMaxSpeed  = CLAMP(0, GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath), 65535);
-    conf.AeroSpeedTau  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedTau", 16, inipath), 255);
+    conf.AeroSpeedTau  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedTau", 32, inipath), 255);
 
     // CURSOR STUFF
     cursors[HAND]     = LoadCursor(NULL, conf.UseCursor>1? IDC_ARROW: IDC_HAND);

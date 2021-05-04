@@ -1,6 +1,22 @@
 #ifndef NANOLIBC_H
 #define NANOLIBC_H
 
+static inline int signL(int x) 
+{
+    return (x > 0) - (x < 0);
+}
+
+void *memsetL(void *dst, int s, size_t count) 
+{
+    register char * a = dst;
+    count++;
+    while (--count) 
+        *a++ = s;
+    return dst;
+}
+/* #define memset memsetL */ 
+
+
 static inline wchar_t *wcschrL(wchar_t *__restrict__ str, const wchar_t c)
 {
     while(*str != c) {

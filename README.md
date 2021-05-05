@@ -2,6 +2,7 @@
 Fork from Stefan Sundin's AltDrag.
 
 Check the Wiki: https://github.com/RamonUnch/AltDrag/wiki
+
 Original ocumentation: https://stefansundin.github.io/altdrag/doc/
 
 Note that documentation is not 100% accurate because it is a fork.

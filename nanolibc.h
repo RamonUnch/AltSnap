@@ -91,8 +91,7 @@ static wchar_t *itowL(int num, wchar_t *str, int base)
     while (num != 0) {
         int rem = num % base;
         /* str[i++] = (rem > 9)? (rem-10) + 'A' : rem + '0'; */
-
-        str[i++] = rem + '0' + (rem > 9) * (10 + 'A' - '0'); /* branchless version */
+        str[i++] = rem + '0' + (rem > 9) * ('A' - '0' - 10); /* branchless version */
 
         num = num/base;
     }

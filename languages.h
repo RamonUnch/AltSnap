@@ -430,7 +430,7 @@ struct strings en_US = {
  /* aeroVoffset      */   L"&Vertical:",
  /* snapthreshold    */   L"&Snap Threshold (pixels):",
  /* aerothreshold    */   L"&Aero Threshold (pixels):",
- /* aerospeed        */   L"Ma&x snapping speed (pixels)",
+ /* aerospeed        */   L"Ma&x snapping speed (pixels):",
  /* testwindow       */   L"Test &Window",
  /* movetrans        */   L"Opacit&y when moving:",
  

@@ -13,6 +13,12 @@
 #include <dwmapi.h>
 #include "nanolibc.h"
 
+#ifdef WIN64
+#define DorQWORD unsigned long long
+#else
+#define DorQWORD unsigned long
+#endif
+
 #define ARR_SZ(x) (sizeof(x) / sizeof((x)[0]))
 #define IDAPPLY 0x3021
 

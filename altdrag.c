@@ -53,6 +53,12 @@ char WinVer = 0;
 #include "tray.c"
 #include "config.c"
 
+#ifdef WIN64
+#define LOW_LEVELK_BPROC "LowLevelKeyboardProc"
+#else
+#define LOW_LEVELK_BPROC "LowLevelKeyboardProc@12"
+#endif
+
 /////////////////////////////////////////////////////////////////////////////
 int HookSystem()
 {
@@ -82,7 +88,7 @@ int HookSystem()
     HOOKPROC procaddr;
     if (!keyhook) {
         // Get address to keyboard hook (beware name mangling)
-        procaddr = (HOOKPROC) GetProcAddress(hinstDLL, "LowLevelKeyboardProc@12");
+        procaddr = (HOOKPROC) GetProcAddress(hinstDLL, LOW_LEVELK_BPROC);
         if (procaddr == NULL) {
             LOG("Could not find LowLevelKeyboardProc@12 entry point in HOOKS.DLL\n");
             return 1;
@@ -241,7 +247,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     g_hinst = hInst;
 
     // Get ini path
-    LOG("\nALTDRAG STARTED WITH HINSTANCE 0x%X\n", (unsigned) hInst);
+    LOG("\nALTDRAG STARTED\n");
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
     wcscpy(&inipath[wcslen(inipath)-3], L"ini");
 
@@ -311,7 +317,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
             wchar_t path[MAX_PATH];
             GetModuleFileName(NULL, path, ARR_SZ(path));
             HINSTANCE ret = ShellExecute(NULL, L"runas", path, (hide? L"-h": NULL), NULL, SW_SHOWNORMAL);
-            if ((int)ret > 32){
+            if ((DorQWORD)ret > 32){
                 LOG("Elevation Faild => Not cool NORMAL EXIT\n");
                 return 0;
             }

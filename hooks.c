@@ -316,13 +316,14 @@ static void SetWindowTrans(HWND hwnd)
         oldhwnd = NULL;
     }
 }
+
 /////////////////////////////////////////////////////////////////////////////
 // Enumerate callback proc
 int monitors_alloc = 0;
 static BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
 {
     // Make sure we have enough space allocated
-    if (nummonitors == monitors_alloc) {
+    if (nummonitors >= monitors_alloc) {
         monitors_alloc++;
         monitors = realloc(monitors, monitors_alloc*sizeof(RECT));
     }
@@ -387,7 +388,7 @@ int hwnds_alloc = 0;
 static BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    if (numhwnds == hwnds_alloc) {
+    if (numhwnds >= hwnds_alloc) {
         hwnds_alloc += 8;
         hwnds = realloc(hwnds, hwnds_alloc*sizeof(HWND));
     }
@@ -407,6 +408,11 @@ static BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 // Just used in Enum
 static void EnumMdi()
 {
+    // Make sure we have enough space allocated
+    if (nummonitors >= monitors_alloc) {
+        monitors_alloc++;
+        monitors = realloc(monitors, monitors_alloc*sizeof(RECT));
+    }
     // Add MDIClient as the monitor
     RECT wnd;
     if (GetClientRect(state.mdiclient, &wnd) != 0) {
@@ -745,7 +751,7 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
     int ret;
     struct windowRR *lw = LastWinV;
-    
+
     if(lw->end && conf.FullWin) Sleep(conf.RefreshRate+5);
     if(!lw->hwnd) return 1;
 
@@ -1045,7 +1051,7 @@ static void MouseMove(POINT pt)
     if (!state.hwnd || !IsWindow(state.hwnd))
         { LastWin.hwnd = NULL; UnhookMouse(); return; }
 
-    if(conf.UseCursor) MoveWindow(g_mainhwnd, pt.x-20, pt.y-20, 41, 41, FALSE);
+    if(conf.UseCursor) MoveWindow(g_mainhwnd, pt.x-128, pt.y-128, 256, 256, FALSE);
 
     if(state.moving == CURSOR_ONLY) return; // Movement blocked...
 
@@ -2087,7 +2093,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Get window
     state.mdiclient = NULL;
     state.hwnd = WindowFromPoint(pt);
-    DWORD lpdwResult;
+    DorQWORD lpdwResult;
     if (state.hwnd == NULL || state.hwnd == LastWin.hwnd) {
         return 0;
     } else if (!SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 50, &lpdwResult)) {
@@ -2859,10 +2865,10 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     // [Blacklist]
     readblacklist(inipath, &BlkLst.Processes, L"Processes", L"");
-    readblacklist(inipath, &BlkLst.Windows,   L"Windows",   L"");
+    readblacklist(inipath, &BlkLst.Windows,   L"Windows",   L"|Shell_TrayWnd");
     readblacklist(inipath, &BlkLst.Snaplist,  L"Snaplist",  L"");
-    readblacklist(inipath, &BlkLst.MDIs,      L"MDIs",      L"");
-    readblacklist(inipath, &BlkLst.Pause,     L"Pause",     L"");
+    readblacklist(inipath, &BlkLst.MDIs,      L"MDIs",      L"*|PPTFrameClass,*|MMCMainFrame");
+    readblacklist(inipath, &BlkLst.Pause,     L"Pause",     L"AltDrag.exe,taskmgr.exe,explorer.exe");
     readblacklist(inipath, &BlkLst.MMBLower,  L"MMBLower",  L"");
     readblacklist(inipath, &BlkLst.Scroll,    L"Scroll",    L"");
     readblacklist(inipath, &BlkLst.SSizeMove, L"SSizeMove", L"*|iTunes");

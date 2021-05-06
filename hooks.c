@@ -780,16 +780,15 @@ static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR mo
 static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
     int ret;
+    HWND hwnd;
     struct windowRR *lw = LastWinV;
-
+    hwnd = lw->hwnd;
     if(lw->end && conf.FullWin) Sleep(conf.RefreshRate+5);
-    if(!lw->hwnd) return 1;
 
-//    ret = MoveWindow(lw->hwnd, lw->x, lw->y, lw->width, lw->height, TRUE);
-    ret = SetWindowPos(lw->hwnd, NULL, lw->x, lw->y, lw->width, lw->height
-                    , SWP_NOACTIVATE|SWP_NOREPOSITION); // |WP_NOSENDCHANGING|SWP_DEFERERASE
-    if(lw->end){
-        RedrawWindow(lw->hwnd, NULL, NULL, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE|RDW_ALLCHILDREN);
+    ret = SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height
+                     , SWP_NOACTIVATE|SWP_NOREPOSITION); // |WP_NOSENDCHANGING|SWP_DEFERERASE
+    if (lw->end) {
+        RedrawWindow(hwnd, NULL, NULL, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE|RDW_ALLCHILDREN);
         lw->hwnd = NULL;
         return !ret;
     }
@@ -1145,13 +1144,6 @@ static void MouseMove(POINT pt)
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
             wndpl.showCmd = SW_RESTORE;
-            // Restore normal position if the window was snapped before being Maximized
-            struct wnddata *wndentry;
-            if ((wndentry=GetWindowInDB(state.hwnd))) {
-                wndentry->restore=0;
-                wndpl.rcNormalPosition.right = wndpl.rcNormalPosition.left + wndentry->width;
-                wndpl.rcNormalPosition.bottom= wndpl.rcNormalPosition.top +  wndentry->height;
-            }
             SetWindowPlacement(state.hwnd, &wndpl);
             // Update wndwidth and wndheight
             wndwidth  = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;

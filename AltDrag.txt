@@ -188,38 +188,40 @@ Note that this version has some more feature..
 + New: An option to make the window translucent while dragging was added.
   See MoveTrans in the [General] section of AltDrag.ini. You can change it
   via the Advanced tab, using the Opacity while moving option, from 1-254.
-  Use 255, 0 or empty to disable (default).
+  Use 255, 0 or an empty value to disable (default).
 
 + Now the AeroMaxSpeed calculus is based on a timer rather than the number
   of mouse frames. The time intervals for the measurement can be specified
-  using the AeroSpeedTau variable in miliseconds in the [Advanced] section
+  using the AeroSpeedTau variable in milliseconds in the [Advanced] section
   of AltDrag.ini (default 32ms). The max speed can now be specified in the
   Advanced tab of the config. Good values are around 10-100px/32ms.
   Use 65535 or an empty value to disable (default).
 
 + New: SSizeMove blacklist was added in the [Blacklist] section of the ini.
-  Any windows added in this list will NOT receave the WM_ENTERSIZEMOVE and
+  Any windows added in this list will NOT receive the WM_ENTERSIZEMOVE and
   WM_EXITSIZEMOVE messages when moving or resizing. This is useful for some
   buggy applications such as iTunes (default value is *|iTunes).
 
-* Updated spanish translation by *Carlos Sánchez*.
++ New: AltDrag.xml file that can be imported from the Task Scheduler in
+  order to setup auto start in elevated mode.
 
-* Fixed: now a snapped window that is maximized afterwards will be restored 
-  to its proper size when Alt-dragging it out of maximized state.
+* Updated Spanish translation by *Carlos Sánchez*.
 
-* Now 64bit builds of AltDrag, can be compiled. Build are not provided 
+* Now an AMD64 build of AltDrag, can be compiled. builds are not provided
   because there are no real benefits for now (use mk64.bat).
 
 * Fixed: Now the ESC key will always release Ctrl and Shift.
 
-* Fixed strange cropping bug that occasionally occured with Chromium based
-  Programms such as several Browsers and VSCode.
+* Fixed: Added  the DEL key (2E) to the default Killkeys list.
+
+* Fixed strange cropping bug that occasionally occurred with Chromium based
+  Programs such as several Browsers and VSCode.
 
 * Removed dependency to msvcrt.dll. This avoids some mess and reduce the
   suspiciousness of the AltDrag.exe file to antiviruses. This also reduces
   the size of the exe.
 
-* Fixed potential segmentation fault in the Enum code.
+* Fixed potential segmentation fault in the `Enum` code.
 
 * Fixed potential division by zero.
 

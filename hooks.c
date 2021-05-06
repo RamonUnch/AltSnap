@@ -1116,10 +1116,12 @@ static void MouseMove(POINT pt)
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
             // Restore original width and height in case we are restoring
-            // a Snapped + Maximized window. 
+            // A Snapped + Maximized window.
             wndpl.showCmd = SW_RESTORE;
-            wndpl.rcNormalPosition.right = wndpl.rcNormalPosition.left + state.origin.width;
-            wndpl.rcNormalPosition.bottom= wndpl.rcNormalPosition.top +  state.origin.height;
+            if (!(state.wndentry->restore&2)) { // Not if window is rolled!
+                wndpl.rcNormalPosition.right = wndpl.rcNormalPosition.left + state.origin.width;
+                wndpl.rcNormalPosition.bottom= wndpl.rcNormalPosition.top +  state.origin.height;
+            }
             SetWindowPlacement(state.hwnd, &wndpl);
             // Update wndwidth and wndheight
             wndwidth  = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;

@@ -700,35 +700,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
         *wndheight = stickbottom-*posy + borders.bottom;
     }
 }
-/////////////////////////////////////////////////////////////////////////////
-// Return the entry if it was already in db.
-static pure struct wnddata *GetWindowInDB(HWND hwndd)
-{
-    // Check if window is already in the wnddb database
-    // And set it in the current state
-    int i;
-    for (i=0; i < NUMWNDDB; i++) {
-        if (wnddb.items[i].hwnd == hwndd) {
-            return &wnddb.items[i];
-        }
-    }
-    return NULL;
-}
-static void AddWindowToDB(HWND hwndd)
-{
-    state.wndentry = GetWindowInDB(hwndd);
 
-    // Find a nice place in wnddb if not already present
-    int i;
-    if (state.wndentry == NULL) {
-        for (i=0; i < NUMWNDDB+1 && wnddb.pos->restore ; i++) {
-            wnddb.pos = (wnddb.pos == &wnddb.items[NUMWNDDB-1])?&wnddb.items[0]:wnddb.pos+1;
-        }
-        state.wndentry = wnddb.pos;
-        state.wndentry->hwnd = hwndd;
-        state.wndentry->restore = 0;
-    }
-}
 /////////////////////////////////////////////////////////////////////////////
 // Call with SW_MAXIMIZE or SW_RESTORE or below.
 #define SW_TOGGLE_MAX_RESTORE 27
@@ -1143,7 +1115,11 @@ static void MouseMove(POINT pt)
         if (was_snapped || IsZoomed(state.hwnd)) {
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
+            // Restore original width and height in case we are restoring
+            // a Snapped + Maximized window. 
             wndpl.showCmd = SW_RESTORE;
+            wndpl.rcNormalPosition.right = wndpl.rcNormalPosition.left + state.origin.width;
+            wndpl.rcNormalPosition.bottom= wndpl.rcNormalPosition.top +  state.origin.height;
             SetWindowPlacement(state.hwnd, &wndpl);
             // Update wndwidth and wndheight
             wndwidth  = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
@@ -1807,6 +1783,35 @@ static pure HCURSOR CursorToDraw()
         cursor = cursors[SIZEALL];
     }
     return cursor;
+}
+/////////////////////////////////////////////////////////////////////////////
+// Return the entry if it was already in db.
+static pure struct wnddata *GetWindowInDB(HWND hwndd)
+{
+    // Check if window is already in the wnddb database
+    // And set it in the current state
+    int i;
+    for (i=0; i < NUMWNDDB; i++) {
+        if (wnddb.items[i].hwnd == hwndd) {
+            return &wnddb.items[i];
+        }
+    }
+    return NULL;
+}
+static void AddWindowToDB(HWND hwndd)
+{
+    state.wndentry = GetWindowInDB(hwndd);
+
+    // Find a nice place in wnddb if not already present
+    int i;
+    if (state.wndentry == NULL) {
+        for (i=0; i < NUMWNDDB+1 && wnddb.pos->restore ; i++) {
+            wnddb.pos = (wnddb.pos == &wnddb.items[NUMWNDDB-1])?&wnddb.items[0]:wnddb.pos+1;
+        }
+        state.wndentry = wnddb.pos;
+        state.wndentry->hwnd = hwndd;
+        state.wndentry->restore = 0;
+    }
 }
 /////////////////////////////////////////////////////////////////////////////
 // Roll/Unroll Window. If delta > 0: Roll if < 0: Unroll if == 0: Toggle.

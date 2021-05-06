@@ -205,6 +205,9 @@ Note that this version has some more feature..
 + New: AltDrag.xml file that can be imported from the Task Scheduler in
   order to setup auto start in elevated mode.
 
+* Fixed: a snapped, then maximized window will be restored to its original
+  size when alt-dragging it out of maximized state.
+
 * Updated Spanish translation by *Carlos Sánchez*.
 
 * Now an AMD64 build of AltDrag, can be compiled. builds are not provided

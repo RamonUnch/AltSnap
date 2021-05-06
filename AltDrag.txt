@@ -202,7 +202,15 @@ Note that this version has some more feature..
   WM_EXITSIZEMOVE messages when moving or resizing. This is useful for some
   buggy applications such as iTunes (default value is *|iTunes).
 
-* Fixed: Now the esc key will always release Ctrl and Shift.
+* Updated spanish translation by *Carlos Sánchez*.
+
+* Fixed: now a snapped window that is maximized afterwards will be restored 
+  to its proper size when Alt-dragging it out of maximized state.
+
+* Now 64bit builds of AltDrag, can be compiled. Build are not provided 
+  because there are no real benefits for now (use mk64.bat).
+
+* Fixed: Now the ESC key will always release Ctrl and Shift.
 
 * Fixed strange cropping bug that occasionally occured with Chromium based
   Programms such as several Browsers and VSCode.
@@ -211,7 +219,7 @@ Note that this version has some more feature..
   suspiciousness of the AltDrag.exe file to antiviruses. This also reduces
   the size of the exe.
 
-* Fixed potential segmentation fault in the Enum Windows code.
+* Fixed potential segmentation fault in the Enum code.
 
 * Fixed potential division by zero.
 

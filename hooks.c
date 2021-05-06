@@ -701,6 +701,35 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
     }
 }
 /////////////////////////////////////////////////////////////////////////////
+// Return the entry if it was already in db.
+static pure struct wnddata *GetWindowInDB(HWND hwndd)
+{
+    // Check if window is already in the wnddb database
+    // And set it in the current state
+    int i;
+    for (i=0; i < NUMWNDDB; i++) {
+        if (wnddb.items[i].hwnd == hwndd) {
+            return &wnddb.items[i];
+        }
+    }
+    return NULL;
+}
+static void AddWindowToDB(HWND hwndd)
+{
+    state.wndentry = GetWindowInDB(hwndd);
+
+    // Find a nice place in wnddb if not already present
+    int i;
+    if (state.wndentry == NULL) {
+        for (i=0; i < NUMWNDDB+1 && wnddb.pos->restore ; i++) {
+            wnddb.pos = (wnddb.pos == &wnddb.items[NUMWNDDB-1])?&wnddb.items[0]:wnddb.pos+1;
+        }
+        state.wndentry = wnddb.pos;
+        state.wndentry->hwnd = hwndd;
+        state.wndentry->restore = 0;
+    }
+}
+/////////////////////////////////////////////////////////////////////////////
 // Call with SW_MAXIMIZE or SW_RESTORE or below.
 #define SW_TOGGLE_MAX_RESTORE 27
 #define SW_FULLSCREEN 28
@@ -716,7 +745,7 @@ static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR mo
     else
         wndpl.showCmd = sw_cmd;
 
-    if(sw_cmd == SW_MAXIMIZE || sw_cmd == SW_FULLSCREEN) {
+    if(wndpl.showCmd == SW_MAXIMIZE || sw_cmd == SW_FULLSCREEN) {
         HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         if(!monitor) {
             POINT ptt;
@@ -739,6 +768,7 @@ static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR mo
             wndpl.rcNormalPosition.bottom = wndpl.rcNormalPosition.top  + height;
         }
     }
+
     SetWindowPlacement(hwnd, &wndpl);
     if (sw_cmd == SW_FULLSCREEN) {
         SetWindowPos(hwnd, NULL, fmon.left, fmon.top, fmon.right-fmon.left, fmon.bottom-fmon.top
@@ -1115,6 +1145,13 @@ static void MouseMove(POINT pt)
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
             wndpl.showCmd = SW_RESTORE;
+            // Restore normal position if the window was snapped before being Maximized
+            struct wnddata *wndentry;
+            if ((wndentry=GetWindowInDB(state.hwnd))) {
+                wndentry->restore=0;
+                wndpl.rcNormalPosition.right = wndpl.rcNormalPosition.left + wndentry->width;
+                wndpl.rcNormalPosition.bottom= wndpl.rcNormalPosition.top +  wndentry->height;
+            }
             SetWindowPlacement(state.hwnd, &wndpl);
             // Update wndwidth and wndheight
             wndwidth  = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
@@ -1778,35 +1815,6 @@ static pure HCURSOR CursorToDraw()
         cursor = cursors[SIZEALL];
     }
     return cursor;
-}
-/////////////////////////////////////////////////////////////////////////////
-// Return the entry if it was already in db.
-static pure struct wnddata *GetWindowInDB(HWND hwndd)
-{
-    // Check if window is already in the wnddb database
-    // And set it in the current state
-    int i;
-    for (i=0; i < NUMWNDDB; i++) {
-        if (wnddb.items[i].hwnd == hwndd) {
-            return &wnddb.items[i];
-        }
-    }
-    return NULL;
-}
-static void AddWindowToDB(HWND hwndd)
-{
-    state.wndentry = GetWindowInDB(hwndd);
-
-    // Find a nice place in wnddb if not already present
-    int i;
-    if (state.wndentry == NULL) {
-        for (i=0; i < NUMWNDDB+1 && wnddb.pos->restore ; i++) {
-            wnddb.pos = (wnddb.pos == &wnddb.items[NUMWNDDB-1])?&wnddb.items[0]:wnddb.pos+1;
-        }
-        state.wndentry = wnddb.pos;
-        state.wndentry->hwnd = hwndd;
-        state.wndentry->restore = 0;
-    }
 }
 /////////////////////////////////////////////////////////////////////////////
 // Roll/Unroll Window. If delta > 0: Roll if < 0: Unroll if == 0: Toggle.

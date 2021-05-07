@@ -1,9 +1,20 @@
 #ifndef NANOLIBC_H
 #define NANOLIBC_H
 
-static inline int signL(int x) 
+/* return +/-1 if x is +/- and 0 if x == 0 */
+static inline int sign(int x)
 {
     return (x > 0) - (x < 0);
+}
+
+// branchless min/max functions for int32
+static inline int Imin(int a, int b)
+{ 
+    return b + ((a-b) & (a-b)>>31);
+}
+static inline int Imax(int a, int b)
+{ 
+    return a - ((a-b) & (a-b)>>31);
 }
 
 void *memsetL(void *dst, int s, size_t count) 

@@ -266,6 +266,7 @@ static xpure inline int CLAMP(int _l, int _x, int _h)
 {
     return (_x<_l)? _l: ((_x>_h)? _h: _x);
 }
+
 // Macro to clamp width and height of windows
 #define CLAMPW(width)  CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x)
 #define CLAMPH(height) CLAMP(state.mmi.Min.y, height, state.mmi.Max.y)
@@ -328,7 +329,9 @@ static BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT 
         monitors = realloc(monitors, monitors_alloc*sizeof(RECT));
     }
     // Add monitor
-    monitors[nummonitors++] = *lprcMonitor;
+    MONITORINFO mi = { sizeof(MONITORINFO) };
+    GetMonitorInfo(hMonitor, &mi);
+    monitors[nummonitors++] =  mi.rcWork; //*lprcMonitor;
     return TRUE;
 }
 
@@ -362,10 +365,10 @@ static BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
             // Crop this window so that it does not exceed the size of the monitor
             // This is done because when maximized, windows have an extra invisible
             // border (a border that stretches onto other monitors)
-            wnd.left = max(wnd.left, mi.rcMonitor.left);
-            wnd.top = max(wnd.top, mi.rcMonitor.top);
-            wnd.right = min(wnd.right, mi.rcMonitor.right);
-            wnd.bottom = min(wnd.bottom, mi.rcMonitor.bottom);
+            wnd.left = Imax(wnd.left, mi.rcMonitor.left);
+            wnd.top = Imax(wnd.top, mi.rcMonitor.top);
+            wnd.right = Imin(wnd.right, mi.rcMonitor.right);
+            wnd.bottom = Imin(wnd.bottom, mi.rcMonitor.bottom);
         }
 
         // Return if this window is overlapped by another window
@@ -468,15 +471,6 @@ static void Enum()
     EnumDisplayMonitors(NULL, NULL, EnumMonitorsProc, 0);
 
     // Enumerate windows
-    HWND taskbar = FindWindow(L"Shell_TrayWnd", NULL);
-    RECT wnd;
-    if (taskbar != NULL && GetWindowRectL(taskbar,&wnd) != 0) {
-        if (numwnds >= wnds_alloc) {
-            wnds_alloc += 8;
-            wnds = realloc(wnds, wnds_alloc*sizeof(RECT));
-        }
-        wnds[numwnds++] = wnd;
-    }
     if (state.snap >= 2) {
         EnumWindows(EnumWindowsProc, 0);
     }
@@ -1004,8 +998,8 @@ static void RestoreOldWin(POINT *pt, int was_snapped, int index)
 
     // Set offset
     if (pt) {
-        state.offset.x = (state.origin.width  * (pt->x-wnd.left))/max(wnd.right-wnd.left,1);
-        state.offset.y = (state.origin.height * (pt->y-wnd.top)) /max(wnd.bottom-wnd.top,1);
+        state.offset.x = (state.origin.width  * (pt->x-wnd.left))/Imax(wnd.right-wnd.left,1);
+        state.offset.y = (state.origin.height * (pt->y-wnd.top)) /Imax(wnd.bottom-wnd.top,1);
     }
     if (state.origin.maximized || was_snapped == 1) {
         if(state.wndentry->restore & 2 || restore == 3) {
@@ -1675,8 +1669,8 @@ static int ActionTransparency(HWND hwnd, int delta)
     if (blacklisted(hwnd, &BlkLst.Windows))
         return 0;
 
-    int alpha_delta = (state.shift)?conf.AlphaDeltaShift:conf.AlphaDelta;
-    alpha_delta = (delta > 0)? alpha_delta: -alpha_delta;
+    int alpha_delta = (state.shift)? conf.AlphaDeltaShift: conf.AlphaDelta;
+    alpha_delta *= sign(delta);
 
     LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
     if (alpha_delta < 0 && !(exstyle&WS_EX_LAYERED)) {
@@ -1686,10 +1680,10 @@ static int ActionTransparency(HWND hwnd, int delta)
 
     BYTE old_alpha;
     if (GetLayeredWindowAttributes(hwnd, NULL, &old_alpha, NULL)) {
-         alpha = old_alpha; // If possible start from the actual aplha.
+         alpha = old_alpha; // If possible start from the current aplha.
     }
 
-    alpha = CLAMP(conf.MinAlpha, alpha+alpha_delta, 255);
+    alpha = CLAMP(conf.MinAlpha, alpha+alpha_delta, 255); // Limit alpha
 
     if (alpha >= 255)
         SetWindowLongPtr(hwnd, GWL_EXSTYLE, exstyle & ~WS_EX_LAYERED);
@@ -2586,7 +2580,7 @@ static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         } else if (wParam == SPEED_TIMER) {
             static POINT oldpt;
             static int has_moved_to_fixed_pt;
-            if(state.moving) state.Speed=max(abs(oldpt.x-state.prevpt.x), abs(oldpt.y-state.prevpt.y));
+            if(state.moving) state.Speed=Imax(abs(oldpt.x-state.prevpt.x), abs(oldpt.y-state.prevpt.y));
             else state.Speed=0;
             oldpt = state.prevpt;
             if(state.moving && state.Speed == 0 && !has_moved_to_fixed_pt && !MM_THREAD_ON) {

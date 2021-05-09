@@ -526,4 +526,12 @@ static DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
     return ret? pid: 0;
 }
 
+/* Helper function to call SetWindowPos with the SWP_ASYNCWINDOWPOS flag */
+static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height, BOOL flag)
+{
+    flag = (!flag) * SWP_NOREDRAW;
+    return SetWindowPos(hwnd, NULL, posx, posy, width, height
+                      , SWP_NOACTIVATE|SWP_NOREPOSITION|SWP_ASYNCWINDOWPOS|flag);
+}
+
 #endif

@@ -234,9 +234,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         // Hide cursorwnd if clicked on, this might happen if
         // it wasn't hidden by hooks.c for some reason
         ShowWindow(hwnd, SW_HIDE);
-    } else if (msg == WM_PAINT && wParam) {
-        return 0;
-    } else if (msg == WM_ERASEBKGND && wParam) {
+    } else if (wParam && (msg == WM_PAINT || msg == WM_ERASEBKGND || msg == WM_NCPAINT)) {
         return 0;
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);

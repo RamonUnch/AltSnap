@@ -737,8 +737,7 @@ static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR mo
 
     SetWindowPlacement(hwnd, &wndpl);
     if (sw_cmd == SW_FULLSCREEN) {
-        SetWindowPos(hwnd, NULL, fmon.left, fmon.top, fmon.right-fmon.left, fmon.bottom-fmon.top
-                   ,  SWP_NOACTIVATE|SWP_NOREPOSITION|SWP_ASYNCWINDOWPOS);
+        MoveWindowAsync(hwnd, fmon.left, fmon.top, fmon.right-fmon.left, fmon.bottom-fmon.top, TRUE);
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -985,10 +984,11 @@ static void RestoreOldWin(POINT *pt, int was_snapped, int index)
     int restore = 0;
 
     if (state.wndentry->restore & index) {
+        // Set origin width and height to the saved values
         restore = state.wndentry->restore;
         state.origin.width = state.wndentry->width;
         state.origin.height = state.wndentry->height;
-        state.wndentry->restore = 0;
+        state.wndentry->restore = 0; // and clear restore flag
     }
 
     POINT mdiclientpt = { 0, 0 };
@@ -998,8 +998,10 @@ static void RestoreOldWin(POINT *pt, int was_snapped, int index)
 
     // Set offset
     if (pt) {
-        state.offset.x = (state.origin.width  * (pt->x-wnd.left))/Imax(wnd.right-wnd.left,1);
-        state.offset.y = (state.origin.height * (pt->y-wnd.top)) /Imax(wnd.bottom-wnd.top,1);
+        state.offset.x = (state.origin.width  * Imin(pt->x-wnd.left, wnd.right-wnd.left))
+                        / Imax(wnd.right-wnd.left,1);
+        state.offset.y = (state.origin.height * Imin(pt->y-wnd.top, wnd.bottom-wnd.top))
+                       / Imax(wnd.bottom-wnd.top,1);
     }
     if (state.origin.maximized || was_snapped == 1) {
         if(state.wndentry->restore & 2 || restore == 3) {
@@ -1046,7 +1048,7 @@ static void MouseMove(POINT pt)
     if (!state.hwnd || !IsWindow(state.hwnd))
         { LastWin.hwnd = NULL; UnhookMouse(); return; }
 
-    if(conf.UseCursor) MoveWindow(g_mainhwnd, pt.x-128, pt.y-128, 256, 256, FALSE);
+    if(conf.UseCursor) MoveWindowAsync(g_mainhwnd, pt.x-128, pt.y-128, 256, 256, FALSE);
 
     if(state.moving == CURSOR_ONLY) return; // Movement blocked...
 
@@ -1306,6 +1308,9 @@ static int ActionPause(HWND hwnd, char pause)
 // Kill the process from hwnd
 static DWORD WINAPI ActionKillThread(LPVOID hwnd)
 {
+    if(!hwnd || blacklistedP(hwnd, &BlkLst.Pause))
+       return 0;
+
     DWORD pid;
     GetWindowThreadProcessId(hwnd, &pid);
 
@@ -1319,9 +1324,6 @@ static DWORD WINAPI ActionKillThread(LPVOID hwnd)
 }
 static int ActionKill(HWND hwnd)
 {
-    if(!hwnd || blacklistedP(hwnd, &BlkLst.Pause))
-       return 0;
-
     DWORD lpThreadId;
     HANDLE thread;
     thread = CreateThread(NULL, 0, ActionKillThread, hwnd, 0, &lpThreadId);
@@ -1540,7 +1542,8 @@ static int ActionAltTab(POINT pt, int delta)
                     if (delta > 0) {
                         PostMessage(mdiclient, WM_MDIACTIVATE, (WPARAM) hwnds[numhwnds-1], 0);
                     } else {
-                        SetWindowPos(hwnds[0], hwnds[numhwnds-1], 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
+                        SetWindowPos(hwnds[0], hwnds[numhwnds-1], 0, 0, 0, 0
+                                   , SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
                         PostMessage(mdiclient, WM_MDIACTIVATE, (WPARAM) hwnds[1], 0);
                     }
                 }
@@ -1561,7 +1564,8 @@ static int ActionAltTab(POINT pt, int delta)
         if (delta > 0) {
             SetForegroundWindow(hwnds[numhwnds-1]);
         } else {
-            SetWindowPos(hwnds[0], hwnds[numhwnds-1], 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
+            SetWindowPos(hwnds[0], hwnds[numhwnds-1], 0, 0, 0, 0
+                      , SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
             SetForegroundWindow(hwnds[1]);
         }
     }
@@ -1700,14 +1704,14 @@ static int ActionLower(POINT pt, HWND hwnd, int delta)
             Maximize_Restore_atpt(hwnd, &pt, SW_TOGGLE_MAX_RESTORE, NULL);
         } else {
             SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
-            SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
+            SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
             if(conf.AutoFocus) SetForegroundWindow(hwnd);
         }
     } else {
         if (state.shift) {
             PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
         } else {
-            SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
+            SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
         }
     }
     return -1;
@@ -1970,7 +1974,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon, int bu
             wndwidth += bd.left+bd.right; wndheight += bd.top+bd.bottom;
         }
 
-        MoveWindow(state.hwnd, posx, posy, wndwidth, wndheight, TRUE);
+        MoveWindowAsync(state.hwnd, posx, posy, wndwidth, wndheight, TRUE);
 
         if (!state.wndentry->restore) {
             state.wndentry->width = state.origin.width;
@@ -2010,11 +2014,11 @@ static void ActionBorderless(HWND hwnd)
         RECT rc;
         GetWindowRect(hwnd, &rc);
         SetWindowPos(hwnd, NULL, rc.left, rc.top, rc.right-rc.left+1, rc.bottom-rc.top
-                   , SWP_NOMOVE|SWP_FRAMECHANGED|SWP_NOZORDER);
+                   , SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_FRAMECHANGED|SWP_NOZORDER);
         SetWindowPos(hwnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top
-                   , SWP_NOMOVE|SWP_NOZORDER);
+                   , SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_NOZORDER);
     } else {
-        SetWindowPos(hwnd, NULL, 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE|SWP_FRAMECHANGED|SWP_NOZORDER);
+        SetWindowPos(hwnd, NULL, 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_NOSIZE|SWP_FRAMECHANGED|SWP_NOZORDER);
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -2066,7 +2070,7 @@ static void SClicActions(HWND hwnd, enum action action)
         CenterWindow(hwnd);
     } else if (action == AC_ALWAYSONTOP) {
         LONG_PTR topmost = GetWindowLongPtr(hwnd,GWL_EXSTYLE)&WS_EX_TOPMOST;
-        SetWindowPos(hwnd, (topmost?HWND_NOTOPMOST:HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE);
+        SetWindowPos(hwnd, (topmost?HWND_NOTOPMOST:HWND_TOPMOST), 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_NOSIZE);
     } else if (action == AC_BORDERLESS) {
         ActionBorderless(hwnd);
     } else if (action == AC_CLOSE) {
@@ -2075,7 +2079,7 @@ static void SClicActions(HWND hwnd, enum action action)
         if (state.shift) {
             PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
         } else {
-            SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
+            SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
         }
     } else if (action == AC_ROLL) {
         RollWindow(hwnd, 0);
@@ -2206,7 +2210,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 
     // Update cursor
     if (conf.UseCursor && g_mainhwnd && hcursor) {
-        MoveWindow(g_mainhwnd, pt.x-20, pt.y-20, 41, 41, FALSE);
+        MoveWindowAsync(g_mainhwnd, pt.x-20, pt.y-20, 41, 41, FALSE);
         SetClassLongPtr(g_mainhwnd, GCLP_HCURSOR, (LONG_PTR)hcursor);
         ShowWindowAsync(g_mainhwnd, SW_SHOWNA);
     }
@@ -2240,7 +2244,7 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
                 if(hwnd == GetAncestor(GetForegroundWindow(), GA_ROOT)) {
                     SetForegroundWindow(GetWindow(hwnd, GW_HWNDPREV));
                 }
-                SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
+                SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
             }
             return 1;
         } else if (conf.NormRestore && wParam == WM_LBUTTONDOWN && area == HTCAPTION
@@ -2271,7 +2275,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
         return ScrollPointedWindow(pt, msg->mouseData, wParam);
     } else if(!state.alt || state.action != conf.GrabWithAlt
           || (conf.GrabWithAlt && !IsSamePTT(pt, state.clickpt)) ) {
-        return -1; // continue if no actions to be made
+        return 0; // continue if no actions to be made
     }
 
     // Get pointed window
@@ -2325,10 +2329,10 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
             RollWindow(hwnd, delta);
         }
         // Block original scroll event
-        state.blockaltup = 1;
+        state.blockaltup = 1; // and AltUp
         return 1;
     }
-    return -1;
+    return 0; // Call Next Hook
 }
 /////////////////////////////////////////////////////////////////////////////
 // Called on MouseUp and on AltUp when using GrabWithAlt

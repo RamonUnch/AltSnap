@@ -202,7 +202,7 @@ Note that this version has some more feature..
 
 + New: SSizeMove blacklist was added in the [Blacklist] section of the ini.
   Any windows added in this list will NOT receive the WM_ENTERSIZEMOVE and
-  WM_EXITSIZEMOVE messages when ùoved or resized. This is useful for some
+  WM_EXITSIZEMOVE messages when moved or resized. This is useful for some
   buggy applications such as iTunes (default value is *|iTunes).
 
 + New: AltDrag.xml file that can be imported from the Task Scheduler in

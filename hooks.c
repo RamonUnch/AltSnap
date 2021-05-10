@@ -748,6 +748,7 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
     HWND hwnd;
     struct windowRR *lw = LastWinV;
     hwnd = lw->hwnd;
+
     if(lw->end && conf.FullWin) Sleep(conf.RefreshRate+5);
 
     ret = SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height
@@ -876,15 +877,16 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
 ///////////////////////////////////////////////////////////////////////////
 static RECT GetMonitorRect(POINT *pt, int full)
 {
-    MONITORINFO mi = { sizeof(MONITORINFO) };
-    POINT ptt;
-    if (pt) ptt=*pt;
-    else GetCursorPos(&ptt);
-    GetMonitorInfo(MonitorFromPoint(ptt, MONITOR_DEFAULTTONEAREST), &mi);
     if (state.mdiclient) {
-        if (GetClientRect(state.mdiclient, &mi.rcMonitor))
-            return mi.rcMonitor;
+        RECT mdirect;
+        if (GetClientRect(state.mdiclient, &mdirect))
+            return mdirect;
     }
+
+    POINT ptt;
+    if (pt) ptt=*pt; else GetCursorPos(&ptt);
+    MONITORINFO mi = { sizeof(MONITORINFO) };
+    GetMonitorInfo(MonitorFromPoint(ptt, MONITOR_DEFAULTTONEAREST), &mi);
 
     return full? mi.rcMonitor : mi.rcWork;
 }
@@ -892,9 +894,8 @@ static RECT GetMonitorRect(POINT *pt, int full)
 static int AeroResizeSnap(POINT pt, int *posx, int *posy
                          , int *wndwidth, int *wndheight, RECT *mon_)
 {
-    // return if last resizing is not finished or no Aero or moving too fast
-    if(!conf.Aero || MM_THREAD_ON || state.Speed > (int)conf.AeroMaxSpeed)
-        return 0;
+    // return if last resizing is not finished
+    if(!conf.Aero || MM_THREAD_ON) return 0;
 
     static RECT borders = {0, 0, 0, 0};
     static RECT mon;
@@ -917,6 +918,9 @@ static int AeroResizeSnap(POINT pt, int *posx, int *posy
     if (state.wndentry->restore == 1) {
         state.wndentry->width = state.origin.width;
         state.wndentry->height = state.origin.height;
+        
+        // If we go too fast then donot move the window
+        if(state.Speed > (int)conf.AeroMaxSpeed) return 1;
         if(conf.FullWin) {
             MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
             return 1;
@@ -998,9 +1002,9 @@ static void RestoreOldWin(POINT *pt, int was_snapped, int index)
 
     // Set offset
     if (pt) {
-        state.offset.x = (state.origin.width  * Imin(pt->x-wnd.left, wnd.right-wnd.left))
+        state.offset.x = state.origin.width  * Imin(pt->x-wnd.left, wnd.right-wnd.left)
                         / Imax(wnd.right-wnd.left,1);
-        state.offset.y = (state.origin.height * Imin(pt->y-wnd.top, wnd.bottom-wnd.top))
+        state.offset.y = state.origin.height * Imin(pt->y-wnd.top, wnd.bottom-wnd.top)
                        / Imax(wnd.bottom-wnd.top,1);
     }
     if (state.origin.maximized || was_snapped == 1) {
@@ -1021,8 +1025,8 @@ static void RestoreOldWin(POINT *pt, int was_snapped, int index)
                 , state.origin.width, state.origin.height
                 , SWP_NOZORDER|(pt? SWP_NOZORDER: SWP_NOMOVE));
     } else if (pt) {
-        state.offset.x = pt->x-wnd.left;
-        state.offset.y = pt->y-wnd.top;
+        state.offset.x = pt->x - wnd.left;
+        state.offset.y = pt->y - wnd.top;
     }
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -1378,6 +1382,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             // Alsays disable shift and ctrl, in case of Ctrl+Shift+ESC.
             state.ctrl = 0;
             state.shift = 0;
+            LastWin.hwnd = NULL;
             // Stop current action
             if (state.action || state.alt) {
                 int action = state.action;
@@ -1389,7 +1394,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
                 state.alt = 0;
                 state.alt1 = 0;
-                LastWin.hwnd = NULL;
 
                 UnhookMouse();
 
@@ -1703,8 +1707,8 @@ static int ActionLower(POINT pt, HWND hwnd, int delta)
         if (state.shift) {
             Maximize_Restore_atpt(hwnd, &pt, SW_TOGGLE_MAX_RESTORE, NULL);
         } else {
-            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
-            SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
+            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
+            SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
             if(conf.AutoFocus) SetForegroundWindow(hwnd);
         }
     } else {
@@ -2048,7 +2052,7 @@ static int IsFullscreen(HWND hwnd, RECT wnd, RECT fmon)
 static void CenterWindow(HWND hwnd)
 {
     RECT mon = GetMonitorRect(NULL, 0);
-    MoveWindow(hwnd
+    MoveWindowAsync(hwnd
         , mon.left+ ((mon.right-mon.left)-state.origin.width)/2
         , mon.top + ((mon.bottom-mon.top)-state.origin.height)/2
         , state.origin.width
@@ -2781,6 +2785,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     // CURSOR STUFF
     cursors[HAND]     = LoadCursor(NULL, conf.UseCursor>1? IDC_ARROW: IDC_HAND);
+    if(!cursors[HAND]) cursors[HAND] = LoadCursor(NULL, IDC_ARROW); // Fallback
     cursors[SIZENWSE] = LoadCursor(NULL, IDC_SIZENWSE);
     cursors[SIZENESW] = LoadCursor(NULL, IDC_SIZENESW);
     cursors[SIZENS]   = LoadCursor(NULL, IDC_SIZENS);

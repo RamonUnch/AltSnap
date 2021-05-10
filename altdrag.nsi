@@ -43,6 +43,7 @@ Section
     # define what to install and place it in the output path
     File AltDrag.exe
     File AltDrag.txt
+    File AltDrag.xml
     File hooks.dll
     File License.txt
     SetOutPath $INSTDIR\Lang
@@ -86,7 +87,7 @@ Section
     ; Compute size for uninstall information
     ;${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
     ;IntFmt $0 "0x%08X" $0
-    WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "EstimatedSize" "286"
+    WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "EstimatedSize" "330"
 
 SectionEnd
 
@@ -126,6 +127,7 @@ Section "Uninstall"
     # now delete installed file
     Delete AltDrag.exe
     Delete AltDrag.txt
+    Delete AltDrag.xml
     Delete AltDrag.ini
     Delete AltDrag-old.ini
     Delete hooks.dll

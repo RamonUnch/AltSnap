@@ -503,7 +503,8 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         { IDC_MMB, L"MMB" },
         { IDC_RMB, L"RMB" },
         { IDC_MB4, L"MB4" },
-        { IDC_MB5, L"MB5" },};
+        { IDC_MB5, L"MB5" },
+    };
 
     struct action {
         wchar_t *action;

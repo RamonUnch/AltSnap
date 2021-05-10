@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTDRAG for NT4 to Win10                         *
 *   Modified by Raymond Gillibert from original source by Stefan Sundin   *
-*                       release 1.43 (May XX, 2021)                       *
+*                       release 1.43 (May 10, 2021)                       *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltDrag/releases/         *
@@ -178,6 +178,7 @@ You will see a new Icon in the tray
 - You can hide the icon if you want. To show it again relaunch AltDrag.exe
 
 More at: https://stefansundin.github.io/altdrag/doc/usage.html
+AltDrag Wiki: https://github.com/RamonUnch/AltDrag/wiki
 Note that this version has some more feature..
 
 ===========================================================================
@@ -185,33 +186,47 @@ Note that this version has some more feature..
 
 == AltDrag 1.43 ==
 
++ New Wiki for altdrag usage: https://github.com/RamonUnch/AltDrag/wiki
+
 + New: An option to make the window translucent while dragging was added.
   See MoveTrans in the [General] section of AltDrag.ini. You can change it
-  via the Advanced tab, using the Opacity while moving option, from 1-254.
+  via the Advanced tab, using the opacity while moving option, from 1-254.
   Use 255, 0 or an empty value to disable (default).
 
 + Now the AeroMaxSpeed calculus is based on a timer rather than the number
   of mouse frames. The time intervals for the measurement can be specified
   using the AeroSpeedTau variable in milliseconds in the [Advanced] section
   of AltDrag.ini (default 32ms). The max speed can now be specified in the
-  Advanced tab of the config. Good values are around 10-100px/32ms.
-  Use 65535 or an empty value to disable (default).
+  Advanced tab of the config. Good values are around 10-100px/32ms. Use
+  65535 or an empty value to disable (default). recomended: 64px/32ms.
 
 + New: SSizeMove blacklist was added in the [Blacklist] section of the ini.
   Any windows added in this list will NOT receive the WM_ENTERSIZEMOVE and
-  WM_EXITSIZEMOVE messages when moving or resizing. This is useful for some
+  WM_EXITSIZEMOVE messages when ùoved or resized. This is useful for some
   buggy applications such as iTunes (default value is *|iTunes).
 
 + New: AltDrag.xml file that can be imported from the Task Scheduler in
   order to setup auto start in elevated mode.
 
-* Fixed: a snapped, then maximized window will be restored to its original
-  size when alt-dragging it out of maximized state.
-
-* Updated Spanish translation by *Carlos Sánchez*.
++ Updated Spanish translation by *Carlos Sánchez*.
 
 * Now an AMD64 build of AltDrag, can be compiled. builds are not provided
   because there are no real benefits for now (use mk64.bat).
+
+* Removed dependency to msvcrt.dll. This avoids some mess and reduce the
+  suspiciousness of the AltDrag.exe file to antiviruses. This also reduces
+  the size of the exe.
+
+* Fixed: Windows borders will now properly snap to taskbar on the second
+  monitor. Instead of looking for the taskbars, I chose to look tor the
+  rcWork field of the monitor info that directly contains the area in which
+  windows should be sanpped. This also simplifies the code.
+
+* Fixed: a snapped, then maximized window will be restored to its original
+  size when alt-dragging it out of maximized state. If a windows like this
+  is restored by double-click, then it will be restored to the previously
+  snapped state and its normal position will be restored only when moving
+  it out of its maximized state like expected.
 
 * Fixed: Now the ESC key will always release Ctrl and Shift.
 
@@ -219,10 +234,6 @@ Note that this version has some more feature..
 
 * Fixed strange cropping bug that occasionally occurred with Chromium based
   Programs such as several Browsers and VSCode.
-
-* Removed dependency to msvcrt.dll. This avoids some mess and reduce the
-  suspiciousness of the AltDrag.exe file to antiviruses. This also reduces
-  the size of the exe.
 
 * Fixed potential segmentation fault in the `Enum` code.
 

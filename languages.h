@@ -309,7 +309,7 @@ struct strings en_US = {
  /* code               */ L"en-US",
  /* lang_english       */ L"English",
  /* lang               */ L"English",
- /* author             */ L"Stefan Sundin",
+ /* author             */ L"Stefan Sundin, RamonUnch",
 
  /* === app === */
  /* menu */

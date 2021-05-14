@@ -1983,8 +1983,10 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon, int bu
         if (!state.wndentry->restore) {
             state.wndentry->width = state.origin.width;
             state.wndentry->height = state.origin.height;
-            state.wndentry->restore = 1;
         }
+        // Set restore flag to 1 in all cases, so that rolled window
+        // restore to the pre-rolled state when snapped out.
+        state.wndentry->restore = 1;
 
         // Prevent mousedown from propagating
         return 1;

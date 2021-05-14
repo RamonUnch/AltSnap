@@ -1052,7 +1052,7 @@ static void MouseMove(POINT pt)
     if (!state.hwnd || !IsWindow(state.hwnd))
         { LastWin.hwnd = NULL; UnhookMouse(); return; }
 
-    if(conf.UseCursor) MoveWindowAsync(g_mainhwnd, pt.x-128, pt.y-128, 256, 256, FALSE);
+    if(conf.UseCursor) MoveWindow(g_mainhwnd, pt.x-128, pt.y-128, 256, 256, FALSE);
 
     if(state.moving == CURSOR_ONLY) return; // Movement blocked...
 
@@ -2214,7 +2214,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 
     // Update cursor
     if (conf.UseCursor && g_mainhwnd && hcursor) {
-        MoveWindowAsync(g_mainhwnd, pt.x-20, pt.y-20, 41, 41, FALSE);
+        MoveWindow(g_mainhwnd, pt.x-20, pt.y-20, 41, 41, FALSE);
         SetClassLongPtr(g_mainhwnd, GCLP_HCURSOR, (LONG_PTR)hcursor);
         ShowWindowAsync(g_mainhwnd, SW_SHOWNA);
     }

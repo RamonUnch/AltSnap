@@ -255,14 +255,14 @@ static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
         if(hMonitor) return myGetMonitorInfoW(hMonitor, lpmi);
     }
     static int saved=0;
-    static RECT TaskbarRC, DesktopRC;
+    static RECT rcWork, rcMonitor;
     if (!saved) {
-        GetClientRect(GetDesktopWindow(), &DesktopRC);
-        GetClientRect(FindWindow(L"Shell_TrayWnd", L""), &TaskbarRC);
+        GetClientRect(GetDesktopWindow(), &rcMonitor);
+        SystemParametersInfo(SPI_GETWORKAREA, 0, &rcWork, 0);
         saved=1;
     }
-    lpmi->rcWork = lpmi->rcMonitor = DesktopRC;
-    lpmi->rcWork.bottom -= TaskbarRC.bottom - TaskbarRC.top + 6;
+    lpmi->rcMonitor = rcMonitor;
+    lpmi->rcWork = rcWork;
     lpmi->dwFlags = MONITORINFOF_PRIMARY;
 
     return TRUE;

@@ -219,7 +219,7 @@ HHOOK mousehook = NULL;
 
 /////////////////////////////////////////////////////////////////////////////
 // wether a window is present or not in a blacklist
-static int blacklisted(HWND hwnd, struct blacklist *list)
+static pure int blacklisted(HWND hwnd, struct blacklist *list)
 {
     wchar_t title[256]=L"", classname[256]=L"";
     int i;
@@ -243,7 +243,7 @@ static int blacklisted(HWND hwnd, struct blacklist *list)
     }
     return 0;
 }
-static int blacklistedP(HWND hwnd, struct blacklist *list)
+static pure int blacklistedP(HWND hwnd, struct blacklist *list)
 {
     wchar_t title[256]=L"";
     int i;
@@ -285,7 +285,7 @@ static void SendSizeMove_on(enum action action, int on)
     if (action == AC_MOVE || action == AC_RESIZE) {
         // Don't send WM_ENTER/EXIT SIZEMOVE if the window is in SSizeMove BL
         if(!blacklisted(state.hwnd, &BlkLst.SSizeMove)) {
-            SendMessage(state.hwnd, on? WM_ENTERSIZEMOVE: WM_EXITSIZEMOVE, 0, 0);
+            PostMessage(state.hwnd, on? WM_ENTERSIZEMOVE: WM_EXITSIZEMOVE, 0, 0);
         }
     }
 }
@@ -365,10 +365,10 @@ static BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
             // Crop this window so that it does not exceed the size of the monitor
             // This is done because when maximized, windows have an extra invisible
             // border (a border that stretches onto other monitors)
-            wnd.left = Imax(wnd.left, mi.rcMonitor.left);
-            wnd.top = Imax(wnd.top, mi.rcMonitor.top);
-            wnd.right = Imin(wnd.right, mi.rcMonitor.right);
-            wnd.bottom = Imin(wnd.bottom, mi.rcMonitor.bottom);
+            wnd.left = max(wnd.left, mi.rcMonitor.left);
+            wnd.top = max(wnd.top, mi.rcMonitor.top);
+            wnd.right = min(wnd.right, mi.rcMonitor.right);
+            wnd.bottom = min(wnd.bottom, mi.rcMonitor.bottom);
         }
 
         // Return if this window is overlapped by another window
@@ -765,12 +765,28 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 
     return !ret;
 }
+///////////////////////////////////////////////////////////////////////////
+static RECT GetMonitorRect(POINT *pt, int full)
+{
+    if (state.mdiclient) {
+        RECT mdirect;
+        if (GetClientRect(state.mdiclient, &mdirect))
+            return mdirect;
+    }
+
+    POINT ptt;
+    if (pt) ptt=*pt; else GetCursorPos(&ptt);
+    MONITORINFO mi = { sizeof(MONITORINFO) };
+    GetMonitorInfo(MonitorFromPoint(ptt, MONITOR_DEFAULTTONEAREST), &mi);
+
+    return full? mi.rcMonitor : mi.rcWork;
+}
 
 ///////////////////////////////////////////////////////////////////////////
 #define AERO_TH conf.AeroThreshold
 #define MM_THREAD_ON (LastWin.hwnd && conf.FullWin)
 static int AeroMoveSnap(POINT pt, int *posx, int *posy
-                      , int *wndwidth, int *wndheight, RECT mon)
+                      , int *wndwidth, int *wndheight, RECT *_mon)
 {
     // Return if moving too fast...
     // return if last resizing is not finished or no Aero or not resizable.
@@ -778,6 +794,9 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
     static int resizable=1;
     if (!resizable) return 0;
     if (!state.moving && !(resizable=IsResizable(state.hwnd)) ) return 0;
+
+    // We have to check the monitor for each pt...
+    RECT mon = _mon? *_mon: GetMonitorRect(&pt, 0);
 
     int Left  = mon.left   + 2*AERO_TH ;
     int Right = mon.right  - 2*AERO_TH ;
@@ -875,22 +894,6 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy
     return 0;
 }
 ///////////////////////////////////////////////////////////////////////////
-static RECT GetMonitorRect(POINT *pt, int full)
-{
-    if (state.mdiclient) {
-        RECT mdirect;
-        if (GetClientRect(state.mdiclient, &mdirect))
-            return mdirect;
-    }
-
-    POINT ptt;
-    if (pt) ptt=*pt; else GetCursorPos(&ptt);
-    MONITORINFO mi = { sizeof(MONITORINFO) };
-    GetMonitorInfo(MonitorFromPoint(ptt, MONITOR_DEFAULTTONEAREST), &mi);
-
-    return full? mi.rcMonitor : mi.rcWork;
-}
-///////////////////////////////////////////////////////////////////////////
 static int AeroResizeSnap(POINT pt, int *posx, int *posy
                          , int *wndwidth, int *wndheight, RECT *mon_)
 {
@@ -918,7 +921,7 @@ static int AeroResizeSnap(POINT pt, int *posx, int *posy
     if (state.wndentry->restore == 1) {
         state.wndentry->width = state.origin.width;
         state.wndentry->height = state.origin.height;
-        
+
         // If we go too fast then donot move the window
         if(state.Speed > (int)conf.AeroMaxSpeed) return 1;
         if(conf.FullWin) {
@@ -1002,10 +1005,10 @@ static void RestoreOldWin(POINT *pt, int was_snapped, int index)
 
     // Set offset
     if (pt) {
-        state.offset.x = state.origin.width  * Imin(pt->x-wnd.left, wnd.right-wnd.left)
-                        / Imax(wnd.right-wnd.left,1);
-        state.offset.y = state.origin.height * Imin(pt->y-wnd.top, wnd.bottom-wnd.top)
-                       / Imax(wnd.bottom-wnd.top,1);
+        state.offset.x = state.origin.width  * min(pt->x-wnd.left, wnd.right-wnd.left)
+                        / max(wnd.right-wnd.left,1);
+        state.offset.y = state.origin.height * min(pt->y-wnd.top, wnd.bottom-wnd.top)
+                       / max(wnd.bottom-wnd.top,1);
     }
     if (state.origin.maximized || was_snapped == 1) {
         if(state.wndentry->restore & 2 || restore == 3) {
@@ -1066,16 +1069,23 @@ static void MouseMove(POINT pt)
     static RECT wnd;
     if (!state.moving && !GetWindowRect(state.hwnd, &wnd)) return;
 
-    RECT mdimon;
-    POINT mdiclientpt = { 0, 0 };
+    RECT *_curentmon = NULL;
+    static RECT mdimon;
+    static POINT mdiclientpt;
     if (state.mdiclient) { // MDI
-        if (!GetClientRect(state.mdiclient, &mdimon)
-         || !ClientToScreen(state.mdiclient, &mdiclientpt)) {
-            return;
+        if(!state.moving) {
+            mdiclientpt.x = mdiclientpt.y = 0;
+            if (!GetClientRect(state.mdiclient, &mdimon)
+             || !ClientToScreen(state.mdiclient, &mdiclientpt)) {
+                _curentmon = &mdimon;
+                return;
+            }
         }
         // Convert pt in MDI coordinates.
         pt.x -= mdiclientpt.x;
         pt.y -= mdiclientpt.y;
+    } else {
+        mdiclientpt = (POINT) { 0, 0 };
     }
 
     // Restrict pt within origin monitor if Ctrl|Shift is being pressed
@@ -1108,7 +1118,7 @@ static void MouseMove(POINT pt)
         // Check if the window will snap anywhere
         if (state.snap) MoveSnap(&posx, &posy, wndwidth, wndheight);
         int ret = AeroMoveSnap(pt, &posx, &posy, &wndwidth, &wndheight
-                       , state.mdiclient? mdimon: GetMonitorRect(&pt, 0));
+                       , _curentmon);
         if ( ret == 1) { state.moving = 1; return; }
 
         // Restore window if maximized when starting
@@ -1203,8 +1213,7 @@ static void MouseMove(POINT pt)
             if (state.snap) {
                 ResizeSnap(&posx, &posy, &wndwidth, &wndheight);
             }
-            if(AeroResizeSnap(pt, &posx, &posy, &wndwidth
-                  , &wndheight, state.mdiclient? &mdimon: NULL))
+            if(AeroResizeSnap(pt, &posx, &posy, &wndwidth, &wndheight, _curentmon))
                 return;
         }
     }
@@ -1984,8 +1993,6 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon, int bu
             state.wndentry->width = state.origin.width;
             state.wndentry->height = state.origin.height;
         }
-        // Set restore flag to 1 in all cases, so that rolled window
-        // restore to the pre-rolled state when snapped out.
         state.wndentry->restore = 1;
 
         // Prevent mousedown from propagating
@@ -2168,7 +2175,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
 
     // AutoFocus
-    if (conf.AutoFocus) { SetForegroundWindow(state.hwnd); }
+    if (conf.AutoFocus || (state.ctrl && !state.ignorectrl)) { SetForegroundWindow(state.hwnd); }
 
     // Do things depending on what button was pressed
     HCURSOR hcursor = NULL;
@@ -2521,7 +2528,7 @@ static void HookMouse()
 {
     state.moving = 0; // Used to know the first time we call MouseMove.
     if (conf.keepMousehook) {
-        SendMessage(g_timerhwnd, WM_TIMER, REHOOK_TIMER, 0);
+        PostMessage(g_timerhwnd, WM_TIMER, REHOOK_TIMER, 0);
     }
 
     // Check if mouse is already hooked
@@ -2590,7 +2597,7 @@ static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         } else if (wParam == SPEED_TIMER) {
             static POINT oldpt;
             static int has_moved_to_fixed_pt;
-            if(state.moving) state.Speed=Imax(abs(oldpt.x-state.prevpt.x), abs(oldpt.y-state.prevpt.y));
+            if(state.moving) state.Speed=max(abs(oldpt.x-state.prevpt.x), abs(oldpt.y-state.prevpt.y));
             else state.Speed=0;
             oldpt = state.prevpt;
             if(state.moving && state.Speed == 0 && !has_moved_to_fixed_pt && !MM_THREAD_ON) {
@@ -2736,7 +2743,6 @@ static void readhotkeys(const wchar_t *inipath, const wchar_t *name, const wchar
         HK->keys[HK->length++] = whex2u(pos);
         pos +=3;
     }
-
 }
 ///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.
@@ -2816,6 +2822,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {NULL}
     };
     int i;
+    int action_menu_load = 0;
     for (i=0; buttons[i].key != NULL; i++) {
         GetPrivateProfileString(L"Input", buttons[i].key, buttons[i].def, txt, ARR_SZ(txt), inipath);
         if      (!wcsicmp(txt,L"Move"))         *buttons[i].ptr = AC_MOVE;
@@ -2831,7 +2838,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         else if (!wcsicmp(txt,L"Volume"))       *buttons[i].ptr = AC_VOLUME;
         else if (!wcsicmp(txt,L"Transparency")) *buttons[i].ptr = AC_TRANSPARENCY;
         else if (!wcsicmp(txt,L"Roll"))         *buttons[i].ptr = AC_ROLL;
-        else if (!wcsicmp(txt,L"Menu"))         *buttons[i].ptr = AC_MENU;
+        else if (!wcsicmp(txt,L"Menu"))       { *buttons[i].ptr = AC_MENU ; action_menu_load=1; }
         else if (!wcsicmp(txt,L"Kill"))         *buttons[i].ptr = AC_KILL;
         else                                    *buttons[i].ptr = AC_NONE;
     }
@@ -2869,17 +2876,18 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     SetTimer(g_timerhwnd, INIT_TIMER, 10, NULL);
 
     // Window for Action Menu
-    WNDCLASSEX wnd2 = { sizeof(WNDCLASSEX), 0, SClickWindowProc, 0, 0, hinstDLL
-                     , NULL, NULL, NULL, NULL, APP_NAME"-SClick", NULL };
-    RegisterClassEx(&wnd2);
-    g_mchwnd = CreateWindowEx(0, wnd2.lpszClassName, NULL, 0
-                     , 0, 0, 0 , 0, g_mainhwnd, NULL, hinstDLL, NULL);
-
+    if (action_menu_load) {
+        WNDCLASSEX wnd2 = { sizeof(WNDCLASSEX), 0, SClickWindowProc, 0, 0, hinstDLL
+                         , NULL, NULL, NULL, NULL, APP_NAME"-SClick", NULL };
+        RegisterClassEx(&wnd2);
+        g_mchwnd = CreateWindowEx(0, wnd2.lpszClassName, NULL, 0
+                         , 0, 0, 0 , 0, g_mainhwnd, NULL, hinstDLL, NULL);
+    }
     // [Blacklist]
     readblacklist(inipath, &BlkLst.Processes, L"Processes", L"");
-    readblacklist(inipath, &BlkLst.Windows,   L"Windows",   L"|Shell_TrayWnd");
+    readblacklist(inipath, &BlkLst.Windows,   L"Windows",   L"");
     readblacklist(inipath, &BlkLst.Snaplist,  L"Snaplist",  L"");
-    readblacklist(inipath, &BlkLst.MDIs,      L"MDIs",      L"*|PPTFrameClass,*|MMCMainFrame");
+    readblacklist(inipath, &BlkLst.MDIs,      L"MDIs",      L"");
     readblacklist(inipath, &BlkLst.Pause,     L"Pause",     L"AltDrag.exe,taskmgr.exe,explorer.exe");
     readblacklist(inipath, &BlkLst.MMBLower,  L"MMBLower",  L"");
     readblacklist(inipath, &BlkLst.Scroll,    L"Scroll",    L"");

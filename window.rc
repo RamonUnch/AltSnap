@@ -79,9 +79,6 @@ BEGIN
     CONTROL       "",   IDC_AUTOSTART_HIDE,   "Button",BS_AUTOCHECKBOX|WS_TABSTOP,10,155,145,8
     CONTROL       "",   IDC_AUTOSTART_ELEVATE,"Button",BS_AUTOCHECKBOX|WS_TABSTOP,10,165,145,8
     DEFPUSHBUTTON "",   IDC_ELEVATE, 157,160,55,14
-
-    LTEXT         "",   IDC_AUTOSAVE,3,180,216,8
-
 END
 
 /////////////////////////////////////////////////////////////////////////////

@@ -59,7 +59,7 @@ static void wcscpy_resolve(wchar_t *__restrict__ dest, wchar_t *__restrict__ sou
 
 /////////////////////////////////////////////////////////////////////////////
 #define txt_len 1024
-static void LoadTranslation(wchar_t *__restrict__ ini)
+static void LoadTranslation(const wchar_t *__restrict__ ini)
 {
     wchar_t txt[txt_len];
     size_t i;

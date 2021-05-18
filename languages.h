@@ -68,7 +68,6 @@ struct strings {
   wchar_t *general_elevate;
   wchar_t *general_elevated;
   wchar_t *general_elevation_aborted;
-  wchar_t *general_autosave;
 
   // input
   // mouse
@@ -216,7 +215,6 @@ struct {
   { &l10n_ini.general_elevate,                 L"GeneralElevate" },
   { &l10n_ini.general_elevated,                L"GeneralElevated" },
   { &l10n_ini.general_elevation_aborted,       L"GeneralElevationAborted" },
-  { &l10n_ini.general_autosave,                L"GeneralAutosave" },
 
   { &l10n_ini.input_mouse_box,                 L"InputMouseBox" },
   { &l10n_ini.input_mouse_lmb,                 L"InputMouseLMB" },
@@ -357,7 +355,6 @@ struct strings en_US = {
  /* elevate            */ L"E&levate",
  /* elevated           */ L"Elevated",
  /* elevation_aborted  */ L"Elevation aborted.",
- /* autosave           */ L"Note: Settings are saved and applied instantly!",
 
  /* input tab */
  /* mouse */

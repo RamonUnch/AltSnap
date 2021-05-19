@@ -335,7 +335,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         HWND control = GetDlgItem(hwnd, id);
         int val = Button_GetCheck(control);
 
-        if (event == 0 ||  event == CBN_SELCHANGE) {
+        if (id != IDC_ELEVATE && (event == 0 ||  event == CBN_SELCHANGE)) {
             PropSheet_Changed(g_cfgwnd, hwnd);
             have_to_apply = 1;
         }
@@ -726,7 +726,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 
     if (msg == WM_INITDIALOG) {
         // Agressive Pause
-        ReadOptionInt(IDC_AGGRESSIVEPAUSE, L"Input",   L"RollWithTBScroll", 0, -1);
+        ReadOptionInt(IDC_AGGRESSIVEPAUSE, L"Input",   L"AggressivePause", 0, -1);
         Button_Enable(GetDlgItem(hwnd, IDC_AGGRESSIVEPAUSE), HaveProc("NTDLL.DLL", "NtResumeProcess"));
         ReadOptionInt(IDC_AGGRESSIVEKILL, L"Input", L"AggressiveKill", 0, -1);
         ReadOptionInt(IDC_KEYCOMBO,       L"Input", L"KeyCombo", 0, -1);
@@ -825,11 +825,11 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         Button_Enable(GetDlgItem(hwnd, IDC_PAUSEBL), haveProcessBL);
     } else if (msg == WM_COMMAND) {
         int control = LOWORD(wParam);
-
-        if (HIWORD(wParam) == EN_UPDATE) {
+        int id = HIWORD(wParam);
+        if (id == EN_UPDATE && control != IDC_NEWRULE && control != IDC_NEWPROGNAME) {
             PropSheet_Changed(g_cfgwnd, hwnd); // Enable the Apply Button
             have_to_apply = 1;
-        } else if (HIWORD(wParam) == STN_CLICKED && control == IDC_FINDWINDOW) {
+        } else if (id == STN_CLICKED && control == IDC_FINDWINDOW) {
             // Get size of workspace
             int left=0, top=0, width, height;
             if(GetSystemMetrics(SM_CMONITORS) >= 1) {
@@ -1034,10 +1034,11 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         int id = LOWORD(wParam);
         int event = HIWORD(wParam);
 
-        if (event == 0 || event == EN_UPDATE) {
+        if (id != IDC_TESTWINDOW && (event == 0 || event == EN_UPDATE)) {
             PropSheet_Changed(g_cfgwnd, hwnd);
             have_to_apply = 1;
-        } else if (id == IDC_TESTWINDOW) { // Click on the Test Window button
+        }
+        if (id == IDC_TESTWINDOW) { // Click on the Test Window button
             if (testwnd && IsWindow(testwnd)) {
                 return FALSE;
             }

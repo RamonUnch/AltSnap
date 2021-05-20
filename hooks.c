@@ -262,7 +262,7 @@ static pure int blacklistedP(HWND hwnd, struct blacklist *list)
     return 0;
 }
 // Limit x between l and h
-static xpure inline int CLAMP(int _l, int _x, int _h)
+static xpure int CLAMP(int _l, int _x, int _h)
 {
     return (_x<_l)? _l: ((_x>_h)? _h: _x);
 }
@@ -331,7 +331,8 @@ static BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT 
     // Add monitor
     MONITORINFO mi = { sizeof(MONITORINFO) };
     GetMonitorInfo(hMonitor, &mi);
-    monitors[nummonitors++] =  mi.rcWork; //*lprcMonitor;
+    CopyRect(&monitors[nummonitors++], &mi.rcWork); //*lprcMonitor;
+
     return TRUE;
 }
 
@@ -381,7 +382,7 @@ static BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
         }
 
         // Add window
-        wnds[numwnds++] = wnd;
+        CopyRect(&wnds[numwnds++], &wnd);
     }
     return TRUE;
 }
@@ -419,7 +420,7 @@ static void EnumMdi()
     // Add MDIClient as the monitor
     RECT wnd;
     if (GetClientRect(state.mdiclient, &wnd) != 0) {
-        monitors[nummonitors++] = wnd;
+        CopyRect(&monitors[nummonitors++], &wnd);
     }
     if (state.snap < 2) {
         return;
@@ -440,10 +441,9 @@ static void EnumMdi()
             wnds_alloc += 8;
             wnds = realloc(wnds, wnds_alloc*sizeof(RECT));
         }
-        if (GetWindowRectL(window,&wnd) != 0) {
-            wnds[numwnds++] =
-               (RECT) { wnd.left-mdiclientpt.x,  wnd.top-mdiclientpt.y
-                      , wnd.right-mdiclientpt.x, wnd.bottom-mdiclientpt.y };
+        if (GetWindowRectL(window, &wnd) != 0) {
+            OffsetRect(&wnd, -mdiclientpt.x, -mdiclientpt.y);
+            CopyRect(&wnds[numwnds++], &wnd);
         }
         window = GetWindow(window, GW_HWNDNEXT);
     }
@@ -475,14 +475,28 @@ static void Enum()
         EnumWindows(EnumWindowsProc, 0);
     }
 }
+// Pass NULL to reset Enum state and recalculate it
+// at the next non null ptr.
+static void EnumOnce(RECT *bd)
+{
+    static int enumed;
+    static RECT borders;
+    if (bd && !enumed) {
+        Enum(); // Enumerate monitors and windows
+        FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
+        enumed = 1;
+        CopyRect(bd, &borders);
+    } else if (bd && enumed) {
+        CopyRect(bd, &borders);
+    } else if (!bd) {
+        enumed = 0;
+    }
+}
 ///////////////////////////////////////////////////////////////////////////
 static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
 {
-    static RECT borders = {0, 0, 0, 0};
-    if(!state.moving) {
-        Enum(); // Enumerate monitors and windows
-        FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
-    }
+    RECT borders;
+    EnumOnce(&borders);
     if(state.Speed > (int)conf.AeroMaxSpeed) return;
 
     // thresholdx and thresholdy will shrink to make sure
@@ -581,11 +595,8 @@ static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
 ///////////////////////////////////////////////////////////////////////////
 static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 {
-    static RECT borders = {0, 0, 0, 0};
-    if(!state.moving) {
-        Enum(); // Enumerate monitors and windows
-        FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
-    }
+    RECT borders;
+    EnumOnce(&borders);
     if(state.Speed > (int)conf.AeroMaxSpeed) return;
 
     // thresholdx and thresholdy will shrink to make sure
@@ -601,11 +612,11 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 
         // Get snapwnd
         if (i < nummonitors) {
-            snapwnd = monitors[i];
+            CopyRect(&snapwnd, &monitors[i]);
             snapinside = 1;
             i++;
         } else if (j < numwnds) {
-            snapwnd = wnds[j];
+            CopyRect(&snapwnd, &wnds[j]);
             snapinside = (state.snap != 2);
             j++;
         }
@@ -722,7 +733,7 @@ static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR mo
         MONITORINFO mi = { sizeof(MONITORINFO) };
         GetMonitorInfo(monitor, &mi);
         RECT mon = mi.rcWork;
-        fmon = mi.rcMonitor;
+        CopyRect(&fmon, &mi.rcMonitor);
 
         // Center window on monitor, if needed
         if (monitor != wndmonitor) {
@@ -1248,7 +1259,7 @@ static void MouseMove(POINT pt)
         if (state.moving == 1)
             Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
 
-        oldRect=newRect; // oldRect is GLOBAL!
+        CopyRect(&oldRect, &newRect); // oldRect is GLOBAL!
         state.moving = 1;
 
     } else if (mouse_thread_finished) {
@@ -2182,6 +2193,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     if (action == AC_MOVE || action == AC_RESIZE) { ////////////////
         GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
         SetWindowTrans(state.hwnd);
+        EnumOnce(NULL); // Reset enum stuff
         if(conf.AeroMaxSpeed < 65000)
             SetTimer(g_timerhwnd, SPEED_TIMER, conf.AeroSpeedTau, NULL);
 

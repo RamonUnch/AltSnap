@@ -477,7 +477,7 @@ static void Enum()
 }
 // Pass NULL to reset Enum state and recalculate it
 // at the next non null ptr.
-static void EnumOnce(RECT *bd)
+static void EnumOnce(RECT **bd)
 {
     static int enumed;
     static RECT borders;
@@ -485,9 +485,9 @@ static void EnumOnce(RECT *bd)
         Enum(); // Enumerate monitors and windows
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
         enumed = 1;
-        CopyRect(bd, &borders);
+        *bd = &borders;
     } else if (bd && enumed) {
-        CopyRect(bd, &borders);
+        *bd = &borders;
     } else if (!bd) {
         enumed = 0;
     }
@@ -495,7 +495,7 @@ static void EnumOnce(RECT *bd)
 ///////////////////////////////////////////////////////////////////////////
 static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
 {
-    RECT borders;
+    RECT *borders;
     EnumOnce(&borders);
     if(state.Speed > (int)conf.AeroMaxSpeed) return;
 
@@ -528,25 +528,25 @@ static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
             if (*posx-thresholdx < snapwnd.right && snapwnd.right < *posx+thresholdx) {
                 // The left edge of the dragged window will snap to this window's right edge
                 stuckx = 1;
-                stickx = snapwnd.right - borders.left;
+                stickx = snapwnd.right - borders->left;
                 thresholdx = snapwnd.right-*posx;
             } else if (snapinside_cond && *posx+wndwidth-thresholdx < snapwnd.right
                     && snapwnd.right < *posx+wndwidth+thresholdx) {
                 // The right edge of the dragged window will snap to this window's right edge
                 stuckx = 1;
-                stickx = snapwnd.right + borders.right - wndwidth;
+                stickx = snapwnd.right + borders->right - wndwidth;
                 thresholdx = snapwnd.right-(*posx+wndwidth);
             } else if (snapinside_cond && *posx-thresholdx < snapwnd.left
                     && snapwnd.left < *posx+thresholdx) {
                 // The left edge of the dragged window will snap to this window's left edge
                 stuckx = 1;
-                stickx = snapwnd.left - borders.left;
+                stickx = snapwnd.left - borders->left;
                 thresholdx = snapwnd.left-*posx;
             } else if (*posx+wndwidth-thresholdx < snapwnd.left
                     && snapwnd.left < *posx+wndwidth+thresholdx) {
                 // The right edge of the dragged window will snap to this window's left edge
                 stuckx = 1;
-                stickx = snapwnd.left + borders.right -wndwidth;
+                stickx = snapwnd.left + borders->right -wndwidth;
                 thresholdx = snapwnd.left-(*posx+wndwidth);
             }
         }// end if posx snaps
@@ -559,25 +559,25 @@ static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
             if (*posy-thresholdy < snapwnd.bottom && snapwnd.bottom < *posy+thresholdy) {
                 // The top edge of the dragged window will snap to this window's bottom edge
                 stucky = 1;
-                sticky = snapwnd.bottom - borders.top;
+                sticky = snapwnd.bottom - borders->top;
                 thresholdy = snapwnd.bottom-*posy;
             } else if (snapinside_cond && *posy+wndheight-thresholdy < snapwnd.bottom
                     && snapwnd.bottom < *posy+wndheight+thresholdy) {
                 // The bottom edge of the dragged window will snap to this window's bottom edge
                 stucky = 1;
-                sticky = snapwnd.bottom + borders.bottom - wndheight;
+                sticky = snapwnd.bottom + borders->bottom - wndheight;
                 thresholdy = snapwnd.bottom-(*posy+wndheight);
             } else if (snapinside_cond && *posy-thresholdy < snapwnd.top
                     && snapwnd.top < *posy+thresholdy) {
                 // The top edge of the dragged window will snap to this window's top edge
                 stucky = 1;
-                sticky = snapwnd.top - borders.top;
+                sticky = snapwnd.top - borders->top;
                 thresholdy = snapwnd.top-*posy;
             } else if (*posy+wndheight-thresholdy < snapwnd.top
                     && snapwnd.top < *posy+wndheight+thresholdy) {
                 // The bottom edge of the dragged window will snap to this window's top edge
                 stucky = 1;
-                sticky = snapwnd.top-wndheight + borders.bottom;
+                sticky = snapwnd.top-wndheight + borders->bottom;
                 thresholdy = snapwnd.top-(*posy+wndheight);
             }
         } // end if posy snaps
@@ -595,7 +595,7 @@ static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
 ///////////////////////////////////////////////////////////////////////////
 static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 {
-    RECT borders;
+    RECT *borders;
     EnumOnce(&borders);
     if(state.Speed > (int)conf.AeroMaxSpeed) return;
 
@@ -691,18 +691,18 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 
     // Update posx, posy, wndwidth and wndheight
     if (stuckleft) {
-        *wndwidth = *wndwidth+*posx-stickleft + borders.left;
-        *posx = stickleft - borders.left;
+        *wndwidth = *wndwidth+*posx-stickleft + borders->left;
+        *posx = stickleft - borders->left;
     }
     if (stucktop) {
-        *wndheight = *wndheight+*posy-sticktop + borders.top;
-        *posy = sticktop - borders.top;
+        *wndheight = *wndheight+*posy-sticktop + borders->top;
+        *posy = sticktop - borders->top;
     }
     if (stuckright) {
-        *wndwidth = stickright-*posx + borders.right;
+        *wndwidth = stickright-*posx + borders->right;
     }
     if (stuckbottom) {
-        *wndheight = stickbottom-*posy + borders.bottom;
+        *wndheight = stickbottom-*posy + borders->bottom;
     }
 }
 
@@ -911,7 +911,7 @@ static int AeroResizeSnap(POINT pt, int *posx, int *posy
     // return if last resizing is not finished
     if(!conf.Aero || MM_THREAD_ON) return 0;
 
-    static RECT borders = {0, 0, 0, 0};
+    static RECT borders;
     static RECT mon;
     if(!state.moving) {
         if(!mon_) mon = GetMonitorRect(&pt, 0);

@@ -9,8 +9,8 @@
 #define _UNFUCK_NT_
 
 #include <windows.h>
-#include <stdio.h>
 #include <dwmapi.h>
+#include <stdio.h>
 #include "nanolibc.h"
 
 #ifdef WIN64
@@ -38,6 +38,7 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
 #endif
 
 #define LOG(X, ...) if(LOG_STUFF) { FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fclose(LOG); }
+#define LOGA(X, ...) { FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fclose(LOG); }
 
 /* Stuff missing in MinGW */
 #ifndef WM_MOUSEHWHEEL
@@ -261,8 +262,8 @@ static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
         SystemParametersInfo(SPI_GETWORKAREA, 0, &rcWork, 0);
         saved=1;
     }
-    lpmi->rcMonitor = rcMonitor;
-    lpmi->rcWork = rcWork;
+    CopyRect(&lpmi->rcMonitor, &rcMonitor);
+    CopyRect(&lpmi->rcWork,    &rcWork);
     lpmi->dwFlags = MONITORINFOF_PRIMARY;
 
     return TRUE;
@@ -376,7 +377,7 @@ static void FixDWMRect(HWND hwnd, int *posx, int *posy, int *wndwidth, int *wndh
         border.top = frame.top - rect.top;
         border.right = rect.right - frame.right;
         border.bottom = rect.bottom - frame.bottom;
-        if(bbb)  *bbb = border;
+        if(bbb)  CopyRect(bbb, &border);
         if(wndwidth) {
             *posx -= border.left;
             *posy -= border.top;
@@ -385,7 +386,8 @@ static void FixDWMRect(HWND hwnd, int *posx, int *posy, int *wndwidth, int *wndh
         }
         return;
     }
-    if(bbb) bbb->top = bbb->bottom = bbb->left = bbb->right = 0;
+    // bbb->left = bbb->right = bbb->top = bbb->bottom = 0;
+    if(bbb) SetRectEmpty(bbb);
 }
 
 /* This function is here because under Windows 10, the GetWindowRect function

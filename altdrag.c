@@ -16,7 +16,7 @@
 // App
 #define APP_NAME       L"AltDrag"
 #define APP_NAMEA      "AltDrag"
-#define APP_VERSION    "1.43"
+#define APP_VERSION    "1.44"
 
 // Messages
 #define SWM_TOGGLE     (WM_APP+1)
@@ -296,8 +296,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
         if (previnst) {
             LOG("Previous instance found and no -multi mode\n")
             PostMessage(previnst, WM_UPDATESETTINGS, 0, 0);
-            if(hide)   PostMessage(previnst, WM_CLOSECONFIG, 1, 0);
-            if(config) PostMessage(previnst, WM_OPENCONFIG, 1, 0);
+            if(hide)   PostMessage(previnst, WM_CLOSECONFIG, 0, 0);
+            if(config) PostMessage(previnst, WM_OPENCONFIG, 0, 0);
             PostMessage(previnst, hide? WM_HIDETRAY : WM_ADDTRAY, 0, 0);
             LOG("Updated old instance and NORMAL EXIT\n");
             return 0;
@@ -351,7 +351,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     }
     // Open config if -config was supplied
     if (config) {
-        PostMessage(g_hwnd, WM_OPENCONFIG, 1, 0);
+        PostMessage(g_hwnd, WM_OPENCONFIG, 0, 0);
     }
     // Message loop
     LOG("Starting AltDrag message loop...\n");

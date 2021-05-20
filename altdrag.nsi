@@ -1,7 +1,7 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # define the name of the installer
 !define APP_NAME "AltDrag"
-!define APP_VERSION "1.43"
+!define APP_VERSION "1.44"
 
 # define the name of the installer
 OutFile "${APP_NAME}${APP_VERSION}-inst.exe"
@@ -125,13 +125,13 @@ Section "Uninstall"
     Delete "$INSTDIR\Uninstall.exe"
 
     # now delete installed file
-    Delete AltDrag.exe
-    Delete AltDrag.txt
-    Delete AltDrag.xml
-    Delete AltDrag.ini
-    Delete AltDrag-old.ini
-    Delete hooks.dll
-    Delete License.txt
+    Delete "$INSTDIR\AltDrag.exe"
+    Delete "$INSTDIR\AltDrag.txt"
+    Delete "$INSTDIR\AltDrag.xml"
+    Delete "$INSTDIR\AltDrag.ini"
+    Delete "$INSTDIR\AltDrag-old.ini"
+    Delete "$INSTDIR\hooks.dll"
+    Delete "$INSTDIR\License.txt"
     Delete "Lang\_en_US baseline.txt"
     Delete Lang\ca_ES.ini
     Delete Lang\de_DE.ini

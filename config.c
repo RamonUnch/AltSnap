@@ -824,12 +824,12 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         ReadOptionStr(IDC_PAUSEBL,   L"Blacklist", L"Pause", L"");
         Button_Enable(GetDlgItem(hwnd, IDC_PAUSEBL), haveProcessBL);
     } else if (msg == WM_COMMAND) {
-        int control = LOWORD(wParam);
-        int id = HIWORD(wParam);
-        if (id == EN_UPDATE && control != IDC_NEWRULE && control != IDC_NEWPROGNAME) {
+        int id = LOWORD(wParam);
+        int event = HIWORD(wParam);
+        if (event == EN_UPDATE && id != IDC_NEWRULE && id != IDC_NEWPROGNAME) {
             PropSheet_Changed(g_cfgwnd, hwnd); // Enable the Apply Button
             have_to_apply = 1;
-        } else if (id == STN_CLICKED && control == IDC_FINDWINDOW) {
+        } else if (event == STN_CLICKED && id == IDC_FINDWINDOW) {
             // Get size of workspace
             int left=0, top=0, width, height;
             if(GetSystemMetrics(SM_CMONITORS) >= 1) {
@@ -1024,8 +1024,8 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         ReadOptionStr(IDC_CENTERFRACTION,L"General", L"CenterFraction", L"24");
         ReadOptionStr(IDC_AEROHOFFSET,   L"General",  L"AeroHoffset",   L"50");
         ReadOptionStr(IDC_AEROVOFFSET,   L"General",  L"AeroVoffset",   L"50");
-        ReadOptionStr(IDC_SNAPTHRESHOLD, L"Advanced", L"SnapThreshold", L"");
-        ReadOptionStr(IDC_AEROTHRESHOLD, L"Advanced", L"AeroThreshold", L"");
+        ReadOptionStr(IDC_SNAPTHRESHOLD, L"Advanced", L"SnapThreshold", L"20");
+        ReadOptionStr(IDC_AEROTHRESHOLD, L"Advanced", L"AeroThreshold", L"5");
         ReadOptionStr(IDC_AEROSPEED,     L"Advanced", L"AeroMaxSpeed",  L"");
         ReadOptionStr(IDC_AEROSPEEDTAU,  L"Advanced", L"AeroSpeedTau",  L"32");
         ReadOptionStr(IDC_MOVETRANS,     L"General",  L"MoveTrans",     L"");

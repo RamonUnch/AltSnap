@@ -7,20 +7,6 @@ static inline int sign(int x)
     return (x > 0) - (x < 0);
 }
 
-/* branchless min/max functions for int32 */
-#if 0
-static inline int Imin(int a, int b)
-{ 
-    return b + ((a-b) & (a-b)>>31);
-}
-static inline int Imax(int a, int b)
-{ 
-    return a - ((a-b) & (a-b)>>31);
-}
-#else
-#define Imax max
-#define Imin min
-#endif
 void *memsetL(void *dst, int s, size_t count) 
 {
     register char * a = dst;

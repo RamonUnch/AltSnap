@@ -535,5 +535,11 @@ static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height
     return SetWindowPos(hwnd, NULL, posx, posy, width, height
                       , SWP_NOACTIVATE|SWP_NOREPOSITION|SWP_ASYNCWINDOWPOS|flag);
 }
+/* Says if a rect is inside another one */
+static BOOL RectInRect(const RECT *big, const RECT *wnd)
+{
+    return wnd->left >= big->left && wnd->top >= big->top
+        && wnd->right <= big->right && wnd->bottom <= big->bottom;
+}
 
 #endif

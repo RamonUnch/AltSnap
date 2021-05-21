@@ -42,17 +42,20 @@ static void FinishMovement();
 
 // Window database
 #define NUMWNDDB 64
-#define SNAPPED 1
-#define ROLLED 2
-#define SNLEFT    (1<<3)
-#define SNRIGHT   (1<<4)
-#define SNTOP     (1<<5)
-#define SNBOTTOM  (1<<6)
+#define SNAPPED  1
+#define ROLLED   2
+#define SNLEFT    (1<<2)
+#define SNRIGHT   (1<<3)
+#define SNTOP     (1<<4)
+#define SNBOTTOM  (1<<5)
+#define SNMAXH    (1<<6)
+#define SNMAXW    (1<<7)
 #define SNTOPLEFT     (SNTOP|SNLEFT)
 #define SNTOPRIGHT    (SNTOP|SNRIGHT)
 #define SNBOTTOMLEFT  (SNBOTTOM|SNLEFT)
 #define SNBOTTOMRIGHT (SNBOTTOM|SNRIGHT)
 #define SNAPPEDSIDE   (SNTOPLEFT|SNBOTTOMRIGHT)
+
 struct wnddata {
     HWND hwnd;
     int width;
@@ -187,7 +190,7 @@ struct {
 
     UCHAR FullScreen;
     UCHAR AggressiveKill;
-    UCHAR ResizeClsRestore;
+    UCHAR SmartAero;
 
     struct hotkeys_s Hotkeys;
     struct hotkeys_s Hotclick;
@@ -812,7 +815,7 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
     *topHeight    = CLAMPH((mon->bottom - mon->top)* conf.AVoff     /100);
     *bottomHeight = CLAMPH((mon->bottom - mon->top)*(100-conf.AVoff)/100);
 
-    if(conf.ResizeClsRestore) return;
+    if(!conf.SmartAero) return;
 
     // Check on all the other windows on monitor if one of them has the
     // SNAPPEDSIDE flag in the wnddb.
@@ -821,11 +824,12 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
     for (i=0; i < NUMWNDDB; i++) {
         hwnd = wnddb.items[i].hwnd;
         int restore = wnddb.items[i].restore;
-        if (hwnd && restore&SNAPPEDSIDE && IsWindow(hwnd)
+        if (hwnd && restore&SNAPPEDSIDE && restore&SNAPPED && IsWindow(hwnd)
           && IsWindowVisible(hwnd) && !IsIconic(hwnd) && !IsZoomed(hwnd)) {
             RECT wnd;
             GetWindowRectL(hwnd, &wnd);
             if (RectInRect(mon, &wnd)) {
+                // We have a snapped window in the monitor
                 if (restore&SNLEFT) {
                     *rightWidth = CLAMPW(mon->right - wnd.right);
                 } else if (restore&SNRIGHT) {
@@ -838,7 +842,7 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
                 }
             }
         }
-    }
+    } // next i
 }
 ///////////////////////////////////////////////////////////////////////////
 #define AERO_TH conf.AeroThreshold
@@ -970,17 +974,17 @@ static int AeroResizeSnap(POINT pt, int *posx, int *posy
         FixDWMRect(state.hwnd, NULL, NULL, NULL, NULL, &borders);
     }
     if (state.resize.x == RZ_CENTER && state.resize.y == RZ_TOP && pt.y < mon.top + AERO_TH) {
-        state.wndentry->restore = 1;
+        state.wndentry->restore = SNAPPED|SNMAXH;
         *wndheight = CLAMPH(mon.bottom - mon.top + borders.bottom + borders.top);
         *posy = mon.top - borders.top;
     } else if (state.resize.x == RZ_LEFT && state.resize.y == RZ_CENTER && pt.x < mon.left + AERO_TH) {
-        state.wndentry->restore = 1;
+        state.wndentry->restore = SNAPPED|SNMAXW;
         *wndwidth = CLAMPW(mon.right - mon.left + borders.left + borders.right);
         *posx = mon.left - borders.left;
     }
 
     // Aero-move the window?
-    if (state.wndentry->restore&1) {
+    if (state.wndentry->restore&SNAPPED) {
         state.wndentry->width = state.origin.width;
         state.wndentry->height = state.origin.height;
 
@@ -1239,7 +1243,14 @@ static void MouseMove(POINT pt)
 
         }
         // Clear restore flag
-        if(conf.ResizeClsRestore) state.wndentry->restore = 0;
+        if(!conf.SmartAero) {
+            state.wndentry->restore = 0;
+        } else if (conf.SmartAero == 1) {
+            // Smart clear of restore flag
+            unsigned smart_restore_flag=(SNAPPEDSIDE|ROLLED|SNMAXW|SNMAXH);
+            if(!(state.wndentry->restore & smart_restore_flag))
+                state.wndentry->restore = 0;
+        }
 
         // Figure out new placement
         if (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER) {
@@ -2019,6 +2030,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon, int bu
                 wndwidth = CLAMPW(mon.right - mon.left + bd.left + bd.right);
                 posx = mon.left - bd.left;
                 posy = wnd->top - mdiclientpt.y + bd.top ;
+                restore |= SNMAXW;
             }
         } else { /* Aero Snap to corresponding side/corner */
             int leftWidth, rightWidth, topHeight, bottomHeight;
@@ -2046,9 +2058,12 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT mon, int bu
                 restore &= ~SNLEFT;
             } else if (state.resize.x == RZ_CENTER) {
                 restore &= ~SNLEFT;
-                if(state.resize.y == RZ_CENTER && state.ctrl) {
-                    Maximize_Restore_atpt(state.hwnd, &pt, SW_TOGGLE_MAX_RESTORE, NULL);
-                    return 1;
+                if(state.resize.y == RZ_CENTER) {
+                    restore |= SNMAXH;
+                    if(state.ctrl) {
+                        Maximize_Restore_atpt(state.hwnd, &pt, SW_TOGGLE_MAX_RESTORE, NULL);
+                        return 1;
+                    }
                 }
                 wndwidth = wnd->right - wnd->left - bd.left - bd.right;
                 posx = wnd->left - mdiclientpt.x + bd.left;
@@ -2868,7 +2883,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AlphaDelta    = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDelta", 64, inipath), 127);
     conf.AeroMaxSpeed  = CLAMP(0, GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath), 65535);
     conf.AeroSpeedTau  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedTau", 32, inipath), 255);
-    conf.ResizeClsRestore=GetPrivateProfileInt(L"Advanced", L"ResizeClsRestore",0, inipath);
+    conf.SmartAero     = GetPrivateProfileInt(L"General", L"SmartAero", 1, inipath);
 
     // CURSOR STUFF
     cursors[HAND]     = LoadCursor(NULL, conf.UseCursor>1? IDC_ARROW: IDC_HAND);

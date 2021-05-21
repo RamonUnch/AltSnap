@@ -304,6 +304,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         int ret;
         ReadOptionInt(IDC_AUTOFOCUS,      L"General", L"AutoFocus", 0, -1);
         ReadOptionInt(IDC_AERO,           L"General", L"Aero", 1, -1);
+        ReadOptionInt(IDC_SMARTAERO,      L"General",    L"SmartAero", 1, -1);
         ret =
         ReadOptionInt(IDC_INACTIVESCROLL, L"General", L"InactiveScroll", 0, -1);
         if(WIN10) Button_Enable(GetDlgItem(hwnd, IDC_INACTIVESCROLL), ret);
@@ -373,6 +374,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             wchar_t txt[10];
             WriteOptionBool(IDC_AUTOFOCUS,     L"General",    L"AutoFocus");
             WriteOptionBool(IDC_AERO,          L"General",    L"Aero");
+            WriteOptionBool(IDC_SMARTAERO,     L"General",    L"SmartAero");
             WriteOptionBool(IDC_INACTIVESCROLL,L"General",    L"InactiveScroll");
             WriteOptionBool(IDC_MDI,           L"General",    L"MDI");
             WriteOptionBool(IDC_FULLWIN,       L"Performance",L"FullWin");
@@ -404,6 +406,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         SetDlgItemText(hwnd, IDC_GENERAL_BOX,       l10n->general_box);
         SetDlgItemText(hwnd, IDC_AUTOFOCUS,         l10n->general_autofocus);
         SetDlgItemText(hwnd, IDC_AERO,              l10n->general_aero);
+        SetDlgItemText(hwnd, IDC_SMARTAERO,         l10n->general_smartaero);
         SetDlgItemText(hwnd, IDC_INACTIVESCROLL,    l10n->general_inactivescroll);
         SetDlgItemText(hwnd, IDC_MDI,               l10n->general_mdi);
         SetDlgItemText(hwnd, IDC_AUTOSNAP_HEADER,   l10n->general_autosnap);

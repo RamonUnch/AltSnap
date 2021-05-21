@@ -44,6 +44,7 @@ struct strings {
   wchar_t *general_box;
   wchar_t *general_autofocus;
   wchar_t *general_aero;
+  wchar_t *general_smartaero;
   wchar_t *general_inactivescroll;
   wchar_t *general_mdi;
   wchar_t *general_autosnap;
@@ -192,6 +193,7 @@ struct {
   { &l10n_ini.general_box,                     L"GeneralBox" },
   { &l10n_ini.general_autofocus,               L"GeneralAutoFocus" },
   { &l10n_ini.general_aero,                    L"GeneralAero" },
+  { &l10n_ini.general_smartaero,               L"GeneralSmartAero" },
   { &l10n_ini.general_inactivescroll,          L"GeneralInactiveScroll" },
   { &l10n_ini.general_mdi,                     L"GeneralMDI" },
   { &l10n_ini.general_autosnap,                L"GeneralAutoSnap" },
@@ -331,7 +333,8 @@ struct strings en_US = {
  /* general tab */
  /* box                */ L"General settings",
  /* autofocus          */ L"&Focus windows when dragging.\nYou can also press Ctrl to focus windows.",
- /* aero               */ L"Mimic &Aero Snap",
+ /* aero               */ L"Mimi&c Aero Snap",
+ /* smartaero          */ L"Smart Aero Sna&p dimentions",
  /* inactivescroll     */ L"&Scroll inactive windows",
  /* mdi                */ L"&MDI support",
  /* autosnap           */ L"S&nap window edges to:",
@@ -342,7 +345,7 @@ struct strings en_US = {
  /* language           */ L"&Language:",
  /* FullWin            */ L"&Drag full windows",
  /* ResizeAll          */ L"&Resize all windows",
- /* ResizeCenter       */ L"&Center resize mode",
+ /* ResizeCenter       */ L"Center resize mode",
  /* ResizeCenterNorm   */ L"All d&irections",
  /* ResizeCenterBr     */ L"B&ottom right",
  /* ResizeCenterMove   */ L"Mo&ve",

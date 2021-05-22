@@ -372,8 +372,7 @@ static BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
     // Only store window if it's visible, not minimized to taskbar,
     // not the window we are dragging and not blacklisted
     RECT wnd;
-    if (ShouldSnapTo(window)
-     && GetWindowRectL(window, &wnd)) {
+    if (ShouldSnapTo(window) && GetWindowRectL(window, &wnd)) {
 
         // Maximized?
         if (IsZoomed(window)) {
@@ -448,7 +447,7 @@ static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
             GetMonitorInfo(monitor, &mi);
             CropRect(&wnd, &mi.rcWork);
             CopyRect(&snwnds[numsnwnds].wnd, &wnd);
-            snwnds[numsnwnds].flag = WhichSideRectInRect(&wnd, &mi.rcWork);
+            snwnds[numsnwnds].flag = WhichSideRectInRect(&mi.rcWork, &wnd);
             numsnwnds++;
         }
     }
@@ -860,7 +859,7 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
     // Check on all the other snapped windows from the bottom most
     // To give precedence to the topmost windows
     int i;
-    for (i=numsnwnds; i >= 0; i--) { 
+    for (i=numsnwnds-1; i >= 0; i--) { 
         int flag = snwnds[i].flag;
         RECT *wnd = &snwnds[i].wnd;
         if (RectInRect(mon, wnd)) {

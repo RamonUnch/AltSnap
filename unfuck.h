@@ -560,11 +560,24 @@ static pure BOOL RectInRect(const RECT *big, const RECT *wnd)
     return wnd->left >= big->left && wnd->top >= big->top
         && wnd->right <= big->right && wnd->bottom <= big->bottom;
 }
-// returns 1 if 
-static pure int WhichSideRectInRect(const RECT *big, const RECT *wnd)
+static pure int WhichSideRectInRectSS(const RECT *big, const RECT *wnd)
 { /* 4 , 8 16, 32*/
-    return ((wnd->left == big->left)<<2) | ((wnd->right == big->right) << 3)
-      /* | ((wnd->top == big->top)  <<4) | ((wnd->bottom == big->bottom)<<5) */;
+    return ( (wnd->left == big->left)<<2)
+         | ( (wnd->right == big->right)<<3);
+/*       | ( (wnd->top == big->top) <<4)
+         | ( (wnd->bottom == big->bottom) <<5); */
+}
+static pure unsigned WhichSideRectInRect(const RECT *mon, const RECT *wnd)
+{
+    unsigned flag;
+    int wth = (mon->right - mon->left)/6;
+    int hth = (mon->bottom - mon->top)/6;
+    flag  = (wnd->left == mon->left && mon->right-wnd->right > wth) << 2;
+    flag |= (wnd->right == mon->right && wnd->left-mon->left > wth) << 3;
+    flag |= (wnd->top == mon->top && mon->bottom-wnd->bottom > hth) << 4;
+    flag |= (wnd->bottom == mon->bottom && wnd->top-mon->top > hth) << 5;
+
+    return flag;
 }
 
 static void CropRect(RECT *wnd, RECT *crop)

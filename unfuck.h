@@ -366,28 +366,26 @@ static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 }
 /* #define DwmGetWindowAttribute DwmGetWindowAttributeL */
 
-static void FixDWMRect(HWND hwnd, int *posx, int *posy, int *wndwidth, int *wndheight, RECT *bbb)
+static void SubRect(RECT *frame, const RECT *rect)
+{
+    frame->left -= rect->left;
+    frame->top -= rect->top;
+    frame->right = rect->right - frame->right;
+    frame->bottom = rect->bottom - frame->bottom;
+}
+static void FixDWMRect(HWND hwnd, RECT *bbb)
 {
     RECT rect, frame;
 
     if(S_OK == DwmGetWindowAttributeL(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &frame, sizeof(RECT))
        && GetWindowRect(hwnd, &rect)){
-        RECT border;
-        border.left = frame.left - rect.left;
-        border.top = frame.top - rect.top;
-        border.right = rect.right - frame.right;
-        border.bottom = rect.bottom - frame.bottom;
-        if(bbb)  CopyRect(bbb, &border);
-        if(wndwidth) {
-            *posx -= border.left;
-            *posy -= border.top;
-            *wndwidth += border.left + border.right;
-            *wndheight += border.top + border.bottom;
-        }
+        SubRect(&frame, &rect);
+        CopyRect(bbb, &frame);
+
         return;
     }
     // bbb->left = bbb->right = bbb->top = bbb->bottom = 0;
-    if(bbb) SetRectEmpty(bbb);
+    SetRectEmpty(bbb);
 }
 
 /* This function is here because under Windows 10, the GetWindowRect function
@@ -535,11 +533,46 @@ static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height
     return SetWindowPos(hwnd, NULL, posx, posy, width, height
                       , SWP_NOACTIVATE|SWP_NOREPOSITION|SWP_ASYNCWINDOWPOS|flag);
 }
+
+/* This is used to detect is the window was snapped normally outside of
+ * AltDrag, in this case the window appears as normal
+ * ie: wndpl.showCmd=SW_SHOWNORMAL, but  its actual rect does not match with
+ * its rcNormalPosition and if the WM_RESTORE command is sent, The window
+ * will be restored. This is a non documented behaviour. */
+static int IsWindowSnapped(HWND hwnd)
+{
+    RECT rect;
+    if(!GetWindowRect(hwnd, &rect)) return 0;
+    int W = rect.right  - rect.left;
+    int H = rect.bottom - rect.top;
+
+    WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+    GetWindowPlacement(hwnd, &wndpl);
+    int nW = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
+    int nH = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
+
+    return (W != nW || H != nH);
+}
+
 /* Says if a rect is inside another one */
-static BOOL RectInRect(const RECT *big, const RECT *wnd)
+static pure BOOL RectInRect(const RECT *big, const RECT *wnd)
 {
     return wnd->left >= big->left && wnd->top >= big->top
         && wnd->right <= big->right && wnd->bottom <= big->bottom;
+}
+// returns 1 if 
+static pure int WhichSideRectInRect(const RECT *big, const RECT *wnd)
+{ /* 4 , 8 16, 32*/
+    return ((wnd->left == big->left)<<2) | ((wnd->right == big->right) << 3)
+      /* | ((wnd->top == big->top)  <<4) | ((wnd->bottom == big->bottom)<<5) */;
+}
+
+static void CropRect(RECT *wnd, RECT *crop)
+{
+    wnd->left   = max(wnd->left,   crop->left);
+    wnd->top    = max(wnd->top,    crop->top);
+    wnd->right  = min(wnd->right,  crop->right);
+    wnd->bottom = min(wnd->bottom, crop->bottom);
 }
 
 #endif

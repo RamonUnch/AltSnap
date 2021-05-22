@@ -334,7 +334,7 @@ struct strings en_US = {
  /* box                */ L"General settings",
  /* autofocus          */ L"&Focus windows when dragging.\nYou can also press Ctrl to focus windows.",
  /* aero               */ L"Mimi&c Aero Snap",
- /* smartaero          */ L"Smart Aero Sna&p dimentions",
+ /* smartaero          */ L"Smart Aero Sna&p dimensions",
  /* inactivescroll     */ L"&Scroll inactive windows",
  /* mdi                */ L"&MDI support",
  /* autosnap           */ L"S&nap window edges to:",

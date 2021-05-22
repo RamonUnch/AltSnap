@@ -133,3 +133,4 @@
 #define IDC_AEROSPEED_H                 2056
 #define IDC_AEROSPEED                   2057
 #define IDC_AEROSPEEDTAU                2058
+#define IDC_SMARTAERO                   2059

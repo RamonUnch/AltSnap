@@ -248,11 +248,11 @@ static pure int blacklisted(HWND hwnd, struct blacklist *list)
     for (i=0; i < list->length; i++) {
         if(!list->items[i].title && !list->items[i].classname)
             return 1;
-        if ((!list->items[i].title && !wcscmp(classname, list->items[i].classname))
-         || (!list->items[i].classname && !wcscmp(title,list->items[i].title))
+        if ((!list->items[i].title && !wcscmpstar(classname, list->items[i].classname))
+         || (!list->items[i].classname && !wcscmpstar(title,list->items[i].title))
          || ( list->items[i].title && list->items[i].classname
-            && !wcscmp(title,list->items[i].title)
-            && !wcscmp(classname,list->items[i].classname))) {
+            && !wcscmpstar(title,list->items[i].title)
+            && !wcscmpstar(classname,list->items[i].classname))) {
             return 1;
         }
     }
@@ -1788,8 +1788,7 @@ static int ActionTransparency(HWND hwnd, int delta)
 {
     static int alpha=255;
 
-    if (blacklisted(hwnd, &BlkLst.Windows))
-        return 0;
+//    if (blacklisted(hwnd, &BlkLst.Windows)) return 0;
 
     int alpha_delta = (state.shift)? conf.AlphaDeltaShift: conf.AlphaDelta;
     alpha_delta *= sign(delta);

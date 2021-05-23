@@ -186,7 +186,21 @@ Note that this version has some more feature..
 
 == AltDrag 1.44 ==
 
-* Now the config dialog box no lo,nger instantly applies the settings.
++ New: "Smart aero dimensions" was added in the General Tab of the config.
+  With this option checked (default) AltDrag will adjust the dimensions of
+  the snapped window to the other snapped windows that were resized.
+  Also snapped windows will still be restored by the move action even after
+  having been resized.
+
++ New now the '*' joker can be used at the end of the class or title in a
+  blacklist item to include all matching patterns after the '*'.
+  Example: "*|USurface_*". This may be usefull to make beter rules.
+  Note that the processes balcklist are not concerned by this, and the
+  joker charracter is only supported at the end of the name or calss.
+
+* Maximized-rolled window will now be restored to the pre-maximized state.
+
+* Now the config dialog box no longer instantly applies the settings.
   This simplifies the code and is more desirable in my opinion. You now
   need to click OK or Apply in order to apply the settings. This also
   avoids useless confusion when compared to a normal property scheet.
@@ -197,7 +211,7 @@ Note that this version has some more feature..
 * Fixed: a Rolled then double-clicked-snapped window will now be restored
   to its pre-rolled state, as expected.
 
-* The GetMonitorInfo will be called only if needed.
+* The GetMonitorInfo function will be called only if needed.
 
 * Fixed: The AltDrag icon is now properly displayed in Alt+Tab window.
 

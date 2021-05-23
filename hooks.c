@@ -514,17 +514,11 @@ static void Enum()
     }
 
     // Enumerate monitors
-    if (state.snap) {
-        EnumDisplayMonitors(NULL, NULL, EnumMonitorsProc, 0);
-    }
+    EnumDisplayMonitors(NULL, NULL, EnumMonitorsProc, 0);
 
     // Enumerate windows
     if (state.snap >= 2) {
         EnumWindows(EnumWindowsProc, 0);
-    }
-
-    if (conf.SmartAero) {
-        EnumWindows(EnumSnappedWindows, 0);
     }
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -880,16 +874,19 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
 ///////////////////////////////////////////////////////////////////////////
 #define AERO_TH conf.AeroThreshold
 #define MM_THREAD_ON (LastWin.hwnd && conf.FullWin)
-int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight, RECT *_mon)
+static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight, RECT *_mon)
 {
     // return if last resizing is not finished or no Aero or not resizable.
     if(!conf.Aero || MM_THREAD_ON) return 0;
 
     static int resizable = 1;
     if (!resizable) return 0;
-    if (!state.moving && !(resizable=IsResizable(state.hwnd)) ) return 0;
-    RECT *borders;
-    EnumOnce(&borders);
+    if (!state.moving) {
+        if (!(resizable=IsResizable(state.hwnd)))
+            return 0;
+        if (conf.SmartAero)
+            EnumWindows(EnumSnappedWindows, 0);
+    }
 
     // We HAVE to check the monitor for each pt...
     RECT mon;
@@ -989,11 +986,12 @@ int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight, 
         state.wndentry->width = state.origin.width;
         state.wndentry->height = state.origin.height;
 
-        // FixDWMRect(state.hwnd, posx, posy, wndwidth, wndheight, NULL);
-        *posx -= borders->left;
-        *posy -= borders->top;
-        *wndwidth += borders->left+borders->right;
-        *wndheight+= borders->top+borders->bottom;
+        RECT borders;
+        FixDWMRect(state.hwnd, &borders);
+        *posx -= borders.left;
+        *posy -= borders.top;
+        *wndwidth += borders.left+borders.right;
+        *wndheight+= borders.top+borders.bottom;
 
         // If we go too fast then donot move the window
         if(state.Speed > (int)conf.AeroMaxSpeed) return 1;
@@ -1473,7 +1471,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
             if(!state.shift) {
                 RestrictToCurentMonitor();
-                EnumOnce(NULL); // Reset enum state.
+                // EnumOnce(NULL); // Reset enum state.
                 state.snap = 3;
             }
             state.shift = 1;
@@ -2034,9 +2032,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT *mon, int b
         int posx, posy, wndwidth, wndheight;
         int restore = 1;
         RECT bd;
-        RECT *borders;
-        EnumOnce(&borders);
-        CopyRect(&bd, borders);
+        FixDWMRect(state.hwnd, &bd);
 
         if(!state.shift ^ !(conf.AeroTopMaximizes&2)) { /* Extend window's borders to monitor */
             posx = wnd->left - mdiclientpt.x;
@@ -2063,6 +2059,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT *mon, int b
             }
         } else { /* Aero Snap to corresponding side/corner */
             int leftWidth, rightWidth, topHeight, bottomHeight;
+            EnumWindows(EnumSnappedWindows, 0);
             GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, mon);
             wndwidth =  leftWidth;
             wndheight = topHeight;

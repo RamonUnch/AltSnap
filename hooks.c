@@ -240,20 +240,15 @@ static pure int blacklisted(HWND hwnd, struct blacklist *list)
     int i;
 
     // Null hwnd or empty list
-    if (! hwnd || !list || list->length == 0 || !list->items || !list->data)
+    if (!hwnd || !list->length)
         return 0;
 
     GetWindowText(hwnd, title, ARR_SZ(title));
     GetClassName(hwnd, classname, ARR_SZ(classname));
     for (i=0; i < list->length; i++) {
-        if(!list->items[i].title && !list->items[i].classname)
-            return 1;
-        if ((!list->items[i].title && !wcscmpstar(classname, list->items[i].classname))
-         || (!list->items[i].classname && !wcscmpstar(title,list->items[i].title))
-         || ( list->items[i].title && list->items[i].classname
-            && !wcscmpstar(title,list->items[i].title)
-            && !wcscmpstar(classname,list->items[i].classname))) {
-            return 1;
+        if (!wcscmpstar(classname, list->items[i].classname)
+         && !wcscmpstar(title, list->items[i].title)) {
+              return 1;
         }
     }
     return 0;
@@ -264,7 +259,7 @@ static pure int blacklistedP(HWND hwnd, struct blacklist *list)
     int i;
 
     // Null hwnd or empty list
-    if (! hwnd || !list || list->length == 0 || !list->items || !list->data)
+    if (!hwnd || !list->length)
         return 0;
 
     GetWindowProgName(hwnd, title, ARR_SZ(title));
@@ -1788,7 +1783,7 @@ static int ActionTransparency(HWND hwnd, int delta)
 {
     static int alpha=255;
 
-//    if (blacklisted(hwnd, &BlkLst.Windows)) return 0;
+    if (blacklisted(hwnd, &BlkLst.Windows)) return 0;
 
     int alpha_delta = (state.shift)? conf.AlphaDeltaShift: conf.AlphaDelta;
     alpha_delta *= sign(delta);

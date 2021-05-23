@@ -126,9 +126,11 @@ static inline int wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restri
 #define wcscmp wcscmpL
 
 /* stops comp at the '*' in the b param.
- * this is a kind of mini regexp that has no performance hit. */
+ * this is a kind of mini regexp that has no performance hit. 
+ * It also returns 0 (equal) if the b param is NULL */
 static int wcscmpstar(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 {
+    if(!b) return 0;
     while(*a && *a == *b) { a++; b++; }
     return (*a - *b) & (*b - '*');
 }

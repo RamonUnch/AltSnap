@@ -453,6 +453,10 @@ static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
     }
     return TRUE;
 }
+static void EnumSnapped()
+{
+    if (conf.SmartAero) EnumWindows(EnumSnappedWindows, 0);
+}
 ///////////////////////////////////////////////////////////////////////////
 // Just used in Enum
 static void EnumMdi()
@@ -884,8 +888,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     if (!state.moving) {
         if (!(resizable=IsResizable(state.hwnd)))
             return 0;
-        if (conf.SmartAero)
-            EnumWindows(EnumSnappedWindows, 0);
+        EnumSnapped();
     }
 
     // We HAVE to check the monitor for each pt...
@@ -1266,9 +1269,11 @@ static void MouseMove(POINT pt)
         }
         // Clear restore flag
         if(!conf.SmartAero) {
+            // Always clear when AeroSmart is disabled.
             state.wndentry->restore = 0;
-        } else if (conf.SmartAero == 1) {
-            // Smart clear of restore flag
+        } else {
+            // Do not ckear is the window was snapped to some side
+            // or maximized Vertically/horizontally or rolled.
             unsigned smart_restore_flag=(SNAPPEDSIDE|ROLLED|SNMAXW|SNMAXH);
             if(!(state.wndentry->restore & smart_restore_flag))
                 state.wndentry->restore = 0;
@@ -1937,7 +1942,7 @@ static void RollWindow(HWND hwnd, int delta)
 
     AddWindowToDB(state.hwnd);
 
-    if (state.wndentry->restore & ROLLED && delta <= 0) { // Restore
+    if (state.wndentry->restore & ROLLED && delta <= 0) { // UNROLL
         if (state.origin.maximized) {
             PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
             PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
@@ -1951,9 +1956,11 @@ static void RollWindow(HWND hwnd, int delta)
               , GetSystemMetrics(SM_CYMIN)
               , SWP_NOMOVE|SWP_NOZORDER|SWP_NOSENDCHANGING|SWP_ASYNCWINDOWPOS);
         if(!(state.wndentry->restore & ROLLED)) { // Save window size if not saved already.
-            state.wndentry->width = rc.right - rc.left;
-            state.wndentry->height = rc.bottom - rc.top;
-            state.wndentry->restore = ROLLED | state.origin.maximized ;
+            if(!state.origin.maximized){
+                state.wndentry->width = rc.right - rc.left;
+                state.wndentry->height = rc.bottom - rc.top;
+            }
+            state.wndentry->restore = ROLLED | state.origin.maximized;
         }
     }
 }
@@ -2059,7 +2066,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT *mon, int b
             }
         } else { /* Aero Snap to corresponding side/corner */
             int leftWidth, rightWidth, topHeight, bottomHeight;
-            EnumWindows(EnumSnappedWindows, 0);
+            EnumSnapped();
             GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, mon);
             wndwidth =  leftWidth;
             wndheight = topHeight;
@@ -2817,7 +2824,7 @@ static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist
 
     while (pos) {
         wchar_t *title = pos;
-        wchar_t *class = wcschr(pos, L'|');
+        wchar_t *class = wcschr(pos, L'|'); // go to the next |
 
         // Move pos to next item (if any)
         pos = wcschr(pos, L',');

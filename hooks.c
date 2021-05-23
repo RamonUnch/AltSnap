@@ -859,10 +859,10 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
     // Check on all the other snapped windows from the bottom most
     // To give precedence to the topmost windows
     int i;
-    for (i=numsnwnds-1; i >= 0; i--) { 
+    for (i=numsnwnds-1; i >= 0; i--) {
         int flag = snwnds[i].flag;
         RECT *wnd = &snwnds[i].wnd;
-        if (RectInRect(mon, wnd)) {
+        if (PtInRect(mon, (POINT) { wnd->left+16, wnd->top+16 })) {
             // We have a snapped window in the monitor
             if (flag & SNLEFT) {
                 *rightWidth = CLAMPW(mon->right - wnd->right);
@@ -877,11 +877,10 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
         }
     } // next i
 }
-
 ///////////////////////////////////////////////////////////////////////////
 #define AERO_TH conf.AeroThreshold
 #define MM_THREAD_ON (LastWin.hwnd && conf.FullWin)
-static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight, RECT *_mon)
+int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight, RECT *_mon)
 {
     // return if last resizing is not finished or no Aero or not resizable.
     if(!conf.Aero || MM_THREAD_ON) return 0;
@@ -900,14 +899,13 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         GetMonitorRect(&pt, 0, &mon);
     }
 
-
     int Left  = mon.left   + 2*AERO_TH ;
     int Right = mon.right  - 2*AERO_TH ;
     int Top   = mon.top    + 2*AERO_TH ;
     int Bottom= mon.bottom - 2*AERO_TH ;
     int leftWidth, rightWidth, topHeight, bottomHeight;
 
-    // if(!PtInRect(&(RECT){ Left, Right, Top, Bottom }, pt))
+    if(PtInRect(&(RECT){ Left, Right, Top, Bottom }, pt)) return 0;
 
     GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, &mon);
 
@@ -942,7 +940,8 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         *posy = mon.bottom - *wndheight;
     } else if (pt.y < mon.top + AERO_TH) {
         // Top
-        if (!state.shift ^ !(conf.AeroTopMaximizes&1)) {
+        if (!state.shift ^ !(conf.AeroTopMaximizes&1)
+         &&(state.Speed < (int)conf.AeroMaxSpeed)) {
             Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
             LastWin.hwnd = NULL;
             state.moving = 2;
@@ -972,7 +971,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         // Right
         state.wndentry->restore = SNAPPED|SNRIGHT;
         *wndwidth =  rightWidth;
-        *wndheight = CLAMPH( (mon.bottom-mon.top) );
+        *wndheight = CLAMPH( mon.bottom-mon.top );
         *posx = mon.right - *wndwidth;
         *posy = mon.top + (mon.bottom-mon.top)/2 - *wndheight/2; // Center
     } else if (state.wndentry->restore&SNAPPED) {
@@ -1100,7 +1099,7 @@ static void RestoreOldWin(POINT *pt, int was_snapped, int index)
                        / max(wnd.bottom-wnd.top,1);
     }
     if (state.origin.maximized || was_snapped == 1) {
-        if(state.wndentry->restore & ROLLED || restore & 3) {
+        if(state.wndentry->restore & ROLLED || restore & ROLLED) {
             // If we restore a maximized Rolled window...
             // Or a Rolled Maximized window...
             state.offset.y = GetSystemMetrics(SM_CYMIN)/2;
@@ -1197,7 +1196,7 @@ static void MouseMove(POINT pt)
             } else {
                 CopyRect(&clip, &fmon);
             }
-            ClipCursorOnce(&clip); 
+            ClipCursorOnce(&clip);
         }
         pt.x = CLAMP(fmon.left, pt.x, fmon.right);
         pt.y = CLAMP(fmon.top, pt.y, fmon.bottom);
@@ -1266,10 +1265,6 @@ static void MouseMove(POINT pt)
             FixDWMRect(state.hwnd, &borders);
             OffsetRect(&wnd, mdiclientpt.x , mdiclientpt.y);
             SubRect(&wnd, &borders);
-//            wnd = (RECT) { wnd.left  + mdiclientpt.x - borders.left
-//                         , wnd.top   + mdiclientpt.y - borders.top
-//                         , wnd.right + mdiclientpt.x + borders.right
-//                         , wnd.bottom+ mdiclientpt.y + borders.bottom };
         }
         // Clear restore flag
         if(!conf.SmartAero) {
@@ -1476,7 +1471,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.alt1 = vkey;
 
         } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
-            if(!state.shift) { 
+            if(!state.shift) {
                 RestrictToCurentMonitor();
                 EnumOnce(NULL); // Reset enum state.
                 state.snap = 3;
@@ -2899,6 +2894,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AutoFocus =    GetPrivateProfileInt(L"General", L"AutoFocus", 0, inipath);
     conf.AutoSnap=state.snap=GetPrivateProfileInt(L"General", L"AutoSnap", 0, inipath);
     conf.Aero =         GetPrivateProfileInt(L"General", L"Aero", 1, inipath);
+    conf.SmartAero =    GetPrivateProfileInt(L"General", L"SmartAero", 1, inipath);
     conf.InactiveScroll=GetPrivateProfileInt(L"General", L"InactiveScroll", 0, inipath);
     conf.NormRestore   =GetPrivateProfileInt(L"General", L"NormRestore", 0, inipath);
     conf.MDI =          GetPrivateProfileInt(L"General", L"MDI", 0, inipath);
@@ -2922,7 +2918,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AlphaDelta    = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDelta", 64, inipath), 127);
     conf.AeroMaxSpeed  = CLAMP(0, GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath), 65535);
     conf.AeroSpeedTau  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedTau", 32, inipath), 255);
-    conf.SmartAero     = GetPrivateProfileInt(L"General", L"SmartAero", 1, inipath);
 
     // CURSOR STUFF
     cursors[HAND]     = LoadCursor(NULL, conf.UseCursor>1? IDC_ARROW: IDC_HAND);

@@ -373,6 +373,13 @@ static void SubRect(RECT *frame, const RECT *rect)
     frame->right = rect->right - frame->right;
     frame->bottom = rect->bottom - frame->bottom;
 }
+static void InflateRectBorder(RECT *rc, const RECT *bd)
+{
+    rc->left   -= bd->left;
+    rc->top    -= bd->top;
+    rc->right  += bd->right;
+    rc->bottom += bd->bottom;
+}
 static void FixDWMRect(HWND hwnd, RECT *bbb)
 {
     RECT rect, frame;
@@ -570,12 +577,10 @@ static pure int WhichSideRectInRectSS(const RECT *big, const RECT *wnd)
 static pure unsigned WhichSideRectInRect(const RECT *mon, const RECT *wnd)
 {
     unsigned flag;
-    int wth = (mon->right - mon->left)/6;
-    int hth = (mon->bottom - mon->top)/6;
-    flag  = (wnd->left == mon->left && mon->right-wnd->right > wth) << 2;
-    flag |= (wnd->right == mon->right && wnd->left-mon->left > wth) << 3;
-    flag |= (wnd->top == mon->top && mon->bottom-wnd->bottom > hth) << 4;
-    flag |= (wnd->bottom == mon->bottom && wnd->top-mon->top > hth) << 5;
+    flag  = (wnd->left == mon->left && mon->right-wnd->right > 16) << 2;
+    flag |= (wnd->right == mon->right && wnd->left-mon->left > 16) << 3;
+    flag |= (wnd->top == mon->top && mon->bottom-wnd->bottom > 16) << 4;
+    flag |= (wnd->bottom == mon->bottom && wnd->top-mon->top > 16) << 5;
 
     return flag;
 }

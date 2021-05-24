@@ -1095,9 +1095,8 @@ static void RestoreOldWin(POINT *pt, int was_snapped, int index)
                        / max(wnd.bottom-wnd.top,1);
     }
     if (state.origin.maximized || was_snapped == 1) {
-        if(state.wndentry->restore & ROLLED || restore & ROLLED) {
-            // If we restore a maximized Rolled window...
-            // Or a Rolled Maximized window...
+        if((state.wndentry->restore|restore) & ROLLED) {
+            // if we restore a  Rolled Maximized window...
             state.offset.y = GetSystemMetrics(SM_CYMIN)/2;
         }
     } else if (restore) {
@@ -1229,12 +1228,16 @@ static void MouseMove(POINT pt)
     } else if (state.action == AC_RESIZE) {
         // Restore the window (to monitor size) if it's maximized
         if (!state.moving && IsZoomed(state.hwnd)) {
+            state.wndentry->restore = 0; //Clear restore flag.
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
 
             // Set size to monitor to prevent flickering
-            if (state.mdiclient) CopyRect(&wnd, &mdimon);
-            else GetMonitorRect(&pt, 0, &wnd);
+            if (state.mdiclient){
+                CopyRect(&wnd, &mdimon);
+            } else {
+                GetMonitorRect(&pt, 0, &wnd);
+            }
             CopyRect(&wndpl.rcNormalPosition, &wnd);
 
             if (state.mdiclient) {
@@ -1254,13 +1257,14 @@ static void MouseMove(POINT pt)
                  || !ClientToScreen(state.mdiclient, &mdiclientpt) ) {
                      return;
                 }
-                state.origin.right = wnd.right; state.origin.bottom=wnd.bottom;
+                state.origin.right = wnd.right; 
+                state.origin.bottom=wnd.bottom;
             }
             // Fix wnd for MDI offset and invisible borders
             RECT borders;
             FixDWMRect(state.hwnd, &borders);
-            OffsetRect(&wnd, mdiclientpt.x , mdiclientpt.y);
-            SubRect(&wnd, &borders);
+            OffsetRect(&wnd, mdiclientpt.x, mdiclientpt.y);
+            InflateRectBorder(&wnd, &borders);
         }
         // Clear restore flag
         if(!conf.SmartAero) {
@@ -1940,7 +1944,7 @@ static void RollWindow(HWND hwnd, int delta)
         if (state.origin.maximized) {
             PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
             PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
-            state.wndentry->restore=0;
+            // state.wndentry->restore=0; // Do not clear
         } else {
             RestoreOldWin(NULL, 2, 2);
         }

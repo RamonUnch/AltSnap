@@ -199,11 +199,15 @@ Note that this version has some more feature..
   joker charracter is only supported at the end of the name or calss.
 
 * Maximized-rolled window will now be restored to the pre-maximized state.
+  Rolled-maximized-rolled-unrolled windows, will be restored to the first
+  rolled state with the memory of the rolled state, as expected.
 
 * Now the config dialog box no longer instantly applies the settings.
   This simplifies the code and is more desirable in my opinion. You now
   need to click OK or Apply in order to apply the settings. This also
   avoids useless confusion when compared to a normal property scheet.
+
+* Fixed: now the application icon will display properly when Alt+Tabbing.
 
 * Fixed: the Shift key was not working properly to enable snapping when
   all sanpping was disabled.

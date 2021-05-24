@@ -25,7 +25,7 @@
 
 #define CURSOR_ONLY 66
 #define NOT_MOVED 33
-
+#define STACK 0x1000
 
 HWND g_timerhwnd;
 HWND g_mchwnd;
@@ -276,7 +276,7 @@ static pure int blacklistedP(HWND hwnd, struct blacklist *list)
 
     // ProcessBlacklist is case-insensitive
     for ( ; i < list->length; i++) {
-        if (!wcsicmp(title, list->items[i].title))
+        if (list->items[i].title && !wcsicmp(title, list->items[i].title))
             return mode;
     }
     return !mode;
@@ -1363,7 +1363,7 @@ static void MouseMove(POINT pt)
 
     } else if (mouse_thread_finished) {
         DWORD lpThreadId;
-        CloseHandle(CreateThread(NULL, 0, MoveWindowThread, &LastWin, 0, &lpThreadId));
+        CloseHandle(CreateThread(NULL, STACK, MoveWindowThread, &LastWin, 0, &lpThreadId));
         state.moving = 1;
     } else {
         Sleep(0);
@@ -1449,7 +1449,7 @@ static int ActionKill(HWND hwnd)
 {
     DWORD lpThreadId;
     HANDLE thread;
-    thread = CreateThread(NULL, 0, ActionKillThread, hwnd, 0, &lpThreadId);
+    thread = CreateThread(NULL, STACK, ActionKillThread, hwnd, 0, &lpThreadId);
     CloseHandle(thread);
 
     return 1;
@@ -2491,7 +2491,7 @@ static void FinishMovement()
         if(IsWindow(LastWin.hwnd)) {
             DWORD lpThreadId;
             LastWin.end = 1;
-            CloseHandle(CreateThread(NULL, 0, MoveWindowThread, &LastWin, 0, &lpThreadId));
+            CloseHandle(CreateThread(NULL, STACK, MoveWindowThread, &LastWin, 0, &lpThreadId));
         }
     }
     if(conf.AeroMaxSpeed < 65000)

@@ -237,39 +237,49 @@ HHOOK mousehook = NULL;
 static pure int blacklisted(HWND hwnd, struct blacklist *list)
 {
     wchar_t title[256]=L"", classname[256]=L"";
-    int i;
+    int mode = 1;
+    int i = 0;
 
     // Null hwnd or empty list
     if (!hwnd || !list->length)
         return 0;
+    // If the first element is *|* then we are in whitelist mode
+    if(!list->items[i].classname && !list->items[i].title) {
+        mode = 0;
+        i++;
+    }
 
     GetWindowText(hwnd, title, ARR_SZ(title));
     GetClassName(hwnd, classname, ARR_SZ(classname));
-    for (i=0; i < list->length; i++) {
+    for ( ; i < list->length; i++) {
         if (!wcscmpstar(classname, list->items[i].classname)
          && !wcscmpstar(title, list->items[i].title)) {
-              return 1;
+              return mode;
         }
     }
-    return 0;
+    return !mode;
 }
 static pure int blacklistedP(HWND hwnd, struct blacklist *list)
 {
     wchar_t title[256]=L"";
-    int i;
+    int mode = 1;
+    int i = 0;
 
     // Null hwnd or empty list
     if (!hwnd || !list->length)
         return 0;
-
+    if(!list->items[i].title) {
+        mode = 0;
+        i++;
+    }
     GetWindowProgName(hwnd, title, ARR_SZ(title));
 
     // ProcessBlacklist is case-insensitive
-    for (i=0; i < list->length; i++) {
+    for ( ; i < list->length; i++) {
         if (!wcsicmp(title, list->items[i].title))
-            return 1;
+            return mode;
     }
-    return 0;
+    return !mode;
 }
 // Limit x between l and h
 static xpure int CLAMP(int _l, int _x, int _h)
@@ -440,7 +450,6 @@ static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
             HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
             MONITORINFO mi = { sizeof(MONITORINFO) };
             GetMonitorInfo(monitor, &mi);
-            CropRect(&wnd, &mi.rcWork);
             CopyRect(&snwnds[numsnwnds].wnd, &wnd);
             snwnds[numsnwnds].flag = WhichSideRectInRect(&mi.rcWork, &wnd);
             numsnwnds++;
@@ -1257,7 +1266,7 @@ static void MouseMove(POINT pt)
                  || !ClientToScreen(state.mdiclient, &mdiclientpt) ) {
                      return;
                 }
-                state.origin.right = wnd.right; 
+                state.origin.right = wnd.right;
                 state.origin.bottom=wnd.bottom;
             }
             // Fix wnd for MDI offset and invisible borders

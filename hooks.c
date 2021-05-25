@@ -1889,8 +1889,12 @@ static pure HCURSOR CursorToDraw()
 {
     HCURSOR cursor;
 
-    if(state.action == AC_MOVE || conf.UseCursor == 3)
+    if(state.action == AC_MOVE && conf.UseCursor == 4) {
+        return cursors[SIZEALL];
+
+    } else if(state.action == AC_MOVE || conf.UseCursor == 3) {
         return cursors[HAND];
+    }
 
     if ((state.resize.y == RZ_TOP && state.resize.x == RZ_LEFT)
      || (state.resize.y == RZ_BOTTOM && state.resize.x == RZ_RIGHT)) {

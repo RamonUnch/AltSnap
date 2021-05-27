@@ -890,6 +890,17 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
         }
     } // next i
 }
+/////////////////////////////////////////////////////////////////////////////
+static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
+{
+    MINMAXINFO mmi = { {0, 0}, {0, 0}, {0, 0}
+                     , {GetSystemMetrics(SM_CXMINTRACK), GetSystemMetrics(SM_CYMINTRACK)}
+                     , {GetSystemMetrics(SM_CXMAXTRACK), GetSystemMetrics(SM_CXMAXTRACK)} };
+    SendMessage(hwnd, WM_GETMINMAXINFO, 0, (LPARAM)&mmi);
+    *Min = mmi.ptMinTrackSize;
+    *Max = mmi.ptMaxTrackSize;
+}
+
 ///////////////////////////////////////////////////////////////////////////
 static void ResizeOtherSnappedWindows(POINT pt, int posx, int posy, int wndwidth, int wndheight)
 {
@@ -931,7 +942,9 @@ static void ResizeOtherSnappedWindows(POINT pt, int posx, int posy, int wndwidth
         if ((PureLeft(restore) && (flag & SNRIGHT))
         ||  (TopLeft(restore) && TopRight(flag))
         ||  (BottomLeft(restore) && BottomRight(flag)) ) {
-            nwnd.left = posx + wndwidth - nbd.left;
+            POINT Min, Max;
+            GetMinMaxInfo(hwnd, &Min, &Max);
+            nwnd.left = CLAMP(nwnd.right - Max.x, posx + wndwidth - nbd.left, nwnd.right - Min.x);
         } else if ((PureRight(restore) && (flag & SNLEFT))
         ||  (TopRight(restore) && TopLeft(flag))
         ||  (BottomRight(restore) && BottomLeft(flag))) {
@@ -939,7 +952,9 @@ static void ResizeOtherSnappedWindows(POINT pt, int posx, int posy, int wndwidth
         } else if ((PureTop(restore) && (flag & SNBOTTOM))
         ||  (TopLeft(restore) && BottomLeft(flag))
         ||  (TopRight(restore) && BottomRight(flag))) {
-            nwnd.top = posy + wndheight - nbd.top;
+            POINT Min, Max;
+            GetMinMaxInfo(hwnd, &Min, &Max);
+            nwnd.top = CLAMP(nwnd.bottom - Max.y, posy + wndheight - nbd.top, nwnd.bottom - Min.y);
         } else if ((PureBottom(restore) && (flag & SNTOP))
         ||  (BottomLeft(restore) && TopLeft(flag))
         ||  (BottomRight(restore) && TopRight(flag))) {
@@ -950,6 +965,7 @@ static void ResizeOtherSnappedWindows(POINT pt, int posx, int posy, int wndwidth
         MoveWindowAsync(hwnd, nwnd.left, nwnd.top, nwnd.right-nwnd.left, nwnd.bottom-nwnd.top, TRUE);
     }
 }
+
 ///////////////////////////////////////////////////////////////////////////
 #define AERO_TH conf.AeroThreshold
 #define MM_THREAD_ON (LastWin.hwnd && conf.FullWin)
@@ -2239,16 +2255,6 @@ static void ActionBorderless(HWND hwnd)
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-static void GetMinMaxInfo_glob(HWND hwnd)
-{
-    MINMAXINFO mmi = { {0, 0}, {0, 0}, {0, 0}
-                     , {GetSystemMetrics(SM_CXMINTRACK), GetSystemMetrics(SM_CYMINTRACK)}
-                     , {GetSystemMetrics(SM_CXMAXTRACK), GetSystemMetrics(SM_CXMAXTRACK)} };
-    SendMessage(hwnd, WM_GETMINMAXINFO, 0, (LPARAM)&mmi);
-    state.mmi.Min = mmi.ptMinTrackSize;
-    state.mmi.Max = mmi.ptMaxTrackSize;
-}
-/////////////////////////////////////////////////////////////////////////////
 static int IsFullscreen(HWND hwnd, const RECT *wnd, const RECT *fmon)
 {
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
@@ -2385,7 +2391,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Do things depending on what button was pressed
     HCURSOR hcursor = NULL;
     if (action == AC_MOVE || action == AC_RESIZE) { ////////////////
-        GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
+        GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
         SetWindowTrans(state.hwnd);
         EnumOnce(NULL); // Reset enum stuff
         if(conf.AeroMaxSpeed < 65000)
@@ -2868,22 +2874,18 @@ __declspec(dllexport) void Unload()
 
     free(monitors);
     monitors = NULL;
-    nummonitors = 0;
     monitors_alloc = 0;
 
     free(hwnds);
     hwnds = NULL;
-    numhwnds = 0;
     hwnds_alloc = 0;
 
     free(wnds);
     wnds = NULL;
-    numwnds = 0;
     wnds_alloc = 0;
 
     free(wnds);
     snwnds = NULL;
-    numsnwnds = 0;
     snwnds_alloc = 0;
 }
 /////////////////////////////////////////////////////////////////////////////

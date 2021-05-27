@@ -380,6 +380,13 @@ static void InflateRectBorder(RECT *rc, const RECT *bd)
     rc->right  += bd->right;
     rc->bottom += bd->bottom;
 }
+static void DeflateRectBorder(RECT *rc, const RECT *bd)
+{
+    rc->left   += bd->left;
+    rc->top    += bd->top;
+    rc->right  -= bd->right;
+    rc->bottom -= bd->bottom;
+}
 static void FixDWMRect(HWND hwnd, RECT *bbb)
 {
     RECT rect, frame;

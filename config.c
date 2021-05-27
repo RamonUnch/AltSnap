@@ -304,14 +304,11 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         int ret;
         ReadOptionInt(IDC_AUTOFOCUS,      L"General", L"AutoFocus", 0, -1);
         ReadOptionInt(IDC_AERO,           L"General", L"Aero", 1, -1);
-        ReadOptionInt(IDC_SMARTAERO,      L"General",    L"SmartAero", 1, -1);
-        ret =
+        ReadOptionInt(IDC_SMARTAERO,      L"General",    L"SmartAero", 1, 1);
+        ReadOptionInt(IDC_STICKYAERO,     L"General",    L"SmartAero", 0, 2);
         ReadOptionInt(IDC_INACTIVESCROLL, L"General", L"InactiveScroll", 0, -1);
-        if(WIN10) Button_Enable(GetDlgItem(hwnd, IDC_INACTIVESCROLL), ret);
         ReadOptionInt(IDC_MDI,            L"General", L"MDI", 1, -1);
-        ret =
         ReadOptionInt(IDC_FULLWIN,        L"Performance", L"FullWin", 1, -1);
-        if(HaveDWM()) Button_Enable(GetDlgItem(hwnd, IDC_FULLWIN), !ret);
         ReadOptionInt(IDC_RESIZEALL,      L"Advanced", L"ResizeAll", 1, -1);
 
         ret=GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
@@ -355,6 +352,8 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             }
         } else if (id == IDC_ELEVATE) {
             return ElevateNow(1);
+        } else if (id == IDC_SMARTAERO) {
+            Button_Enable(GetDlgItem(hwnd, IDC_STICKYAERO), val);
         }
     } else if (msg == WM_NOTIFY) {
         LPNMHDR pnmh = (LPNMHDR) lParam;
@@ -369,18 +368,22 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), elevated ? BST_CHECKED : BST_UNCHECKED);
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE), autostart);
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), autostart && VISTA);
-
+            Button_Enable(GetDlgItem(hwnd, IDC_STICKYAERO), IsChecked(IDC_SMARTAERO));
+            if(WIN10) Button_Enable(GetDlgItem(hwnd, IDC_INACTIVESCROLL), IsChecked(IDC_INACTIVESCROLL));
+            if(HaveDWM()) Button_Enable(GetDlgItem(hwnd, IDC_FULLWIN), !IsChecked(IDC_FULLWIN));
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             wchar_t txt[10];
             WriteOptionBool(IDC_AUTOFOCUS,     L"General",    L"AutoFocus");
             WriteOptionBool(IDC_AERO,          L"General",    L"Aero");
-            WriteOptionBool(IDC_SMARTAERO,     L"General",    L"SmartAero");
+            //WriteOptionBool(IDC_SMARTAERO,     L"General",    L"SmartAero");
+            int val = IsChecked(IDC_SMARTAERO) + 2 * IsChecked(IDC_STICKYAERO);
+            WritePrivateProfileString(L"General", L"SmartAero", _itow(val, txt, 10), inipath);
             WriteOptionBool(IDC_INACTIVESCROLL,L"General",    L"InactiveScroll");
             WriteOptionBool(IDC_MDI,           L"General",    L"MDI");
             WriteOptionBool(IDC_FULLWIN,       L"Performance",L"FullWin");
             WriteOptionBool(IDC_RESIZEALL,     L"Advanced",   L"ResizeAll");
 
-            int val = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_AUTOSNAP));
+            val = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_AUTOSNAP));
             WritePrivateProfileString(L"General",    L"AutoSnap", _itow(val, txt, 10), inipath);
 
             val = IsChecked(IDC_RZCENTER_NORM)? 1: IsChecked(IDC_RZCENTER_MOVE)? 2: 0;
@@ -407,6 +410,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         SetDlgItemText(hwnd, IDC_AUTOFOCUS,         l10n->general_autofocus);
         SetDlgItemText(hwnd, IDC_AERO,              l10n->general_aero);
         SetDlgItemText(hwnd, IDC_SMARTAERO,         l10n->general_smartaero);
+        SetDlgItemText(hwnd, IDC_STICKYAERO,        l10n->general_stickyaero);
         SetDlgItemText(hwnd, IDC_INACTIVESCROLL,    l10n->general_inactivescroll);
         SetDlgItemText(hwnd, IDC_MDI,               l10n->general_mdi);
         SetDlgItemText(hwnd, IDC_AUTOSNAP_HEADER,   l10n->general_autosnap);

@@ -234,26 +234,26 @@ static unsigned whex2u(const wchar_t s[2])
     else return h2u(s[0]);
 }
 
-static inline void *reallocL(void *mem, size_t sz)
+static void *reallocL(void *mem, size_t sz)
 {
     if(!mem) return HeapAlloc(GetProcessHeap(), 0, sz);
     return HeapReAlloc(GetProcessHeap(), 0, mem, sz);
 }
 #define realloc reallocL
 
-static inline void *mallocL(size_t sz)
+static void *mallocL(size_t sz)
 {
     return HeapAlloc(GetProcessHeap(), 0, sz);
 }
 #define malloc mallocL
 
-static inline void *callocL(size_t sz, size_t mult)
+static void *callocL(size_t sz, size_t mult)
 {
     return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sz*mult);
 }
 #define calloc callocL
 
-static inline BOOL freeL(void *mem)
+static BOOL freeL(void *mem)
 {
     return HeapFree(GetProcessHeap(), 0, mem);
 }

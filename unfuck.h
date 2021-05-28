@@ -586,10 +586,12 @@ static pure unsigned WhichSideRectInRect(const RECT *mon, const RECT *wnd)
     return flag;
 }
 
-static pure unsigned AreRectsTouching(const RECT *a, const RECT *b)
+static pure unsigned AreRectsTouchingT(const RECT *a, const RECT *b, const int tol)
 {
-    return a->left == b->right || a->top == b->bottom 
-        || a->right == b->left || a->bottom == b->top;
+    return (a->left <= b->right + tol && a->left >= b->right - tol) 
+        || (a->top <= b->bottom + tol && a->top >= b->bottom - tol) 
+        || (a->right <= b->left + tol && a->right >= b->left - tol)
+        || (a->bottom <= b->top + tol && a->bottom >= b->top - tol);
 }
 
 static void CropRect(RECT *wnd, RECT *crop)

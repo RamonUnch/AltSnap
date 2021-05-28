@@ -461,7 +461,7 @@ static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
             // touching the currently resized window
             RECT statewnd;
             GetWindowRectL(state.hwnd, &statewnd);
-            if(!AreRectsTouching(&statewnd, &wnd)) {
+            if(!AreRectsTouchingT(&statewnd, &wnd, conf.SnapThreshold/2)) {
                 return TRUE;
             }
         }

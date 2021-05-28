@@ -452,7 +452,7 @@ static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
         snwnds = realloc(snwnds, snwnds_alloc*sizeof(struct snwdata));
     }
     RECT wnd;
-    if (ShouldSnapTo(hwnd) && !IsZoomed(hwnd) 
+    if (ShouldSnapTo(hwnd) && !IsZoomed(hwnd)
     && (lParam? GetWindowRect(hwnd, &wnd): GetWindowRectL(hwnd, &wnd))) {
         struct wnddata *entry;
         if ((entry = GetWindowInDB(hwnd)) && entry->restore&SNAPPED && entry->restore&SNAPPEDSIDE) {
@@ -933,44 +933,41 @@ static void ResizeOtherSnappedWindows(POINT pt, int posx, int posy, int wndwidth
         RECT nbd;
         int flag = snwnds[i].flag;
         HWND hwnd = snwnds[i].hwnd;
-        if(state.hwnd == hwnd) continue;
+
         if (!PtInRect(&mon, (POINT){snwnds[i].wnd.left+16, snwnds[i].wnd.top+16}))
             continue; // Next i
-        RECT nwnd;
-        // GetWindowRect(hwnd, &nwnd);
-        CopyRect(&nwnd, &snwnds[i].wnd);
+        RECT *nwnd = &snwnds[i].wnd;
         FixDWMRect(hwnd, &nbd);
-        DeflateRectBorder(&nwnd, &nbd);
+        DeflateRectBorder(nwnd, &nbd);
 
         if ((PureLeft(restore) && (flag & SNRIGHT))
         ||  (TopLeft(restore) && TopRight(flag))
         ||  (BottomLeft(restore) && BottomRight(flag)) ) {
             POINT Min, Max;
             GetMinMaxInfo(hwnd, &Min, &Max);
-            nwnd.left = CLAMP(nwnd.right - Max.x, posx + wndwidth , nwnd.right - Min.x);
+            nwnd->left = CLAMP(nwnd->right - Max.x, posx + wndwidth , nwnd->right - Min.x);
         } else if ((PureRight(restore) && (flag & SNLEFT))
         ||  (TopRight(restore) && TopLeft(flag))
         ||  (BottomRight(restore) && BottomLeft(flag))) {
-            nwnd.right = posx;
+            nwnd->right = posx;
         } else if ((PureTop(restore) && (flag & SNBOTTOM))
         ||  (TopLeft(restore) && BottomLeft(flag))
         ||  (TopRight(restore) && BottomRight(flag))) {
             POINT Min, Max;
             GetMinMaxInfo(hwnd, &Min, &Max);
-            nwnd.top = CLAMP(nwnd.bottom - Max.y, posy + wndheight - nbd.top, nwnd.bottom - Min.y);
+            nwnd->top = CLAMP(nwnd->bottom - Max.y, posy + wndheight - nbd.top, nwnd->bottom - Min.y);
         } else if ((PureBottom(restore) && (flag & SNTOP))
         ||  (BottomLeft(restore) && TopLeft(flag))
         ||  (BottomRight(restore) && TopRight(flag))) {
-            nwnd.bottom = posy;
+            nwnd->bottom = posy;
         } else {
             continue; // Next i;
         }
-        
-        InflateRectBorder(&nwnd, &nbd);
-        CopyRect(&snwnds[i].wnd, &nwnd);
-        snwnds[i].flag = flag|TORESIZE;
+        InflateRectBorder(nwnd, &nbd);
         if(conf.FullWin)
-            MoveWindowAsync(hwnd, nwnd.left, nwnd.top, nwnd.right-nwnd.left, nwnd.bottom-nwnd.top, TRUE);
+            MoveWindowAsync(hwnd, nwnd->left, nwnd->top, nwnd->right-nwnd->left, nwnd->bottom-nwnd->top, TRUE);
+        else
+            snwnds[i].flag = flag|TORESIZE;
     }
 }
 static void ResizeAllSnappedWindowsAsync()
@@ -1454,7 +1451,7 @@ static void MouseMove(POINT pt)
         if (state.moving == 1)
             Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
 
-        if(conf.SmartAero>2)
+        if(conf.SmartAero>2 && state.action == AC_RESIZE)
             ResizeOtherSnappedWindows(pt, posx, posy, wndwidth, wndheight);
 
         CopyRect(&oldRect, &newRect); // oldRect is GLOBAL!
@@ -1462,7 +1459,7 @@ static void MouseMove(POINT pt)
 
     } else if (mouse_thread_finished) {
         DWORD lpThreadId;
-        if(conf.SmartAero>2)
+        if(conf.SmartAero>2 && state.action == AC_RESIZE)
             ResizeOtherSnappedWindows(pt, posx, posy, wndwidth, wndheight);
         CloseHandle(CreateThread(NULL, STACK, MoveWindowThread, &LastWin, 0, &lpThreadId));
         state.moving = 1;

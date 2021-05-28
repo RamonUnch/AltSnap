@@ -51,6 +51,7 @@ static void FinishMovement();
 #define SNMAXH    (1<<6)
 #define SNMAXW    (1<<7)
 #define SNCLEAR   (1<<8) // to clear the flag at init movement.
+#define TORESIZE  (1<<9)
 #define SNTOPLEFT     (SNTOP|SNLEFT)
 #define SNTOPRIGHT    (SNTOP|SNRIGHT)
 #define SNBOTTOMLEFT  (SNBOTTOM|SNLEFT)
@@ -451,7 +452,8 @@ static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
         snwnds = realloc(snwnds, snwnds_alloc*sizeof(struct snwdata));
     }
     RECT wnd;
-    if (ShouldSnapTo(hwnd) && !IsZoomed(hwnd) && GetWindowRectL(hwnd, &wnd)) {
+    if (ShouldSnapTo(hwnd) && !IsZoomed(hwnd) 
+    && (lParam? GetWindowRect(hwnd, &wnd): GetWindowRectL(hwnd, &wnd))) {
         struct wnddata *entry;
         if ((entry = GetWindowInDB(hwnd)) && entry->restore&SNAPPED && entry->restore&SNAPPEDSIDE) {
             CopyRect(&snwnds[numsnwnds].wnd, &wnd);
@@ -470,10 +472,10 @@ static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
     }
     return TRUE;
 }
-static void EnumSnapped()
+static void EnumSnapped(LPARAM lParam)
 {
     numsnwnds = 0;
-    if (conf.SmartAero) EnumWindows(EnumSnappedWindows, 0);
+    if (conf.SmartAero) EnumWindows(EnumSnappedWindows, lParam);
 }
 ///////////////////////////////////////////////////////////////////////////
 // Just used in Enum
@@ -904,11 +906,10 @@ static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
 ///////////////////////////////////////////////////////////////////////////
 static void ResizeOtherSnappedWindows(POINT pt, int posx, int posy, int wndwidth, int wndheight)
 {
-    RECT nwnd;
     static RECT bd, mon;
     int i;
     if(!state.moving) {
-        EnumSnapped();
+        EnumSnapped(1);
         FixDWMRect(state.hwnd, &bd);
         GetMonitorRect(&pt, 0, &mon);
     }
@@ -932,23 +933,25 @@ static void ResizeOtherSnappedWindows(POINT pt, int posx, int posy, int wndwidth
         RECT nbd;
         int flag = snwnds[i].flag;
         HWND hwnd = snwnds[i].hwnd;
-
-        if (state.hwnd == hwnd || !RectInRect(&mon, &snwnds[i].wnd))
+        if(state.hwnd == hwnd) continue;
+        if (!PtInRect(&mon, (POINT){snwnds[i].wnd.left+16, snwnds[i].wnd.top+16}))
             continue; // Next i
-
-        GetWindowRect(hwnd, &nwnd);
+        RECT nwnd;
+        // GetWindowRect(hwnd, &nwnd);
+        CopyRect(&nwnd, &snwnds[i].wnd);
         FixDWMRect(hwnd, &nbd);
+        DeflateRectBorder(&nwnd, &nbd);
 
         if ((PureLeft(restore) && (flag & SNRIGHT))
         ||  (TopLeft(restore) && TopRight(flag))
         ||  (BottomLeft(restore) && BottomRight(flag)) ) {
             POINT Min, Max;
             GetMinMaxInfo(hwnd, &Min, &Max);
-            nwnd.left = CLAMP(nwnd.right - Max.x, posx + wndwidth - nbd.left, nwnd.right - Min.x);
+            nwnd.left = CLAMP(nwnd.right - Max.x, posx + wndwidth , nwnd.right - Min.x);
         } else if ((PureRight(restore) && (flag & SNLEFT))
         ||  (TopRight(restore) && TopLeft(flag))
         ||  (BottomRight(restore) && BottomLeft(flag))) {
-            nwnd.right = posx + nbd.right;
+            nwnd.right = posx;
         } else if ((PureTop(restore) && (flag & SNBOTTOM))
         ||  (TopLeft(restore) && BottomLeft(flag))
         ||  (TopRight(restore) && BottomRight(flag))) {
@@ -958,14 +961,29 @@ static void ResizeOtherSnappedWindows(POINT pt, int posx, int posy, int wndwidth
         } else if ((PureBottom(restore) && (flag & SNTOP))
         ||  (BottomLeft(restore) && TopLeft(flag))
         ||  (BottomRight(restore) && TopRight(flag))) {
-            nwnd.bottom = posy + nbd.bottom;
+            nwnd.bottom = posy;
         } else {
             continue; // Next i;
         }
-        MoveWindowAsync(hwnd, nwnd.left, nwnd.top, nwnd.right-nwnd.left, nwnd.bottom-nwnd.top, TRUE);
+        
+        InflateRectBorder(&nwnd, &nbd);
+        CopyRect(&snwnds[i].wnd, &nwnd);
+        snwnds[i].flag = flag|TORESIZE;
+        if(conf.FullWin)
+            MoveWindowAsync(hwnd, nwnd.left, nwnd.top, nwnd.right-nwnd.left, nwnd.bottom-nwnd.top, TRUE);
     }
 }
-
+static void ResizeAllSnappedWindowsAsync()
+{
+    int i;
+    for (i=0; i < numsnwnds; i++) {
+        if(snwnds[i].flag&TORESIZE)
+        MoveWindowAsync(snwnds[i].hwnd
+            , snwnds[i].wnd.left, snwnds[i].wnd.top
+            , snwnds[i].wnd.right-snwnds[i].wnd.left
+            , snwnds[i].wnd.bottom-snwnds[i].wnd.top, TRUE);
+    }
+}
 ///////////////////////////////////////////////////////////////////////////
 #define AERO_TH conf.AeroThreshold
 #define MM_THREAD_ON (LastWin.hwnd && conf.FullWin)
@@ -979,7 +997,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     if (!state.moving) {
         if (!(resizable=IsResizable(state.hwnd)))
             return 0;
-        EnumSnapped();
+        EnumSnapped(0);
     }
 
     // We HAVE to check the monitor for each pt...
@@ -2162,7 +2180,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, const RECT *wnd, const RECT
             }
         } else { /* Aero Snap to corresponding side/corner */
             int leftWidth, rightWidth, topHeight, bottomHeight;
-            EnumSnapped();
+            EnumSnapped(0);
             GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, mon);
             wndwidth =  leftWidth;
             wndheight = topHeight;
@@ -2567,7 +2585,10 @@ static void FinishMovement()
 {
     if (LastWin.hwnd && (state.moving == NOT_MOVED || (!conf.FullWin&&state.moving))) {
         // to erase the last rectangle...
-        if(!conf.FullWin) Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
+        if(!conf.FullWin) {
+            Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
+            if(state.action == AC_RESIZE) ResizeAllSnappedWindowsAsync();
+        }
 
         if(IsWindow(LastWin.hwnd)) {
             DWORD lpThreadId;

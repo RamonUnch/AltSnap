@@ -36,7 +36,7 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
     (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
     , UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 #endif
-
+#define LOG_STUFF 0
 #define LOG(X, ...) if(LOG_STUFF) { FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fclose(LOG); }
 #define LOGA(X, ...) { FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fclose(LOG); }
 
@@ -574,13 +574,7 @@ static pure BOOL RectInRect(const RECT *big, const RECT *wnd)
     return wnd->left >= big->left && wnd->top >= big->top
         && wnd->right <= big->right && wnd->bottom <= big->bottom;
 }
-static pure int WhichSideRectInRectSS(const RECT *big, const RECT *wnd)
-{ /* 4 , 8 16, 32*/
-    return ( (wnd->left == big->left)<<2)
-         | ( (wnd->right == big->right)<<3);
-/*       | ( (wnd->top == big->top) <<4)
-         | ( (wnd->bottom == big->bottom) <<5); */
-}
+
 static pure unsigned WhichSideRectInRect(const RECT *mon, const RECT *wnd)
 {
     unsigned flag;
@@ -590,6 +584,12 @@ static pure unsigned WhichSideRectInRect(const RECT *mon, const RECT *wnd)
     flag |= (wnd->bottom == mon->bottom && wnd->top-mon->top > 16) << 5;
 
     return flag;
+}
+
+static pure unsigned AreRectsTouching(const RECT *a, const RECT *b)
+{
+    return a->left == b->right || a->top == b->bottom 
+        || a->right == b->left || a->bottom == b->top;
 }
 
 static void CropRect(RECT *wnd, RECT *crop)

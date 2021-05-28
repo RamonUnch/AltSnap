@@ -451,10 +451,21 @@ static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
         snwnds_alloc += 4;
         snwnds = realloc(snwnds, snwnds_alloc*sizeof(struct snwdata));
     }
+
     RECT wnd;
-    if (ShouldSnapTo(hwnd) && !IsZoomed(hwnd)
-    && (lParam? GetWindowRect(hwnd, &wnd): GetWindowRectL(hwnd, &wnd))) {
+    if (ShouldSnapTo(hwnd) && !IsZoomed(hwnd) && GetWindowRectL(hwnd, &wnd)) {
         struct wnddata *entry;
+
+        if (lParam) { // in case of Resize...
+            // Only considers windows that are
+            // touching the currently resized window
+            RECT statewnd;
+            GetWindowRectL(state.hwnd, &statewnd);
+            if(!AreRectsTouching(&statewnd, &wnd)) {
+                return TRUE;
+            }
+        }
+
         if ((entry = GetWindowInDB(hwnd)) && entry->restore&SNAPPED && entry->restore&SNAPPEDSIDE) {
             CopyRect(&snwnds[numsnwnds].wnd, &wnd);
             snwnds[numsnwnds].flag = entry->restore;
@@ -472,6 +483,8 @@ static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
     }
     return TRUE;
 }
+// If lParam is set to 1 then only windows that are
+// touching the current window will be considered.
 static void EnumSnapped(LPARAM lParam)
 {
     numsnwnds = 0;
@@ -938,7 +951,7 @@ static void ResizeOtherSnappedWindows(POINT pt, int posx, int posy, int wndwidth
             continue; // Next i
         RECT *nwnd = &snwnds[i].wnd;
         FixDWMRect(hwnd, &nbd);
-        DeflateRectBorder(nwnd, &nbd);
+//        DeflateRectBorder(nwnd, &nbd);
 
         if ((PureLeft(restore) && (flag & SNRIGHT))
         ||  (TopLeft(restore) && TopRight(flag))
@@ -963,9 +976,10 @@ static void ResizeOtherSnappedWindows(POINT pt, int posx, int posy, int wndwidth
         } else {
             continue; // Next i;
         }
-        InflateRectBorder(nwnd, &nbd);
         if(conf.FullWin)
-            MoveWindowAsync(hwnd, nwnd->left, nwnd->top, nwnd->right-nwnd->left, nwnd->bottom-nwnd->top, TRUE);
+            MoveWindowAsync(hwnd, nwnd->left-nbd.left, nwnd->top-nbd.top
+                                , nwnd->right-nwnd->left + nbd.left+nbd.right
+                                , nwnd->bottom-nwnd->top + nbd.top+nbd.bottom, TRUE);
         else
             snwnds[i].flag = flag|TORESIZE;
     }
@@ -974,11 +988,15 @@ static void ResizeAllSnappedWindowsAsync()
 {
     int i;
     for (i=0; i < numsnwnds; i++) {
-        if(snwnds[i].flag&TORESIZE)
-        MoveWindowAsync(snwnds[i].hwnd
-            , snwnds[i].wnd.left, snwnds[i].wnd.top
-            , snwnds[i].wnd.right-snwnds[i].wnd.left
-            , snwnds[i].wnd.bottom-snwnds[i].wnd.top, TRUE);
+        if(snwnds[i].flag&TORESIZE) {
+            RECT bd;
+            FixDWMRect(snwnds[i].hwnd, &bd);
+            InflateRectBorder(&snwnds[i].wnd, &bd);
+            MoveWindowAsync(snwnds[i].hwnd
+                , snwnds[i].wnd.left, snwnds[i].wnd.top
+                , snwnds[i].wnd.right-snwnds[i].wnd.left
+                , snwnds[i].wnd.bottom-snwnds[i].wnd.top, TRUE);
+        }
     }
 }
 ///////////////////////////////////////////////////////////////////////////

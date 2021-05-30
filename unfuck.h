@@ -606,13 +606,20 @@ static pure unsigned WhichSideRectInRect(const RECT *mon, const RECT *wnd)
 
     return flag;
 }
-
 static pure unsigned AreRectsAligned(const RECT *a, const RECT *b, const int tol)
 {
     return (a->left <= b->right + tol && a->left >= b->right - tol) << 2
          | (a->top <= b->bottom + tol && a->top >= b->bottom - tol) << 4
          | (a->right <= b->left + tol && a->right >= b->left - tol) << 3
          | (a->bottom <= b->top + tol && a->bottom >= b->top - tol) << 5;
+}
+static xpure int IsEqualT(int a, int b, int th)
+{ 
+    return b - th < a && a < b + th ;
+}
+static xpure int IsInRangeT(int x, int a, int b, int T)
+{
+    return a-T < x && x < b+T ;
 }
 static xpure int SegT(int ax, int bx, int ay1, int ay2, int by1, int by2, int tol)
 {

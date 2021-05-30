@@ -586,12 +586,27 @@ static pure unsigned WhichSideRectInRect(const RECT *mon, const RECT *wnd)
     return flag;
 }
 
+static pure unsigned AreRectsTouchingTOK(const RECT *a, const RECT *b, const int tol)
+{
+    return (a->left <= b->right + tol && a->left >= b->right - tol) << 2
+         | (a->top <= b->bottom + tol && a->top >= b->bottom - tol) << 4
+         | (a->right <= b->left + tol && a->right >= b->left - tol) << 3
+         | (a->bottom <= b->top + tol && a->bottom >= b->top - tol) << 5;
+}
+static xpure int SegT(int ax, int bx, int ay1, int ay2, int by1, int by2, int tol)
+{
+    return (ax <= bx + tol && ax >= bx - tol) /* ax == bx */
+        && ( (ay1 >= by1 && ay1 <= by2)
+          || (by1 >= ay1 && by1 <= ay2)
+          || (ay2 >= by1 && ay2 <= by2)
+          || (by2 >= ay1 && by2 <= ay2) );
+}
 static pure unsigned AreRectsTouchingT(const RECT *a, const RECT *b, const int tol)
 {
-    return (a->left <= b->right + tol && a->left >= b->right - tol) 
-        || (a->top <= b->bottom + tol && a->top >= b->bottom - tol) 
-        || (a->right <= b->left + tol && a->right >= b->left - tol)
-        || (a->bottom <= b->top + tol && a->bottom >= b->top - tol);
+    return SegT(a->left, b->right, a->top, a->bottom, b->top, b->bottom, tol) << 2
+         | SegT(a->right, b->left, a->top, a->bottom, b->top, b->bottom, tol) << 3
+         | SegT(a->top, b->bottom, a->left, a->right, b->left, b->right, tol) << 4
+         | SegT(a->bottom, b->top, a->left, a->right, b->left, b->right, tol) << 5;
 }
 
 static void CropRect(RECT *wnd, RECT *crop)

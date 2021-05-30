@@ -540,6 +540,17 @@ static DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
     return ret? pid: 0;
 }
 
+/* Helper function to get the Min and Max tracking sizes */
+static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
+{
+    MINMAXINFO mmi = { {0, 0}, {0, 0}, {0, 0}
+                     , {GetSystemMetrics(SM_CXMINTRACK), GetSystemMetrics(SM_CYMINTRACK)}
+                     , {GetSystemMetrics(SM_CXMAXTRACK), GetSystemMetrics(SM_CXMAXTRACK)} };
+    SendMessage(hwnd, WM_GETMINMAXINFO, 0, (LPARAM)&mmi);
+    *Min = mmi.ptMinTrackSize;
+    *Max = mmi.ptMaxTrackSize;
+}
+
 /* Helper function to call SetWindowPos with the SWP_ASYNCWINDOWPOS flag */
 static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height, BOOL flag)
 {
@@ -547,7 +558,6 @@ static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height
     return SetWindowPos(hwnd, NULL, posx, posy, width, height
                       , SWP_NOACTIVATE|SWP_NOREPOSITION|SWP_ASYNCWINDOWPOS|flag);
 }
-
 /* This is used to detect is the window was snapped normally outside of
  * AltDrag, in this case the window appears as normal
  * ie: wndpl.showCmd=SW_SHOWNORMAL, but  its actual rect does not match with
@@ -568,6 +578,17 @@ static int IsWindowSnapped(HWND hwnd)
     return (W != nW || H != nH);
 }
 
+/* If pt and ptt are it is the same points with 4px tolerence */
+static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
+{
+    return !( pt->x > ptt->x+4 || pt->y > ptt->y+4 ||pt->x < ptt->x-4 || pt->y < ptt->y-4 );
+}
+/* Limit x between l and h */
+static xpure int CLAMP(int l, int x, int h)
+{
+    return (x < l)? l: ((x > h)? h: x);
+}
+
 /* Says if a rect is inside another one */
 static pure BOOL RectInRect(const RECT *big, const RECT *wnd)
 {
@@ -586,7 +607,7 @@ static pure unsigned WhichSideRectInRect(const RECT *mon, const RECT *wnd)
     return flag;
 }
 
-static pure unsigned AreRectsTouchingTOK(const RECT *a, const RECT *b, const int tol)
+static pure unsigned AreRectsAligned(const RECT *a, const RECT *b, const int tol)
 {
     return (a->left <= b->right + tol && a->left >= b->right - tol) << 2
          | (a->top <= b->bottom + tol && a->top >= b->bottom - tol) << 4
@@ -615,6 +636,16 @@ static void CropRect(RECT *wnd, RECT *crop)
     wnd->top    = max(wnd->top,    crop->top);
     wnd->right  = min(wnd->right,  crop->right);
     wnd->bottom = min(wnd->bottom, crop->bottom);
+}
+
+static void CenterRectInRect(RECT *wnd, const RECT *mon)
+{
+    int width  = wnd->right  - wnd->left;
+    int height = wnd->bottom - wnd->top;
+    wnd->left = mon->left + (mon->right-mon->left)/2-width/2;
+    wnd->top  = mon->top  + (mon->bottom-mon->top)/2-height/2;
+    wnd->right  = wnd->left + width;
+    wnd->bottom = wnd->top  + height;
 }
 
 #endif

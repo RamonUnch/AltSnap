@@ -290,11 +290,6 @@ static pure int blacklistedP(HWND hwnd, struct blacklist *list)
     }
     return !mode;
 }
-// Limit x between l and h
-static xpure int CLAMP(int _l, int _x, int _h)
-{
-    return (_x<_l)? _l: ((_x>_h)? _h: _x);
-}
 
 // Macro to clamp width and height of windows
 #define CLAMPW(width)  CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x)
@@ -302,11 +297,6 @@ static xpure int CLAMP(int _l, int _x, int _h)
 static inline int IsResizable(HWND hwnd)
 {
     return (conf.ResizeAll || GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME);
-}
-/////////////////////////////////////////////////////////////////////////////
-static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
-{
-    return !( pt->x > ptt->x+4 || pt->y > ptt->y+4 ||pt->x < ptt->x-4 || pt->y < ptt->y-4 );
 }
 /////////////////////////////////////////////////////////////////////////////
 static void SendSizeMove_on(enum action action, int on)
@@ -463,21 +453,10 @@ static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 }
 // If lParam is set to 1 then only windows that are
 // touching the current window will be considered.
-static void EnumSnapped(LPARAM lParam)
+static void EnumSnapped()
 {
     numsnwnds = 0;
-    if (conf.SmartAero) EnumWindows(EnumSnappedWindows, lParam);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
-{
-    MINMAXINFO mmi = { {0, 0}, {0, 0}, {0, 0}
-                     , {GetSystemMetrics(SM_CXMINTRACK), GetSystemMetrics(SM_CYMINTRACK)}
-                     , {GetSystemMetrics(SM_CXMAXTRACK), GetSystemMetrics(SM_CXMAXTRACK)} };
-    SendMessage(hwnd, WM_GETMINMAXINFO, 0, (LPARAM)&mmi);
-    *Min = mmi.ptMinTrackSize;
-    *Max = mmi.ptMaxTrackSize;
+    if (conf.SmartAero) EnumWindows(EnumSnappedWindows, 0);
 }
 /////////////////////////////////////////////////////////////////////////////
 static BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
@@ -583,11 +562,11 @@ static void EnumMdi()
 
     // Add all the siblings to the window
     POINT mdiclientpt = { 0, 0 };
-    if (ClientToScreen(state.mdiclient, &mdiclientpt) == FALSE) {
+    if (!ClientToScreen(state.mdiclient, &mdiclientpt)) {
         return;
     }
     HWND window = GetWindow(state.mdiclient, GW_CHILD);
-    while (window != NULL) {
+    while (window) {
         if (window == state.hwnd) {
             window = GetWindow(window, GW_HWNDNEXT);
             continue;
@@ -866,15 +845,6 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
         *wndheight = stickbottom-*posy + borders->bottom;
     }
 }
-static void CenterRectInRect(RECT *wnd, const RECT *mon)
-{
-    int width  = wnd->right  - wnd->left;
-    int height = wnd->bottom - wnd->top;
-    wnd->left = mon->left + (mon->right-mon->left)/2-width/2;
-    wnd->top  = mon->top  + (mon->bottom-mon->top)/2-height/2;
-    wnd->right  = wnd->left + width;
-    wnd->bottom = wnd->top  + height;
-}
 /////////////////////////////////////////////////////////////////////////////
 // Call with SW_MAXIMIZE or SW_RESTORE or below.
 #define SW_TOGGLE_MAX_RESTORE 27
@@ -954,6 +924,7 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
     for (i=numsnwnds-1; i >= 0; i--) {
         int flag = snwnds[i].flag;
         RECT *wnd = &snwnds[i].wnd;
+        // if the window is in current monitor
         if (PtInRect(mon, (POINT) { wnd->left+16, wnd->top+16 })) {
             // We have a snapped window in the monitor
             if (flag & SNLEFT) {
@@ -998,7 +969,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     if (!state.moving) {
         if (!(resizable=IsResizable(state.hwnd)))
             return 0;
-        EnumSnapped(0);
+        EnumSnapped();
     }
 
     // We HAVE to check the monitor for each pt...
@@ -1169,6 +1140,16 @@ static int pure IsHotkeyy(unsigned char key, struct hotkeys_s *HKlist)
 #define IsHotkey(a)   IsHotkeyy(a, &conf.Hotkeys)
 #define IsHotclick(a) IsHotkeyy(a, &conf.Hotclick)
 #define IsKillkey(a)  IsHotkeyy(a, &conf.Killkey)
+/////////////////////////////////////////////////////////////////////////////
+static int IsHotKeyDown(struct hotkeys_s *hk)
+{
+    int i;
+    for (i=0; i < hk->length; i++) {
+        if (GetAsyncKeyState(hk->keys[i])&0x8000)
+            return 1;
+    }
+    return 0;
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // if pt is NULL then the window is not moved when restored.
@@ -1591,7 +1572,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
             if(!state.shift) {
                 RestrictToCurentMonitor();
-                // EnumOnce(NULL); // Reset enum state.
+                EnumOnce(NULL); // Reset enum state.
                 state.snap = 3;
             }
             state.shift = 1;
@@ -2206,7 +2187,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, const RECT *wnd, const RECT
             }
         } else { /* Aero Snap to corresponding side/corner */
             int leftWidth, rightWidth, topHeight, bottomHeight;
-            EnumSnapped(0);
+            EnumSnapped();
             GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, mon);
             wndwidth =  leftWidth;
             wndheight = topHeight;
@@ -2310,7 +2291,7 @@ static int IsFullscreen(HWND hwnd, const RECT *wnd, const RECT *fmon)
     return fs; // = 1 for fulscreen, 2 for SYSMENU and 3 for both.
 }
 /////////////////////////////////////////////////////////////////////////////
-static void CenterWindow(HWND hwnd)
+void CenterWindow(HWND hwnd)
 {
     RECT mon;
     POINT pt;
@@ -2662,16 +2643,6 @@ static void FinishMovement()
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-static int IsHotKeyDown(struct hotkeys_s *hk)
-{
-    int i;
-    for (i=0; i < hk->length; i++) {
-        if (GetAsyncKeyState(hk->keys[i])&0x8000)
-            return 1;
-    }
-    return 0;
-}
-/////////////////////////////////////////////////////////////////////////////
 // This is somewhat the main function, it is active only when the ALT key is
 // pressed, or is always on when conf.keepMousehook is enabled.
 static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -2841,7 +2812,7 @@ static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 {
     if (msg == WM_TIMER) {
         if (wParam == INIT_TIMER) {
-            KillTimer(g_timerhwnd, wParam);
+            KillTimer(g_timerhwnd, INIT_TIMER);
 
             // Hook mouse if a permanent hook is needed
             if (conf.keepMousehook) {
@@ -2933,7 +2904,7 @@ __declspec(dllexport) void Unload()
     wnds = NULL;
     wnds_alloc = 0;
 
-    free(wnds);
+    free(snwnds);
     snwnds = NULL;
     snwnds_alloc = 0;
 }

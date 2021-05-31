@@ -637,7 +637,7 @@ static pure unsigned AreRectsTouchingT(const RECT *a, const RECT *b, const int t
          | SegT(a->bottom, b->top, a->left, a->right, b->left, b->right, tol) << 5;
 }
 
-static void CropRect(RECT *wnd, RECT *crop)
+static void CropRect(RECT *__restrict__ wnd, RECT *crop)
 {
     wnd->left   = max(wnd->left,   crop->left);
     wnd->top    = max(wnd->top,    crop->top);
@@ -645,7 +645,7 @@ static void CropRect(RECT *wnd, RECT *crop)
     wnd->bottom = min(wnd->bottom, crop->bottom);
 }
 
-static void CenterRectInRect(RECT *wnd, const RECT *mon)
+static void CenterRectInRect(RECT *__restrict__ wnd, const RECT *mon)
 {
     int width  = wnd->right  - wnd->left;
     int height = wnd->bottom - wnd->top;

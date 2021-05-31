@@ -45,7 +45,7 @@ struct strings {
   wchar_t *general_autofocus;
   wchar_t *general_aero;
   wchar_t *general_smartaero;
-  wchar_t *general_stickyaero;
+  wchar_t *general_stickyresize;
   wchar_t *general_inactivescroll;
   wchar_t *general_mdi;
   wchar_t *general_autosnap;
@@ -195,7 +195,7 @@ struct {
   { &l10n_ini.general_autofocus,               L"GeneralAutoFocus" },
   { &l10n_ini.general_aero,                    L"GeneralAero" },
   { &l10n_ini.general_smartaero,               L"GeneralSmartAero" },
-  { &l10n_ini.general_stickyaero,              L"GeneralStickyAero" },
+  { &l10n_ini.general_stickyresize,            L"GeneralStickyResize" },
   { &l10n_ini.general_inactivescroll,          L"GeneralInactiveScroll" },
   { &l10n_ini.general_mdi,                     L"GeneralMDI" },
   { &l10n_ini.general_autosnap,                L"GeneralAutoSnap" },
@@ -337,7 +337,7 @@ struct strings en_US = {
  /* autofocus          */ L"&Focus windows when dragging.\nYou can also press Ctrl to focus windows.",
  /* aero               */ L"Mimi&c Aero Snap",
  /* smartaero          */ L"Smart Aero Sna&p dimensions",
- /* stickyaero         */ L"Resi&ze other snapped windows",
+ /* stickyresize       */ L"Resi&ze other snapped windows with Shift",
  /* inactivescroll     */ L"&Scroll inactive windows",
  /* mdi                */ L"&MDI support",
  /* autosnap           */ L"S&nap window edges to:",

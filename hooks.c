@@ -1211,10 +1211,10 @@ static void ClipCursorOnce(const RECT *clip)
 }
 static int ShouldResizeTouching()
 {
-    return  state.action == AC_RESIZE
-       && (   (conf.StickyResize && state.shift)
-           || (conf.SmartAero&2 && state.wndentry->restore&SNAPPEDSIDE)
-          );
+    return state.action == AC_RESIZE
+        && ( (conf.StickyResize&1 && state.shift) 
+          || (conf.StickyResize==2 && !state.shift)
+        );
 }
 ///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
@@ -2474,14 +2474,14 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
         HWND hwnd = WindowFromPoint(pt);
         if (!hwnd) return 0;
         hwnd = GetAncestor(hwnd, GA_ROOT);
-        if (blacklisted(hwnd, &BlkLst.Windows) || (wParam == WM_MBUTTONDOWN && blacklisted(hwnd, &BlkLst.MMBLower)))
+        if (blacklisted(hwnd, &BlkLst.Windows))
             return 0;
 
         int area = SendMessage(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x,pt.y));
-
-        if (willlower && wParam == WM_MBUTTONDOWN
-         && (area == HTCAPTION || area == HTTOP || area == HTTOPLEFT || area == HTTOPRIGHT
-         || area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON || area == HTCLOSE)) {
+        if (willlower && wParam == WM_MBUTTONDOWN 
+        && (area == HTCAPTION || area == HTTOP || area == HTTOPLEFT || area == HTTOPRIGHT
+          ||area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON || area == HTCLOSE)
+        && !blacklisted(hwnd, &BlkLst.MMBLower)) {
             if (state.shift) {
                 PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
             } else {
@@ -2491,8 +2491,10 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
                 SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
             }
             return 1;
-        } else if (conf.NormRestore && wParam == WM_LBUTTONDOWN && area == HTCAPTION
-               && !IsZoomed(hwnd) && !IsWindowSnapped(hwnd)) {
+        } else if (conf.NormRestore 
+        && wParam == WM_LBUTTONDOWN && area == HTCAPTION
+        && !IsZoomed(hwnd) && !IsWindowSnapped(hwnd) 
+        && !blacklisted(hwnd, &BlkLst.MMBLower)) {
             if ((state.wndentry=GetWindowInDB(hwnd))) {
                 // Set NormRestore to 2 in order to signal that
                 // The window should be restored

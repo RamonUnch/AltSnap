@@ -599,31 +599,32 @@ static pure BOOL RectInRect(const RECT *big, const RECT *wnd)
 static pure unsigned WhichSideRectInRect(const RECT *mon, const RECT *wnd)
 {
     unsigned flag;
-    flag  = (wnd->left == mon->left && mon->right-wnd->right > 16) << 2;
-    flag |= (wnd->right == mon->right && wnd->left-mon->left > 16) << 3;
-    flag |= (wnd->top == mon->top && mon->bottom-wnd->bottom > 16) << 4;
-    flag |= (wnd->bottom == mon->bottom && wnd->top-mon->top > 16) << 5;
+    flag  = ((wnd->left == mon->left) & (mon->right-wnd->right > 16)) << 2;
+    flag |= ((wnd->right == mon->right) & (wnd->left-mon->left > 16)) << 3;
+    flag |= ((wnd->top == mon->top) & (mon->bottom-wnd->bottom > 16)) << 4;
+    flag |= ((wnd->bottom == mon->bottom) & (wnd->top-mon->top > 16)) << 5;
 
     return flag;
 }
-static pure unsigned AreRectsAligned(const RECT *a, const RECT *b, const int tol)
-{
-    return (a->left <= b->right + tol && a->left >= b->right - tol) << 2
-         | (a->top <= b->bottom + tol && a->top >= b->bottom - tol) << 4
-         | (a->right <= b->left + tol && a->right >= b->left - tol) << 3
-         | (a->bottom <= b->top + tol && a->bottom >= b->top - tol) << 5;
-}
+
 static xpure int IsEqualT(int a, int b, int th)
 { 
-    return b - th < a && a < b + th ;
+    return (b - th <= a) & (a <= b + th) ;
 }
 static xpure int IsInRangeT(int x, int a, int b, int T)
 {
-    return a-T < x && x < b+T ;
+    return (a-T <= x) & (x <= b+T);
+}
+static pure unsigned AreRectsAligned(const RECT *a, const RECT *b, const int tol)
+{
+    return IsEqualT(a->left, b->right, tol) << 2
+         | IsEqualT(a->top, b->bottom, tol) << 4
+         | IsEqualT(a->right, b->left, tol) << 3
+         | IsEqualT(a->bottom, b->top, tol) << 5;
 }
 static xpure int SegT(int ax, int bx, int ay1, int ay2, int by1, int by2, int tol)
 {
-    return (ax <= bx + tol && ax >= bx - tol) /* ax == bx */
+    return IsEqualT(ax, bx, tol) /* ax == bx */
         && ( (ay1 >= by1 && ay1 <= by2)
           || (by1 >= ay1 && by1 <= ay2)
           || (ay2 >= by1 && ay2 <= by2)

@@ -470,6 +470,7 @@ static BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
     RECT wnd;
     if (ShouldSnapTo(hwnd) 
     && !IsZoomed(hwnd) 
+    && IsResizable(hwnd)
     && !blacklisted(hwnd, &BlkLst.Windows)
     && GetWindowRectL(hwnd, &wnd)) {
         // Only considers windows that are

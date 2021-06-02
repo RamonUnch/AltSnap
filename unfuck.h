@@ -36,7 +36,7 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
     (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
     , UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 #endif
-
+#define LOG_STUFF 0
 #define LOG(X, ...) if(LOG_STUFF) { FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fclose(LOG); }
 #define LOGA(X, ...) { FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fclose(LOG); }
 
@@ -366,19 +366,26 @@ static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 }
 /* #define DwmGetWindowAttribute DwmGetWindowAttributeL */
 
-static void SubRect(RECT *frame, const RECT *rect)
+static void SubRect(RECT *__restrict__ frame, const RECT *rect)
 {
     frame->left -= rect->left;
     frame->top -= rect->top;
     frame->right = rect->right - frame->right;
     frame->bottom = rect->bottom - frame->bottom;
 }
-static void InflateRectBorder(RECT *rc, const RECT *bd)
+static void InflateRectBorder(RECT *__restrict__ rc, const RECT *bd)
 {
     rc->left   -= bd->left;
     rc->top    -= bd->top;
     rc->right  += bd->right;
     rc->bottom += bd->bottom;
+}
+static void DeflateRectBorder(RECT *__restrict__ rc, const RECT *bd)
+{
+    rc->left   += bd->left;
+    rc->top    += bd->top;
+    rc->right  -= bd->right;
+    rc->bottom -= bd->bottom;
 }
 static void FixDWMRect(HWND hwnd, RECT *bbb)
 {
@@ -533,6 +540,17 @@ static DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
     return ret? pid: 0;
 }
 
+/* Helper function to get the Min and Max tracking sizes */
+static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
+{
+    MINMAXINFO mmi = { {0, 0}, {0, 0}, {0, 0}
+                     , {GetSystemMetrics(SM_CXMINTRACK), GetSystemMetrics(SM_CYMINTRACK)}
+                     , {GetSystemMetrics(SM_CXMAXTRACK), GetSystemMetrics(SM_CXMAXTRACK)} };
+    SendMessage(hwnd, WM_GETMINMAXINFO, 0, (LPARAM)&mmi);
+    *Min = mmi.ptMinTrackSize;
+    *Max = mmi.ptMaxTrackSize;
+}
+
 /* Helper function to call SetWindowPos with the SWP_ASYNCWINDOWPOS flag */
 static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height, BOOL flag)
 {
@@ -540,7 +558,6 @@ static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height
     return SetWindowPos(hwnd, NULL, posx, posy, width, height
                       , SWP_NOACTIVATE|SWP_NOREPOSITION|SWP_ASYNCWINDOWPOS|flag);
 }
-
 /* This is used to detect is the window was snapped normally outside of
  * AltDrag, in this case the window appears as normal
  * ie: wndpl.showCmd=SW_SHOWNORMAL, but  its actual rect does not match with
@@ -561,36 +578,82 @@ static int IsWindowSnapped(HWND hwnd)
     return (W != nW || H != nH);
 }
 
+/* If pt and ptt are it is the same points with 4px tolerence */
+static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
+{
+    return !( pt->x > ptt->x+4 || pt->y > ptt->y+4 ||pt->x < ptt->x-4 || pt->y < ptt->y-4 );
+}
+/* Limit x between l and h */
+static xpure int CLAMP(int l, int x, int h)
+{
+    return (x < l)? l: ((x > h)? h: x);
+}
+
 /* Says if a rect is inside another one */
 static pure BOOL RectInRect(const RECT *big, const RECT *wnd)
 {
     return wnd->left >= big->left && wnd->top >= big->top
         && wnd->right <= big->right && wnd->bottom <= big->bottom;
 }
-static pure int WhichSideRectInRectSS(const RECT *big, const RECT *wnd)
-{ /* 4 , 8 16, 32*/
-    return ( (wnd->left == big->left)<<2)
-         | ( (wnd->right == big->right)<<3);
-/*       | ( (wnd->top == big->top) <<4)
-         | ( (wnd->bottom == big->bottom) <<5); */
-}
+
 static pure unsigned WhichSideRectInRect(const RECT *mon, const RECT *wnd)
 {
     unsigned flag;
-    flag  = (wnd->left == mon->left && mon->right-wnd->right > 16) << 2;
-    flag |= (wnd->right == mon->right && wnd->left-mon->left > 16) << 3;
-    flag |= (wnd->top == mon->top && mon->bottom-wnd->bottom > 16) << 4;
-    flag |= (wnd->bottom == mon->bottom && wnd->top-mon->top > 16) << 5;
+    flag  = ((wnd->left == mon->left) & (mon->right-wnd->right > 16)) << 2;
+    flag |= ((wnd->right == mon->right) & (wnd->left-mon->left > 16)) << 3;
+    flag |= ((wnd->top == mon->top) & (mon->bottom-wnd->bottom > 16)) << 4;
+    flag |= ((wnd->bottom == mon->bottom) & (wnd->top-mon->top > 16)) << 5;
 
     return flag;
 }
 
-static void CropRect(RECT *wnd, RECT *crop)
+static xpure int IsEqualT(int a, int b, int th)
+{
+    return (b - th <= a) & (a <= b + th);
+}
+static xpure int IsInRangeT(int x, int a, int b, int T)
+{
+    return (a-T <= x) & (x <= b+T);
+}
+static pure unsigned AreRectsAligned(const RECT *a, const RECT *b, const int tol)
+{
+    return IsEqualT(a->left, b->right, tol) << 2
+         | IsEqualT(a->top, b->bottom, tol) << 4
+         | IsEqualT(a->right, b->left, tol) << 3
+         | IsEqualT(a->bottom, b->top, tol) << 5;
+}
+static xpure int SegT(int ax, int bx, int ay1, int ay2, int by1, int by2, int tol)
+{
+    return IsEqualT(ax, bx, tol) /* ax == bx */
+        && ( (ay1 >= by1 && ay1 <= by2)
+          || (by1 >= ay1 && by1 <= ay2)
+          || (ay2 >= by1 && ay2 <= by2)
+          || (by2 >= ay1 && by2 <= ay2) );
+}
+static pure unsigned AreRectsTouchingT(const RECT *a, const RECT *b, const int tol)
+{
+    return SegT(a->left, b->right, a->top, a->bottom, b->top, b->bottom, tol) << 2
+         | SegT(a->right, b->left, a->top, a->bottom, b->top, b->bottom, tol) << 3
+         | SegT(a->top, b->bottom, a->left, a->right, b->left, b->right, tol) << 4
+         | SegT(a->bottom, b->top, a->left, a->right, b->left, b->right, tol) << 5;
+}
+
+static void CropRect(RECT *__restrict__ wnd, RECT *crop)
 {
     wnd->left   = max(wnd->left,   crop->left);
     wnd->top    = max(wnd->top,    crop->top);
     wnd->right  = min(wnd->right,  crop->right);
     wnd->bottom = min(wnd->bottom, crop->bottom);
+}
+
+static void CenterRectInRect(RECT *__restrict__ wnd, const RECT *mon)
+{
+    int width  = wnd->right  - wnd->left;
+    int height = wnd->bottom - wnd->top;
+    wnd->left = mon->left + (mon->right-mon->left)/2-width/2;
+    wnd->top  = mon->top  + (mon->bottom-mon->top)/2-height/2;
+    wnd->right  = wnd->left + width;
+    wnd->bottom = wnd->top  + height;
 }
 
 #endif

@@ -6,16 +6,33 @@ static inline int sign(int x)
 {
     return (x > 0) - (x < 0);
 }
+/* Function to set the kth bit of n */
+int setBit(int n, int k)
+{
+    return (n | (1 << (k)));
+}
 
-void *memsetL(void *dst, int s, size_t count) 
+/* Function to clear the kth bit of n */
+int clearBit(int n, int k)
+{
+    return (n & (~(1 << (k))));
+}
+
+/* Function to toggle the kth bit of n */
+int toggleBit(int n, int k)
+{
+    return (n ^ (1 << (k)));
+}
+
+void *memsetL(void *dst, int s, size_t count)
 {
     register char * a = dst;
     count++;
-    while (--count) 
+    while (--count)
         *a++ = s;
     return dst;
 }
-/* #define memset memsetL */ 
+/* #define memset memsetL */
 
 
 static inline wchar_t *wcschrL(wchar_t *__restrict__ str, const wchar_t c)
@@ -43,7 +60,7 @@ static int wtoiL(const wchar_t *s)
     long int v=0;
     int sign=1;
     while (*s == ' ') s++; /*  ||  (unsigned int)(*s - 9) < 5u */
-    
+
     switch (*s) {
     case '-': sign=-1; /* fall through */
     case '+': ++s;
@@ -126,13 +143,13 @@ static inline int wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restri
 #define wcscmp wcscmpL
 
 /* stops comp at the '*' in the b param.
- * this is a kind of mini regexp that has no performance hit. 
+ * this is a kind of mini regexp that has no performance hit.
  * It also returns 0 (equal) if the b param is NULL */
 static int wcscmpstar(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 {
     if(!b) return 0;
     while(*a && *a == *b) { a++; b++; }
-    return (*a - *b) & (*b - '*');
+    return !!(*a - *b) & !!(*b - '*');
 }
 
 static inline wchar_t *wcscpyL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ in)
@@ -234,26 +251,26 @@ static unsigned whex2u(const wchar_t s[2])
     else return h2u(s[0]);
 }
 
-static inline void *reallocL(void *mem, size_t sz)
+static void *reallocL(void *mem, size_t sz)
 {
     if(!mem) return HeapAlloc(GetProcessHeap(), 0, sz);
     return HeapReAlloc(GetProcessHeap(), 0, mem, sz);
 }
 #define realloc reallocL
 
-static inline void *mallocL(size_t sz)
+static void *mallocL(size_t sz)
 {
     return HeapAlloc(GetProcessHeap(), 0, sz);
 }
 #define malloc mallocL
 
-static inline void *callocL(size_t sz, size_t mult)
+static void *callocL(size_t sz, size_t mult)
 {
     return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sz*mult);
 }
 #define calloc callocL
 
-static inline BOOL freeL(void *mem)
+static BOOL freeL(void *mem)
 {
     return HeapFree(GetProcessHeap(), 0, mem);
 }

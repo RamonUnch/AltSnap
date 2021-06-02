@@ -50,11 +50,18 @@ static void FinishMovement();
 #define SNBOTTOM  (1<<5)
 #define SNMAXH    (1<<6)
 #define SNMAXW    (1<<7)
+#define SNCLEAR   (1<<8) // to clear the flag at init movement.
+#define TORESIZE  (1<<9)
 #define SNTOPLEFT     (SNTOP|SNLEFT)
 #define SNTOPRIGHT    (SNTOP|SNRIGHT)
 #define SNBOTTOMLEFT  (SNBOTTOM|SNLEFT)
 #define SNBOTTOMRIGHT (SNBOTTOM|SNRIGHT)
 #define SNAPPEDSIDE   (SNTOPLEFT|SNBOTTOMRIGHT)
+
+#define PureLeft(flag)    ( (flag&SNLEFT) &&  !(flag&(SNTOP|SNBOTTOM))  )
+#define PureRight(flag)   ( (flag&SNRIGHT) && !(flag&(SNTOP|SNBOTTOM))  )
+#define PureTop(flag)     ( (flag&SNTOP) && !(flag&(SNLEFT|SNRIGHT))    )
+#define PureBottom(flag)  ( (flag&SNBOTTOM) && !(flag&(SNLEFT|SNRIGHT)) )
 
 struct wnddata {
     HWND hwnd;
@@ -108,6 +115,7 @@ struct {
     struct {
         UCHAR maximized;
         UCHAR fullscreen;
+        RECT mon;
         HMONITOR monitor;
         int width;
         int height;
@@ -191,6 +199,7 @@ struct {
     UCHAR FullScreen;
     UCHAR AggressiveKill;
     UCHAR SmartAero;
+    UCHAR StickyResize;
 
     struct hotkeys_s Hotkeys;
     struct hotkeys_s Hotclick;
@@ -237,17 +246,16 @@ HHOOK mousehook = NULL;
 static pure int blacklisted(HWND hwnd, struct blacklist *list)
 {
     wchar_t title[256]=L"", classname[256]=L"";
-    int mode = 1;
-    int i = 0;
+    int mode;
+    int i;
 
     // Null hwnd or empty list
     if (!hwnd || !list->length)
         return 0;
     // If the first element is *|* then we are in whitelist mode
-    if(!list->items[i].classname && !list->items[i].title) {
-        mode = 0;
-        i++;
-    }
+    // mode = 1 => blacklist mode = 0 => whitelist;
+    mode = (int)list->items[0].classname|(int)list->items[0].title;
+    i = !mode;
 
     GetWindowText(hwnd, title, ARR_SZ(title));
     GetClassName(hwnd, classname, ARR_SZ(classname));
@@ -262,16 +270,17 @@ static pure int blacklisted(HWND hwnd, struct blacklist *list)
 static pure int blacklistedP(HWND hwnd, struct blacklist *list)
 {
     wchar_t title[256]=L"";
-    int mode = 1;
-    int i = 0;
+    int mode ;
+    int i ;
 
     // Null hwnd or empty list
     if (!hwnd || !list->length)
         return 0;
-    if(!list->items[i].title) {
-        mode = 0;
-        i++;
-    }
+    // If the first element is *|* then we are in whitelist mode
+    // mode = 1 => blacklist mode = 0 => whitelist;
+    mode = (int)list->items[0].title;
+    i = !mode;
+
     GetWindowProgName(hwnd, title, ARR_SZ(title));
 
     // ProcessBlacklist is case-insensitive
@@ -281,11 +290,6 @@ static pure int blacklistedP(HWND hwnd, struct blacklist *list)
     }
     return !mode;
 }
-// Limit x between l and h
-static xpure int CLAMP(int _l, int _x, int _h)
-{
-    return (_x<_l)? _l: ((_x>_h)? _h: _x);
-}
 
 // Macro to clamp width and height of windows
 #define CLAMPW(width)  CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x)
@@ -293,11 +297,6 @@ static xpure int CLAMP(int _l, int _x, int _h)
 static inline int IsResizable(HWND hwnd)
 {
     return (conf.ResizeAll || GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME);
-}
-/////////////////////////////////////////////////////////////////////////////
-static xpure int IsSamePTT(POINT *pt, POINT *ptt)
-{
-    return !( pt->x > ptt->x+4 || pt->y > ptt->y+4 ||pt->x < ptt->x-4 || pt->y < ptt->y-4 );
 }
 /////////////////////////////////////////////////////////////////////////////
 static void SendSizeMove_on(enum action action, int on)
@@ -403,29 +402,10 @@ static BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
     return TRUE;
 }
 /////////////////////////////////////////////////////////////////////////////
-int hwnds_alloc = 0;
-static BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
-{
-    // Make sure we have enough space allocated
-    if (numhwnds >= hwnds_alloc) {
-        hwnds_alloc += 8;
-        hwnds = realloc(hwnds, hwnds_alloc*sizeof(HWND));
-    }
-
-    // Only store window if it's visible, not minimized
-    // to taskbar and on the same monitor as the cursor
-    if (IsWindowVisible(window) && !IsIconic(window)
-     && (GetWindowLongPtr(window, GWL_STYLE)&WS_CAPTION) == WS_CAPTION
-     && state.origin.monitor == MonitorFromWindow(window, MONITOR_DEFAULTTONULL)
-    ) {
-        hwnds[numhwnds++] = window;
-    }
-    return TRUE;
-}
-/////////////////////////////////////////////////////////////////////////////
 // snapped windows database.
 struct snwdata {
     RECT wnd;
+    HWND hwnd;
     unsigned flag;
 };
 struct snwdata *snwnds;
@@ -439,12 +419,25 @@ static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
         snwnds_alloc += 4;
         snwnds = realloc(snwnds, snwnds_alloc*sizeof(struct snwdata));
     }
+
     RECT wnd;
     if (ShouldSnapTo(hwnd) && !IsZoomed(hwnd) && GetWindowRectL(hwnd, &wnd)) {
         struct wnddata *entry;
-        if ((entry = GetWindowInDB(hwnd)) && entry->restore&SNAPPEDSIDE && entry->restore&SNAPPED) {
+
+        if (lParam) { // in case of Resize...
+            // Only considers windows that are
+            // touching the currently resized window
+            RECT statewnd;
+            GetWindowRectL(state.hwnd, &statewnd);
+            if(!AreRectsTouchingT(&statewnd, &wnd, conf.SnapThreshold/2)) {
+                return TRUE;
+            }
+        }
+
+        if ((entry = GetWindowInDB(hwnd)) && entry->restore&SNAPPED && entry->restore&SNAPPEDSIDE) {
             CopyRect(&snwnds[numsnwnds].wnd, &wnd);
             snwnds[numsnwnds].flag = entry->restore;
+            snwnds[numsnwnds].hwnd = hwnd;
             numsnwnds++;
         } else if (IsWindowSnapped(hwnd)) {
             HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
@@ -452,14 +445,106 @@ static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
             GetMonitorInfo(monitor, &mi);
             CopyRect(&snwnds[numsnwnds].wnd, &wnd);
             snwnds[numsnwnds].flag = WhichSideRectInRect(&mi.rcWork, &wnd);
+            snwnds[numsnwnds].hwnd = hwnd;
             numsnwnds++;
         }
     }
     return TRUE;
 }
+// If lParam is set to 1 then only windows that are
+// touching the current window will be considered.
 static void EnumSnapped()
 {
+    numsnwnds = 0;
     if (conf.SmartAero) EnumWindows(EnumSnappedWindows, 0);
+}
+/////////////////////////////////////////////////////////////////////////////
+static BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
+{
+    // Make sure we have enough space allocated
+    if (numsnwnds >= snwnds_alloc) {
+        snwnds_alloc += 4;
+        snwnds = realloc(snwnds, snwnds_alloc*sizeof(struct snwdata));
+    }
+
+    RECT wnd;
+    if (ShouldSnapTo(hwnd) 
+    && !IsZoomed(hwnd) 
+    && IsResizable(hwnd)
+    && !blacklisted(hwnd, &BlkLst.Windows)
+    && GetWindowRectL(hwnd, &wnd)) {
+        // Only considers windows that are
+        // touching the currently resized window
+        RECT statewnd;
+        GetWindowRectL(state.hwnd, &statewnd);
+        unsigned flag;
+        if((flag = AreRectsTouchingT(&statewnd, &wnd, conf.SnapThreshold/2))) {
+            CopyRect(&snwnds[numsnwnds].wnd, &wnd);
+            snwnds[numsnwnds].flag = flag;
+            snwnds[numsnwnds].hwnd = hwnd;
+            numsnwnds++;
+        }
+    }
+    return TRUE;
+}
+/////////////////////////////////////////////////////////////////////////////
+static void EnumOnce(RECT **bd);
+static void ResizeTouchingWindows(int posx, int posy, int width, int height)
+{
+    RECT *bd;
+    EnumOnce(&bd);
+    posx += bd->left; posy += bd->top;
+    width -= bd->left+bd->right;
+    height -= bd->top+bd->bottom;
+    int i;
+    for (i=0; i < numsnwnds; i++) {
+        RECT *nwnd = &snwnds[i].wnd;
+        unsigned flag = snwnds[i].flag;
+        HWND hwnd = snwnds[i].hwnd;
+
+        if(!PtInRect(&state.origin.mon, (POINT){nwnd->left+16, nwnd->top+16}))
+            continue;
+
+        if (PureLeft(flag)) {
+            nwnd->right = posx;
+        } else if (PureRight(flag)) {
+            POINT Min, Max;
+            GetMinMaxInfo(hwnd, &Min, &Max);
+            nwnd->left = CLAMP(nwnd->right-Max.x, posx + width, nwnd->right-Min.x);
+        } else if (PureTop(flag)) {
+            nwnd->bottom = posy;
+        } else if (PureBottom(flag)) {
+            POINT Min, Max;
+            GetMinMaxInfo(hwnd, &Min, &Max);
+            nwnd->top = CLAMP(nwnd->bottom-Max.x, posy + height, nwnd->bottom-Min.x);
+        } else {
+            continue;
+        }
+        RECT nbd;
+        FixDWMRect(hwnd, &nbd);
+        if (conf.FullWin) {
+            MoveWindowAsync(hwnd, nwnd->left-nbd.left, nwnd->top-nbd.top
+                      , nwnd->right - nwnd->left + nbd.left + nbd.right
+                      , nwnd->bottom - nwnd->top + nbd.top + nbd.bottom, TRUE);
+        }
+        snwnds[i].flag = flag|TORESIZE;
+    }
+}
+/////////////////////////////////////////////////////////////////////////////
+static void ResizeAllSnappedWindowsAsync()
+{
+    int i;
+    for (i=0; i < numsnwnds; i++) {
+        if(snwnds[i].flag&TORESIZE) {
+            RECT bd;
+            FixDWMRect(snwnds[i].hwnd, &bd);
+            InflateRectBorder(&snwnds[i].wnd, &bd);
+            MoveWindowAsync(snwnds[i].hwnd
+                , snwnds[i].wnd.left, snwnds[i].wnd.top
+                , snwnds[i].wnd.right-snwnds[i].wnd.left
+                , snwnds[i].wnd.bottom-snwnds[i].wnd.top, TRUE);
+        }
+    }
 }
 ///////////////////////////////////////////////////////////////////////////
 // Just used in Enum
@@ -481,11 +566,11 @@ static void EnumMdi()
 
     // Add all the siblings to the window
     POINT mdiclientpt = { 0, 0 };
-    if (ClientToScreen(state.mdiclient, &mdiclientpt) == FALSE) {
+    if (!ClientToScreen(state.mdiclient, &mdiclientpt)) {
         return;
     }
     HWND window = GetWindow(state.mdiclient, GW_CHILD);
-    while (window != NULL) {
+    while (window) {
         if (window == state.hwnd) {
             window = GetWindow(window, GW_HWNDNEXT);
             continue;
@@ -528,6 +613,10 @@ static void Enum()
     if (state.snap >= 2) {
         EnumWindows(EnumWindowsProc, 0);
     }
+
+    if (conf.StickyResize) {
+        EnumWindows(EnumTouchingWindows, 0);
+    }
 }
 ///////////////////////////////////////////////////////////////////////////
 // Pass NULL to reset Enum state and recalculate it
@@ -552,7 +641,7 @@ static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
 {
     RECT *borders;
     EnumOnce(&borders);
-    if(state.Speed > (int)conf.AeroMaxSpeed) return;
+    if (!state.snap || state.Speed > (int)conf.AeroMaxSpeed) return;
 
     // thresholdx and thresholdy will shrink to make sure
     // the dragged window will snap to the closest windows
@@ -576,29 +665,26 @@ static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
         }
 
         // Check if posx snaps
-        if ((snapwnd.top-thresholdx < *posy && *posy < snapwnd.bottom+thresholdx)
-         || (*posy-thresholdx < snapwnd.top && snapwnd.top < *posy+wndheight+thresholdx)) {
+        if (IsInRangeT(*posy, snapwnd.top, snapwnd.bottom, thresholdx)
+        ||  IsInRangeT(snapwnd.top, *posy, *posy+wndheight, thresholdx)) {
             int snapinside_cond = (snapinside || *posy + wndheight - thresholdx < snapwnd.top
                                   || snapwnd.bottom < *posy + thresholdx);
-            if (*posx-thresholdx < snapwnd.right && snapwnd.right < *posx+thresholdx) {
+            if (IsEqualT(snapwnd.right, *posx, thresholdx)) {
                 // The left edge of the dragged window will snap to this window's right edge
                 stuckx = 1;
                 stickx = snapwnd.right - borders->left;
                 thresholdx = snapwnd.right-*posx;
-            } else if (snapinside_cond && *posx+wndwidth-thresholdx < snapwnd.right
-                    && snapwnd.right < *posx+wndwidth+thresholdx) {
+            } else if (snapinside_cond && IsEqualT(snapwnd.right, *posx+wndwidth, thresholdx)) {
                 // The right edge of the dragged window will snap to this window's right edge
                 stuckx = 1;
                 stickx = snapwnd.right + borders->right - wndwidth;
                 thresholdx = snapwnd.right-(*posx+wndwidth);
-            } else if (snapinside_cond && *posx-thresholdx < snapwnd.left
-                    && snapwnd.left < *posx+thresholdx) {
+            } else if (snapinside_cond && IsEqualT(snapwnd.left, *posx, thresholdx)) {
                 // The left edge of the dragged window will snap to this window's left edge
                 stuckx = 1;
                 stickx = snapwnd.left - borders->left;
                 thresholdx = snapwnd.left-*posx;
-            } else if (*posx+wndwidth-thresholdx < snapwnd.left
-                    && snapwnd.left < *posx+wndwidth+thresholdx) {
+            } else if (IsEqualT(snapwnd.left, *posx+wndwidth, thresholdx)) {
                 // The right edge of the dragged window will snap to this window's left edge
                 stuckx = 1;
                 stickx = snapwnd.left + borders->right -wndwidth;
@@ -607,29 +693,26 @@ static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
         }// end if posx snaps
 
         // Check if posy snaps
-        if ((snapwnd.left-thresholdy < *posx && *posx < snapwnd.right+thresholdy)
-         || (*posx-thresholdy < snapwnd.left && snapwnd.left < *posx+wndwidth+thresholdy)) {
+        if (IsInRangeT(*posx, snapwnd.left, snapwnd.right, thresholdy)
+         || IsInRangeT(snapwnd.left, *posx, *posx+wndwidth, thresholdy)) {
             int snapinside_cond = (snapinside || *posx + wndwidth - thresholdy < snapwnd.left
                                   || snapwnd.right < *posx+thresholdy);
-            if (*posy-thresholdy < snapwnd.bottom && snapwnd.bottom < *posy+thresholdy) {
+            if (IsEqualT(snapwnd.bottom, *posy, thresholdy)) {
                 // The top edge of the dragged window will snap to this window's bottom edge
                 stucky = 1;
                 sticky = snapwnd.bottom - borders->top;
                 thresholdy = snapwnd.bottom-*posy;
-            } else if (snapinside_cond && *posy+wndheight-thresholdy < snapwnd.bottom
-                    && snapwnd.bottom < *posy+wndheight+thresholdy) {
+            } else if (snapinside_cond && IsEqualT(snapwnd.bottom, *posy+wndheight, thresholdy)) {
                 // The bottom edge of the dragged window will snap to this window's bottom edge
                 stucky = 1;
                 sticky = snapwnd.bottom + borders->bottom - wndheight;
                 thresholdy = snapwnd.bottom-(*posy+wndheight);
-            } else if (snapinside_cond && *posy-thresholdy < snapwnd.top
-                    && snapwnd.top < *posy+thresholdy) {
+            } else if (snapinside_cond && IsEqualT(snapwnd.top, *posy, thresholdy)) {
                 // The top edge of the dragged window will snap to this window's top edge
                 stucky = 1;
                 sticky = snapwnd.top - borders->top;
                 thresholdy = snapwnd.top-*posy;
-            } else if (*posy+wndheight-thresholdy < snapwnd.top
-                    && snapwnd.top < *posy+wndheight+thresholdy) {
+            } else if (IsEqualT(snapwnd.top, *posy+wndheight, thresholdy)) {
                 // The bottom edge of the dragged window will snap to this window's top edge
                 stucky = 1;
                 sticky = snapwnd.top-wndheight + borders->bottom;
@@ -652,7 +735,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 {
     RECT *borders;
     EnumOnce(&borders);
-    if(state.Speed > (int)conf.AeroMaxSpeed) return;
+    if(!state.snap || state.Speed > (int)conf.AeroMaxSpeed) return;
 
     // thresholdx and thresholdy will shrink to make sure
     // the dragged window will snap to the closest windows
@@ -677,32 +760,31 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
         }
 
         // Check if posx snaps
-        if ((snapwnd.top-thresholdx < *posy && *posy < snapwnd.bottom+thresholdx)
-         || (*posy-thresholdx < snapwnd.top && snapwnd.top < *posy+*wndheight+thresholdx)) {
+        if (IsInRangeT(*posy, snapwnd.top, snapwnd.bottom, thresholdx)
+         || IsInRangeT(snapwnd.top, *posy, *posy + *wndheight, thresholdx)) {
+
             int snapinside_cond = (snapinside || *posy+*wndheight-thresholdx < snapwnd.top
                                   || snapwnd.bottom < *posy+thresholdx);
-            if (state.resize.x == RZ_LEFT && *posx-thresholdx < snapwnd.right
-             && snapwnd.right < *posx+thresholdx) {
+            if (state.resize.x == RZ_LEFT
+            && IsEqualT(snapwnd.right, *posx, thresholdx)) {
                 // The left edge of the dragged window will snap to this window's right edge
                 stuckleft = 1;
                 stickleft = snapwnd.right;
                 thresholdx = snapwnd.right - *posx;
             } else if (snapinside_cond && state.resize.x == RZ_RIGHT
-                    && *posx+*wndwidth-thresholdx < snapwnd.right
-                    && snapwnd.right < *posx+*wndwidth+thresholdx) {
+            && IsEqualT(snapwnd.right, *posx+*wndwidth, thresholdx)) {
                 // The right edge of the dragged window will snap to this window's right edge
                 stuckright = 1;
                 stickright = snapwnd.right;
                 thresholdx = snapwnd.right - (*posx + *wndwidth);
             } else if (snapinside_cond && state.resize.x == RZ_LEFT
-                    && *posx-thresholdx < snapwnd.left
-                    && snapwnd.left < *posx + thresholdx) {
+            && IsEqualT(snapwnd.left, *posx, thresholdx)) {
                 // The left edge of the dragged window will snap to this window's left edge
                 stuckleft = 1;
                 stickleft = snapwnd.left;
                 thresholdx = snapwnd.left-*posx;
-            } else if (state.resize.x == RZ_RIGHT && *posx + *wndwidth - thresholdx < snapwnd.left
-                    && snapwnd.left < *posx+*wndwidth+thresholdx) {
+            } else if (state.resize.x == RZ_RIGHT
+            && IsEqualT(snapwnd.left, *posx + *wndwidth, thresholdx)) {
                 // The right edge of the dragged window will snap to this window's left edge
                 stuckright = 1;
                 stickright = snapwnd.left;
@@ -711,31 +793,31 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
         }
 
         // Check if posy snaps
-        if ((snapwnd.left-thresholdy < *posx && *posx < snapwnd.right+thresholdy)
-         || (*posx-thresholdy < snapwnd.left && snapwnd.left < *posx+*wndwidth+thresholdy)) {
+        if (IsInRangeT(*posx, snapwnd.left, snapwnd.right, thresholdy)
+         || IsInRangeT(snapwnd.left, *posx, *posx+*wndwidth, thresholdy)) {
+
             int snapinside_cond = (snapinside || *posx+*wndwidth-thresholdy < snapwnd.left
                                 || snapwnd.right < *posx+thresholdy);
-            if (state.resize.y == RZ_TOP && *posy-thresholdy < snapwnd.bottom
-             && snapwnd.bottom < *posy+thresholdy) {
+            if (state.resize.y == RZ_TOP
+            && IsEqualT(snapwnd.bottom, *posy, thresholdy)) {
                 // The top edge of the dragged window will snap to this window's bottom edge
                 stucktop = 1;
                 sticktop = snapwnd.bottom;
                 thresholdy = snapwnd.bottom-*posy;
             } else if (snapinside_cond && state.resize.y == RZ_BOTTOM
-                     && *posy+*wndheight-thresholdy < snapwnd.bottom
-                     && snapwnd.bottom < *posy+*wndheight+thresholdy) {
+            && IsEqualT(snapwnd.bottom, *posy + *wndheight, thresholdy)) {
                 // The bottom edge of the dragged window will snap to this window's bottom edge
                 stuckbottom = 1;
                 stickbottom = snapwnd.bottom;
                 thresholdy = snapwnd.bottom-(*posy+*wndheight);
             } else if (snapinside_cond && state.resize.y == RZ_TOP
-                    && *posy-thresholdy < snapwnd.top && snapwnd.top < *posy+thresholdy) {
+            && IsEqualT(snapwnd.top, *posy, thresholdy)) {
                 // The top edge of the dragged window will snap to this window's top edge
                 stucktop = 1;
                 sticktop = snapwnd.top;
                 thresholdy = snapwnd.top-*posy;
-            } else if (state.resize.y == RZ_BOTTOM && *posy+*wndheight-thresholdy < snapwnd.top
-                    && snapwnd.top < *posy+*wndheight+thresholdy) {
+            } else if (state.resize.y == RZ_BOTTOM
+            && IsEqualT(snapwnd.top, *posy+*wndheight, thresholdy)) {
                 // The bottom edge of the dragged window will snap to this window's top edge
                 stuckbottom = 1;
                 stickbottom = snapwnd.top;
@@ -760,12 +842,11 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
         *wndheight = stickbottom-*posy + borders->bottom;
     }
 }
-
 /////////////////////////////////////////////////////////////////////////////
 // Call with SW_MAXIMIZE or SW_RESTORE or below.
 #define SW_TOGGLE_MAX_RESTORE 27
 #define SW_FULLSCREEN 28
-static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR monitor)
+static void Maximize_Restore_atpt(HWND hwnd, const POINT *pt, UINT sw_cmd, HMONITOR monitor)
 {
     WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
     GetWindowPlacement(hwnd, &wndpl);
@@ -779,7 +860,7 @@ static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR mo
 
     if(wndpl.showCmd == SW_MAXIMIZE || sw_cmd == SW_FULLSCREEN) {
         HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-        if(!monitor) {
+        if (!monitor) {
             POINT ptt;
             if (pt) ptt = *pt;
             else GetCursorPos(&ptt);
@@ -787,17 +868,11 @@ static void Maximize_Restore_atpt(HWND hwnd, POINT *pt, UINT sw_cmd, HMONITOR mo
         }
         MONITORINFO mi = { sizeof(MONITORINFO) };
         GetMonitorInfo(monitor, &mi);
-        RECT mon = mi.rcWork;
         CopyRect(&fmon, &mi.rcMonitor);
 
         // Center window on monitor, if needed
         if (monitor != wndmonitor) {
-            int width  = wndpl.rcNormalPosition.right  - wndpl.rcNormalPosition.left;
-            int height = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
-            wndpl.rcNormalPosition.left = mon.left + (mon.right-mon.left)/2-width/2;
-            wndpl.rcNormalPosition.top  = mon.top  + (mon.bottom-mon.top)/2-height/2;
-            wndpl.rcNormalPosition.right  = wndpl.rcNormalPosition.left + width;
-            wndpl.rcNormalPosition.bottom = wndpl.rcNormalPosition.top  + height;
+            CenterRectInRect(&wndpl.rcNormalPosition, &mi.rcWork);
         }
     }
 
@@ -815,7 +890,7 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
     struct windowRR *lw = LastWinV;
     hwnd = lw->hwnd;
 
-    if(lw->end && conf.FullWin) Sleep(conf.RefreshRate+5);
+    if (lw->end && conf.FullWin) Sleep(conf.RefreshRate+5);
 
     ret = SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height
                      , SWP_NOACTIVATE|SWP_NOREPOSITION); // |WP_NOSENDCHANGING|SWP_DEFERERASE
@@ -825,33 +900,15 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
         return !ret;
     }
 
-    if(conf.RefreshRate) Sleep(conf.RefreshRate);
+    if (conf.RefreshRate) Sleep(conf.RefreshRate);
 
     lw->hwnd = NULL;
 
     return !ret;
 }
 ///////////////////////////////////////////////////////////////////////////
-static void GetMonitorRect(POINT *pt, int full, RECT *_mon)
-{
-    if (state.mdiclient) {
-        RECT mdirect;
-        if (GetClientRect(state.mdiclient, &mdirect)) {
-            CopyRect(_mon, &mdirect);
-            return;
-        }
-    }
-
-    POINT ptt;
-    if (pt) ptt=*pt; else GetCursorPos(&ptt);
-    MONITORINFO mi = { sizeof(MONITORINFO) };
-    GetMonitorInfo(MonitorFromPoint(ptt, MONITOR_DEFAULTTONEAREST), &mi);
-
-    CopyRect(_mon, full? &mi.rcMonitor : &mi.rcWork);
-}
-///////////////////////////////////////////////////////////////////////////
 // use snwnds[numsnwnds].wnd / .flag
-static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeight, int *bottomHeight, RECT *mon)
+static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeight, int *bottomHeight, const RECT *mon)
 {
     *leftWidth    = CLAMPW((mon->right - mon->left)* conf.AHoff     /100);
     *rightWidth   = CLAMPW((mon->right - mon->left)*(100-conf.AHoff)/100);
@@ -864,6 +921,7 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
     for (i=numsnwnds-1; i >= 0; i--) {
         int flag = snwnds[i].flag;
         RECT *wnd = &snwnds[i].wnd;
+        // if the window is in current monitor
         if (PtInRect(mon, (POINT) { wnd->left+16, wnd->top+16 })) {
             // We have a snapped window in the monitor
             if (flag & SNLEFT) {
@@ -880,9 +938,25 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
     } // next i
 }
 ///////////////////////////////////////////////////////////////////////////
+static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
+{
+    if (state.mdiclient) {
+        RECT mdirect;
+        if (GetClientRect(state.mdiclient, &mdirect)) {
+            CopyRect(_mon, &mdirect);
+            return;
+        }
+    }
+
+    MONITORINFO mi = { sizeof(MONITORINFO) };
+    GetMonitorInfo(MonitorFromPoint(*pt, MONITOR_DEFAULTTONEAREST), &mi);
+
+    CopyRect(_mon, full&1? &mi.rcMonitor : &mi.rcWork);
+}
+///////////////////////////////////////////////////////////////////////////
 #define AERO_TH conf.AeroThreshold
 #define MM_THREAD_ON (LastWin.hwnd && conf.FullWin)
-static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight, RECT *_mon)
+static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight, const RECT *_mon)
 {
     // return if last resizing is not finished or no Aero or not resizable.
     if(!conf.Aero || MM_THREAD_ON) return 0;
@@ -914,28 +988,28 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, &mon);
 
     // Move window
-    if (pt.x < Left && pt.y < Top) {
+    if (pt.y < Top && pt.x < Left) {
         // Top left
         state.wndentry->restore = SNAPPED|SNTOPLEFT;
         *wndwidth =  leftWidth;
         *wndheight = topHeight;
         *posx = mon.left;
         *posy = mon.top;
-    } else if (Right < pt.x && pt.y < Top) {
+    } else if (pt.y < Top && Right < pt.x) {
         // Top right
         state.wndentry->restore = SNAPPED|SNTOPRIGHT;
         *wndwidth = rightWidth;
         *wndheight = topHeight;
         *posx = mon.right-*wndwidth;
         *posy = mon.top;
-    } else if (pt.x < Left && Bottom < pt.y) {
+    } else if (Bottom < pt.y && pt.x < Left) {
         // Bottom left
         state.wndentry->restore = SNAPPED|SNBOTTOMLEFT;
         *wndwidth = leftWidth;
         *wndheight = bottomHeight;
         *posx = mon.left;
         *posy = mon.bottom - *wndheight;
-    } else if (Right < pt.x && Bottom < pt.y) {
+    } else if (Bottom < pt.y && Right < pt.x) {
         // Bottom right
         state.wndentry->restore = SNAPPED|SNBOTTOMRIGHT;
         *wndwidth = rightWidth;
@@ -943,7 +1017,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         *posx = mon.right - *wndwidth;
         *posy = mon.bottom - *wndheight;
     } else if (pt.y < mon.top + AERO_TH) {
-        // Top
+        // Pure Top
         if (!state.shift ^ !(conf.AeroTopMaximizes&1)
          &&(state.Speed < (int)conf.AeroMaxSpeed)) {
             Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
@@ -957,22 +1031,22 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
             *posx = mon.left + (mon.right-mon.left)/2 - *wndwidth/2; // Center
             *posy = mon.top;
         }
-    } else if (mon.bottom-AERO_TH < pt.y) {
-        // Bottom
+    } else if (pt.y > mon.bottom - AERO_TH) {
+        // Pure Bottom
         state.wndentry->restore = SNAPPED|SNBOTTOM;
         *wndwidth  = CLAMPW( mon.right-mon.left);
         *wndheight = bottomHeight;
         *posx = mon.left + (mon.right-mon.left)/2 - *wndwidth/2; // Center
         *posy = mon.bottom - *wndheight;
     } else if (pt.x < mon.left+AERO_TH) {
-        // Left
+        // Pure Left
         state.wndentry->restore = SNAPPED|SNLEFT;
         *wndwidth = leftWidth;
         *wndheight = CLAMPH( mon.bottom-mon.top );
         *posx = mon.left;
         *posy = mon.top + (mon.bottom-mon.top)/2 - *wndheight/2; // Center
-    } else if (mon.right - AERO_TH < pt.x) {
-        // Right
+    } else if (pt.x > mon.right - AERO_TH) {
+        // Pure Right
         state.wndentry->restore = SNAPPED|SNRIGHT;
         *wndwidth =  rightWidth;
         *wndheight = CLAMPH( mon.bottom-mon.top );
@@ -1003,22 +1077,22 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         // If we go too fast then donot move the window
         if(state.Speed > (int)conf.AeroMaxSpeed) return 1;
         if(conf.FullWin) {
-            MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
+            MoveWindowAsync(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
             return 1;
         }
     }
     return 0;
 }
 ///////////////////////////////////////////////////////////////////////////
-static int AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight)
+static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight)
 {
     // return if last resizing is not finished
-    if(!conf.Aero || MM_THREAD_ON) return 0;
+    if(!conf.Aero || MM_THREAD_ON || state.Speed > (int)conf.AeroMaxSpeed)
+        return;
 
     static RECT borders;
-    static RECT mon;
+    RECT mon = state.origin.mon;
     if(!state.moving) {
-        GetMonitorRect(&pt, 0, &mon);
         FixDWMRect(state.hwnd, &borders);
     }
     if (state.resize.x == RZ_CENTER && state.resize.y == RZ_TOP && pt.y < mon.top + AERO_TH) {
@@ -1030,20 +1104,11 @@ static int AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wn
         *wndwidth = CLAMPW(mon.right - mon.left + borders.left + borders.right);
         *posx = mon.left - borders.left;
     }
-
     // Aero-move the window?
-    if (state.wndentry->restore&SNAPPED) {
+    if (state.wndentry->restore&SNAPPED && state.wndentry->restore&(SNMAXH|SNMAXW)) {
         state.wndentry->width = state.origin.width;
         state.wndentry->height = state.origin.height;
-
-        // If we go too fast then donot move the window
-        if(state.Speed > (int)conf.AeroMaxSpeed) return 1;
-        if(conf.FullWin) {
-            MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
-            return 1;
-        }
     }
-    return 0;
 }
 ///////////////////////////////////////////////////////////////////////////
 // Get action of button
@@ -1072,13 +1137,23 @@ static int pure IsHotkeyy(unsigned char key, struct hotkeys_s *HKlist)
 #define IsHotkey(a)   IsHotkeyy(a, &conf.Hotkeys)
 #define IsHotclick(a) IsHotkeyy(a, &conf.Hotclick)
 #define IsKillkey(a)  IsHotkeyy(a, &conf.Killkey)
+/////////////////////////////////////////////////////////////////////////////
+static int IsHotKeyDown(struct hotkeys_s *hk)
+{
+    int i;
+    for (i=0; i < hk->length; i++) {
+        if (GetAsyncKeyState(hk->keys[i])&0x8000)
+            return 1;
+    }
+    return 0;
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // if pt is NULL then the window is not moved when restored.
 // index 1 => normal restore on any move state.wndentry->restore & 1
 // index 2 => Rolled window state.wndentry->restore & 2
 // state.wndentry->restore & 3 => Both 1 & 2 ie: Maximized then rolled.
-static void RestoreOldWin(POINT *pt, int was_snapped, int index)
+static void RestoreOldWin(const POINT *pt, int was_snapped, int index)
 {
     // Restore old width/height?
     int restore = 0;
@@ -1127,7 +1202,7 @@ static void RestoreOldWin(POINT *pt, int was_snapped, int index)
 ///////////////////////////////////////////////////////////////////////////
 // Do not reclip the cursor if it is already clipped
 // Do not unclip the cursor if it was not clipped by AltDrag.
-static void ClipCursorOnce(RECT *clip)
+static void ClipCursorOnce(const RECT *clip)
 {
     static char trapped=0;
     if (trapped && !clip) {
@@ -1137,6 +1212,13 @@ static void ClipCursorOnce(RECT *clip)
         ClipCursor(clip);
         trapped = 1;
     }
+}
+static int ShouldResizeTouching()
+{
+    return state.action == AC_RESIZE
+        && ( (conf.StickyResize&1 && state.shift)
+          || (conf.StickyResize==2 && !state.shift)
+        );
 }
 ///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
@@ -1188,7 +1270,7 @@ static void MouseMove(POINT pt)
             origMonitor = state.origin.monitor;
             MONITORINFO mi = { sizeof(MONITORINFO) };
             GetMonitorInfo(state.origin.monitor, &mi);
-            fmon = mi.rcMonitor;
+            CopyRect(&fmon, &mi.rcMonitor);
             fmon.left++; fmon.top++;
             fmon.right--; fmon.bottom--;
         }
@@ -1214,7 +1296,7 @@ static void MouseMove(POINT pt)
         wndheight = wnd.bottom-wnd.top;
 
         // Check if the window will snap anywhere
-        if (state.snap) MoveSnap(&posx, &posy, wndwidth, wndheight);
+        MoveSnap(&posx, &posy, wndwidth, wndheight);
         int ret = AeroMoveSnap(pt, &posx, &posy, &wndwidth, &wndheight, _curentmon);
         if ( ret == 1) { state.moving = 1; return; }
 
@@ -1242,11 +1324,7 @@ static void MouseMove(POINT pt)
             GetWindowPlacement(state.hwnd, &wndpl);
 
             // Set size to monitor to prevent flickering
-            if (state.mdiclient){
-                CopyRect(&wnd, &mdimon);
-            } else {
-                GetMonitorRect(&pt, 0, &wnd);
-            }
+            CopyRect(&wnd, state.mdiclient? &mdimon: &state.origin.mon);
             CopyRect(&wndpl.rcNormalPosition, &wnd);
 
             if (state.mdiclient) {
@@ -1320,11 +1398,8 @@ static void MouseMove(POINT pt)
             wndheight=CLAMPH(wndheight);
 
             // Check if the window will snap anywhere
-            if (state.snap) {
-                ResizeSnap(&posx, &posy, &wndwidth, &wndheight);
-            }
-            if(AeroResizeSnap(pt, &posx, &posy, &wndwidth, &wndheight))
-                return;
+            ResizeSnap(&posx, &posy, &wndwidth, &wndheight);
+            AeroResizeSnap(pt, &posx, &posy, &wndwidth, &wndheight);
         }
     }
     // LastWin is GLOBAL !
@@ -1343,10 +1418,9 @@ static void MouseMove(POINT pt)
 
     if (!conf.FullWin) {
         RECT newRect;
-        newRect.left = wnd.left + 1;
-        newRect.top  = wnd.top + 1;
-        newRect.right = wnd.right - 1;
-        newRect.bottom= wnd.bottom - 1;
+        CopyRect(&newRect, &wnd);
+        InflateRect(&newRect, -1, -1);
+
         if (!hdcc) {
             if (!hpenDot_Global)
                 hpenDot_Global = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
@@ -1358,10 +1432,18 @@ static void MouseMove(POINT pt)
         if (state.moving == 1)
             Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
 
+        if (ShouldResizeTouching()) {
+            ResizeTouchingWindows(posx, posy, wndwidth, wndheight);
+        }
+
         CopyRect(&oldRect, &newRect); // oldRect is GLOBAL!
         state.moving = 1;
 
     } else if (mouse_thread_finished) {
+        // Resize other windows
+        if (ShouldResizeTouching()) {
+            ResizeTouchingWindows(posx, posy, wndwidth, wndheight);
+        }
         DWORD lpThreadId;
         CloseHandle(CreateThread(NULL, STACK, MoveWindowThread, &LastWin, 0, &lpThreadId));
         state.moving = 1;
@@ -1484,7 +1566,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
             if(!state.shift) {
                 RestrictToCurentMonitor();
-                // EnumOnce(NULL); // Reset enum state.
+                EnumOnce(NULL); // Reset enum state.
                 state.snap = 3;
             }
             state.shift = 1;
@@ -1623,6 +1705,26 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
 
     // Block original scroll event
     return 1;
+}
+/////////////////////////////////////////////////////////////////////////////
+int hwnds_alloc = 0;
+static BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
+{
+    // Make sure we have enough space allocated
+    if (numhwnds >= hwnds_alloc) {
+        hwnds_alloc += 8;
+        hwnds = realloc(hwnds, hwnds_alloc*sizeof(HWND));
+    }
+
+    // Only store window if it's visible, not minimized
+    // to taskbar and on the same monitor as the cursor
+    if (IsWindowVisible(window) && !IsIconic(window)
+     && (GetWindowLongPtr(window, GWL_STYLE)&WS_CAPTION) == WS_CAPTION
+     && state.origin.monitor == MonitorFromWindow(window, MONITOR_DEFAULTTONULL)
+    ) {
+        hwnds[numhwnds++] = window;
+    }
+    return TRUE;
 }
 /////////////////////////////////////////////////////////////////////////////
 static int ActionAltTab(POINT pt, int delta)
@@ -1940,6 +2042,8 @@ static void AddWindowToDB(HWND hwndd)
         state.wndentry = wnddb.pos;
         state.wndentry->hwnd = hwndd;
         state.wndentry->restore = 0;
+    } else if (state.wndentry->restore&SNCLEAR) {
+        state.wndentry->restore=0;
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -2000,7 +2104,7 @@ static int ActionMove(POINT pt, HMONITOR monitor, int button)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-static int ActionResize(POINT pt, POINT mdiclientpt, RECT *wnd, RECT *mon, int button)
+static int ActionResize(POINT pt, POINT mdiclientpt, const RECT *wnd, const RECT *mon, int button)
 {
     if(!IsResizable(state.hwnd)) {
         state.blockmouseup = 1;
@@ -2170,17 +2274,7 @@ static void ActionBorderless(HWND hwnd)
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-static void GetMinMaxInfo_glob(HWND hwnd)
-{
-    MINMAXINFO mmi = { {0, 0}, {0, 0}, {0, 0}
-                     , {GetSystemMetrics(SM_CXMINTRACK), GetSystemMetrics(SM_CYMINTRACK)}
-                     , {GetSystemMetrics(SM_CXMAXTRACK), GetSystemMetrics(SM_CXMAXTRACK)} };
-    SendMessage(hwnd, WM_GETMINMAXINFO, 0, (LPARAM)&mmi);
-    state.mmi.Min = mmi.ptMinTrackSize;
-    state.mmi.Max = mmi.ptMaxTrackSize;
-}
-/////////////////////////////////////////////////////////////////////////////
-static int IsFullscreen(HWND hwnd, RECT *wnd, RECT *fmon)
+static int IsFullscreen(HWND hwnd, const RECT *wnd, const RECT *fmon)
 {
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
 
@@ -2191,10 +2285,12 @@ static int IsFullscreen(HWND hwnd, RECT *wnd, RECT *fmon)
     return fs; // = 1 for fulscreen, 2 for SYSMENU and 3 for both.
 }
 /////////////////////////////////////////////////////////////////////////////
-static void CenterWindow(HWND hwnd)
+void CenterWindow(HWND hwnd)
 {
     RECT mon;
-    GetMonitorRect(NULL, 0, &mon);
+    POINT pt;
+    GetCursorPos(&pt);
+    GetMonitorRect(&pt, 0, &mon);
     MoveWindowAsync(hwnd
         , mon.left+ ((mon.right-mon.left)-state.origin.width)/2
         , mon.top + ((mon.bottom-mon.top)-state.origin.height)/2
@@ -2261,8 +2357,9 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
     MONITORINFO mi = { sizeof(MONITORINFO) };
     GetMonitorInfo(monitor, &mi);
-    RECT mon = mi.rcWork;
-    RECT fmon = mi.rcMonitor;
+    CopyRect(&state.origin.mon, &mi.rcWork);
+    RECT fmon;
+    CopyRect(&fmon, &mi.rcMonitor);
 
     // MDI or not
     state.hwnd = MDIorNOT(state.hwnd, &state.mdiclient);
@@ -2270,8 +2367,9 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     if (state.mdiclient) {
         if (!GetClientRect(state.mdiclient, &fmon)
          || !ClientToScreen(state.mdiclient, &mdiclientpt) ) {
-            return 0;        }
-        mon = fmon; // = MDI client rect
+            return 0;
+        }
+        CopyRect(&state.origin.mon, &fmon); // = MDI client rect
     }
 
     WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
@@ -2314,7 +2412,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Do things depending on what button was pressed
     HCURSOR hcursor = NULL;
     if (action == AC_MOVE || action == AC_RESIZE) { ////////////////
-        GetMinMaxInfo_glob(state.hwnd); // for CLAMPH/W functions
+        GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
         SetWindowTrans(state.hwnd);
         EnumOnce(NULL); // Reset enum stuff
         if(conf.AeroMaxSpeed < 65000)
@@ -2331,7 +2429,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         if(action == AC_MOVE) {
             ret = ActionMove(pt, monitor, button);
         } else {
-            ret = ActionResize(pt, mdiclientpt, &wnd, &mon, button);
+            ret = ActionResize(pt, mdiclientpt, &wnd, &state.origin.mon, button);
         }
         action = state.action;
         if (ret == 0) return 0;
@@ -2378,14 +2476,14 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
         HWND hwnd = WindowFromPoint(pt);
         if (!hwnd) return 0;
         hwnd = GetAncestor(hwnd, GA_ROOT);
-        if (blacklisted(hwnd, &BlkLst.Windows) || (wParam == WM_MBUTTONDOWN && blacklisted(hwnd, &BlkLst.MMBLower)))
+        if (blacklisted(hwnd, &BlkLst.Windows))
             return 0;
 
         int area = SendMessage(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x,pt.y));
-
         if (willlower && wParam == WM_MBUTTONDOWN
-         && (area == HTCAPTION || area == HTTOP || area == HTTOPLEFT || area == HTTOPRIGHT
-         || area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON || area == HTCLOSE)) {
+        && (area == HTCAPTION || area == HTTOP || area == HTTOPLEFT || area == HTTOPRIGHT
+          ||area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON || area == HTCLOSE)
+        && !blacklisted(hwnd, &BlkLst.MMBLower)) {
             if (state.shift) {
                 PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
             } else {
@@ -2395,8 +2493,10 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
                 SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
             }
             return 1;
-        } else if (conf.NormRestore && wParam == WM_LBUTTONDOWN && area == HTCAPTION
-               && !IsZoomed(hwnd) && !IsWindowSnapped(hwnd)) {
+        } else if (conf.NormRestore
+        && wParam == WM_LBUTTONDOWN && area == HTCAPTION
+        && !IsZoomed(hwnd) && !IsWindowSnapped(hwnd)
+        && !blacklisted(hwnd, &BlkLst.MMBLower)) {
             if ((state.wndentry=GetWindowInDB(hwnd))) {
                 // Set NormRestore to 2 in order to signal that
                 // The window should be restored
@@ -2490,7 +2590,10 @@ static void FinishMovement()
 {
     if (LastWin.hwnd && (state.moving == NOT_MOVED || (!conf.FullWin&&state.moving))) {
         // to erase the last rectangle...
-        if(!conf.FullWin) Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
+        if(!conf.FullWin) {
+            Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
+            if(state.action == AC_RESIZE) ResizeAllSnappedWindowsAsync();
+        }
 
         if(IsWindow(LastWin.hwnd)) {
             DWORD lpThreadId;
@@ -2534,16 +2637,6 @@ static void FinishMovement()
         // Just hide g_mainhwnd
         ShowWindowAsync(g_mainhwnd, SW_HIDE);
     }
-}
-/////////////////////////////////////////////////////////////////////////////
-static int IsHotKeyDown(struct hotkeys_s *hk)
-{
-    int i;
-    for (i=0; i < hk->length; i++) {
-        if (GetAsyncKeyState(hk->keys[i])&0x8000)
-            return 1;
-    }
-    return 0;
 }
 /////////////////////////////////////////////////////////////////////////////
 // This is somewhat the main function, it is active only when the ALT key is
@@ -2715,7 +2808,7 @@ static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 {
     if (msg == WM_TIMER) {
         if (wParam == INIT_TIMER) {
-            KillTimer(g_timerhwnd, wParam);
+            KillTimer(g_timerhwnd, INIT_TIMER);
 
             // Hook mouse if a permanent hook is needed
             if (conf.keepMousehook) {
@@ -2797,22 +2890,18 @@ __declspec(dllexport) void Unload()
 
     free(monitors);
     monitors = NULL;
-    nummonitors = 0;
     monitors_alloc = 0;
 
     free(hwnds);
     hwnds = NULL;
-    numhwnds = 0;
     hwnds_alloc = 0;
 
     free(wnds);
     wnds = NULL;
-    numwnds = 0;
     wnds_alloc = 0;
 
-    free(wnds);
+    free(snwnds);
     snwnds = NULL;
-    numsnwnds = 0;
     snwnds_alloc = 0;
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -2910,6 +2999,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AutoSnap=state.snap=GetPrivateProfileInt(L"General", L"AutoSnap", 0, inipath);
     conf.Aero =         GetPrivateProfileInt(L"General", L"Aero", 1, inipath);
     conf.SmartAero =    GetPrivateProfileInt(L"General", L"SmartAero", 1, inipath);
+    conf.StickyResize  =GetPrivateProfileInt(L"General", L"StickyResize", 0, inipath);
     conf.InactiveScroll=GetPrivateProfileInt(L"General", L"InactiveScroll", 0, inipath);
     conf.NormRestore   =GetPrivateProfileInt(L"General", L"NormRestore", 0, inipath);
     conf.MDI =          GetPrivateProfileInt(L"General", L"MDI", 0, inipath);

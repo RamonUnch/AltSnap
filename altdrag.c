@@ -11,8 +11,6 @@
 #define _WIN32_WINNT 0x0400
 #include <windows.h>
 
-#define LOG_STUFF 0
-
 // App
 #define APP_NAME       L"AltDrag"
 #define APP_NAMEA      "AltDrag"

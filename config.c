@@ -266,17 +266,28 @@ static DWORD IsUACEnabled()
 // Helper functions and Macro
 #define IsCheckedW(idc) _itow(Button_GetCheck(GetDlgItem(hwnd, idc)), txt, ARR_SZ(txt))
 #define IsChecked(idc) Button_GetCheck(GetDlgItem(hwnd, idc))
-
 static void WriteOptionBoolW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, wchar_t *txt, size_t txtsz, wchar_t *inipath)
 {
     WritePrivateProfileString(section, name,_itow(Button_GetCheck(GetDlgItem(hwnd, id)), txt, txtsz), inipath);
 }
 #define WriteOptionBool(id, section, name) WriteOptionBoolW(hwnd, id, section, name, txt, ARR_SZ(txt), inipath)
+static void WriteOptionBoolBW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, wchar_t *txt, size_t txtsz, wchar_t *inipath, int bit)
+{
+    int val = GetPrivateProfileInt(section, name, 0, inipath);
+    if(Button_GetCheck(GetDlgItem(hwnd, id)))
+        val = setBit(val, bit);
+    else
+        val = clearBit(val, bit);
+
+    WritePrivateProfileString(section, name,_itow(val, txt, txtsz), inipath);
+}
+#define WriteOptionBoolB(id, section, name, bit) WriteOptionBoolBW(hwnd, id, section, name, txt, ARR_SZ(txt), inipath, bit)
 static void WriteOptionStrW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, wchar_t *txt, size_t txtsz, wchar_t *inipath)
 {
     Edit_GetText(GetDlgItem(hwnd, id), txt, txtsz);
     WritePrivateProfileString(section, name, txt, inipath);
 }
+
 #define WriteOptionStr(id, section, name)  WriteOptionStrW(hwnd, id, section, name, txt, ARR_SZ(txt), inipath)
 
 static void ReadOptionStrW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name
@@ -305,13 +316,10 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         ReadOptionInt(IDC_AUTOFOCUS,      L"General", L"AutoFocus", 0, -1);
         ReadOptionInt(IDC_AERO,           L"General", L"Aero", 1, -1);
         ReadOptionInt(IDC_SMARTAERO,      L"General",    L"SmartAero", 1, -1);
-        ret =
+        ReadOptionInt(IDC_STICKYRESIZE,   L"General",    L"StickyResize", 1, 1);
         ReadOptionInt(IDC_INACTIVESCROLL, L"General", L"InactiveScroll", 0, -1);
-        if(WIN10) Button_Enable(GetDlgItem(hwnd, IDC_INACTIVESCROLL), ret);
         ReadOptionInt(IDC_MDI,            L"General", L"MDI", 1, -1);
-        ret =
         ReadOptionInt(IDC_FULLWIN,        L"Performance", L"FullWin", 1, -1);
-        if(HaveDWM()) Button_Enable(GetDlgItem(hwnd, IDC_FULLWIN), !ret);
         ReadOptionInt(IDC_RESIZEALL,      L"Advanced", L"ResizeAll", 1, -1);
 
         ret=GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
@@ -369,12 +377,14 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), elevated ? BST_CHECKED : BST_UNCHECKED);
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE), autostart);
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), autostart && VISTA);
-
+            if(WIN10) Button_Enable(GetDlgItem(hwnd, IDC_INACTIVESCROLL), IsChecked(IDC_INACTIVESCROLL));
+            if(HaveDWM()) Button_Enable(GetDlgItem(hwnd, IDC_FULLWIN), !IsChecked(IDC_FULLWIN));
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             wchar_t txt[10];
             WriteOptionBool(IDC_AUTOFOCUS,     L"General",    L"AutoFocus");
             WriteOptionBool(IDC_AERO,          L"General",    L"Aero");
             WriteOptionBool(IDC_SMARTAERO,     L"General",    L"SmartAero");
+            WriteOptionBoolB(IDC_STICKYRESIZE,  L"General",    L"StickyResize", 0);
             WriteOptionBool(IDC_INACTIVESCROLL,L"General",    L"InactiveScroll");
             WriteOptionBool(IDC_MDI,           L"General",    L"MDI");
             WriteOptionBool(IDC_FULLWIN,       L"Performance",L"FullWin");
@@ -407,6 +417,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         SetDlgItemText(hwnd, IDC_AUTOFOCUS,         l10n->general_autofocus);
         SetDlgItemText(hwnd, IDC_AERO,              l10n->general_aero);
         SetDlgItemText(hwnd, IDC_SMARTAERO,         l10n->general_smartaero);
+        SetDlgItemText(hwnd, IDC_STICKYRESIZE,      l10n->general_stickyresize);
         SetDlgItemText(hwnd, IDC_INACTIVESCROLL,    l10n->general_inactivescroll);
         SetDlgItemText(hwnd, IDC_MDI,               l10n->general_mdi);
         SetDlgItemText(hwnd, IDC_AUTOSNAP_HEADER,   l10n->general_autosnap);
@@ -589,7 +600,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     };
 
     if (msg == WM_INITDIALOG) {
-        ReadOptionInt(IDC_LOWERWITHMMB, L"Input", L"LowerWithMMB", 0, -1);
+        ReadOptionInt(IDC_LOWERWITHMMB, L"Input", L"LowerWithMMB", 0, 1);
         ReadOptionInt(IDC_ROLLWITHTBSCROLL, L"Input",  L"RollWithTBScroll", 0, -1);
 
         // Hotclicks buttons
@@ -668,7 +679,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             WritePrivateProfileString(L"Input", L"Scroll", scroll_actions[i].action, inipath);
 
             // Checkboxes...
-            WriteOptionBool(IDC_LOWERWITHMMB,     L"Input", L"LowerWithMMB");
+            WriteOptionBoolB(IDC_LOWERWITHMMB,     L"Input", L"LowerWithMMB", 0);
             WriteOptionBool(IDC_ROLLWITHTBSCROLL, L"Input", L"RollWithTBScroll");
             // Hotclicks
             SaveHotKeys(hotclicks, hwnd, L"Hotclicks", inipath);

@@ -246,17 +246,16 @@ HHOOK mousehook = NULL;
 static pure int blacklisted(HWND hwnd, struct blacklist *list)
 {
     wchar_t title[256]=L"", classname[256]=L"";
-    int mode = 1;
-    int i = 0;
+    int mode;
+    int i;
 
     // Null hwnd or empty list
     if (!hwnd || !list->length)
         return 0;
     // If the first element is *|* then we are in whitelist mode
-    if(!list->items[i].classname && !list->items[i].title) {
-        mode = 0;
-        i++;
-    }
+    // mode = 1 => blacklist mode = 0 => whitelist;
+    mode = (int)list->items[0].classname|(int)list->items[0].title;
+    i = !mode;
 
     GetWindowText(hwnd, title, ARR_SZ(title));
     GetClassName(hwnd, classname, ARR_SZ(classname));
@@ -271,16 +270,17 @@ static pure int blacklisted(HWND hwnd, struct blacklist *list)
 static pure int blacklistedP(HWND hwnd, struct blacklist *list)
 {
     wchar_t title[256]=L"";
-    int mode = 1;
-    int i = 0;
+    int mode ;
+    int i ;
 
     // Null hwnd or empty list
     if (!hwnd || !list->length)
         return 0;
-    if (!list->items[i].title) {
-        mode = 0;
-        i++;
-    }
+    // If the first element is *|* then we are in whitelist mode
+    // mode = 1 => blacklist mode = 0 => whitelist;
+    mode = (int)list->items[0].title;
+    i = !mode;
+
     GetWindowProgName(hwnd, title, ARR_SZ(title));
 
     // ProcessBlacklist is case-insensitive

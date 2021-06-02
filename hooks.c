@@ -468,7 +468,10 @@ static BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
     }
 
     RECT wnd;
-    if (ShouldSnapTo(hwnd) && !IsZoomed(hwnd) && GetWindowRectL(hwnd, &wnd)) {
+    if (ShouldSnapTo(hwnd) 
+    && !IsZoomed(hwnd) 
+    && !blacklisted(hwnd, &BlkLst.Windows)
+    && GetWindowRectL(hwnd, &wnd)) {
         // Only considers windows that are
         // touching the currently resized window
         RECT statewnd;
@@ -609,7 +612,7 @@ static void Enum()
     if (state.snap >= 2) {
         EnumWindows(EnumWindowsProc, 0);
     }
-    
+
     if (conf.StickyResize) {
         EnumWindows(EnumTouchingWindows, 0);
     }
@@ -637,7 +640,7 @@ static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
 {
     RECT *borders;
     EnumOnce(&borders);
-    if (state.Speed > (int)conf.AeroMaxSpeed) return;
+    if (!state.snap || state.Speed > (int)conf.AeroMaxSpeed) return;
 
     // thresholdx and thresholdy will shrink to make sure
     // the dragged window will snap to the closest windows
@@ -731,7 +734,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 {
     RECT *borders;
     EnumOnce(&borders);
-    if(state.Speed > (int)conf.AeroMaxSpeed) return;
+    if(!state.snap || state.Speed > (int)conf.AeroMaxSpeed) return;
 
     // thresholdx and thresholdy will shrink to make sure
     // the dragged window will snap to the closest windows
@@ -761,7 +764,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 
             int snapinside_cond = (snapinside || *posy+*wndheight-thresholdx < snapwnd.top
                                   || snapwnd.bottom < *posy+thresholdx);
-            if (state.resize.x == RZ_LEFT 
+            if (state.resize.x == RZ_LEFT
             && IsEqualT(snapwnd.right, *posx, thresholdx)) {
                 // The left edge of the dragged window will snap to this window's right edge
                 stuckleft = 1;
@@ -779,7 +782,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
                 stuckleft = 1;
                 stickleft = snapwnd.left;
                 thresholdx = snapwnd.left-*posx;
-            } else if (state.resize.x == RZ_RIGHT 
+            } else if (state.resize.x == RZ_RIGHT
             && IsEqualT(snapwnd.left, *posx + *wndwidth, thresholdx)) {
                 // The right edge of the dragged window will snap to this window's left edge
                 stuckright = 1;
@@ -794,7 +797,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 
             int snapinside_cond = (snapinside || *posx+*wndwidth-thresholdy < snapwnd.left
                                 || snapwnd.right < *posx+thresholdy);
-            if (state.resize.y == RZ_TOP 
+            if (state.resize.y == RZ_TOP
             && IsEqualT(snapwnd.bottom, *posy, thresholdy)) {
                 // The top edge of the dragged window will snap to this window's bottom edge
                 stucktop = 1;
@@ -812,7 +815,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
                 stucktop = 1;
                 sticktop = snapwnd.top;
                 thresholdy = snapwnd.top-*posy;
-            } else if (state.resize.y == RZ_BOTTOM 
+            } else if (state.resize.y == RZ_BOTTOM
             && IsEqualT(snapwnd.top, *posy+*wndheight, thresholdy)) {
                 // The bottom edge of the dragged window will snap to this window's top edge
                 stuckbottom = 1;
@@ -886,7 +889,7 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
     struct windowRR *lw = LastWinV;
     hwnd = lw->hwnd;
 
-    if(lw->end && conf.FullWin) Sleep(conf.RefreshRate+5);
+    if (lw->end && conf.FullWin) Sleep(conf.RefreshRate+5);
 
     ret = SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height
                      , SWP_NOACTIVATE|SWP_NOREPOSITION); // |WP_NOSENDCHANGING|SWP_DEFERERASE
@@ -896,7 +899,7 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
         return !ret;
     }
 
-    if(conf.RefreshRate) Sleep(conf.RefreshRate);
+    if (conf.RefreshRate) Sleep(conf.RefreshRate);
 
     lw->hwnd = NULL;
 
@@ -1212,7 +1215,7 @@ static void ClipCursorOnce(const RECT *clip)
 static int ShouldResizeTouching()
 {
     return state.action == AC_RESIZE
-        && ( (conf.StickyResize&1 && state.shift) 
+        && ( (conf.StickyResize&1 && state.shift)
           || (conf.StickyResize==2 && !state.shift)
         );
 }
@@ -1292,7 +1295,7 @@ static void MouseMove(POINT pt)
         wndheight = wnd.bottom-wnd.top;
 
         // Check if the window will snap anywhere
-        if (state.snap) MoveSnap(&posx, &posy, wndwidth, wndheight);
+        MoveSnap(&posx, &posy, wndwidth, wndheight);
         int ret = AeroMoveSnap(pt, &posx, &posy, &wndwidth, &wndheight, _curentmon);
         if ( ret == 1) { state.moving = 1; return; }
 
@@ -1394,9 +1397,7 @@ static void MouseMove(POINT pt)
             wndheight=CLAMPH(wndheight);
 
             // Check if the window will snap anywhere
-            if (state.snap) {
-                ResizeSnap(&posx, &posy, &wndwidth, &wndheight);
-            }
+            ResizeSnap(&posx, &posy, &wndwidth, &wndheight);
             AeroResizeSnap(pt, &posx, &posy, &wndwidth, &wndheight);
         }
     }
@@ -2365,7 +2366,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     if (state.mdiclient) {
         if (!GetClientRect(state.mdiclient, &fmon)
          || !ClientToScreen(state.mdiclient, &mdiclientpt) ) {
-            return 0;        
+            return 0;
         }
         CopyRect(&state.origin.mon, &fmon); // = MDI client rect
     }
@@ -2478,7 +2479,7 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
             return 0;
 
         int area = SendMessage(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x,pt.y));
-        if (willlower && wParam == WM_MBUTTONDOWN 
+        if (willlower && wParam == WM_MBUTTONDOWN
         && (area == HTCAPTION || area == HTTOP || area == HTTOPLEFT || area == HTTOPRIGHT
           ||area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON || area == HTCLOSE)
         && !blacklisted(hwnd, &BlkLst.MMBLower)) {
@@ -2491,9 +2492,9 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
                 SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
             }
             return 1;
-        } else if (conf.NormRestore 
+        } else if (conf.NormRestore
         && wParam == WM_LBUTTONDOWN && area == HTCAPTION
-        && !IsZoomed(hwnd) && !IsWindowSnapped(hwnd) 
+        && !IsZoomed(hwnd) && !IsWindowSnapped(hwnd)
         && !blacklisted(hwnd, &BlkLst.MMBLower)) {
             if ((state.wndentry=GetWindowInDB(hwnd))) {
                 // Set NormRestore to 2 in order to signal that
@@ -2997,7 +2998,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AutoSnap=state.snap=GetPrivateProfileInt(L"General", L"AutoSnap", 0, inipath);
     conf.Aero =         GetPrivateProfileInt(L"General", L"Aero", 1, inipath);
     conf.SmartAero =    GetPrivateProfileInt(L"General", L"SmartAero", 1, inipath);
-    conf.StickyResize  =GetPrivateProfileInt(L"General", L"StickyResize", 1, inipath);
+    conf.StickyResize  =GetPrivateProfileInt(L"General", L"StickyResize", 0, inipath);
     conf.InactiveScroll=GetPrivateProfileInt(L"General", L"InactiveScroll", 0, inipath);
     conf.NormRestore   =GetPrivateProfileInt(L"General", L"NormRestore", 0, inipath);
     conf.MDI =          GetPrivateProfileInt(L"General", L"MDI", 0, inipath);

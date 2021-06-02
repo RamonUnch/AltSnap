@@ -366,21 +366,21 @@ static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 }
 /* #define DwmGetWindowAttribute DwmGetWindowAttributeL */
 
-static void SubRect(RECT *frame, const RECT *rect)
+static void SubRect(RECT *__restrict__ frame, const RECT *rect)
 {
     frame->left -= rect->left;
     frame->top -= rect->top;
     frame->right = rect->right - frame->right;
     frame->bottom = rect->bottom - frame->bottom;
 }
-static void InflateRectBorder(RECT *rc, const RECT *bd)
+static void InflateRectBorder(RECT *__restrict__ rc, const RECT *bd)
 {
     rc->left   -= bd->left;
     rc->top    -= bd->top;
     rc->right  += bd->right;
     rc->bottom += bd->bottom;
 }
-static void DeflateRectBorder(RECT *rc, const RECT *bd)
+static void DeflateRectBorder(RECT *__restrict__ rc, const RECT *bd)
 {
     rc->left   += bd->left;
     rc->top    += bd->top;
@@ -608,8 +608,8 @@ static pure unsigned WhichSideRectInRect(const RECT *mon, const RECT *wnd)
 }
 
 static xpure int IsEqualT(int a, int b, int th)
-{ 
-    return (b - th <= a) & (a <= b + th) ;
+{
+    return (b - th <= a) & (a <= b + th);
 }
 static xpure int IsInRangeT(int x, int a, int b, int T)
 {

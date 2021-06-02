@@ -1536,6 +1536,15 @@ static int ActionKill(HWND hwnd)
 
     return 1;
 }
+static void SetForegroundWindowL(HWND hwnd)
+{
+    if (!state.mdiclient) {
+        SetForegroundWindow(hwnd);
+    } else {
+        SetForegroundWindow(state.mdiclient);
+        PostMessage(state.mdiclient, WM_MDIACTIVATE, (WPARAM)hwnd, 0);
+    }
+}
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -1617,7 +1626,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             RestrictToCurentMonitor();
             state.ctrl = 1;
             if(state.action == AC_MOVE || state.action == AC_RESIZE){
-                SetForegroundWindow(state.hwnd);
+                SetForegroundWindowL(state.hwnd);
             }
         } else if (state.sclickhwnd && state.alt && (vkey == VK_LMENU || vkey == VK_RMENU)) {
             return 1;
@@ -1932,7 +1941,7 @@ static int ActionLower(POINT pt, HWND hwnd, int delta)
         } else {
             SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
             SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
-            if(conf.AutoFocus) SetForegroundWindow(hwnd);
+            if(conf.AutoFocus) SetForegroundWindowL(hwnd);
         }
     } else {
         if (state.shift) {
@@ -1983,7 +1992,7 @@ static int ActionMaxRestMin(POINT pt, int delta)
         else
             PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
     }
-    if(conf.AutoFocus) SetForegroundWindow(hwnd);
+    if(conf.AutoFocus) SetForegroundWindowL(hwnd);
     return -1;
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -2407,7 +2416,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
 
     // AutoFocus
-    if (conf.AutoFocus || (state.ctrl && !state.ignorectrl)) { SetForegroundWindow(state.hwnd); }
+    if (conf.AutoFocus || (state.ctrl && !state.ignorectrl)) { SetForegroundWindowL(state.hwnd); }
 
     // Do things depending on what button was pressed
     HCURSOR hcursor = NULL;

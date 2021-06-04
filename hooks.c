@@ -52,6 +52,7 @@ static void FinishMovement();
 #define SNMAXW    (1<<7)
 #define SNCLEAR   (1<<8) // to clear the flag at init movement.
 #define TORESIZE  (1<<9)
+#define SNTHENROLLED (1<<10)
 #define SNTOPLEFT     (SNTOP|SNLEFT)
 #define SNTOPRIGHT    (SNTOP|SNRIGHT)
 #define SNBOTTOMLEFT  (SNBOTTOM|SNLEFT)
@@ -246,7 +247,7 @@ HHOOK mousehook = NULL;
 static pure int blacklisted(HWND hwnd, struct blacklist *list)
 {
     wchar_t title[256]=L"", classname[256]=L"";
-    int mode;
+    DorQWORD mode ;
     int i;
 
     // Null hwnd or empty list
@@ -254,7 +255,7 @@ static pure int blacklisted(HWND hwnd, struct blacklist *list)
         return 0;
     // If the first element is *|* then we are in whitelist mode
     // mode = 1 => blacklist mode = 0 => whitelist;
-    mode = (int)list->items[0].classname|(int)list->items[0].title;
+    mode = (DorQWORD)list->items[0].classname|(DorQWORD)list->items[0].title;
     i = !mode;
 
     GetWindowText(hwnd, title, ARR_SZ(title));
@@ -270,7 +271,7 @@ static pure int blacklisted(HWND hwnd, struct blacklist *list)
 static pure int blacklistedP(HWND hwnd, struct blacklist *list)
 {
     wchar_t title[256]=L"";
-    int mode ;
+    DorQWORD mode ;
     int i ;
 
     // Null hwnd or empty list
@@ -278,7 +279,7 @@ static pure int blacklistedP(HWND hwnd, struct blacklist *list)
         return 0;
     // If the first element is *|* then we are in whitelist mode
     // mode = 1 => blacklist mode = 0 => whitelist;
-    mode = (int)list->items[0].title;
+    mode = (DorQWORD)list->items[0].title;
     i = !mode;
 
     GetWindowProgName(hwnd, title, ARR_SZ(title));
@@ -291,7 +292,7 @@ static pure int blacklistedP(HWND hwnd, struct blacklist *list)
     return !mode;
 }
 
-// Macro to clamp width and height of windows
+// To clamp width and height of windows
 #define CLAMPW(width)  CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x)
 #define CLAMPH(height) CLAMP(state.mmi.Min.y, height, state.mmi.Max.y)
 static inline int IsResizable(HWND hwnd)
@@ -456,7 +457,7 @@ static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 static void EnumSnapped()
 {
     numsnwnds = 0;
-    if (conf.SmartAero) EnumWindows(EnumSnappedWindows, 0);
+    if (conf.SmartAero && !state.mdiclient) EnumWindows(EnumSnappedWindows, 0);
 }
 /////////////////////////////////////////////////////////////////////////////
 static BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
@@ -1153,12 +1154,13 @@ static int IsHotKeyDown(struct hotkeys_s *hk)
 // index 1 => normal restore on any move state.wndentry->restore & 1
 // index 2 => Rolled window state.wndentry->restore & 2
 // state.wndentry->restore & 3 => Both 1 & 2 ie: Maximized then rolled.
+// Set was_snapped to 2 if you wan to 
 static void RestoreOldWin(const POINT *pt, int was_snapped, int index)
 {
     // Restore old width/height?
     int restore = 0;
 
-    if (state.wndentry->restore & index) {
+    if (state.wndentry->restore & index && !state.origin.maximized) {
         // Set origin width and height to the saved values
         restore = state.wndentry->restore;
         state.origin.width = state.wndentry->width;
@@ -1179,12 +1181,12 @@ static void RestoreOldWin(const POINT *pt, int was_snapped, int index)
                        / max(wnd.bottom-wnd.top,1);
     }
     if (state.origin.maximized || was_snapped == 1) {
-        if((state.wndentry->restore|restore) & ROLLED) {
+        if (state.wndentry->restore&3 || restore&3) {
             // if we restore a  Rolled Maximized window...
             state.offset.y = GetSystemMetrics(SM_CYMIN)/2;
         }
     } else if (restore) {
-        if(was_snapped == 2 && pt) {
+        if (was_snapped == 2 && pt) {
             // Restoring via normal drag we want
             // the offset along Y to be unchanged...
             state.offset.y = pt->y-wnd.top;
@@ -1311,6 +1313,7 @@ static void MouseMove(POINT pt)
                 wndpl.rcNormalPosition.right = wndpl.rcNormalPosition.left + state.origin.width;
                 wndpl.rcNormalPosition.bottom= wndpl.rcNormalPosition.top +  state.origin.height;
             }
+            if(state.wndentry->restore&SNTHENROLLED) state.wndentry->restore=0;
             SetWindowPlacement(state.hwnd, &wndpl);
             // Update wndwidth and wndheight
             wndwidth  = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
@@ -2074,17 +2077,17 @@ static void RollWindow(HWND hwnd, int delta)
         } else {
             RestoreOldWin(NULL, 2, 2);
         }
-    } else if ((!(state.wndentry->restore & ROLLED) && delta == 0) || delta > 0 ){ // ROLL
+    } else if ((!(state.wndentry->restore & ROLLED) && delta == 0) || delta > 0 ) { // ROLL
         GetWindowRect(state.hwnd, &rc);
         SetWindowPos(state.hwnd, NULL, 0, 0, rc.right - rc.left
               , GetSystemMetrics(SM_CYMIN)
               , SWP_NOMOVE|SWP_NOZORDER|SWP_NOSENDCHANGING|SWP_ASYNCWINDOWPOS);
         if(!(state.wndentry->restore & ROLLED)) { // Save window size if not saved already.
-            if(!state.origin.maximized){
+            if (!state.origin.maximized) {
                 state.wndentry->width = rc.right - rc.left;
                 state.wndentry->height = rc.bottom - rc.top;
             }
-            state.wndentry->restore = ROLLED | state.origin.maximized;
+            state.wndentry->restore = ROLLED | state.origin.maximized|IsWindowSnapped(hwnd)<<10;
         }
     }
 }
@@ -2399,21 +2402,23 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 
     // Update state
     state.action = action;
+    state.origin.maximized = IsZoomed(state.hwnd);
+    state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
+
     if (!state.snap) {
         state.snap = conf.AutoSnap;
     }
     AddWindowToDB(state.hwnd);
 
-    if (state.wndentry->restore) { // Set Origin width and height ==2)
+    if (state.wndentry->restore && !state.origin.maximized) { // Set Origin width and height ==2)
         state.origin.width = state.wndentry->width;
         state.origin.height = state.wndentry->height;
     } else {
         state.origin.width = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
         state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
     }
+
     state.blockaltup = 1;
-    state.origin.maximized = IsZoomed(state.hwnd);
-    state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
 
     // AutoFocus
     if (conf.AutoFocus || (state.ctrl && !state.ignorectrl)) { SetForegroundWindowL(state.hwnd); }

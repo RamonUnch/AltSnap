@@ -236,7 +236,6 @@ struct {
 
 // Cursor data
 HWND g_mainhwnd = NULL;
-HCURSOR cursors[6];
 
 // Hook data
 HINSTANCE hinstDLL = NULL;
@@ -471,7 +470,7 @@ static void EnumSnapped()
     if (conf.SmartAero) {
         if(state.mdiclient)
             EnumChildWindows(state.mdiclient, EnumSnappedWindows, 0);
-        else 
+        else
             EnumWindows(EnumSnappedWindows, 0);
     }
 }
@@ -485,8 +484,8 @@ static BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
     }
 
     RECT wnd;
-    if (ShouldSnapTo(hwnd) 
-    && !IsZoomed(hwnd) 
+    if (ShouldSnapTo(hwnd)
+    && !IsZoomed(hwnd)
     && IsResizable(hwnd)
     && !blacklisted(hwnd, &BlkLst.Windows)
     && GetWindowRectL(hwnd, &wnd)) {
@@ -579,10 +578,12 @@ static void EnumMdi()
     if (GetClientRect(state.mdiclient, &wnd) != 0) {
         CopyRect(&monitors[nummonitors++], &wnd);
     }
-    if (state.snap < 2) {
-        return;
+    if (state.snap > 1) {
+        EnumChildWindows(state.mdiclient, EnumWindowsProc, 0);
     }
-    EnumChildWindows(state.mdiclient, EnumWindowsProc, 0);
+    if (conf.StickyResize) {
+        EnumChildWindows(state.mdiclient, EnumTouchingWindows, 0);
+    }
 }
 ///////////////////////////////////////////////////////////////////////////
 // Enumerate all monitors/windows/MDI depending on state.
@@ -595,8 +596,6 @@ static void Enum()
     // MDI
     if (state.mdiclient) {
         EnumMdi();
-        if (conf.StickyResize) 
-            EnumChildWindows(state.mdiclient, EnumTouchingWindows, 0);
         return;
     }
 
@@ -1152,7 +1151,7 @@ static int IsHotKeyDown(struct hotkeys_s *hk)
 // index 1 => normal restore on any move state.wndentry->restore & 1
 // index 2 => Rolled window state.wndentry->restore & 2
 // state.wndentry->restore & 3 => Both 1 & 2 ie: Maximized then rolled.
-// Set was_snapped to 2 if you wan to 
+// Set was_snapped to 2 if you wan to
 static void RestoreOldWin(const POINT *pt, int was_snapped, int index)
 {
     // Restore old width/height?
@@ -1997,33 +1996,37 @@ static int ActionMaxRestMin(POINT pt, int delta)
     return -1;
 }
 /////////////////////////////////////////////////////////////////////////////
-static pure HCURSOR CursorToDraw()
+static HCURSOR CursorToDraw()
 {
     HCURSOR cursor;
 
-    if(state.action == AC_MOVE && conf.UseCursor == 4) {
-        return cursors[SIZEALL];
-
-    } else if(state.action == AC_MOVE || conf.UseCursor == 3) {
-        return cursors[HAND];
+    if(conf.UseCursor == 3) {
+        return LoadCursor(NULL, IDC_ARROW);
+    }
+    if(state.action == AC_MOVE) {
+        if(conf.UseCursor == 4) 
+            return LoadCursor(NULL, IDC_SIZEALL);
+        cursor = LoadCursor(NULL, conf.UseCursor>1? IDC_ARROW: IDC_HAND);
+        if(!cursor) cursor = LoadCursor(NULL, IDC_ARROW); // Fallback;
+        return cursor;
     }
 
     if ((state.resize.y == RZ_TOP && state.resize.x == RZ_LEFT)
      || (state.resize.y == RZ_BOTTOM && state.resize.x == RZ_RIGHT)) {
-        cursor = cursors[SIZENWSE];
+        return LoadCursor(NULL, IDC_SIZENWSE);
     } else if ((state.resize.y == RZ_TOP && state.resize.x == RZ_RIGHT)
      || (state.resize.y == RZ_BOTTOM && state.resize.x == RZ_LEFT)) {
-        cursor = cursors[SIZENESW];
+        return LoadCursor(NULL, IDC_SIZENESW);
     } else if ((state.resize.y == RZ_TOP && state.resize.x == RZ_CENTER)
      || (state.resize.y == RZ_BOTTOM && state.resize.x == RZ_CENTER)) {
-        cursor = cursors[SIZENS];
+        return LoadCursor(NULL, IDC_SIZENS);
     } else if ((state.resize.y == RZ_CENTER && state.resize.x == RZ_LEFT)
      || (state.resize.y == RZ_CENTER && state.resize.x == RZ_RIGHT)) {
-        cursor = cursors[SIZEWE];
+        return LoadCursor(NULL, IDC_SIZEWE);
     } else {
-        cursor = cursors[SIZEALL];
+        return LoadCursor(NULL, IDC_SIZEALL);
     }
-    return cursor;
+    return NULL;
 }
 /////////////////////////////////////////////////////////////////////////////
 // Return the entry if it was already in db.
@@ -2901,23 +2904,20 @@ __declspec(dllexport) void Unload()
     freeblacklist(&BlkLst.SSizeMove);
 
     free(monitors);
-    monitors = NULL;
-    monitors_alloc = 0;
-
+//    monitors = NULL;
+//    monitors_alloc = 0;
     free(hwnds);
-    hwnds = NULL;
-    hwnds_alloc = 0;
-
+//    hwnds = NULL;
+//    hwnds_alloc = 0;
     free(wnds);
-    wnds = NULL;
-    wnds_alloc = 0;
-
+//    wnds = NULL;
+//    wnds_alloc = 0;
     free(snwnds);
-    snwnds = NULL;
-    snwnds_alloc = 0;
+//    snwnds = NULL;
+//    snwnds_alloc = 0;
 }
 /////////////////////////////////////////////////////////////////////////////
-// blacklist is coma separated ans title and class are | separated.
+// blacklist is coma separated and title and class are | separated.
 static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist
                         , const wchar_t *blacklist_str, const wchar_t *def)
 {
@@ -2984,7 +2984,9 @@ static void readhotkeys(const wchar_t *inipath, const wchar_t *name, const wchar
         // Store key
         if(HK->length == MAXKEYS) break;
         HK->keys[HK->length++] = whex2u(pos);
-        pos +=3;
+        
+        while(*pos && *pos != ' ') pos++; // go to next space
+        while(*pos == ' ') pos++; // go to next char after spaces.
     }
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -3035,15 +3037,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AlphaDelta    = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDelta", 64, inipath), 127);
     conf.AeroMaxSpeed  = CLAMP(0, GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath), 65535);
     conf.AeroSpeedTau  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedTau", 32, inipath), 255);
-
-    // CURSOR STUFF
-    cursors[HAND]     = LoadCursor(NULL, conf.UseCursor>1? IDC_ARROW: IDC_HAND);
-    if(!cursors[HAND]) cursors[HAND] = LoadCursor(NULL, IDC_ARROW); // Fallback
-    cursors[SIZENWSE] = LoadCursor(NULL, IDC_SIZENWSE);
-    cursors[SIZENESW] = LoadCursor(NULL, IDC_SIZENESW);
-    cursors[SIZENS]   = LoadCursor(NULL, IDC_SIZENS);
-    cursors[SIZEWE]   = LoadCursor(NULL, IDC_SIZEWE);
-    cursors[SIZEALL]  = LoadCursor(NULL, IDC_SIZEALL);
 
     // [Performance]
     conf.MoveRate  = GetPrivateProfileInt(L"Performance", L"MoveRate", 2, inipath);

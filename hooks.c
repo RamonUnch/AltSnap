@@ -355,6 +355,15 @@ static BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT 
 
     return TRUE;
 }
+/////////////////////////////////////////////////////////////////////////////
+static void OffsetRectMDI(RECT *wnd, HWND mdihwnd)
+{
+    if (mdihwnd) {
+        POINT mdiclientpt = { 0, 0 };
+        if(ClientToScreen(mdihwnd, &mdiclientpt))
+            OffsetRect(wnd, -mdiclientpt.x, -mdiclientpt.y);
+    }
+}
 static int ShouldSnapTo(HWND window)
 {
     LONG_PTR style;
@@ -397,7 +406,8 @@ static BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
                 return TRUE;
             }
         }
-        // Add window to snapdb
+        // Add window to wnds db
+        OffsetRectMDI(&wnd, state.mdiclient);
         CopyRect(&wnds[numwnds++], &wnd);
     }
     return TRUE;
@@ -436,19 +446,20 @@ static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
         }
 
         if ((entry = GetWindowInDB(hwnd)) && entry->restore&SNAPPED && entry->restore&SNAPPEDSIDE) {
-            CopyRect(&snwnds[numsnwnds].wnd, &wnd);
             snwnds[numsnwnds].flag = entry->restore;
-            snwnds[numsnwnds].hwnd = hwnd;
-            numsnwnds++;
         } else if (IsWindowSnapped(hwnd)) {
             HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
             MONITORINFO mi = { sizeof(MONITORINFO) };
             GetMonitorInfo(monitor, &mi);
-            CopyRect(&snwnds[numsnwnds].wnd, &wnd);
             snwnds[numsnwnds].flag = WhichSideRectInRect(&mi.rcWork, &wnd);
-            snwnds[numsnwnds].hwnd = hwnd;
-            numsnwnds++;
+        } else {
+            return TRUE; // next hwnd
         }
+        // Add the window to the list
+        OffsetRectMDI(&wnd, state.mdiclient);
+        CopyRect(&snwnds[numsnwnds].wnd, &wnd);
+        snwnds[numsnwnds].hwnd = hwnd;
+        numsnwnds++;
     }
     return TRUE;
 }
@@ -457,7 +468,12 @@ static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 static void EnumSnapped()
 {
     numsnwnds = 0;
-    if (conf.SmartAero && !state.mdiclient) EnumWindows(EnumSnappedWindows, 0);
+    if (conf.SmartAero) {
+        if(state.mdiclient)
+            EnumChildWindows(state.mdiclient, EnumSnappedWindows, 0);
+        else 
+            EnumWindows(EnumSnappedWindows, 0);
+    }
 }
 /////////////////////////////////////////////////////////////////////////////
 static BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
@@ -480,6 +496,7 @@ static BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
         GetWindowRectL(state.hwnd, &statewnd);
         unsigned flag;
         if((flag = AreRectsTouchingT(&statewnd, &wnd, conf.SnapThreshold/2))) {
+            OffsetRectMDI(&wnd, state.mdiclient);
             CopyRect(&snwnds[numsnwnds].wnd, &wnd);
             snwnds[numsnwnds].flag = flag;
             snwnds[numsnwnds].hwnd = hwnd;
@@ -523,6 +540,7 @@ static void ResizeTouchingWindows(int posx, int posy, int width, int height)
         }
         RECT nbd;
         FixDWMRect(hwnd, &nbd);
+
         if (conf.FullWin) {
             MoveWindowAsync(hwnd, nwnd->left-nbd.left, nwnd->top-nbd.top
                       , nwnd->right - nwnd->left + nbd.left + nbd.right
@@ -564,30 +582,8 @@ static void EnumMdi()
     if (state.snap < 2) {
         return;
     }
-
-    // Add all the siblings to the window
-    POINT mdiclientpt = { 0, 0 };
-    if (!ClientToScreen(state.mdiclient, &mdiclientpt)) {
-        return;
-    }
-    HWND window = GetWindow(state.mdiclient, GW_CHILD);
-    while (window) {
-        if (window == state.hwnd) {
-            window = GetWindow(window, GW_HWNDNEXT);
-            continue;
-        }
-        if (numwnds >= wnds_alloc) {
-            wnds_alloc += 8;
-            wnds = realloc(wnds, wnds_alloc*sizeof(RECT));
-        }
-        if (GetWindowRectL(window, &wnd) != 0) {
-            OffsetRect(&wnd, -mdiclientpt.x, -mdiclientpt.y);
-            CopyRect(&wnds[numwnds++], &wnd);
-        }
-        window = GetWindow(window, GW_HWNDNEXT);
-    }
+    EnumChildWindows(state.mdiclient, EnumWindowsProc, 0);
 }
-
 ///////////////////////////////////////////////////////////////////////////
 // Enumerate all monitors/windows/MDI depending on state.
 static void Enum()
@@ -599,6 +595,8 @@ static void Enum()
     // MDI
     if (state.mdiclient) {
         EnumMdi();
+        if (conf.StickyResize) 
+            EnumChildWindows(state.mdiclient, EnumTouchingWindows, 0);
         return;
     }
 

@@ -171,34 +171,33 @@ struct {
 
     UCHAR AVoff;
     UCHAR AHoff;
-    unsigned short dbclktime;
-
     UCHAR FullWin;
     UCHAR ResizeAll;
+
     UCHAR AggressivePause;
     UCHAR AeroTopMaximizes;
-
     UCHAR UseCursor;
     UCHAR CenterFraction;
+
     UCHAR RefreshRate;
     UCHAR RollWithTBScroll;
-
     UCHAR MMMaximize;
     UCHAR MinAlpha;
-    UCHAR MoveTrans;
-    UCHAR NormRestore;
 
     char AlphaDelta;
     char AlphaDeltaShift;
     unsigned short AeroMaxSpeed;
 
+    UCHAR MoveTrans;
+    UCHAR NormRestore;
     UCHAR AeroSpeedTau;
     UCHAR ToggleRzMvKey;
+
     UCHAR keepMousehook;
     UCHAR KeyCombo;
-
     UCHAR FullScreen;
     UCHAR AggressiveKill;
+
     UCHAR SmartAero;
     UCHAR StickyResize;
 
@@ -1781,8 +1780,7 @@ static int ActionAltTab(POINT pt, int delta)
                     if (delta > 0) {
                         PostMessage(mdiclient, WM_MDIACTIVATE, (WPARAM) hwnds[numhwnds-1], 0);
                     } else {
-                        SetWindowPos(hwnds[0], hwnds[numhwnds-1], 0, 0, 0, 0
-                                   , SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
+                        SetWindowLevel(hwnds[0], hwnds[numhwnds-1]);
                         PostMessage(mdiclient, WM_MDIACTIVATE, (WPARAM) hwnds[1], 0);
                     }
                 }
@@ -1803,8 +1801,7 @@ static int ActionAltTab(POINT pt, int delta)
         if (delta > 0) {
             SetForegroundWindow(hwnds[numhwnds-1]);
         } else {
-            SetWindowPos(hwnds[0], hwnds[numhwnds-1], 0, 0, 0, 0
-                      , SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
+            SetWindowLevel(hwnds[0], hwnds[numhwnds-1]);
             SetForegroundWindow(hwnds[1]);
         }
     }
@@ -1935,21 +1932,26 @@ static int ActionTransparency(HWND hwnd, int delta)
     return -1;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int ActionLower(POINT pt, HWND hwnd, int delta)
+static int ActionLower(POINT *ptt, HWND hwnd, int delta)
 {
     if (delta > 0) {
         if (state.shift) {
-            Maximize_Restore_atpt(hwnd, &pt, SW_TOGGLE_MAX_RESTORE, NULL);
+            Maximize_Restore_atpt(hwnd, ptt, SW_TOGGLE_MAX_RESTORE, NULL);
         } else {
-            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
-            SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0,SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
-            if(conf.AutoFocus) SetForegroundWindowL(hwnd);
+            if(conf.AutoFocus||state.ctrl) SetForegroundWindowL(hwnd);
+            SetWindowLevel(hwnd, HWND_TOPMOST);
+            SetWindowLevel(hwnd, HWND_NOTOPMOST);
         }
     } else {
         if (state.shift) {
             PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
         } else {
-            SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
+            if(hwnd == GetAncestor(GetForegroundWindow(), GA_ROOT)) {
+                HWND tmp = GetWindow(hwnd, GW_HWNDPREV);
+                if(!tmp) tmp = GetWindow(hwnd, GW_HWNDNEXT);
+                SetForegroundWindow(tmp);
+            }
+            SetWindowLevel(hwnd, HWND_BOTTOM);
         }
     }
     return -1;
@@ -2094,11 +2096,16 @@ static void RollWindow(HWND hwnd, int delta)
         }
     }
 }
+static int IsDoubleClick(int button)
+{
+    return state.clickbutton == button
+        && GetTickCount()-state.clicktime <= GetDoubleClickTime();
+}
 /////////////////////////////////////////////////////////////////////////////
 static int ActionMove(POINT pt, HMONITOR monitor, int button)
 {
     // If this is a double-click
-    if (GetTickCount()-state.clicktime <= conf.dbclktime && state.clickbutton == button) {
+    if (IsDoubleClick(button)) {
         if (state.shift) {
             RollWindow(state.hwnd, 0); // Roll/Unroll Window...
         } else if (state.ctrl) {
@@ -2160,7 +2167,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, const RECT *wnd, const RECT
     state.origin.bottom = wnd->bottom-mdiclientpt.y;
 
     // Aero-move this window if this is a double-click
-    if (GetTickCount() - state.clicktime <= conf.dbclktime && state.clickbutton == button) {
+    if (IsDoubleClick(button)) {
         state.action = AC_NONE; // Stop resize action
         state.clicktime = 0;    // Reset double-click time
         state.blockmouseup = 1; // Block the mouseup
@@ -2328,17 +2335,13 @@ static void SClicActions(HWND hwnd, enum action action)
         CenterWindow(hwnd);
     } else if (action == AC_ALWAYSONTOP) {
         LONG_PTR topmost = GetWindowLongPtr(hwnd,GWL_EXSTYLE)&WS_EX_TOPMOST;
-        SetWindowPos(hwnd, (topmost?HWND_NOTOPMOST:HWND_TOPMOST), 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_NOSIZE);
+        SetWindowLevel(hwnd, topmost? HWND_NOTOPMOST: HWND_TOPMOST);
     } else if (action == AC_BORDERLESS) {
         ActionBorderless(hwnd);
     } else if (action == AC_CLOSE) {
         PostMessage(hwnd, WM_CLOSE, 0, 0);
     } else if (action == AC_LOWER) {
-        if (state.shift) {
-            PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
-        } else {
-            SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
-        }
+        ActionLower(NULL, hwnd, 0);
     } else if (action == AC_ROLL) {
         RollWindow(hwnd, 0);
     } else if (action == AC_KILL) {
@@ -2463,7 +2466,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     } else if (action == AC_MENU) {
         state.sclickhwnd = state.hwnd;
         PostMessage(g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd, conf.AggressiveKill);
-        return 1;
+        return 1; // block mouse down
     } else {
         SClicActions(state.hwnd, action);
     }
@@ -2510,14 +2513,7 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
         && (area == HTCAPTION || area == HTTOP || area == HTTOPLEFT || area == HTTOPRIGHT
           ||area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON || area == HTCLOSE)
         && !blacklisted(hwnd, &BlkLst.MMBLower)) {
-            if (state.shift) {
-                PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
-            } else {
-                if(hwnd == GetAncestor(GetForegroundWindow(), GA_ROOT)) {
-                    SetForegroundWindow(GetWindow(hwnd, GW_HWNDPREV));
-                }
-                SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
-            }
+            ActionLower(NULL, hwnd, 0);
             return 1;
         } else if (conf.NormRestore
         && wParam == WM_LBUTTONDOWN && area == HTCAPTION
@@ -2595,7 +2591,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
                 return 0;
 
         } else if (conf.Mouse.Scroll == AC_LOWER) {
-            if(!ActionLower(pt, hwnd, delta))
+            if(!ActionLower(&pt, hwnd, delta))
                 return 0;
 
         } else if (conf.Mouse.Scroll == AC_MAXIMIZE) {
@@ -3010,9 +3006,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     state.shift = 0;
     state.moving = 0;
     LastWin.hwnd = NULL;
-
     conf.Hotkeys.length = 0;
-    conf.dbclktime = GetDoubleClickTime();
 
     // Get ini path
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));

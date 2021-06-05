@@ -395,7 +395,6 @@ static void FixDWMRect(HWND hwnd, RECT *bbb)
        && GetWindowRect(hwnd, &rect)){
         SubRect(&frame, &rect);
         CopyRect(bbb, &frame);
-
         return;
     }
     // bbb->left = bbb->right = bbb->top = bbb->bottom = 0;
@@ -558,6 +557,13 @@ static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height
     return SetWindowPos(hwnd, NULL, posx, posy, width, height
                       , SWP_NOACTIVATE|SWP_NOREPOSITION|SWP_ASYNCWINDOWPOS|flag);
 }
+/* Just changes the window Z-order */
+static BOOL SetWindowLevel(HWND hwnd, HWND hafter)
+{
+    return SetWindowPos(hwnd, hafter, 0, 0, 0, 0
+    , SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
+}
+
 /* This is used to detect is the window was snapped normally outside of
  * AltDrag, in this case the window appears as normal
  * ie: wndpl.showCmd=SW_SHOWNORMAL, but  its actual rect does not match with

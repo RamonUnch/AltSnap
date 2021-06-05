@@ -1228,7 +1228,9 @@ static void MouseMove(POINT pt)
     if (!state.hwnd || !IsWindow(state.hwnd))
         { LastWin.hwnd = NULL; UnhookMouse(); return; }
 
-    if(conf.UseCursor) MoveWindow(g_mainhwnd, pt.x-128, pt.y-128, 256, 256, FALSE);
+    if(conf.UseCursor)
+        SetWindowPos(g_mainhwnd, NULL, pt.x-128, pt.y-128, 256, 256
+                    , SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
 
     if(state.moving == CURSOR_ONLY) return; // Movement blocked...
 
@@ -2344,12 +2346,20 @@ static void SClicActions(HWND hwnd, enum action action)
     }
 }
 /////////////////////////////////////////////////////////////////////////////
+static void HideCursor()
+{
+    // Reduce the size to 0 to avoid redrawing.
+    SetWindowPos(g_mainhwnd, NULL, 0,0,0,0
+        , SWP_NOMOVE|SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
+    ShowWindow(g_mainhwnd, SW_HIDE);
+}
+/////////////////////////////////////////////////////////////////////////////
 static int init_movement_and_actions(POINT pt, enum action action, int button)
 {
     RECT wnd;
 
     // Make sure g_mainhwnd isn't in the way
-    ShowWindow(g_mainhwnd, SW_HIDE);
+    HideCursor();
 
     // Get window
     state.mdiclient = NULL;
@@ -2471,9 +2481,10 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 
     // Update cursor
     if (conf.UseCursor && g_mainhwnd && hcursor) {
-        MoveWindow(g_mainhwnd, pt.x-20, pt.y-20, 41, 41, FALSE);
+        SetWindowPos(g_mainhwnd, NULL, pt.x-8, pt.y-8, 16, 16
+                    , SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
         SetClassLongPtr(g_mainhwnd, GCLP_HCURSOR, (LONG_PTR)hcursor);
-        ShowWindowAsync(g_mainhwnd, SW_SHOWNA);
+        ShowWindow(g_mainhwnd, SW_SHOWNA);
     }
 
     // Prevent mousedown from propagating
@@ -2542,7 +2553,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     }
 
     // Get pointed window
-    ShowWindow(g_mainhwnd, SW_HIDE);
+    HideCursor();
     HWND hwnd = WindowFromPoint(pt);
     if (!hwnd) return 0;
     hwnd = GetAncestor(hwnd, GA_ROOT);
@@ -2650,7 +2661,7 @@ static void FinishMovement()
         UnhookMouse();
     } else {
         // Just hide g_mainhwnd
-        ShowWindowAsync(g_mainhwnd, SW_HIDE);
+        HideCursor();
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -2785,7 +2796,6 @@ static void HookMouse()
     if (!mousehook)
         return ;
 }
-
 /////////////////////////////////////////////////////////////////////////////
 static void UnhookMouse()
 {
@@ -2804,7 +2814,7 @@ static void UnhookMouse()
     if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
     if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL; }
 
-    ShowWindowAsync(g_mainhwnd, SW_HIDE); // Hide cursor
+    HideCursor();
 
     // Release cursor trapping in case...
     ClipCursorOnce(NULL);

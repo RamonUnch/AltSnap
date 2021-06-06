@@ -268,7 +268,7 @@ static pure int blacklisted(HWND hwnd, struct blacklist *list)
 }
 static pure int blacklistedP(HWND hwnd, struct blacklist *list)
 {
-    wchar_t title[256]=L"";
+    wchar_t title[MAX_PATH]=L"";
     DorQWORD mode ;
     int i ;
 
@@ -313,7 +313,7 @@ static void SetWindowTrans(HWND hwnd)
 {
     static BYTE oldtrans;
     static HWND oldhwnd;
-    if(conf.MoveTrans == 0 || conf.MoveTrans == 255 || !conf.FullWin) return;
+    if (conf.MoveTrans == 0 || conf.MoveTrans == 255 || !conf.FullWin) return;
 
     if(hwnd) {
         oldhwnd = hwnd;
@@ -327,7 +327,7 @@ static void SetWindowTrans(HWND hwnd)
         SetLayeredWindowAttributes(hwnd, 0, conf.MoveTrans, LWA_ALPHA);
     } else if (oldhwnd) { // restore old trans;
         LONG_PTR exstyle = GetWindowLongPtr(oldhwnd, GWL_EXSTYLE);
-        if(oldtrans == 255) {
+        if (oldtrans == 255) {
             SetWindowLongPtr(oldhwnd, GWL_EXSTYLE, exstyle & ~WS_EX_LAYERED);
         } else {
             SetLayeredWindowAttributes(oldhwnd, 0, oldtrans, LWA_ALPHA);
@@ -387,7 +387,7 @@ static BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
     if (ShouldSnapTo(window) && GetWindowRectL(window, &wnd)) {
 
         // Maximized?
-        if (IsZoomed(window)) {
+        if (!state.mdiclient && IsZoomed(window)) {
             // Get monitor size
             HMONITOR monitor = MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
             MONITORINFO mi = { sizeof(MONITORINFO) };
@@ -495,6 +495,15 @@ static BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
         unsigned flag;
         if((flag = AreRectsTouchingT(&statewnd, &wnd, conf.SnapThreshold/2))) {
             OffsetRectMDI(&wnd, state.mdiclient);
+
+            // Return if this window is overlapped by another window
+            int i;
+            for (i=0; i < numsnwnds; i++) {
+                if (RectInRect(&snwnds[i].wnd, &wnd)) {
+                    return TRUE;
+                }
+            }
+
             CopyRect(&snwnds[numsnwnds].wnd, &wnd);
             snwnds[numsnwnds].flag = flag;
             snwnds[numsnwnds].hwnd = hwnd;
@@ -1947,9 +1956,10 @@ static int ActionLower(POINT *ptt, HWND hwnd, int delta)
             PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
         } else {
             if(hwnd == GetAncestor(GetForegroundWindow(), GA_ROOT)) {
-                HWND tmp = GetWindow(hwnd, GW_HWNDPREV);
-                if(!tmp) tmp = GetWindow(hwnd, GW_HWNDNEXT);
-                SetForegroundWindow(tmp);
+                HWND tmp = GetWindow(hwnd, GW_HWNDNEXT);
+                if(!tmp) tmp = GetWindow(hwnd, GW_HWNDPREV);
+                if(tmp && hwnd != GetAncestor(tmp, GA_ROOT))
+                    SetForegroundWindow(tmp);
             }
             SetWindowLevel(hwnd, HWND_BOTTOM);
         }
@@ -1980,19 +1990,19 @@ static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_)
     return hwnd;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int ActionMaxRestMin(POINT pt, int delta)
+static int ActionMaxRestMin(POINT *ptt, int delta)
 {
-    HWND hwnd = WindowFromPoint(pt);
+    HWND hwnd = WindowFromPoint(*ptt);
     if (!hwnd) return 0;
     hwnd = MDIorNOT(hwnd, NULL);
     int maximized = IsZoomed(hwnd);
 
     if (delta > 0) {
-        if(!maximized)
-            Maximize_Restore_atpt(hwnd, &pt, SW_MAXIMIZE, NULL);
+        if(!maximized && IsResizable(hwnd))
+            Maximize_Restore_atpt(hwnd, ptt, SW_MAXIMIZE, NULL);
     } else {
         if(maximized)
-            Maximize_Restore_atpt(hwnd, &pt, SW_RESTORE, NULL);
+            Maximize_Restore_atpt(hwnd, ptt, SW_RESTORE, NULL);
         else
             PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
     }
@@ -2008,7 +2018,7 @@ static HCURSOR CursorToDraw()
         return LoadCursor(NULL, IDC_ARROW);
     }
     if(state.action == AC_MOVE) {
-        if(conf.UseCursor == 4) 
+        if(conf.UseCursor == 4)
             return LoadCursor(NULL, IDC_SIZEALL);
         cursor = LoadCursor(NULL, conf.UseCursor>1? IDC_ARROW: IDC_HAND);
         if(!cursor) cursor = LoadCursor(NULL, IDC_ARROW); // Fallback;
@@ -2030,7 +2040,17 @@ static HCURSOR CursorToDraw()
     } else {
         return LoadCursor(NULL, IDC_SIZEALL);
     }
-    return NULL;
+//    return NULL;
+}
+static void UpdateCursor(POINT pt)
+{
+    // Update cursor
+    if (conf.UseCursor && g_mainhwnd) {
+        SetWindowPos(g_mainhwnd, NULL, pt.x-8, pt.y-8, 16, 16
+                    , SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
+        SetClassLongPtr(g_mainhwnd, GCLP_HCURSOR, (LONG_PTR)CursorToDraw());
+        ShowWindow(g_mainhwnd, SW_SHOWNA);
+    }
 }
 /////////////////////////////////////////////////////////////////////////////
 // Return the entry if it was already in db.
@@ -2438,7 +2458,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     if (conf.AutoFocus || (state.ctrl && !state.ignorectrl)) { SetForegroundWindowL(state.hwnd); }
 
     // Do things depending on what button was pressed
-    HCURSOR hcursor = NULL;
     if (action == AC_MOVE || action == AC_RESIZE) { ////////////////
         GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
         SetWindowTrans(state.hwnd);
@@ -2462,7 +2481,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         action = state.action;
         if (ret == 0) return 0;
         else if (ret == 1) return 1;
-        hcursor = CursorToDraw();
+        UpdateCursor(pt);
     } else if (action == AC_MENU) {
         state.sclickhwnd = state.hwnd;
         PostMessage(g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd, conf.AggressiveKill);
@@ -2481,14 +2500,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     state.clicktime = GetTickCount();
     state.clickpt = pt;
     state.clickbutton = button;
-
-    // Update cursor
-    if (conf.UseCursor && g_mainhwnd && hcursor) {
-        SetWindowPos(g_mainhwnd, NULL, pt.x-8, pt.y-8, 16, 16
-                    , SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
-        SetClassLongPtr(g_mainhwnd, GCLP_HCURSOR, (LONG_PTR)hcursor);
-        ShowWindow(g_mainhwnd, SW_SHOWNA);
-    }
 
     // Prevent mousedown from propagating
     return 1;
@@ -2595,7 +2606,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
                 return 0;
 
         } else if (conf.Mouse.Scroll == AC_MAXIMIZE) {
-            if(!ActionMaxRestMin(pt, delta))
+            if(!ActionMaxRestMin(&pt, delta))
                 return 0;
         } else if (conf.Mouse.Scroll == AC_ROLL){
             RollWindow(hwnd, delta);
@@ -2732,7 +2743,7 @@ static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lPara
     // Return if no mouse action will be started
     if (!action) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
-    // Block mousedown if we are busy with another action
+    // Handle another click if we are already busy with an action
     if (buttonstate == STATE_DOWN && state.action && state.action != conf.GrabWithAlt) {
         // Maximize/Restore the window if pressing Move, Resize mouse buttons.
         if((conf.MMMaximize&1) && state.action == AC_MOVE && action == AC_RESIZE) {
@@ -2878,13 +2889,17 @@ static LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         return DefWindowProc(hwnd, msg, wParam, lParam);
     }
 }
-static void freeblacklist(struct blacklist *list)
+static void freeblacklists()
 {
-    free(list->data);
-    list->data = NULL;
-    free(list->items);
-    list->items = NULL;
-    list->length = 0;
+    struct blacklist *list = (void*)&BlkLst;
+    unsigned i;
+    for (i=0; i< sizeof(BlkLst)/sizeof(struct blacklist); i++) {
+        free(list->data);
+        list->data = NULL;
+        free(list->items);
+        list->items = NULL;
+        list->length = 0;
+    }
 }
 /////////////////////////////////////////////////////////////////////////////
 // To be called before Free Library. Ideally it should free everything
@@ -2899,28 +2914,12 @@ __declspec(dllexport) void Unload()
     UnregisterClass(APP_NAME"-SClick", hinstDLL);
     DestroyWindow(g_mchwnd);
 
-    freeblacklist(&BlkLst.Processes);
-    freeblacklist(&BlkLst.Windows);
-    freeblacklist(&BlkLst.Snaplist);
-    freeblacklist(&BlkLst.MDIs);
-    freeblacklist(&BlkLst.Pause);
-    freeblacklist(&BlkLst.MMBLower);
-    freeblacklist(&BlkLst.Scroll);
-    freeblacklist(&BlkLst.MMBLower);
-    freeblacklist(&BlkLst.SSizeMove);
+    freeblacklists();
 
     free(monitors);
-//    monitors = NULL;
-//    monitors_alloc = 0;
     free(hwnds);
-//    hwnds = NULL;
-//    hwnds_alloc = 0;
     free(wnds);
-//    wnds = NULL;
-//    wnds_alloc = 0;
     free(snwnds);
-//    snwnds = NULL;
-//    snwnds_alloc = 0;
 }
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated and title and class are | separated.
@@ -2990,7 +2989,7 @@ static void readhotkeys(const wchar_t *inipath, const wchar_t *name, const wchar
         // Store key
         if(HK->length == MAXKEYS) break;
         HK->keys[HK->length++] = whex2u(pos);
-        
+
         while(*pos && *pos != ' ') pos++; // go to next space
         while(*pos == ' ') pos++; // go to next char after spaces.
     }
@@ -3025,7 +3024,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.CenterFraction=CLAMP(0, GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath), 100);
     conf.AHoff        = CLAMP(0, GetPrivateProfileInt(L"General", L"AeroHoffset", 50, inipath),    100);
     conf.AVoff        = CLAMP(0, GetPrivateProfileInt(L"General", L"AeroVoffset", 50, inipath),    100);
-    conf.MoveTrans    = CLAMP(0, GetPrivateProfileInt(L"General",  L"MoveTrans", 0, inipath), 255);
+    conf.MoveTrans    = CLAMP(0, GetPrivateProfileInt(L"General", L"MoveTrans", 0, inipath), 255);
     conf.MMMaximize   = GetPrivateProfileInt(L"General", L"MMMaximize", 1, inipath);
 
     // [Advanced]

@@ -387,7 +387,9 @@ static BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
     if (ShouldSnapTo(window) && GetWindowRectL(window, &wnd)) {
 
         // Maximized?
-        if (!state.mdiclient && IsZoomed(window)) {
+        if (IsZoomed(window)) {
+            // Skip maximized windows in MDI clients
+            if (state.mdiclient) return TRUE;
             // Get monitor size
             HMONITOR monitor = MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
             MONITORINFO mi = { sizeof(MONITORINFO) };

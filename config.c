@@ -856,14 +856,15 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
                  height= GetSystemMetrics(SM_CYFULLSCREEN)+256;
              }
 
-            // Create Transparent window vovering the whole workspace
+            // Create Transparent window covering the whole workspace
             WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0, FindWindowProc, 0, 0, g_hinst, NULL, NULL
                              , (HBRUSH) (COLOR_WINDOW + 1), NULL, APP_NAME"-find", NULL };
             wnd.hCursor = LoadCursor(g_hinst, MAKEINTRESOURCE(IDI_FIND));
             RegisterClassEx(&wnd);
             HWND findhwnd = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_TRANSPARENT
-                           , wnd.lpszClassName, NULL, WS_POPUP, left, top, width, height, NULL, NULL, g_hinst, NULL);
-            ShowWindowAsync(findhwnd, SW_SHOWNA); // And show it
+                           , wnd.lpszClassName, NULL, WS_POPUP, 0, 0, 0, 0, NULL, NULL, g_hinst, NULL);
+            ShowWindow(findhwnd, SW_SHOWNA); // And show it
+            MoveWindow(findhwnd, left, top, width, height, FALSE);
 
             // Hide icon
             ShowWindowAsync(GetDlgItem(hwnd, IDC_FINDWINDOW), SW_HIDE);
@@ -894,6 +895,14 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
     }
 
     return FALSE;
+}
+/////////////////////////////////////////////////////////////////////////////
+static void SetWindowEmpty(HWND hwnd)
+{
+    // Reduce the size to 0 to avoid redrawing.
+    SetWindowPos(hwnd, NULL, 0,0,0,0
+        , SWP_NOMOVE|SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
+    ShowWindow(hwnd, SW_HIDE);
 }
 /////////////////////////////////////////////////////////////////////////////
 LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)

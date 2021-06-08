@@ -135,7 +135,7 @@ static inline size_t wcslenL(wchar_t *__restrict__ str)
 }
 #define wcslen wcslenL
 
-static inline int wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
+static int wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 {
     while(*a && *a == *b) { a++; b++; }
     return *a - *b;
@@ -145,14 +145,29 @@ static inline int wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restri
 /* stops comp at the '*' in the b param.
  * this is a kind of mini regexp that has no performance hit.
  * It also returns 0 (equal) if the b param is NULL */
-static int wcscmpstar(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
+static int inline wcscmp_star(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 {
     if(!b) return 0;
+//    if (*b == '*') return 1; /* Should not start with '*' */
     while(*a && *a == *b) { a++; b++; }
     return !!(*a - *b) & !!(*b - '*');
 }
+/* Reverse of the above function */
+static int wcscmp_rstar(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
+{
+    if(!b) return 0;
+    while(*a) a++;
+    a--;
+    while(*b) b++;
+    b--;
+//    if (*b == '*') return 1; /* Should not end with '*' */
+    while(*a && *a == *b) { a--; b--; }
 
-static inline wchar_t *wcscpyL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ in)
+    return !!(*a - *b) & !!(*b - '*');
+}
+
+
+static wchar_t *wcscpyL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ in)
 {
     wchar_t *ret = dest;
     while ((*dest++ = *in++));

@@ -259,8 +259,8 @@ static pure int blacklisted(HWND hwnd, struct blacklist *list)
     GetWindowText(hwnd, title, ARR_SZ(title));
     GetClassName(hwnd, classname, ARR_SZ(classname));
     for ( ; i < list->length; i++) {
-        if (!wcscmpstar(classname, list->items[i].classname)
-         && !wcscmpstar(title, list->items[i].title)) {
+        if (!wcscmp_star(classname, list->items[i].classname)
+        &&  !wcscmp_rstar(title, list->items[i].title)) {
               return mode;
         }
     }
@@ -2963,10 +2963,10 @@ static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist
         if (title) {
             if (title[0] == '\0') {
                 title = L"";
-            } else if (*title == '*') {
+            } else if (title[0] == '*' && title[1] == '\0') {
                 title = NULL;
             }
-            if (class && *class == '*') {
+            if (class && class[0] == '*' && class[1] == '\0') {
                 class = NULL;
             }
             // Allocate space

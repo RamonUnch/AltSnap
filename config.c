@@ -897,14 +897,6 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
     return FALSE;
 }
 /////////////////////////////////////////////////////////////////////////////
-static void SetWindowEmpty(HWND hwnd)
-{
-    // Reduce the size to 0 to avoid redrawing.
-    SetWindowPos(hwnd, NULL, 0,0,0,0
-        , SWP_NOMOVE|SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
-    ShowWindow(hwnd, SW_HIDE);
-}
-/////////////////////////////////////////////////////////////////////////////
 LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_LBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_RBUTTONDOWN) {

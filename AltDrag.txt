@@ -186,17 +186,49 @@ Note that this version has some more feature..
 
 == AltDrag 1.44 ==
 
-+ New: "Smart aero dimensions" was added in the General Tab of the config.
++ **Smart aero dimensions** was added in the General Tab of the config.
   With this option checked (default) AltDrag will adjust the dimensions of
   the snapped window to the other snapped windows that were resized.
   Also snapped windows will still be restored by the move action even after
-  having been resized.
+  having been resized. This was suggested by *KoleckOLP*. MDI also work.
 
-+ New now the '*' joker can be used at the end of the class or title in a
-  blacklist item to include all matching patterns after the '*'.
-  Example: "*|USurface_*". This may be usefull to make beter rules.
-  Note that the processes balcklist are not concerned by this, and the
-  joker charracter is only supported at the end of the name or calss.
++ New important feature: The **Resize other snapped windows with Shift**
+  option was added in the General tab of the config. If it is checked, then
+  any window snapped or touching to sides of the currently resized window
+  will be resized to remain stuck to the current window when you press the
+  Shift key. If you want to always resize the touching windows, then you
+  can manually set StickyResizing=2 in the [General] tab in AltDrag.ini.
+  In this case, pressing shift will prevent the "sticky resizing".
+  I recomend using this option together with **Smart aero dimensions**.
+  MDI windows are also supported.
+
++ New now the '*' joker can be used at the end of the class or at the
+  beginning of the title, in the form: `*end of title|class start*`
+  Example: `*|Winamp*`. This may be usefull to make beter rules.
+  Note that the processes balcklists are not concerned by this, and the
+  joker charracter is only supported at the END of the title or calss.
+
++ New: If the first element of a blacklist is *|*, then all windows that
+  are not listed will be considered as part of the blacklist. This turns
+  the blacklist into a whitelist ie: list of windows for which AltDrag
+  will be enabled. It can be useful if you only want to use altdrag on
+  very few programs, then you just enable it on those programs.
+  Both title|class and processes.exe styles are supported.
+  Exemple: `Processes=*|*, explorer.exe, notepad.exe` will enable AltDrag
+  only on the explorer and the notepad windows.
+
++ New setting: UseCursor=4 in the [Advanced] section of AltDrag.ini,
+  in order to use the ResizeAll cursor for movement instead of the Hand.
+
+* Fixed: the cursor at the End of a movement would force the repaint of
+  a 256x256 pixels around it. This is no longer the case.
+
+* Fixed: Hotkeys list would not be read properly sometime.
+
+* Fixed: Now windows focusing will work properly inside MDI windows.
+
+* Fixed: now the MMBLower blacklist will only apply to the middleclick in
+  the title bar and the normal restore option.
 
 * Maximized-rolled window will now be restored to the pre-maximized state.
   Rolled-maximized-rolled-unrolled windows, will be restored to the first
@@ -205,7 +237,12 @@ Note that this version has some more feature..
 * Now the config dialog box no longer instantly applies the settings.
   This simplifies the code and is more desirable in my opinion. You now
   need to click OK or Apply in order to apply the settings. This also
-  avoids useless confusion when compared to a normal property scheet.
+  avoids useless confusion when compared to a normal property sheet.
+
+* Fixed: Now Ctrl+Alt+Click will focus windows without needing to move
+  them or to press Ctrl after the click.
+
+* Fixed: Now the Max Aero Speed will also apply to top snapping.
 
 * Fixed: now the application icon will display properly when Alt+Tabbing.
 
@@ -215,11 +252,9 @@ Note that this version has some more feature..
 * Fixed: a Rolled then double-clicked-snapped window will now be restored
   to its pre-rolled state, as expected.
 
-* The GetMonitorInfo function will be called only if needed.
-
 * Fixed: The AltDrag icon is now properly displayed in Alt+Tab window.
 
-* Beter monitor handling on old windows.
+* Better monitor handling on old windows.
 
 * Fixed occasional cursor problems.
 

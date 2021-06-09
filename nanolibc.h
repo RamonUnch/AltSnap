@@ -145,12 +145,12 @@ static int wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 /* stops comp at the '*' in the b param.
  * this is a kind of mini regexp that has no performance hit.
  * It also returns 0 (equal) if the b param is NULL */
-static int inline wcscmp_star(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
+static int wcscmp_star(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 {
     if(!b) return 0;
 //    if (*b == '*') return 1; /* Should not start with '*' */
     while(*a && *a == *b) { a++; b++; }
-    return !!(*a - *b) & !!(*b - '*');
+    return (*a != *b) & (*b != '*');
 }
 /* Reverse of the above function */
 static int wcscmp_rstar(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
@@ -163,7 +163,7 @@ static int wcscmp_rstar(const wchar_t *__restrict__ a, const wchar_t *__restrict
 //    if (*b == '*') return 1; /* Should not end with '*' */
     while(*a && *a == *b) { a--; b--; }
 
-    return !!(*a - *b) & !!(*b - '*');
+    return (*a != *b) & (*b != '*');
 }
 
 

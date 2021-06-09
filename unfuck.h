@@ -48,11 +48,6 @@ CLSID my_CLSID_MMDeviceEnumerator= {0xBCDE0395,0xE52F,0x467C,{0x8E,0x3D,0xC4,0x5
 GUID  my_IID_IMMDeviceEnumerator = {0xA95664D2,0x9614,0x4F35,{0xA7,0x46,0xDE,0x8D,0xB6,0x36,0x17,0xE6}};
 GUID  my_IID_IAudioEndpointVolume= {0x5CDF2C82,0x841E,0x4546,{0x97,0x22,0x0C,0xF7,0x40,0x78,0x22,0x9A}};
 
-/* COMDLG32.DLL */
-static LRESULT (WINAPI *myDefSubclassProc)(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-static BOOL    (WINAPI *myRemoveWindowSubclass)(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR uIdSubclass);
-static BOOL    (WINAPI *mySetWindowSubclass)(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
-
 /* USER32.DLL */
 static BOOL (WINAPI *mySetLayeredWindowAttributes)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags);
 static BOOL (WINAPI *myGetLayeredWindowAttributes)(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWORD *pdwFlags);
@@ -84,6 +79,7 @@ MMRESULT (WINAPI *mywaveOutSetVolume)(HWAVEOUT hwo, DWORD dwVolume);
 #define VISTA (WinVer >= 6)
 #define WIN10 (WinVer >= 10)
 
+/* Removes the trailing file name from a path */
 static BOOL PathRemoveFileSpecL(LPTSTR p)
 {
     if (!p) return FALSE;
@@ -96,6 +92,7 @@ static BOOL PathRemoveFileSpecL(LPTSTR p)
     return TRUE;
 }
 
+/* Removes the path and keeps only the file name */
 static void PathStripPathL(LPTSTR p)
 {
     int i=0, j;
@@ -177,67 +174,6 @@ static BOOL SetLayeredWindowAttributesL(HWND hwnd, COLORREF crKey, BYTE bAlpha, 
     return FALSE;
 }
 #define SetLayeredWindowAttributes SetLayeredWindowAttributesL
-
-
-static LRESULT DefSubclassProcL(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    static char have_func=HAVE_FUNC;
-
-    switch(have_func){
-    case -1: /* First time */
-        myDefSubclassProc=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "DefSubclassProc");
-        if(!myDefSubclassProc) {
-            have_func=0;
-            break;
-        } else {
-            have_func=1;
-        }
-    case 1: /* We know we have the function */
-        return myDefSubclassProc(hWnd, uMsg, wParam, lParam);
-    }
-    return 0;
-}
-#define DefSubclassProc DefSubclassProcL
-
-static BOOL RemoveWindowSubclassL(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR uIdSubclass)
-{
-    static char have_func=HAVE_FUNC;
-
-    switch(have_func){
-    case -1: /* First time */
-        myRemoveWindowSubclass=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "RemoveWindowSubclass");
-        if(!myRemoveWindowSubclass) {
-            have_func=0;
-            break;
-        } else {
-            have_func=1;
-        }
-    case 1: /* We know we have the function */
-        return myRemoveWindowSubclass(hWnd, pfnSubclass, uIdSubclass);
-    }
-    return FALSE;
-}
-#define RemoveWindowSubclass RemoveWindowSubclassL
-
-static BOOL SetWindowSubclassL(HWND hWnd, SUBCLASSPROC pfnSubclass, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
-{
-    static char have_func=HAVE_FUNC;
-
-    switch(have_func){
-    case -1: /* First time */
-        mySetWindowSubclass=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "SetWindowSubclass");
-        if(!mySetWindowSubclass) {
-            have_func=0;
-            break;
-        } else {
-            have_func=1;
-        }
-    case 1: /* We know we have the function */
-        return mySetWindowSubclass(hWnd, pfnSubclass, uIdSubclass, dwRefData);
-    }
-    return FALSE;
-}
-#define SetWindowSubclass SetWindowSubclassL
 
 static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
 {

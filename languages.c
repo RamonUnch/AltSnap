@@ -105,8 +105,8 @@ void ListAllTranslations()
     PathRemoveFileSpecL(szDir);
     wcscat(szDir, L"\\Lang\\*.ini");
     wcscpy(fpath, szDir);
-    wchar_t *end = fpath-5; // not the star!
-    end += wcslen(fpath);
+    wchar_t *end = fpath; // not the star!
+    end += wcslen(fpath)-5;
     hFind = FindFirstFile(szDir, &ffd);
 
     if ( hFind != INVALID_HANDLE_VALUE ) {

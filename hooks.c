@@ -1202,7 +1202,7 @@ static void RestoreOldWin(const POINT *pt, int was_snapped, int index)
                 , pt? pt->x - state.offset.x - mdiclientpt.x: 0
                 , pt? pt->y - state.offset.y - mdiclientpt.y: 0
                 , state.origin.width, state.origin.height
-                , SWP_NOZORDER|(pt? SWP_NOZORDER: SWP_NOMOVE));
+                , pt? SWP_NOZORDER: SWP_NOZORDER|SWP_NOMOVE);
     } else if (pt) {
         state.offset.x = pt->x - wnd.left;
         state.offset.y = pt->y - wnd.top;
@@ -1943,10 +1943,10 @@ static int ActionTransparency(HWND hwnd, int delta)
     return -1;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int ActionLower(POINT *ptt, HWND hwnd, int delta)
+static int ActionLower(POINT *ptt, HWND hwnd, int delta, UCHAR shift)
 {
     if (delta > 0) {
-        if (state.shift) {
+        if (shift) {
             Maximize_Restore_atpt(hwnd, ptt, SW_TOGGLE_MAX_RESTORE, NULL);
         } else {
             if(conf.AutoFocus||state.ctrl) SetForegroundWindowL(hwnd);
@@ -1954,7 +1954,7 @@ static int ActionLower(POINT *ptt, HWND hwnd, int delta)
             SetWindowLevel(hwnd, HWND_NOTOPMOST);
         }
     } else {
-        if (state.shift) {
+        if (shift) {
             PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
         } else {
             if(hwnd == GetAncestor(GetForegroundWindow(), GA_ROOT)) {
@@ -1998,6 +1998,10 @@ static int ActionMaxRestMin(POINT *ptt, int delta)
     if (!hwnd) return 0;
     hwnd = MDIorNOT(hwnd, NULL);
     int maximized = IsZoomed(hwnd);
+    if (state.shift) {
+        ActionLower(ptt, hwnd, delta, 0);
+        return -1;
+    }
 
     if (delta > 0) {
         if(!maximized && IsResizable(hwnd))
@@ -2011,6 +2015,7 @@ static int ActionMaxRestMin(POINT *ptt, int delta)
     if(conf.AutoFocus) SetForegroundWindowL(hwnd);
     return -1;
 }
+
 /////////////////////////////////////////////////////////////////////////////
 static HCURSOR CursorToDraw()
 {
@@ -2343,7 +2348,7 @@ void CenterWindow(HWND hwnd)
 }
 /////////////////////////////////////////////////////////////////////////////
 // Single click commands
-static void SClicActions(HWND hwnd, enum action action)
+static void SClickActions(HWND hwnd, enum action action)
 {
     if (action == AC_MINIMIZE) {
         PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
@@ -2363,7 +2368,7 @@ static void SClicActions(HWND hwnd, enum action action)
     } else if (action == AC_CLOSE) {
         PostMessage(hwnd, WM_CLOSE, 0, 0);
     } else if (action == AC_LOWER) {
-        ActionLower(NULL, hwnd, 0);
+        ActionLower(NULL, hwnd, 0, state.shift);
     } else if (action == AC_ROLL) {
         RollWindow(hwnd, 0);
     } else if (action == AC_KILL) {
@@ -2392,9 +2397,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     DorQWORD lpdwResult;
     if (state.hwnd == NULL || state.hwnd == LastWin.hwnd) {
         return 0;
-    } else if (!SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 50, &lpdwResult)) {
-        state.blockmouseup = 1;
-        return 1;
     }
 
     // Hide if tooltip
@@ -2460,7 +2462,11 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     if (conf.AutoFocus || (state.ctrl && !state.ignorectrl)) { SetForegroundWindowL(state.hwnd); }
 
     // Do things depending on what button was pressed
-    if (action == AC_MOVE || action == AC_RESIZE) { ////////////////
+    if (action == AC_MOVE || action == AC_RESIZE) {
+        if (!SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 64, &lpdwResult)) {
+            //state.blockmouseup = 1;
+            return 1;
+        }
         GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
         SetWindowTrans(state.hwnd);
         EnumOnce(NULL); // Reset enum stuff
@@ -2489,7 +2495,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         PostMessage(g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd, conf.AggressiveKill);
         return 1; // block mouse down
     } else {
-        SClicActions(state.hwnd, action);
+        SClickActions(state.hwnd, action);
     }
 
     // Send WM_ENTERSIZEMOVE
@@ -2506,6 +2512,15 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Prevent mousedown from propagating
     return 1;
 }
+DWORD HitTestTimeoutL(HWND hwnd, LPARAM lParam)
+{
+    DWORD area=0;
+    if(!SendMessageTimeout(hwnd, WM_NCHITTEST, 0, lParam, SMTO_NORMAL, 250, &area))
+        return 0;
+
+    return area;
+}
+#define HitTestTimeout(hwnd, x, y) HitTestTimeoutL(hwnd, MAKELPARAM(x, y))
 /////////////////////////////////////////////////////////////////////////////
 // Lower window if middle mouse button is used on the title bar/top of the win
 // Or restore an AltDrad Aero-snapped window.
@@ -2521,12 +2536,13 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
         if (blacklisted(hwnd, &BlkLst.Windows))
             return 0;
 
-        int area = SendMessage(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x,pt.y));
+        DWORD area= HitTestTimeout(hwnd, pt.x, pt.y);
+
         if (willlower && wParam == WM_MBUTTONDOWN
         && (area == HTCAPTION || area == HTTOP || area == HTTOPLEFT || area == HTTOPRIGHT
           ||area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON || area == HTCLOSE)
         && !blacklisted(hwnd, &BlkLst.MMBLower)) {
-            ActionLower(NULL, hwnd, 0);
+            ActionLower(NULL, hwnd, 0, state.shift);
             return 1;
         } else if (conf.NormRestore
         && wParam == WM_LBUTTONDOWN && area == HTCAPTION
@@ -2569,8 +2585,9 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
 
     if (conf.RollWithTBScroll && wParam == WM_MOUSEWHEEL && !state.ctrl) {
 
-        int area = SendMessage(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x, pt.y));
-        if(area == HTCAPTION) {
+        // int area = SendMessage(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x, pt.y));
+        DWORD area= HitTestTimeout(hwnd, pt.x, pt.y);
+        if(area == HTCAPTION || area == HTTOP ) {
             RollWindow(hwnd, delta);
             // Block original scroll event
             state.blockaltup = 1;
@@ -2604,7 +2621,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
                 return 0;
 
         } else if (conf.Mouse.Scroll == AC_LOWER) {
-            if(!ActionLower(&pt, hwnd, delta))
+            if(!ActionLower(&pt, hwnd, delta, state.shift))
                 return 0;
 
         } else if (conf.Mouse.Scroll == AC_MAXIMIZE) {
@@ -2883,7 +2900,7 @@ static LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
     if (msg == WM_COMMAND && state.sclickhwnd) {
         enum action action = wParam;
 
-        SClicActions(state.sclickhwnd, action);
+        SClickActions(state.sclickhwnd, action);
         state.sclickhwnd = NULL;
 
         return 0;

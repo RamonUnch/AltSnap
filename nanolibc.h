@@ -7,19 +7,19 @@ static inline int sign(int x)
     return (x > 0) - (x < 0);
 }
 /* Function to set the kth bit of n */
-int setBit(int n, int k)
+static int setBit(int n, int k)
 {
     return (n | (1 << (k)));
 }
 
 /* Function to clear the kth bit of n */
-int clearBit(int n, int k)
+static int clearBit(int n, int k)
 {
     return (n & (~(1 << (k))));
 }
 
 /* Function to toggle the kth bit of n */
-int toggleBit(int n, int k)
+static int toggleBit(int n, int k)
 {
     return (n ^ (1 << (k)));
 }
@@ -35,7 +35,7 @@ void *memsetL(void *dst, int s, size_t count)
 /* #define memset memsetL */
 
 
-static inline wchar_t *wcschrL(wchar_t *__restrict__ str, const wchar_t c)
+static wchar_t *wcschrL(wchar_t *__restrict__ str, const wchar_t c)
 {
     while(*str != c) {
         if(!*str) return NULL;
@@ -45,7 +45,7 @@ static inline wchar_t *wcschrL(wchar_t *__restrict__ str, const wchar_t c)
 }
 #define wcschr wcschrL
 
-static inline const char *strchrL(const char *__restrict__ str, const char c)
+static const char *strchrL(const char *__restrict__ str, const char c)
 {
     while(*str != c) {
         if(!*str) return NULL;
@@ -127,7 +127,7 @@ static wchar_t *itowL(int num, wchar_t *str, int base)
 }
 #define _itow itowL
 
-static inline size_t wcslenL(wchar_t *__restrict__ str)
+static size_t wcslenL(wchar_t *__restrict__ str)
 {
     wchar_t *ptr;
     for (ptr=str; *ptr != '\0'; ptr++);
@@ -184,7 +184,7 @@ static wchar_t *wcsncpyL(wchar_t *__restrict__ dest, const wchar_t *__restrict__
 }
 #define wcsncpy wcsncpyL
 
-static inline char *strcpyL(char *__restrict__ dest, const char *__restrict__ in)
+static char *strcpyL(char *__restrict__ dest, const char *__restrict__ in)
 {
     char *ret = dest;
     while ((*dest++ = *in++));
@@ -221,7 +221,7 @@ wchar_t* wcscat(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
     return orig;
 }
 
-static inline int strcmpL(const char *X, const char *Y)
+static int strcmpL(const char *X, const char *Y)
 {
     while (*X && *X == *Y) {
         X++;

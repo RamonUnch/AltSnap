@@ -215,21 +215,15 @@ static void UpdateStrings()
 LRESULT CALLBACK PropSheetWinProc(
     HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
-    LRESULT ret = DefSubclassProc(hwnd, msg, wParam, lParam);
-    if (msg == WM_NCHITTEST && (ret == HTBOTTOM || ret == HTBOTTOMLEFT
-       || ret == HTBOTTOMRIGHT || ret == HTLEFT || ret == HTTOPLEFT
-       || ret == HTTOPRIGHT || ret == HTRIGHT || ret == HTTOP)) {
 
-        ret = HTCAPTION;
-
-    } else if (msg == WM_UPDATESETTINGS) {
+    if (msg == WM_UPDATESETTINGS) {
         UpdateStrings();
         HWND page = PropSheet_GetCurrentPageHwnd(g_cfgwnd);
         SendMessage(page, WM_INITDIALOG, 0, 0);
         NMHDR pnmh = { g_cfgwnd, 0, PSN_SETACTIVE };
         SendMessage(page, WM_NOTIFY, 0, (LPARAM) & pnmh);
     }
-    return ret;
+    return DefSubclassProc(hwnd, msg, wParam, lParam);;
 }
 /////////////////////////////////////////////////////////////////////////////
 BOOL CALLBACK PropSheetProc(HWND hwnd, UINT msg, LPARAM lParam)

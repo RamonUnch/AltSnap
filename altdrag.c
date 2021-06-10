@@ -153,14 +153,14 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MAXIMIZE, l10n->input_actions_maximize);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MINIMIZE, l10n->input_actions_minimize);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_CLOSE, l10n->input_actions_close);
-    if (param) {
+    if (param&1) {
         InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
         InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_KILL, l10n->input_actions_kill);
     }
     InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_NONE, l10n->input_actions_nothing);
     SetForegroundWindow(hwnd);
-    TrackPopupMenu(menu, TPM_TOPALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, hwnd, NULL);
+    TrackPopupMenu(menu, GetSystemMetrics(SM_MENUDROPALIGNMENT), pt.x, pt.y, 0, hwnd, NULL);
     DestroyMenu(menu);
 }
 /////////////////////////////////////////////////////////////////////////////

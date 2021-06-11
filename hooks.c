@@ -2512,15 +2512,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Prevent mousedown from propagating
     return 1;
 }
-DWORD HitTestTimeoutL(HWND hwnd, LPARAM lParam)
-{
-    DWORD area=0;
-    if(!SendMessageTimeout(hwnd, WM_NCHITTEST, 0, lParam, SMTO_NORMAL, 250, &area))
-        return 0;
-
-    return area;
-}
-#define HitTestTimeout(hwnd, x, y) HitTestTimeoutL(hwnd, MAKELPARAM(x, y))
 /////////////////////////////////////////////////////////////////////////////
 // Lower window if middle mouse button is used on the title bar/top of the win
 // Or restore an AltDrad Aero-snapped window.
@@ -2530,13 +2521,13 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
                  || ((conf.LowerWithMMB&2) == 2 &&  state.alt);
     if ((willlower || conf.NormRestore)
         && !state.action && (wParam == WM_MBUTTONDOWN || wParam == WM_LBUTTONDOWN)) {
-        HWND hwnd = WindowFromPoint(pt);
-        if (!hwnd) return 0;
-        hwnd = GetAncestor(hwnd, GA_ROOT);
+        HWND nhwnd = WindowFromPoint(pt);
+        if (!nhwnd) return 0;
+        HWND hwnd = GetAncestor(nhwnd, GA_ROOT);
         if (blacklisted(hwnd, &BlkLst.Windows))
             return 0;
 
-        DWORD area= HitTestTimeout(hwnd, pt.x, pt.y);
+        int area = HitTestTimeout(nhwnd, pt.x, pt.y);
 
         if (willlower && wParam == WM_MBUTTONDOWN
         && (area == HTCAPTION || area == HTTOP || area == HTTOPLEFT || area == HTTOPRIGHT
@@ -2579,14 +2570,13 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
 
     // Get pointed window
     HideCursor();
-    HWND hwnd = WindowFromPoint(pt);
-    if (!hwnd) return 0;
-    hwnd = GetAncestor(hwnd, GA_ROOT);
+    HWND nhwnd = WindowFromPoint(pt);
+    if (!nhwnd) return 0;
+    HWND hwnd = GetAncestor(nhwnd, GA_ROOT);
 
     if (conf.RollWithTBScroll && wParam == WM_MOUSEWHEEL && !state.ctrl) {
 
-        // int area = SendMessage(hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x, pt.y));
-        DWORD area= HitTestTimeout(hwnd, pt.x, pt.y);
+        int area= HitTestTimeout(nhwnd, pt.x, pt.y);
         if(area == HTCAPTION || area == HTTOP ) {
             RollWindow(hwnd, delta);
             // Block original scroll event

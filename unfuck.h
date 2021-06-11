@@ -463,12 +463,50 @@ static DWORD GetModuleFileNameExL(HANDLE hProcess, HMODULE hModule, LPTSTR lpFil
     }
     return 0;
 }
+static DWORD (WINAPI *myGetProcessImageFileName)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD    nSize);
+DWORD GetProcessImageFileNameL(HANDLE hProcess, LPWSTR lpImageFileName, DWORD    nSize)
+{
+    HINSTANCE hPSAPIdll=NULL;
+    static char have_func=HAVE_FUNC;
+
+    switch(have_func){
+    case -1:
+        hPSAPIdll = LoadLibraryA("PSAPI.DLL");
+        if(!hPSAPIdll) {
+            have_func = 0;
+            break;
+        } else {
+            myGetProcessImageFileName=(void *)GetProcAddress(hPSAPIdll, "GetProcessImageFileNameW");
+            if(myGetProcessImageFileName){
+                have_func = 1;
+            } else {
+                FreeLibrary(hPSAPIdll);
+                hPSAPIdll = NULL;
+                have_func = 0;
+                break;
+            }
+        }
+    case 1:
+        return myGetProcessImageFileName(hProcess, lpImageFileName, nSize);
+    case 0:
+    default: break;
+    }
+    return 0;
+}
+
 static DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
 {
     DWORD pid;
     GetWindowThreadProcessId(hwnd, &pid);
     HANDLE proc = OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ, FALSE, pid);
-    int ret = GetModuleFileNameExL(proc, NULL, title, title_len);
+    DWORD ret=0;
+
+    if (proc) ret = GetModuleFileNameExL(proc, NULL, title, title_len);
+    else proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
+    if(!proc) return 0;
+
+    if(!ret) ret = GetProcessImageFileNameL(proc, title, title_len);
+
     CloseHandle(proc);
 
     PathStripPathL(title);
@@ -499,6 +537,19 @@ static BOOL SetWindowLevel(HWND hwnd, HWND hafter)
     return SetWindowPos(hwnd, hafter, 0, 0, 0, 0
     , SWP_ASYNCWINDOWPOS|SWP_NOACTIVATE|SWP_NOMOVE|SWP_NOSIZE);
 }
+static int HitTestTimeoutL(HWND hwnd, LPARAM lParam)
+{
+    DWORD area=0;
+    while(hwnd && SendMessageTimeout(hwnd, WM_NCHITTEST, 0, lParam, SMTO_NORMAL, 255, &area)){
+        if((int)area == HTTRANSPARENT)
+            hwnd = GetParent(hwnd);
+        else
+            break;
+    }
+    // Last try with ancestor window in case...
+    return (int)area;
+}
+#define HitTestTimeout(hwnd, x, y) HitTestTimeoutL(hwnd, MAKELPARAM(x, y))
 
 /* This is used to detect is the window was snapped normally outside of
  * AltDrag, in this case the window appears as normal

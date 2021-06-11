@@ -900,8 +900,8 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         if (msg == WM_LBUTTONDOWN) {
             POINT pt;
             GetCursorPos(&pt);
-            HWND window = WindowFromPoint(pt);
-            window = GetAncestor(window, GA_ROOT);
+            HWND nwindow = WindowFromPoint(pt);
+            HWND window = GetAncestor(nwindow, GA_ROOT);
 
             wchar_t title[256], classname[256];
             GetWindowText(window, title, ARR_SZ(title));
@@ -915,6 +915,8 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             if(GetWindowProgName(window, txt, ARR_SZ(txt))) {
                 SetDlgItemText(page, IDC_NEWPROGNAME, txt);
             }
+            SetDlgItemText(page, IDC_NCHITTEST, _itow(HitTestTimeout(nwindow, pt.x, pt.y), txt, 10));
+            SetDlgItemText(page, IDC_GWLSTYLE, _itow(GetWindowLongPtr(window, GWL_STYLE), txt, 16));
         }
         // Show icon again
         ShowWindowAsync(GetDlgItem(page, IDC_FINDWINDOW), SW_SHOW);

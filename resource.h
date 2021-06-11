@@ -135,3 +135,5 @@
 #define IDC_AEROSPEEDTAU                2058
 #define IDC_SMARTAERO                   2059
 #define IDC_STICKYRESIZE                2060
+#define IDC_NCHITTEST                   2061
+#define IDC_GWLSTYLE                    2062

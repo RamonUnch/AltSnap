@@ -86,7 +86,7 @@ static inline void reverse(wchar_t *str, int length)
         end--;
     }
 }
-static wchar_t *itowL(int num, wchar_t *str, int base)
+static wchar_t *itowL(unsigned num, wchar_t *str, int base)
 {
     int i = 0;
     int isNegative = 0;
@@ -100,9 +100,9 @@ static wchar_t *itowL(int num, wchar_t *str, int base)
 
     /* In standard itoa(), negative numbers are handled only with
      * base 10. Otherwise numbers are considered unsigned. */
-    if (num < 0 && base == 10) {
+    if (*(int*)&num < 0 && base == 10) {
         isNegative = 1;
-        num = -num;
+        num = -*(int*)&num;
     }
 
     /* Process individual digits */

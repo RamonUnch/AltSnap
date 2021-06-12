@@ -292,20 +292,19 @@ static pure int blacklistedP(HWND hwnd, struct blacklist *list)
 }
 
 // To clamp width and height of windows
-#define CLAMPW(width)  CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x)
-#define CLAMPH(height) CLAMP(state.mmi.Min.y, height, state.mmi.Max.y)
+static int CLAMPW(int width)  { return CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x); }
+static int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state.mmi.Max.y); }
+
 static inline int IsResizable(HWND hwnd)
 {
     return (conf.ResizeAll || GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME);
 }
 /////////////////////////////////////////////////////////////////////////////
-static void SendSizeMove_on(enum action action, int on)
+static void SendSizeMove_on(int on)
 {
-    if (action == AC_MOVE || action == AC_RESIZE) {
-        // Don't send WM_ENTER/EXIT SIZEMOVE if the window is in SSizeMove BL
-        if(!blacklisted(state.hwnd, &BlkLst.SSizeMove)) {
-            PostMessage(state.hwnd, on? WM_ENTERSIZEMOVE: WM_EXITSIZEMOVE, 0, 0);
-        }
+    // Don't send WM_ENTER/EXIT SIZEMOVE if the window is in SSizeMove BL
+    if(!blacklisted(state.hwnd, &BlkLst.SSizeMove)) {
+        PostMessage(state.hwnd, on? WM_ENTERSIZEMOVE: WM_EXITSIZEMOVE, 0, 0);
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -1479,7 +1478,7 @@ static void Send_KEY(unsigned char vkey)
 ///////////////////////////////////////////////////////////////////////////
 static void RestrictToCurentMonitor()
 {
-    if(state.action == AC_MOVE || state.action == AC_RESIZE || state.alt) {
+    if(state.action || state.alt) {
         POINT pt;
         GetCursorPos(&pt);
         state.origin.maximized = 0;
@@ -1616,7 +1615,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                     Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
                 }
                 // Send WM_EXITSIZEMOVE
-                SendSizeMove_on(state.action , 0);
+                SendSizeMove_on(0);
 
                 state.alt = 0;
                 state.alt1 = 0;
@@ -1638,7 +1637,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         } else if (!state.ctrl && state.alt!=vkey &&(vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
             RestrictToCurentMonitor();
             state.ctrl = 1;
-            if(state.action == AC_MOVE || state.action == AC_RESIZE){
+            if(state.action){
                 SetForegroundWindowL(state.hwnd);
             }
         } else if (state.sclickhwnd && state.alt && (vkey == VK_LMENU || vkey == VK_RMENU)) {
@@ -2340,6 +2339,7 @@ void CenterWindow(HWND hwnd)
 {
     RECT mon;
     POINT pt;
+    if (IsZoomed(hwnd)) return;
     GetCursorPos(&pt);
     GetMonitorRect(&pt, 0, &mon);
     MoveWindowAsync(hwnd
@@ -2348,33 +2348,34 @@ void CenterWindow(HWND hwnd)
         , state.origin.width
         , state.origin.height, TRUE);
 }
+static void TogglesAlwaysOnTop(HWND hwnd)
+{
+    LONG_PTR topmost = GetWindowLongPtr(hwnd,GWL_EXSTYLE)&WS_EX_TOPMOST;
+    SetWindowLevel(hwnd, topmost? HWND_NOTOPMOST: HWND_TOPMOST);
+}
+static void ActionMaximize(HWND hwnd)
+{
+    if (state.shift) {
+        PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+    } else if (IsResizable(hwnd)) {
+        Maximize_Restore_atpt(hwnd, NULL, SW_TOGGLE_MAX_RESTORE, NULL);
+    }
+}
 /////////////////////////////////////////////////////////////////////////////
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
 {
-    if (action == AC_MINIMIZE) {
-        PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
-    } else if (action == AC_MAXIMIZE) {
-        if (state.shift) {
-            PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
-        } else if (IsResizable(hwnd)) {
-            Maximize_Restore_atpt(hwnd, NULL, SW_TOGGLE_MAX_RESTORE, NULL);
-        }
-    } else if (action == AC_CENTER) {
-        CenterWindow(hwnd);
-    } else if (action == AC_ALWAYSONTOP) {
-        LONG_PTR topmost = GetWindowLongPtr(hwnd,GWL_EXSTYLE)&WS_EX_TOPMOST;
-        SetWindowLevel(hwnd, topmost? HWND_NOTOPMOST: HWND_TOPMOST);
-    } else if (action == AC_BORDERLESS) {
-        ActionBorderless(hwnd);
-    } else if (action == AC_CLOSE) {
-        PostMessage(hwnd, WM_CLOSE, 0, 0);
-    } else if (action == AC_LOWER) {
-        ActionLower(NULL, hwnd, 0, state.shift);
-    } else if (action == AC_ROLL) {
-        RollWindow(hwnd, 0);
-    } else if (action == AC_KILL) {
-        ActionKill(hwnd);
+    switch (action) {
+    case AC_MINIMIZE:    PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0); break;
+    case AC_MAXIMIZE:    ActionMaximize(hwnd); break;
+    case AC_CENTER:      CenterWindow(hwnd); break;
+    case AC_ALWAYSONTOP: TogglesAlwaysOnTop(hwnd); break;
+    case AC_BORDERLESS:  ActionBorderless(hwnd); break;
+    case AC_CLOSE:       PostMessage(hwnd, WM_CLOSE, 0, 0); break;
+    case AC_LOWER:       ActionLower(NULL, hwnd, 0, state.shift); break;
+    case AC_ROLL:        RollWindow(hwnd, 0); break;
+    case AC_KILL:        ActionKill(hwnd); break;
+    default: break;
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -2440,33 +2441,41 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         return 0;
     }
 
-    // Update state
-    state.action = action;
+    // An action will be performed...
+    // Set state
     state.blockaltup = 1;
+    if (!SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 64, &lpdwResult)) {
+        state.blockmouseup = 1;
+        if(action == AC_MOVE || action == AC_RESIZE) return 1;
+    } // return if window has to be moved/resized
+    state.origin.maximized = IsZoomed(state.hwnd);
+    state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
+
+    if (!state.snap) {
+        state.snap = conf.AutoSnap;
+    }
+    AddWindowToDB(state.hwnd);
+
+    if (state.wndentry->restore && !state.origin.maximized) { // Set Origin width and height ==2)
+        state.origin.width = state.wndentry->width;
+        state.origin.height = state.wndentry->height;
+    } else {
+        state.origin.width = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
+        state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
+    }
 
     // AutoFocus
-    if (conf.AutoFocus || (state.ctrl && !state.ignorectrl)) { SetForegroundWindowL(state.hwnd); }
+    if (conf.AutoFocus || state.ctrl) { SetForegroundWindowL(state.hwnd); }
 
     // Do things depending on what button was pressed
     if (action == AC_MOVE || action == AC_RESIZE) {
-        if (!SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 64, &lpdwResult)) {
-            state.blockmouseup = 1;
-            return 1;
-        }
-        state.origin.maximized = IsZoomed(state.hwnd);
-        state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
-
-        if (!state.snap) {
-            state.snap = conf.AutoSnap;
-        }
-        AddWindowToDB(state.hwnd);
-
-        if (state.wndentry->restore && !state.origin.maximized) { // Set Origin width and height ==2)
-            state.origin.width = state.wndentry->width;
-            state.origin.height = state.wndentry->height;
-        } else {
-            state.origin.width = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
-            state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
+        // Set action state.
+        state.action = action;
+        // Toggle Resize and Move actions if the toggle key is Down
+        if (conf.ToggleRzMvKey
+        && ((button == conf.ToggleRzMvKey && !conf.KeyCombo)
+          || GetAsyncKeyState(conf.ToggleRzMvKey)&0x8000) ) {
+            state.action = (action == AC_MOVE)? AC_RESIZE: AC_MOVE;
         }
 
         GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
@@ -2476,22 +2485,16 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
             SetTimer(g_timerhwnd, SPEED_TIMER, conf.AeroSpeedTau, NULL);
 
         int ret;
-
-        // Toggle Resize and Move actions if the toggle key is Down
-        if (conf.ToggleRzMvKey
-        && ((button == conf.ToggleRzMvKey && !conf.KeyCombo)
-          || GetAsyncKeyState(conf.ToggleRzMvKey)&0x8000) ) {
-            state.action = action = (action == AC_MOVE)? AC_RESIZE: AC_MOVE;
-        }
-        if(action == AC_MOVE) {
+        if(state.action == AC_MOVE) {
             ret = ActionMove(pt, monitor, button);
         } else {
             ret = ActionResize(pt, mdiclientpt, &wnd, &state.origin.mon, button);
         }
-        action = state.action;
-        if (ret == 1) return 1;
-//        else if (ret == 0) return 0;
+        if (ret == 1) return 1; // block mouse down!
         UpdateCursor(pt);
+
+        // Send WM_ENTERSIZEMOVE
+        SendSizeMove_on(1);
     } else if (action == AC_MENU) {
         state.sclickhwnd = state.hwnd;
         PostMessage(g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd, conf.AggressiveKill);
@@ -2500,10 +2503,8 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         SClickActions(state.hwnd, action);
     }
 
-    // Send WM_ENTERSIZEMOVE
-    SendSizeMove_on(action, 1);
-
-    // We have to send the ctrl keys here too because of IE (and maybe some other program?)
+    // We have to send the ctrl keys here too because of
+    // IE (and maybe some other program?)
     Send_CTRL();
 
     // Remember time of this click so we can check for double-click
@@ -2669,7 +2670,7 @@ static void FinishMovement()
         }
     }
     // Send WM_EXITSIZEMOVE
-    SendSizeMove_on(state.action, 0);
+    SendSizeMove_on(0);
 
     state.action = AC_NONE;
     state.moving = 0;
@@ -2704,11 +2705,10 @@ static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lPara
             state.clicktime = 0;
         }
         // Move the window
-        if (state.action == AC_MOVE || state.action == AC_RESIZE) {
+        if (state.action) { // resize or move...
             // Move the window every few frames.
             static char updaterate;
-            updaterate = (updaterate+1)%(state.action==AC_MOVE
-                              ? conf.MoveRate: conf.ResizeRate);
+            updaterate = (updaterate+1)%(state.action==AC_MOVE? conf.MoveRate: conf.ResizeRate);
             if (updaterate == 0) {
                 MouseMove(pt);
             }
@@ -2773,11 +2773,11 @@ static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lPara
     // INIT ACTIONS on mouse down if Alt is down...
     } else if (buttonstate == STATE_DOWN && state.alt) {
         // Double ckeck some hotkey is pressed.
-        if( !state.action
-         && !IsHotclick(state.alt)
-         && !IsHotKeyDown(&conf.Hotkeys)) {
+        if(!state.action
+        && !IsHotclick(state.alt)
+        && !IsHotKeyDown(&conf.Hotkeys)) {
             UnhookMouse();
-            return  CallNextHookEx(NULL, nCode, wParam, lParam);
+            return CallNextHookEx(NULL, nCode, wParam, lParam);
         }
         int ret = init_movement_and_actions(pt, action, button);
         if(!ret) return CallNextHookEx(NULL, nCode, wParam, lParam);
@@ -2935,11 +2935,11 @@ __declspec(dllexport) void Unload()
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated and title and class are | separated.
 static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist
-                        , const wchar_t *blacklist_str, const wchar_t *def)
+                        , const wchar_t *blacklist_str)
 {
     wchar_t txt[1024];
 
-    DWORD ret = GetPrivateProfileString(L"Blacklist", blacklist_str, def, txt, ARR_SZ(txt), inipath);
+    DWORD ret = GetPrivateProfileString(L"Blacklist", blacklist_str, L"", txt, ARR_SZ(txt), inipath);
     if(!ret || txt[0] == '\0') {
         blacklist->data = NULL;
         blacklist->length = 0;
@@ -3144,16 +3144,16 @@ __declspec(dllexport) void Load(HWND mainhwnd)
                          , 0, 0, 0 , 0, g_mainhwnd, NULL, hinstDLL, NULL);
     }
     // [Blacklist]
-    readblacklist(inipath, &BlkLst.Processes, L"Processes", L"");
-    readblacklist(inipath, &BlkLst.Windows,   L"Windows",   L"");
-    readblacklist(inipath, &BlkLst.Snaplist,  L"Snaplist",  L"");
-    readblacklist(inipath, &BlkLst.MDIs,      L"MDIs",      L"");
-    readblacklist(inipath, &BlkLst.Pause,     L"Pause",     L"AltDrag.exe,taskmgr.exe,explorer.exe");
-    readblacklist(inipath, &BlkLst.MMBLower,  L"MMBLower",  L"");
-    readblacklist(inipath, &BlkLst.Scroll,    L"Scroll",    L"");
-    readblacklist(inipath, &BlkLst.SSizeMove, L"SSizeMove", L"*|iTunes");
+    readblacklist(inipath, &BlkLst.Processes, L"Processes");
+    readblacklist(inipath, &BlkLst.Windows,   L"Windows");
+    readblacklist(inipath, &BlkLst.Snaplist,  L"Snaplist");
+    readblacklist(inipath, &BlkLst.MDIs,      L"MDIs");
+    readblacklist(inipath, &BlkLst.Pause,     L"Pause");
+    readblacklist(inipath, &BlkLst.MMBLower,  L"MMBLower");
+    readblacklist(inipath, &BlkLst.Scroll,    L"Scroll");
+    readblacklist(inipath, &BlkLst.SSizeMove, L"SSizeMove");
 
-    conf.keepMousehook = ((conf.LowerWithMMB&1) || conf.NormRestore || conf.InactiveScroll || conf.Hotclick.length);
+    conf.keepMousehook = ((conf.LowerWithMMB&1)|conf.NormRestore|conf.InactiveScroll|conf.Hotclick.length);
 }
 /////////////////////////////////////////////////////////////////////////////
 // Do not forget the -e_DllMain@12 for gcc...

@@ -156,12 +156,16 @@ static int wcscmp_star(const wchar_t *__restrict__ a, const wchar_t *__restrict_
 static int wcscmp_rstar(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 {
     if(!b) return 0;
+    const wchar_t *oa = a, *ob=b;
+
     while(*a) a++;
     a--;
     while(*b) b++;
     b--;
-//    if (*b == '*') return 1; /* Should not end with '*' */
-    while(*a && *a == *b) { a--; b--; }
+    if(*ob != '*' && a-oa != b-ob) 
+        return 1; 
+    
+    while(a > oa && b > ob && *a == *b) { a--; b--; }
 
     return (*a != *b) & (*b != '*');
 }
@@ -260,10 +264,15 @@ static inline unsigned h2u(const wchar_t c)
     else if (c >= 'a' && c <= 'f') return c-'a'+10;
     else return 0;
 }
-static unsigned whex2u(const wchar_t s[2])
+
+/* stops at the end of the string or at a space*/
+static unsigned whex2u(const wchar_t *s)
 {
-    if(s[1]) return h2u(s[0]) << 4 | h2u(s[1]);
-    else return h2u(s[0]);
+    unsigned ret=0;
+    while(*s && *s != L' ')
+       ret = ret << 4 | h2u(*s++) ;
+    
+    return ret;
 }
 
 static void *reallocL(void *mem, size_t sz)

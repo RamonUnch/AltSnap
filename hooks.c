@@ -959,7 +959,7 @@ static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
     MONITORINFO mi = { sizeof(MONITORINFO) };
     GetMonitorInfo(MonitorFromPoint(*pt, MONITOR_DEFAULTTONEAREST), &mi);
 
-    CopyRect(_mon, full&1? &mi.rcMonitor : &mi.rcWork);
+    CopyRect(_mon, full? &mi.rcMonitor : &mi.rcWork);
 }
 ///////////////////////////////////////////////////////////////////////////
 #define AERO_TH conf.AeroThreshold
@@ -1122,12 +1122,14 @@ static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *w
 // Get action of button
 static pure enum action GetAction(enum button button)
 {
-    if      (button == BT_LMB) return conf.Mouse.LMB;
-    else if (button == BT_MMB) return conf.Mouse.MMB;
-    else if (button == BT_RMB) return conf.Mouse.RMB;
-    else if (button == BT_MB4) return conf.Mouse.MB4;
-    else if (button == BT_MB5) return conf.Mouse.MB5;
-    else return AC_NONE;
+    switch (button) {
+    case BT_LMB: return conf.Mouse.LMB;
+    case BT_MMB: return conf.Mouse.MMB;
+    case BT_RMB: return conf.Mouse.RMB;
+    case BT_MB4: return conf.Mouse.MB4;
+    case BT_MB5: return conf.Mouse.MB5;
+    default: return AC_NONE;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -1228,6 +1230,10 @@ static int ShouldResizeTouching()
         && ( (conf.StickyResize&1 && state.shift)
           || (conf.StickyResize==2 && !state.shift)
         );
+}
+static void DrawRect(HDC hdcc, const RECT *rc)
+{
+    Rectangle(hdcc, rc->left, rc->top, rc->right, rc->bottom);
 }
 ///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
@@ -1440,9 +1446,9 @@ static void MouseMove(POINT pt)
             SetROP2(hdcc, R2_NOTXORPEN);
             SelectObject(hdcc, hpenDot_Global);
         }
-        Rectangle(hdcc, newRect.left, newRect.top, newRect.right, newRect.bottom);
+        DrawRect(hdcc, &newRect);
         if (state.moving == 1)
-            Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
+            DrawRect(hdcc, &oldRect);
 
         if (ShouldResizeTouching()) {
             ResizeTouchingWindows(posx, posy, wndwidth, wndheight);
@@ -1612,7 +1618,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             if (state.action || state.alt) {
                 int action = state.action;
                 if (!conf.FullWin && state.moving) {
-                    Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
+                    DrawRect(hdcc, &oldRect);
                 }
                 // Send WM_EXITSIZEMOVE
                 SendSizeMove_on(0);
@@ -1676,8 +1682,9 @@ static HWND GetClass_HideIfTooltip(POINT pt, HWND hwnd, wchar_t *classname, size
     return hwnd;
 }
 /////////////////////////////////////////////////////////////////////////////
-// 1.29
-static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
+// 1.44
+#define WM_ALTHSCROLL 0x0000
+static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
 {
     // Get window and foreground window
     HWND hwnd = WindowFromPoint(pt);
@@ -1702,12 +1709,13 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
     }
 
     // Get wheel info
-    WPARAM wp = GET_WHEEL_DELTA_WPARAM(mouseData) << 16;
+    WPARAM wp = delta << 16;
     LPARAM lp = MAKELPARAM(pt.x, pt.y);
 
     // Change WM_MOUSEWHEEL to WM_MOUSEHWHEEL if shift is being depressed
     // Introduced in Vista and far from all programs have implemented it.
-    if (wParam == WM_MOUSEWHEEL && (GetAsyncKeyState(conf.HScrollKey) &0x8000)) {
+    if (wParam == WM_ALTHSCROLL // Force Horizontal Scroll!
+    || (wParam == WM_MOUSEWHEEL && (GetAsyncKeyState(conf.HScrollKey) &0x8000))) {
         wParam = WM_MOUSEHWHEEL;
         wp = -wp ; // Up is left, down is right
     }
@@ -1816,7 +1824,7 @@ static int ActionAltTab(POINT pt, int delta)
             SetForegroundWindow(hwnds[1]);
         }
     }
-    return -1;
+    return 1;
 }
 /////////////////////////////////////////////////////////////////////////////
 // Under Vista this will change the main volume with ole interface,
@@ -1886,7 +1894,7 @@ static int ActionVolume(int delta)
     } else {
         if (HaveV == 2) {
             if (!hMMdll) hMMdll = LoadLibraryA("WINMM.DLL");
-            if (!hMMdll) return -1;
+            if (!hMMdll) return 0;
             mywaveOutGetVolume = (void *)GetProcAddress(hMMdll, "waveOutGetVolume");
             mywaveOutSetVolume = (void *)GetProcAddress(hMMdll, "waveOutSetVolume");
             if(!mywaveOutSetVolume  || !mywaveOutGetVolume) {
@@ -1909,7 +1917,7 @@ static int ActionVolume(int delta)
         Volume = ( ((DWORD)leftV) << 16 ) | ( (DWORD)rightV );
         mywaveOutSetVolume(NULL, Volume);
     }
-    return -1;
+    return 1;
 }
 /////////////////////////////////////////////////////////////////////////////
 // Windows 2000+ Only
@@ -1940,10 +1948,10 @@ static int ActionTransparency(HWND hwnd, int delta)
     else
         SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
 
-    return -1;
+    return 1;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int ActionLower(POINT *ptt, HWND hwnd, int delta, UCHAR shift)
+static void ActionLower(POINT *ptt, HWND hwnd, int delta, UCHAR shift)
 {
     if (delta > 0) {
         if (shift) {
@@ -1966,7 +1974,6 @@ static int ActionLower(POINT *ptt, HWND hwnd, int delta, UCHAR shift)
             SetWindowLevel(hwnd, HWND_BOTTOM);
         }
     }
-    return -1;
 }
 /////////////////////////////////////////////////////////////////////////////
 static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_)
@@ -1992,16 +1999,12 @@ static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_)
     return hwnd;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int ActionMaxRestMin(POINT *ptt, int delta)
+static void ActionMaxRestMin(POINT *ptt, HWND hwnd, int delta)
 {
-    HWND hwnd = WindowFromPoint(*ptt);
-    if (!hwnd) return 0;
-    HWND mdiclent;
-    hwnd = MDIorNOT(hwnd, &mdiclent);
     int maximized = IsZoomed(hwnd);
     if (state.shift) {
         ActionLower(ptt, hwnd, delta, 0);
-        return -1;
+        return;
     }
 
     if (delta > 0) {
@@ -2014,7 +2017,6 @@ static int ActionMaxRestMin(POINT *ptt, int delta)
             PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
     }
     if(conf.AutoFocus) SetForegroundWindowL(hwnd);
-    return -1;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2565,7 +2567,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
 
     // 1st Scroll inactive windows.. If enabled
     if (!state.alt && !state.action && conf.InactiveScroll) {
-        return ScrollPointedWindow(pt, msg->mouseData, wParam);
+        return ScrollPointedWindow(pt, delta, wParam);
     } else if(!state.alt || state.action != conf.GrabWithAlt
           || (conf.GrabWithAlt && !IsSamePTT(&pt, &state.clickpt)) ) {
         return 0; // continue if no actions to be made
@@ -2592,42 +2594,25 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     RECT wnd;
     if (blacklistedP(hwnd, &BlkLst.Processes) || blacklisted(hwnd, &BlkLst.Scroll)) {
         return 0;
-    } else if(conf.FullScreen == 1 && GetWindowRect(hwnd, &wnd)) {
+    } else if (conf.FullScreen == 1 && GetWindowRect(hwnd, &wnd)) {
         RECT mon;
         GetMonitorRect(&pt, 1, &mon);
         if((IsFullscreen(hwnd, &wnd, &mon)&conf.FullScreen) == conf.FullScreen)
             return 0;
     }
-
-    if (conf.Mouse.Scroll) {
-
-        if (conf.Mouse.Scroll == AC_ALTTAB && !state.shift) {
-            if(!ActionAltTab(pt, delta))
-                return 0;
-
-        } else if (conf.Mouse.Scroll == AC_VOLUME) {
-            if(!ActionVolume(delta))
-                return 0;
-
-        } else if (conf.Mouse.Scroll == AC_TRANSPARENCY) {
-            if(!ActionTransparency(hwnd, delta))
-                return 0;
-
-        } else if (conf.Mouse.Scroll == AC_LOWER) {
-            if(!ActionLower(&pt, hwnd, delta, state.shift))
-                return 0;
-
-        } else if (conf.Mouse.Scroll == AC_MAXIMIZE) {
-            if(!ActionMaxRestMin(&pt, delta))
-                return 0;
-        } else if (conf.Mouse.Scroll == AC_ROLL){
-            RollWindow(hwnd, delta);
-        }
-        // Block original scroll event
-        state.blockaltup = 1; // and AltUp
-        return 1;
+    int ret=1;
+    switch (conf.Mouse.Scroll) {
+    case AC_ALTTAB:       ret = ActionAltTab(pt, delta); break;
+    case AC_VOLUME:       ret = ActionVolume(delta); break;
+    case AC_TRANSPARENCY: ret = ActionTransparency(hwnd, delta); break;
+    case AC_LOWER:        ActionLower(&pt, hwnd, delta, state.shift); break;
+    case AC_MAXIMIZE:     ActionMaxRestMin(&pt, hwnd, delta); break;
+    case AC_ROLL:         RollWindow(hwnd, delta); break;
+    case AC_HSCROLL:      ret = ScrollPointedWindow(pt, -delta, WM_MOUSEHWHEEL); break;
+    default: ret = 0;
     }
-    return 0; // Call Next Hook
+    state.blockaltup = ret; // block or not;
+    return ret; // block or next hook
 }
 /////////////////////////////////////////////////////////////////////////////
 // Called on MouseUp and on AltUp when using GrabWithAlt
@@ -2636,7 +2621,7 @@ static void FinishMovement()
     if (LastWin.hwnd && (state.moving == NOT_MOVED || (!conf.FullWin&&state.moving))) {
         // to erase the last rectangle...
         if(!conf.FullWin) {
-            Rectangle(hdcc, oldRect.left, oldRect.top, oldRect.right, oldRect.bottom);
+            DrawRect(hdcc, &oldRect);
             if(state.action == AC_RESIZE) ResizeAllSnappedWindowsAsync();
         }
 
@@ -3099,6 +3084,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         else if (!wcsicmp(txt,L"Volume"))       *buttons[i].ptr = AC_VOLUME;
         else if (!wcsicmp(txt,L"Transparency")) *buttons[i].ptr = AC_TRANSPARENCY;
         else if (!wcsicmp(txt,L"Roll"))         *buttons[i].ptr = AC_ROLL;
+        else if (!wcsicmp(txt,L"HScroll"))      *buttons[i].ptr = AC_HSCROLL;
         else if (!wcsicmp(txt,L"Menu"))       { *buttons[i].ptr = AC_MENU ; action_menu_load=1; }
         else if (!wcsicmp(txt,L"Kill"))         *buttons[i].ptr = AC_KILL;
         else                                    *buttons[i].ptr = AC_NONE;

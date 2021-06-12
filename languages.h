@@ -108,6 +108,7 @@ struct strings {
   wchar_t *input_actions_volume;
   wchar_t *input_actions_menu;
   wchar_t *input_actions_transparency;
+  wchar_t *input_actions_hscroll;
 
   // hotkeys
   wchar_t *input_hotkeys_box;
@@ -254,6 +255,7 @@ struct {
   { &l10n_ini.input_actions_volume,            L"InputActionVolume" },
   { &l10n_ini.input_actions_menu,              L"InputActionMenu" },
   { &l10n_ini.input_actions_transparency,      L"InputActionTransparency" },
+  { &l10n_ini.input_actions_hscroll,           L"InputActionHScroll" },
 
   { &l10n_ini.input_hotkeys_box,               L"InputHotkeysBox" },
   { &l10n_ini.input_hotkeys_togglerzmvkey,     L"InputHotkeystogglerzmvkey" },
@@ -399,6 +401,7 @@ struct strings en_US = {
  /* volume             */ L"Volume",
  /* menu               */ L"Action menu",
  /* transparency       */ L"Transparency",
+ /* hscroll            */ L"Horizontal scroll",
 
  /* hotkeys */
  /* box                */ L"Hotkeys",

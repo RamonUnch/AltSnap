@@ -582,6 +582,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"Lower",        l10n->input_actions_lower},
         {L"Roll",         l10n->input_actions_roll},
         {L"Maximize",     l10n->input_actions_maximize},
+        {L"HScroll",      l10n->input_actions_hscroll},
         {L"Nothing",      l10n->input_actions_nothing},
     };
 
@@ -834,7 +835,9 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
     } else if (msg == WM_COMMAND) {
         int id = LOWORD(wParam);
         int event = HIWORD(wParam);
-        if (event == EN_UPDATE && id != IDC_NEWRULE && id != IDC_NEWPROGNAME) {
+        if (event == EN_UPDATE 
+        && id != IDC_NEWRULE && id != IDC_NEWPROGNAME
+        && id != IDC_NCHITTEST && id != IDC_GWLSTYLE) {
             PropSheet_Changed(g_cfgwnd, hwnd); // Enable the Apply Button
             have_to_apply = 1;
         } else if (event == STN_CLICKED && id == IDC_FINDWINDOW) {

@@ -262,7 +262,7 @@ static inline unsigned h2u(const wchar_t c)
 }
 static unsigned whex2u(const wchar_t s[2])
 {
-    if(h2u(s[1])) return h2u(s[0]) << 4 | h2u(s[1]);
+    if(s[1]) return h2u(s[0]) << 4 | h2u(s[1]);
     else return h2u(s[0]);
 }
 

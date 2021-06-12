@@ -200,6 +200,7 @@ struct {
 
     UCHAR SmartAero;
     UCHAR StickyResize;
+    UCHAR HScrollKey;
 
     struct hotkeys_s Hotkeys;
     struct hotkeys_s Hotclick;
@@ -1703,13 +1704,13 @@ static int ScrollPointedWindow(POINT pt, DWORD mouseData, WPARAM wParam)
 
     // Get wheel info
     WPARAM wp = GET_WHEEL_DELTA_WPARAM(mouseData) << 16;
-    LPARAM lp = (pt.y << 16) | (pt.x & 0xFFFF);
+    LPARAM lp = MAKELPARAM(pt.x, pt.y);
 
     // Change WM_MOUSEWHEEL to WM_MOUSEHWHEEL if shift is being depressed
     // Introduced in Vista and far from all programs have implemented it.
-    if (wParam == WM_MOUSEWHEEL && state.shift && (GetAsyncKeyState(VK_SHIFT)&0x8000)) {
+    if (wParam == WM_MOUSEWHEEL && (GetAsyncKeyState(conf.HScrollKey) &0x8000)) {
         wParam = WM_MOUSEHWHEEL;
-        wp = (-GET_WHEEL_DELTA_WPARAM(mouseData)) << 16; // Up is left, down is right
+        wp = -wp ; // Up is left, down is right
     }
 
     // Add button information since we don't get it with the hook
@@ -1961,7 +1962,7 @@ static int ActionLower(POINT *ptt, HWND hwnd, int delta, UCHAR shift)
                 HWND tmp = GetWindow(hwnd, GW_HWNDNEXT);
                 if(!tmp) tmp = GetWindow(hwnd, GW_HWNDPREV);
                 if(tmp && hwnd != GetAncestor(tmp, GA_ROOT))
-                    SetForegroundWindow(tmp);
+                    SetForegroundWindowL(tmp);
             }
             SetWindowLevel(hwnd, HWND_BOTTOM);
         }
@@ -1988,7 +1989,7 @@ static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_)
     } else {
         hwnd = root;
     }
-    if(mdiclient_) *mdiclient_ = mdiclient;
+    *mdiclient_ = mdiclient;
     return hwnd;
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -1996,7 +1997,8 @@ static int ActionMaxRestMin(POINT *ptt, int delta)
 {
     HWND hwnd = WindowFromPoint(*ptt);
     if (!hwnd) return 0;
-    hwnd = MDIorNOT(hwnd, NULL);
+    HWND mdiclent;
+    hwnd = MDIorNOT(hwnd, &mdiclent);
     int maximized = IsZoomed(hwnd);
     if (state.shift) {
         ActionLower(ptt, hwnd, delta, 0);
@@ -2440,22 +2442,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 
     // Update state
     state.action = action;
-    state.origin.maximized = IsZoomed(state.hwnd);
-    state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
-
-    if (!state.snap) {
-        state.snap = conf.AutoSnap;
-    }
-    AddWindowToDB(state.hwnd);
-
-    if (state.wndentry->restore && !state.origin.maximized) { // Set Origin width and height ==2)
-        state.origin.width = state.wndentry->width;
-        state.origin.height = state.wndentry->height;
-    } else {
-        state.origin.width = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
-        state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
-    }
-
     state.blockaltup = 1;
 
     // AutoFocus
@@ -2464,9 +2450,25 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Do things depending on what button was pressed
     if (action == AC_MOVE || action == AC_RESIZE) {
         if (!SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 64, &lpdwResult)) {
-            //state.blockmouseup = 1;
+            state.blockmouseup = 1;
             return 1;
         }
+        state.origin.maximized = IsZoomed(state.hwnd);
+        state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
+
+        if (!state.snap) {
+            state.snap = conf.AutoSnap;
+        }
+        AddWindowToDB(state.hwnd);
+
+        if (state.wndentry->restore && !state.origin.maximized) { // Set Origin width and height ==2)
+            state.origin.width = state.wndentry->width;
+            state.origin.height = state.wndentry->height;
+        } else {
+            state.origin.width = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
+            state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
+        }
+
         GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
         SetWindowTrans(state.hwnd);
         EnumOnce(NULL); // Reset enum stuff
@@ -2487,8 +2489,8 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
             ret = ActionResize(pt, mdiclientpt, &wnd, &state.origin.mon, button);
         }
         action = state.action;
-        if (ret == 0) return 0;
-        else if (ret == 1) return 1;
+        if (ret == 1) return 1;
+//        else if (ret == 0) return 0;
         UpdateCursor(pt);
     } else if (action == AC_MENU) {
         state.sclickhwnd = state.hwnd;
@@ -2523,7 +2525,7 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
         && !state.action && (wParam == WM_MBUTTONDOWN || wParam == WM_LBUTTONDOWN)) {
         HWND nhwnd = WindowFromPoint(pt);
         if (!nhwnd) return 0;
-        HWND hwnd = GetAncestor(nhwnd, GA_ROOT);
+        HWND hwnd = MDIorNOT(nhwnd, &state.mdiclient);
         if (blacklisted(hwnd, &BlkLst.Windows))
             return 0;
 
@@ -2572,7 +2574,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     HideCursor();
     HWND nhwnd = WindowFromPoint(pt);
     if (!nhwnd) return 0;
-    HWND hwnd = GetAncestor(nhwnd, GA_ROOT);
+    HWND hwnd = MDIorNOT(nhwnd, &state.mdiclient);
 
     if (conf.RollWithTBScroll && wParam == WM_MOUSEWHEEL && !state.ctrl) {
 
@@ -3003,6 +3005,15 @@ static void readhotkeys(const wchar_t *inipath, const wchar_t *name, const wchar
         while(*pos == ' ') pos++; // go to next char after spaces.
     }
 }
+static unsigned char readsinglekey(const wchar_t *inipath, const wchar_t *name,  const wchar_t *def)
+{
+    wchar_t txt[4];
+    GetPrivateProfileString(L"Input", name, def, txt, ARR_SZ(txt), inipath);
+    if(*txt) {
+        return whex2u(txt);
+    }
+    return 0;
+}
 ///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.
 __declspec(dllexport) void Load(HWND mainhwnd)
@@ -3103,9 +3114,8 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     readhotkeys(inipath, L"Hotclicks",L"",        &conf.Hotclick);
     readhotkeys(inipath, L"Killkeys", L"09 4C 2E",&conf.Killkey);
 
-    conf.ToggleRzMvKey = 0;
-    GetPrivateProfileString(L"Input", L"ToggleRzMvKey", L"", txt, ARR_SZ(txt), inipath);
-    if(*txt) conf.ToggleRzMvKey = whex2u(txt);
+    conf.ToggleRzMvKey = readsinglekey(inipath, L"ToggleRzMvKey", L"");
+    conf.HScrollKey= readsinglekey(inipath, L"HScrollKey", L"10"); // VK_SHIFT
 
     // Zero-out wnddb hwnds
     for (i=0; i < NUMWNDDB; i++) {

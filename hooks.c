@@ -3129,7 +3129,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         g_mchwnd = CreateWindowEx(0, wnd2.lpszClassName, NULL, 0
                          , 0, 0, 0 , 0, g_mainhwnd, NULL, hinstDLL, NULL);
     }
-    // [Blacklist]
     readblacklist(inipath, &BlkLst.Processes, L"Processes");
     readblacklist(inipath, &BlkLst.Windows,   L"Windows");
     readblacklist(inipath, &BlkLst.Snaplist,  L"Snaplist");

@@ -914,6 +914,11 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 
     return !ret;
 }
+static void MoveWindowInThread(struct windowRR *lw)
+{
+    DWORD lpThreadId;
+    CloseHandle(CreateThread(NULL, STACK, MoveWindowThread, lw, 0, &lpThreadId));
+}
 ///////////////////////////////////////////////////////////////////////////
 // use snwnds[numsnwnds].wnd / .flag
 static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeight, int *bottomHeight, const RECT *mon)
@@ -1462,8 +1467,7 @@ static void MouseMove(POINT pt)
         if (ShouldResizeTouching()) {
             ResizeTouchingWindows(posx, posy, wndwidth, wndheight);
         }
-        DWORD lpThreadId;
-        CloseHandle(CreateThread(NULL, STACK, MoveWindowThread, &LastWin, 0, &lpThreadId));
+        MoveWindowInThread(&LastWin);
         state.moving = 1;
     } else {
         Sleep(0);
@@ -1765,7 +1769,7 @@ static int ActionAltTab(POINT pt, int delta)
     if (conf.MDI && !blacklisted(root, &BlkLst.MDIs)) {
 
         // Get Class and Hide if tooltip
-        wchar_t classname[100] = L"";
+        wchar_t classname[32] = L"";
         hwnd = GetClass_HideIfTooltip(pt, hwnd, classname, ARR_SZ(classname));
 
         if (hwnd) {
@@ -2625,19 +2629,18 @@ static void FinishMovement()
             if(state.action == AC_RESIZE) ResizeAllSnappedWindowsAsync();
         }
 
-        if(IsWindow(LastWin.hwnd)) {
-            DWORD lpThreadId;
+        if (IsWindow(LastWin.hwnd)) {
             LastWin.end = 1;
-            CloseHandle(CreateThread(NULL, STACK, MoveWindowThread, &LastWin, 0, &lpThreadId));
+            MoveWindowInThread(&LastWin);
         }
     }
-    if(conf.AeroMaxSpeed < 65000)
+    if (conf.AeroMaxSpeed < 65000)
         KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
 
     // Auto Remaximize if option enabled and conditions are met.
-    if(conf.AutoRemaximize && state.moving
-      && (state.origin.maximized||state.origin.fullscreen)
-      && !state.shift && !state.mdiclient && state.action == AC_MOVE) {
+    if (conf.AutoRemaximize && state.moving
+    && (state.origin.maximized || state.origin.fullscreen)
+    && !state.shift && !state.mdiclient && state.action == AC_MOVE) {
         state.action = AC_NONE;
         POINT pt;
         GetCursorPos(&pt);

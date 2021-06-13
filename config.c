@@ -633,8 +633,6 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {
                 FillActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option, mouse_actions, inipath);
             }
-            LOGA("FINI\n");
-
             // Scroll actions
             FillActionDropListS(hwnd, IDC_SCROLL,  L"Scroll",  scroll_actions, inipath);
             FillActionDropListS(hwnd, IDC_HSCROLL, L"HScroll", scroll_actions, inipath);

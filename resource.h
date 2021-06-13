@@ -137,3 +137,5 @@
 #define IDC_STICKYRESIZE                2060
 #define IDC_NCHITTEST                   2061
 #define IDC_GWLSTYLE                    2062
+#define IDC_HSCROLL                     2063
+#define IDC_HSCROLL_HEADER              2064

@@ -538,6 +538,27 @@ static void SaveHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *name, wch
     }
     WritePrivateProfileString(L"Input", name, keys, inipath);
 }
+struct actiondl {
+    wchar_t *action;
+    wchar_t *l10n;
+};
+static void FillActionDropListS(HWND hwnd, int idc, wchar_t *inioption, struct actiondl *actions, wchar_t *inipath)
+{
+    HWND control = GetDlgItem(hwnd, idc);
+    wchar_t txt[64];
+    ComboBox_ResetContent(control);
+    GetPrivateProfileString(L"Input", inioption, L"Nothing", txt, ARR_SZ(txt), inipath);
+    unsigned sel = 0, j;
+    for (j = 0; actions[j].action; j++) {
+        wchar_t action_name[256];
+        wcscpy_noaccel(action_name, actions[j].l10n, ARR_SZ(action_name));
+        ComboBox_AddString(control, action_name);
+        if (!wcscmp(txt, actions[j].action)) {
+            sel = j;
+        }
+    }
+    ComboBox_SetCurSel(control, sel);
+}
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -551,14 +572,10 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         { IDC_MMB, L"MMB" },
         { IDC_RMB, L"RMB" },
         { IDC_MB4, L"MB4" },
-        { IDC_MB5, L"MB5" },
+        { IDC_MB5, L"MB5" }
     };
 
-    struct action {
-        wchar_t *action;
-        wchar_t *l10n;
-    };
-    struct action mouse_actions[] = {
+    struct actiondl mouse_actions[] = {
         {L"Move",        l10n->input_actions_move},
         {L"Resize",      l10n->input_actions_resize},
         {L"Close",       l10n->input_actions_close},
@@ -572,10 +589,11 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"Center",      l10n->input_actions_center},
         {L"Menu",        l10n->input_actions_menu},
         {L"Nothing",     l10n->input_actions_nothing},
+        {NULL, NULL}
     };
 
     // Scroll
-    struct action scroll_actions[] = {
+    struct actiondl scroll_actions[] = {
         {L"AltTab",       l10n->input_actions_alttab},
         {L"Volume",       l10n->input_actions_volume},
         {L"Transparency", l10n->input_actions_transparency},
@@ -584,6 +602,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"Maximize",     l10n->input_actions_maximize},
         {L"HScroll",      l10n->input_actions_hscroll},
         {L"Nothing",      l10n->input_actions_nothing},
+        {NULL, NULL}
     };
 
     // Hotkeys
@@ -609,40 +628,16 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     } else if (msg == WM_NOTIFY) {
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
-            wchar_t txt[64];
-            size_t i, j, sel;
-
             // Mouse actions
+            unsigned i;
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {
-                HWND control = GetDlgItem(hwnd, mouse_buttons[i].control);
-                ComboBox_ResetContent(control);
-                GetPrivateProfileString(L"Input", mouse_buttons[i].option, L"Nothing", txt, ARR_SZ(txt), inipath);
-                sel = ARR_SZ(mouse_actions) - 1;
-                for (j = 0; j < ARR_SZ(mouse_actions); j++) {
-                    wchar_t action_name[256];
-                    wcscpy_noaccel(action_name, mouse_actions[j].l10n, ARR_SZ(action_name));
-                    ComboBox_AddString(control, action_name);
-                    if (!wcscmp(txt, mouse_actions[j].action)) {
-                        sel = j;
-                    }
-                }
-                ComboBox_SetCurSel(control, sel);
+                FillActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option, mouse_actions, inipath);
             }
+            LOGA("FINI\n");
 
-            // Scroll
-            HWND control = GetDlgItem(hwnd, IDC_SCROLL);
-            ComboBox_ResetContent(control);
-            GetPrivateProfileString(L"Input", L"Scroll", L"Nothing", txt, ARR_SZ(txt), inipath);
-            sel = ARR_SZ(scroll_actions) - 1;
-            for (j = 0; j < ARR_SZ(scroll_actions); j++) {
-                wchar_t action_name[256];
-                wcscpy_noaccel(action_name, scroll_actions[j].l10n, ARR_SZ(action_name));
-                ComboBox_AddString(control, action_name);
-                if (!wcscmp(txt, scroll_actions[j].action)) {
-                    sel = j;
-                }
-            }
-            ComboBox_SetCurSel(control, sel);
+            // Scroll actions
+            FillActionDropListS(hwnd, IDC_SCROLL,  L"Scroll",  scroll_actions, inipath);
+            FillActionDropListS(hwnd, IDC_HSCROLL, L"HScroll", scroll_actions, inipath);
 
             // Update text
             SetDlgItemText(hwnd, IDC_MOUSE_BOX,       l10n->input_mouse_box);
@@ -652,6 +647,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             SetDlgItemText(hwnd, IDC_MB4_HEADER,      l10n->input_mouse_mb4);
             SetDlgItemText(hwnd, IDC_MB5_HEADER,      l10n->input_mouse_mb5);
             SetDlgItemText(hwnd, IDC_SCROLL_HEADER,   l10n->input_mouse_scroll);
+            SetDlgItemText(hwnd, IDC_HSCROLL_HEADER,  l10n->input_actions_hscroll);            
 
             SetDlgItemText(hwnd, IDC_LOWERWITHMMB,    l10n->input_mouse_lowerwithmmb);
             SetDlgItemText(hwnd, IDC_ROLLWITHTBSCROLL,l10n->input_mouse_rollwithtbscroll);
@@ -672,6 +668,8 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             // Scroll
             i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_SCROLL));
             WritePrivateProfileString(L"Input", L"Scroll", scroll_actions[i].action, inipath);
+            i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_HSCROLL));
+            WritePrivateProfileString(L"Input", L"HScroll", scroll_actions[i].action, inipath);
 
             // Checkboxes...
             WriteOptionBoolB(IDC_LOWERWITHMMB,     L"Input", L"LowerWithMMB", 0);
@@ -699,11 +697,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         { IDC_RIGHTCTRL,   VK_RCONTROL },
         { 0, 0 }
     };
-    struct action {
-        wchar_t *action;
-        wchar_t *l10n;
-    };
-    struct action kb_actions[] = {
+    struct actiondl kb_actions[] = {
         {L"Move",        l10n->input_actions_move},
         {L"Resize",      l10n->input_actions_resize},
         {L"Close",       l10n->input_actions_close},
@@ -716,6 +710,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {L"Center",      l10n->input_actions_center},
         {L"Menu",        l10n->input_actions_menu},
         {L"Nothing",     l10n->input_actions_nothing},
+        {NULL, NULL}
     };
     // Hotkeys
     struct {
@@ -750,27 +745,14 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // GrabWithAlt
-            wchar_t txt[32];
-            HWND control = GetDlgItem(hwnd, IDC_GRABWITHALT);
-            ComboBox_ResetContent(control);
-            GetPrivateProfileString(L"Input", L"GrabWithAlt", L"Nothing", txt, ARR_SZ(txt), inipath);
-            int sel = ARR_SZ(kb_actions) - 1;
-            unsigned j;
-            for (j = 0; j < ARR_SZ(kb_actions); j++) {
-                wchar_t action_name[256];
-                wcscpy_noaccel(action_name, kb_actions[j].l10n, ARR_SZ(action_name));
-                ComboBox_AddString(control, action_name);
-                if (!wcscmp(txt, kb_actions[j].action)) {
-                    sel = j;
-                }
-            }
-            ComboBox_SetCurSel(control, sel);
+            FillActionDropListS(hwnd, IDC_GRABWITHALT, L"GrabWithAlt", kb_actions, inipath);
 
             // ToggleRzMvKey init
-            control = GetDlgItem(hwnd, IDC_TOGGLERZMVKEY);
+            wchar_t txt[64];
+            HWND control = GetDlgItem(hwnd, IDC_TOGGLERZMVKEY);
             ComboBox_ResetContent(control);
             GetPrivateProfileString(L"Input", L"ToggleRzMvKey", L"", txt, ARR_SZ(txt), inipath);
-            sel = ARR_SZ(togglekeys) - 1;
+            unsigned j, sel = ARR_SZ(togglekeys) - 1;
             for (j = 0; j < ARR_SZ(togglekeys); j++) {
                 wchar_t key_name[256];
                 wcscpy_noaccel(key_name, togglekeys[j].l10n, ARR_SZ(key_name));

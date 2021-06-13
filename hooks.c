@@ -65,10 +65,10 @@ static void FinishMovement();
 #define PureBottom(flag)  ( (flag&SNBOTTOM) && !(flag&(SNLEFT|SNRIGHT)) )
 
 struct wnddata {
+    unsigned restore;
     HWND hwnd;
     int width;
     int height;
-    unsigned restore;
 };
 struct {
     struct wnddata items[NUMWNDDB];
@@ -207,7 +207,7 @@ struct {
     struct hotkeys_s Killkey;
 
     struct {
-        enum action LMB, MMB, RMB, MB4, MB5, Scroll;
+        enum action LMB, MMB, RMB, MB4, MB5, Scroll, HScroll;
     } Mouse;
 } conf;
 
@@ -292,8 +292,8 @@ static pure int blacklistedP(HWND hwnd, struct blacklist *list)
 }
 
 // To clamp width and height of windows
-static int CLAMPW(int width)  { return CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x); }
-static int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state.mmi.Max.y); }
+static pure int CLAMPW(int width)  { return CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x); }
+static pure int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state.mmi.Max.y); }
 
 static inline int IsResizable(HWND hwnd)
 {
@@ -1957,7 +1957,7 @@ static void ActionLower(POINT *ptt, HWND hwnd, int delta, UCHAR shift)
         if (shift) {
             Maximize_Restore_atpt(hwnd, ptt, SW_TOGGLE_MAX_RESTORE, NULL);
         } else {
-            if(conf.AutoFocus||state.ctrl) SetForegroundWindowL(hwnd);
+            if (conf.AutoFocus || state.ctrl) SetForegroundWindowL(hwnd);
             SetWindowLevel(hwnd, HWND_TOPMOST);
             SetWindowLevel(hwnd, HWND_NOTOPMOST);
         }
@@ -2601,7 +2601,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
             return 0;
     }
     int ret=1;
-    switch (conf.Mouse.Scroll) {
+    switch (WM_MOUSEWHEEL? conf.Mouse.Scroll: conf.Mouse.HScroll) {
     case AC_ALTTAB:       ret = ActionAltTab(pt, delta); break;
     case AC_VOLUME:       ret = ActionVolume(delta); break;
     case AC_TRANSPARENCY: ret = ActionTransparency(hwnd, delta); break;
@@ -3064,6 +3064,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {L"MB4",        L"Nothing", &conf.Mouse.MB4},
         {L"MB5",        L"Nothing", &conf.Mouse.MB5},
         {L"Scroll",     L"Nothing", &conf.Mouse.Scroll},
+        {L"HScroll",    L"Nothing", &conf.Mouse.HScroll},
         {L"GrabWithAlt",L"Nothing", &conf.GrabWithAlt},
         {NULL}
     };

@@ -401,7 +401,7 @@ struct strings en_US = {
  /* volume             */ L"Volume",
  /* menu               */ L"Action menu",
  /* transparency       */ L"Transparency",
- /* hscroll            */ L"Horizontal scroll",
+ /* hscroll            */ L"&Horizontal scroll:",
 
  /* hotkeys */
  /* box                */ L"Hotkeys",

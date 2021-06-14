@@ -295,7 +295,7 @@ static pure int blacklistedP(HWND hwnd, struct blacklist *list)
 static pure int CLAMPW(int width)  { return CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x); }
 static pure int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state.mmi.Max.y); }
 
-static inline int IsResizable(HWND hwnd)
+static int IsResizable(HWND hwnd)
 {
     return (conf.ResizeAll || GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME);
 }
@@ -2393,6 +2393,17 @@ static void HideCursor()
     ShowWindow(g_mainhwnd, SW_HIDE);
 }
 /////////////////////////////////////////////////////////////////////////////
+static void StartSpeedMes()
+{
+    if(conf.AeroMaxSpeed < 65535)
+        SetTimer(g_timerhwnd, SPEED_TIMER, conf.AeroSpeedTau, NULL);
+}
+static void StopSpeedMes()
+{
+    if (conf.AeroMaxSpeed < 65535)
+        KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
+}
+/////////////////////////////////////////////////////////////////////////////
 static int init_movement_and_actions(POINT pt, enum action action, int button)
 {
     RECT wnd;
@@ -2487,8 +2498,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
         SetWindowTrans(state.hwnd);
         EnumOnce(NULL); // Reset enum stuff
-        if(conf.AeroMaxSpeed < 65000)
-            SetTimer(g_timerhwnd, SPEED_TIMER, conf.AeroSpeedTau, NULL);
+        StartSpeedMes(); // Speed timer
 
         int ret;
         if(state.action == AC_MOVE) {
@@ -2526,10 +2536,10 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 // Or restore an AltDrad Aero-snapped window.
 static int ActionNoAlt(POINT pt, WPARAM wParam)
 {
-    int willlower = ((conf.LowerWithMMB&1) == 1 && !state.alt)
-                 || ((conf.LowerWithMMB&2) == 2 &&  state.alt);
+    int willlower = ((conf.LowerWithMMB&1) && !state.alt)
+                 || ((conf.LowerWithMMB&2) &&  state.alt);
     if ((willlower || conf.NormRestore)
-        && !state.action && (wParam == WM_MBUTTONDOWN || wParam == WM_LBUTTONDOWN)) {
+    &&  !state.action && (wParam == WM_MBUTTONDOWN || wParam == WM_LBUTTONDOWN)) {
         HWND nhwnd = WindowFromPoint(pt);
         if (!nhwnd) return 0;
         HWND hwnd = MDIorNOT(nhwnd, &state.mdiclient);
@@ -2539,8 +2549,9 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
         int area = HitTestTimeout(nhwnd, pt.x, pt.y);
 
         if (willlower && wParam == WM_MBUTTONDOWN
-        && (area == HTCAPTION || area == HTTOP || area == HTTOPLEFT || area == HTTOPRIGHT
-          ||area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON || area == HTCLOSE)
+        && (area == HTCAPTION || (area >= HTTOP && area <= HTTOPRIGHT)
+          || area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON 
+          || area == HTCLOSE || area == HTHELP)
         && !blacklisted(hwnd, &BlkLst.MMBLower)) {
             ActionLower(NULL, hwnd, 0, state.shift);
             return 1;
@@ -2562,7 +2573,7 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
         RestoreOldWin(&pt, 2, 1);
         conf.NormRestore = 1;
     }
-    return -1;
+    return -1; // fall through...
 }
 /////////////////////////////////////////////////////////////////////////////
 static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
@@ -2634,8 +2645,7 @@ static void FinishMovement()
             MoveWindowInThread(&LastWin);
         }
     }
-    if (conf.AeroMaxSpeed < 65000)
-        KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
+    StopSpeedMes();
 
     // Auto Remaximize if option enabled and conditions are met.
     if (conf.AutoRemaximize && state.moving
@@ -2802,6 +2812,11 @@ static void HookMouse()
     if (!mousehook)
         return ;
 }
+static void DeleteDCPEN()
+{
+    if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
+    if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL; }
+}
 /////////////////////////////////////////////////////////////////////////////
 static void UnhookMouse()
 {
@@ -2811,14 +2826,12 @@ static void UnhookMouse()
     state.shift = 0;
     state.ignorectrl = 0;
     state.moving = 0;
+    DeleteDCPEN();
 
     SetWindowTrans(NULL);
-    if(conf.AeroMaxSpeed < 65000)
-        KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
+    StopSpeedMes();
 
     if (conf.NormRestore) conf.NormRestore = 1;
-    if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
-    if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL; }
 
     HideCursor();
 
@@ -2904,8 +2917,7 @@ static void freeblacklists()
 // To be called before Free Library. Ideally it should free everything
 __declspec(dllexport) void Unload()
 {
-    if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
-    if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL; }
+    DeleteDCPEN();
 
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
     UnregisterClass(APP_NAME"-Timers", hinstDLL);
@@ -3105,7 +3117,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     readhotkeys(inipath, L"Killkeys", L"09 4C 2E",&conf.Killkey);
 
     conf.ToggleRzMvKey = readsinglekey(inipath, L"ToggleRzMvKey", L"");
-    conf.HScrollKey= readsinglekey(inipath, L"HScrollKey", L"10"); // VK_SHIFT
+    conf.HScrollKey = readsinglekey(inipath, L"HScrollKey", L"10"); // VK_SHIFT
 
     // Zero-out wnddb hwnds
     for (i=0; i < NUMWNDDB; i++) {

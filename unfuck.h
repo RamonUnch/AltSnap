@@ -546,7 +546,6 @@ static int HitTestTimeoutL(HWND hwnd, LPARAM lParam)
         else
             break;
     }
-    // Last try with ancestor window in case...
     return (int)area;
 }
 #define HitTestTimeout(hwnd, x, y) HitTestTimeoutL(hwnd, MAKELPARAM(x, y))
@@ -630,7 +629,6 @@ static pure unsigned AreRectsTouchingT(const RECT *a, const RECT *b, const int t
          | SegT(a->top, b->bottom, a->left, a->right, b->left, b->right, tol) << 4
          | SegT(a->bottom, b->top, a->left, a->right, b->left, b->right, tol) << 5;
 }
-
 static void CropRect(RECT *__restrict__ wnd, RECT *crop)
 {
     wnd->left   = max(wnd->left,   crop->left);

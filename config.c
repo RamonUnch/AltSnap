@@ -645,7 +645,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             SetDlgItemText(hwnd, IDC_MB4_HEADER,      l10n->input_mouse_mb4);
             SetDlgItemText(hwnd, IDC_MB5_HEADER,      l10n->input_mouse_mb5);
             SetDlgItemText(hwnd, IDC_SCROLL_HEADER,   l10n->input_mouse_scroll);
-            SetDlgItemText(hwnd, IDC_HSCROLL_HEADER,  l10n->input_actions_hscroll);            
+            SetDlgItemText(hwnd, IDC_HSCROLL_HEADER,  l10n->input_actions_hscroll);
 
             SetDlgItemText(hwnd, IDC_LOWERWITHMMB,    l10n->input_mouse_lowerwithmmb);
             SetDlgItemText(hwnd, IDC_ROLLWITHTBSCROLL,l10n->input_mouse_rollwithtbscroll);
@@ -815,7 +815,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
     } else if (msg == WM_COMMAND) {
         int id = LOWORD(wParam);
         int event = HIWORD(wParam);
-        if (event == EN_UPDATE 
+        if (event == EN_UPDATE
         && id != IDC_NEWRULE && id != IDC_NEWPROGNAME
         && id != IDC_NCHITTEST && id != IDC_GWLSTYLE) {
             PropSheet_Changed(g_cfgwnd, hwnd); // Enable the Apply Button

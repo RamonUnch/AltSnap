@@ -531,6 +531,14 @@ static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height
     return SetWindowPos(hwnd, NULL, posx, posy, width, height
                       , SWP_NOACTIVATE|SWP_NOREPOSITION|SWP_ASYNCWINDOWPOS|flag);
 }
+static void MaximizeWindow(HWND hwnd)
+{
+    PostMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+}
+static void MinimizeWindow(HWND hwnd)
+{
+    PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+}
 /* Just changes the window Z-order */
 static BOOL SetWindowLevel(HWND hwnd, HWND hafter)
 {

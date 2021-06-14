@@ -61,7 +61,7 @@ char WinVer = 0;
 int HookSystem()
 {
     if (keyhook) return 1; // System already hooked
-    LOG("Going to Hook the system...\n"); 
+    LOG("Going to Hook the system...\n");
 
     // Load library
     if (!hinstDLL) {
@@ -319,7 +319,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
             }
             LOG("Elevation sucess\n");
         } else LOG("No Elevation requested\n");
-        
+
     }
     // Language
     memset(&l10n_ini, 0, sizeof(l10n_ini));

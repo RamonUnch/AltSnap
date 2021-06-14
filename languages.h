@@ -439,7 +439,7 @@ struct strings en_US = {
  /* aerospeed        */   L"Ma&x snapping speed (pixels):",
  /* testwindow       */   L"Test &Window",
  /* movetrans        */   L"Opacit&y when moving:",
- 
+
  /* behavior_box     */   L"Behavior",
  /* multipleinstances*/   L"Allow multiple &instances of AltDrag",
  /* autoremaximize   */   L"Automatically &remaximize windows when changing monitor",

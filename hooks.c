@@ -33,7 +33,7 @@ static void UnhookMouse();
 static void HookMouse();
 
 // Enumerators
-enum button { BT_NONE=0, BT_LMB=0x01, BT_RMB=0x02, BT_MMB=0x04, BT_MB4=0x05, BT_MB5=0x06 };
+enum button { BT_NONE=0, BT_LMB=0x02, BT_RMB=0x03, BT_MMB=0x04, BT_MB4=0x05, BT_MB5=0x06 };
 enum resize { RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER };
 enum cursor { HAND, SIZENWSE, SIZENESW, SIZENS, SIZEWE, SIZEALL };
 
@@ -59,10 +59,10 @@ static void FinishMovement();
 #define SNBOTTOMRIGHT (SNBOTTOM|SNRIGHT)
 #define SNAPPEDSIDE   (SNTOPLEFT|SNBOTTOMRIGHT)
 
-#define PureLeft(flag)    ( (flag&SNLEFT) &&  !(flag&(SNTOP|SNBOTTOM))  )
-#define PureRight(flag)   ( (flag&SNRIGHT) && !(flag&(SNTOP|SNBOTTOM))  )
-#define PureTop(flag)     ( (flag&SNTOP) && !(flag&(SNLEFT|SNRIGHT))    )
-#define PureBottom(flag)  ( (flag&SNBOTTOM) && !(flag&(SNLEFT|SNRIGHT)) )
+#define PureLeft(flag)   ( (flag&SNLEFT) &&  !(flag&(SNTOP|SNBOTTOM))  )
+#define PureRight(flag)  ( (flag&SNRIGHT) && !(flag&(SNTOP|SNBOTTOM))  )
+#define PureTop(flag)    ( (flag&SNTOP) && !(flag&(SNLEFT|SNRIGHT))    )
+#define PureBottom(flag) ( (flag&SNBOTTOM) && !(flag&(SNLEFT|SNRIGHT)) )
 
 struct wnddata {
     unsigned restore;
@@ -207,7 +207,7 @@ struct {
     struct hotkeys_s Killkey;
 
     struct {
-        enum action LMB, MMB, RMB, MB4, MB5, Scroll, HScroll;
+        enum action LMB, RMB, MMB, MB4, MB5, Scroll, HScroll;
     } Mouse;
 } conf;
 
@@ -1127,14 +1127,10 @@ static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *w
 // Get action of button
 static pure enum action GetAction(enum button button)
 {
-    switch (button) {
-    case BT_LMB: return conf.Mouse.LMB;
-    case BT_MMB: return conf.Mouse.MMB;
-    case BT_RMB: return conf.Mouse.RMB;
-    case BT_MB4: return conf.Mouse.MB4;
-    case BT_MB5: return conf.Mouse.MB5;
-    default: return AC_NONE;
-    }
+    if (button) // Ugly pointer arithmetic (LMB <==> button == 2)
+        return *(&conf.Mouse.LMB+(button-2));
+    else
+        return AC_NONE;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -1174,7 +1170,7 @@ static void RestoreOldWin(const POINT *pt, int was_snapped, int index)
     // Restore old width/height?
     int restore = 0;
 
-    if (state.wndentry->restore & index && !state.origin.maximized) {
+    if (state.wndentry->restore & index && !(state.origin.maximized&&state.wndentry->restore&2)) {
         // Set origin width and height to the saved values
         restore = state.wndentry->restore;
         state.origin.width = state.wndentry->width;
@@ -1195,7 +1191,7 @@ static void RestoreOldWin(const POINT *pt, int was_snapped, int index)
                        / max(wnd.bottom-wnd.top,1);
     }
     if (state.origin.maximized || was_snapped == 1) {
-        if (state.wndentry->restore&3 || restore&3) {
+        if (state.wndentry->restore&ROLLED || restore&ROLLED) {
             // if we restore a  Rolled Maximized window...
             state.offset.y = GetSystemMetrics(SM_CYMIN)/2;
         }
@@ -1967,7 +1963,7 @@ static void ActionLower(POINT *ptt, HWND hwnd, int delta, UCHAR shift)
         }
     } else {
         if (shift) {
-            PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+            MinimizeWindow(hwnd);
         } else {
             if(hwnd == GetAncestor(GetForegroundWindow(), GA_ROOT)) {
                 HWND tmp = GetWindow(hwnd, GW_HWNDNEXT);
@@ -2018,7 +2014,7 @@ static void ActionMaxRestMin(POINT *ptt, HWND hwnd, int delta)
         if(maximized)
             Maximize_Restore_atpt(hwnd, ptt, SW_RESTORE, NULL);
         else
-            PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+            MinimizeWindow(hwnd);
     }
     if(conf.AutoFocus) SetForegroundWindowL(hwnd);
 }
@@ -2054,7 +2050,6 @@ static HCURSOR CursorToDraw()
     } else {
         return LoadCursor(NULL, IDC_SIZEALL);
     }
-//    return NULL;
 }
 static void UpdateCursor(POINT pt)
 {
@@ -2110,8 +2105,8 @@ static void RollWindow(HWND hwnd, int delta)
 
     if (state.wndentry->restore & ROLLED && delta <= 0) { // UNROLL
         if (state.origin.maximized) {
-            PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
-            PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+            MinimizeWindow(hwnd);
+            MaximizeWindow(hwnd);
             // state.wndentry->restore=0; // Do not clear
         } else {
             RestoreOldWin(NULL, 2, 2);
@@ -2143,7 +2138,7 @@ static int ActionMove(POINT pt, HMONITOR monitor, int button)
         if (state.shift) {
             RollWindow(state.hwnd, 0); // Roll/Unroll Window...
         } else if (state.ctrl) {
-            PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+            MinimizeWindow(state.hwnd);
         } else if (IsResizable(state.hwnd)) {
             // Toggle Maximize window
             state.action = AC_NONE; // Stop move action
@@ -2362,7 +2357,7 @@ static void TogglesAlwaysOnTop(HWND hwnd)
 static void ActionMaximize(HWND hwnd)
 {
     if (state.shift) {
-        PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+        MinimizeWindow(hwnd);
     } else if (IsResizable(hwnd)) {
         Maximize_Restore_atpt(hwnd, NULL, SW_TOGGLE_MAX_RESTORE, NULL);
     }
@@ -2371,18 +2366,15 @@ static void ActionMaximize(HWND hwnd)
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
 {
-    switch (action) {
-    case AC_MINIMIZE:    PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0); break;
-    case AC_MAXIMIZE:    ActionMaximize(hwnd); break;
-    case AC_CENTER:      CenterWindow(hwnd); break;
-    case AC_ALWAYSONTOP: TogglesAlwaysOnTop(hwnd); break;
-    case AC_BORDERLESS:  ActionBorderless(hwnd); break;
-    case AC_CLOSE:       PostMessage(hwnd, WM_CLOSE, 0, 0); break;
-    case AC_LOWER:       ActionLower(NULL, hwnd, 0, state.shift); break;
-    case AC_ROLL:        RollWindow(hwnd, 0); break;
-    case AC_KILL:        ActionKill(hwnd); break;
-    default: break;
-    }
+    if      (action==AC_MINIMIZE)    MinimizeWindow(hwnd);
+    else if (action==AC_MAXIMIZE)    ActionMaximize(hwnd);
+    else if (action==AC_CENTER)      CenterWindow(hwnd);
+    else if (action==AC_ALWAYSONTOP) TogglesAlwaysOnTop(hwnd);
+    else if (action==AC_CLOSE)       PostMessage(hwnd, WM_CLOSE, 0, 0);
+    else if (action==AC_LOWER)       ActionLower(NULL, hwnd, 0, state.shift);
+    else if (action==AC_BORDERLESS)  ActionBorderless(hwnd);
+    else if (action==AC_KILL)        ActionKill(hwnd);
+    else if (action==AC_ROLL)        RollWindow(hwnd, 0);
 }
 /////////////////////////////////////////////////////////////////////////////
 static void HideCursor()
@@ -2550,7 +2542,7 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
 
         if (willlower && wParam == WM_MBUTTONDOWN
         && (area == HTCAPTION || (area >= HTTOP && area <= HTTOPRIGHT)
-          || area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON 
+          || area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON
           || area == HTCLOSE || area == HTHELP)
         && !blacklisted(hwnd, &BlkLst.MMBLower)) {
             ActionLower(NULL, hwnd, 0, state.shift);
@@ -2616,16 +2608,16 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
             return 0;
     }
     int ret=1;
-    switch (WM_MOUSEWHEEL? conf.Mouse.Scroll: conf.Mouse.HScroll) {
-    case AC_ALTTAB:       ret = ActionAltTab(pt, delta); break;
-    case AC_VOLUME:       ret = ActionVolume(delta); break;
-    case AC_TRANSPARENCY: ret = ActionTransparency(hwnd, delta); break;
-    case AC_LOWER:        ActionLower(&pt, hwnd, delta, state.shift); break;
-    case AC_MAXIMIZE:     ActionMaxRestMin(&pt, hwnd, delta); break;
-    case AC_ROLL:         RollWindow(hwnd, delta); break;
-    case AC_HSCROLL:      ret = ScrollPointedWindow(pt, -delta, WM_MOUSEHWHEEL); break;
-    default: ret = 0;
-    }
+    enum action action = WM_MOUSEWHEEL? conf.Mouse.Scroll: conf.Mouse.HScroll;
+
+    if (action == AC_ALTTAB)            ret = ActionAltTab(pt, delta);
+    else if (action == AC_VOLUME)       ret = ActionVolume(delta);
+    else if (action == AC_TRANSPARENCY) ret = ActionTransparency(hwnd, delta);
+    else if (action == AC_LOWER)        ActionLower(&pt, hwnd, delta, state.shift);
+    else if (action == AC_MAXIMIZE)     ActionMaxRestMin(&pt, hwnd, delta);
+    else if (action == AC_ROLL)         RollWindow(hwnd, delta);
+    else if (action == AC_HSCROLL)      ret = ScrollPointedWindow(pt, -delta, WM_MOUSEHWHEEL);
+
     state.blockaltup = ret; // block or not;
     return ret; // block or next hook
 }

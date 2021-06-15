@@ -105,6 +105,30 @@ static void PathStripPathL(LPTSTR p)
     p[j]= '\0';
 }
 
+static BOOL HaveProc(char *DLLname, char *PROCname)
+{
+    HINSTANCE hdll = LoadLibraryA(DLLname);
+    BOOL ret = FALSE;
+    if (hdll) {
+        if(GetProcAddress(hdll, PROCname)) {
+            ret = TRUE ;
+        }
+        FreeLibrary(hdll);
+    }
+    return ret;
+}
+
+static void *LoadDLLProc(char *DLLname, char *PROCname)
+{
+    HINSTANCE hdll = LoadLibraryA(DLLname);
+    void *ret = NULL;
+    if (hdll) {
+        ret = GetProcAddress(hdll, PROCname);
+        if (!ret) FreeLibrary(hdll);
+    }
+    return ret;
+}
+
 static HWND GetAncestorL(HWND hwnd, UINT gaFlags)
 {
     static char have_func=HAVE_FUNC;
@@ -113,19 +137,14 @@ static HWND GetAncestorL(HWND hwnd, UINT gaFlags)
     hprevious = hwnd;
     LONG wlong;
 
-    switch(have_func){
-    case -1: /* First time */
+    if (have_func < 0) {
         myGetAncestor=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "GetAncestor");
-        if(!myGetAncestor) {
-            have_func=0;
-            break;
-        } else {
-            have_func=1;
-        }
-    case 1: /* We know we have the function */
+        have_func = !!myGetAncestor;
+    }
+    if(have_func) { /* We know we have the function */
         return myGetAncestor(hwnd, gaFlags);
     }
-
+    /* Fallback */
     while ( (hlast = GetParent(hprevious)) != NULL ){
         wlong=GetWindowLong(hprevious, GWL_STYLE);
         if(wlong&(WS_POPUP)) break;
@@ -139,16 +158,11 @@ static BOOL GetLayeredWindowAttributesL(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlp
 {
     static char have_func=HAVE_FUNC;
 
-    switch(have_func){
-    case -1: /* First time */
+    if (have_func < 0) {
         myGetLayeredWindowAttributes=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "GetLayeredWindowAttributes");
-        if(!myGetLayeredWindowAttributes) {
-            have_func=0;
-            return FALSE;
-        } else {
-            have_func=1;
-        }
-    case 1: /* We know we have the function */
+        have_func=!!myGetLayeredWindowAttributes;
+    }
+    if (have_func) { /* We know we have the function */
         return myGetLayeredWindowAttributes(hwnd, pcrKey, pbAlpha, pdwFlags);
     }
     return FALSE;
@@ -159,16 +173,11 @@ static BOOL SetLayeredWindowAttributesL(HWND hwnd, COLORREF crKey, BYTE bAlpha, 
 {
     static char have_func=HAVE_FUNC;
 
-    switch(have_func){
-    case -1: /* First time */
+    if (have_func < 0) { /* First time */
         mySetLayeredWindowAttributes=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "SetLayeredWindowAttributes");
-        if(!mySetLayeredWindowAttributes) {
-            have_func=0;
-            return FALSE;
-        } else {
-            have_func=1;
-        }
-    case 1: /* We know we have the function */
+        have_func = !!mySetLayeredWindowAttributes;
+    }
+    if(have_func) { /* We know we have the function */
         return mySetLayeredWindowAttributes(hwnd, crKey, bAlpha, dwFlags);
     }
     return FALSE;
@@ -179,16 +188,11 @@ static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
 {
     static char have_func=HAVE_FUNC;
 
-    switch(have_func){
-    case -1: /* First time */
+    if (have_func < 0) { /* First time */
         myGetMonitorInfoW=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "GetMonitorInfoW");
-        if(!myGetMonitorInfoW) {
-            have_func=0;
-            break;
-        } else {
-            have_func=1;
-        }
-    case 1: /* We know we have the function */
+        have_func = !!myGetMonitorInfoW;
+    }
+    if(have_func) { /* We know we have the function */
         if(hMonitor) return myGetMonitorInfoW(hMonitor, lpmi);
     }
     static int saved=0;
@@ -211,16 +215,11 @@ static BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfn
 {
     static char have_func=HAVE_FUNC;
 
-    switch(have_func){
-    case -1: /* First time */
+    if (have_func < 0) { /* First time */
         myEnumDisplayMonitors=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "EnumDisplayMonitors");
-        if(!myEnumDisplayMonitors) {
-            have_func=0;
-            break;
-        } else {
-            have_func=1;
-        }
-    case 1: /* We know we have the function */
+        have_func = !!myEnumDisplayMonitors;
+    }
+    if (have_func) { /* We know we have the function */
         return myEnumDisplayMonitors(hdc, lprcClip, lpfnEnum, dwData);
     }
     MONITORINFO mi;
@@ -236,37 +235,26 @@ static HMONITOR MonitorFromPointL(POINT pt, DWORD dwFlags)
 {
     static char have_func=HAVE_FUNC;
 
-    switch(have_func){
-    case -1: /* First time */
+    if (have_func < 0) { /* First time */
         myMonitorFromPoint=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "MonitorFromPoint");
-        if(!myMonitorFromPoint) {
-            have_func=0;
-            break;
-        } else {
-            have_func=1;
-        }
-    case 1: /* We know we have the function */
+        have_func = !!myMonitorFromPoint;
+    }
+    if (have_func) { /* We know we have the function */
         return myMonitorFromPoint(pt, dwFlags);
     }
     return NULL;
 }
 #define MonitorFromPoint MonitorFromPointL
 
-
 static HMONITOR MonitorFromWindowL(HWND hwnd, DWORD dwFlags)
 {
     static char have_func=HAVE_FUNC;
 
-    switch(have_func){
-    case -1: /* First time */
+    if (have_func < 0) { /* First time */
         myMonitorFromWindow=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "MonitorFromWindow");
-        if(!myMonitorFromWindow) {
-            have_func=0;
-            break;
-        } else {
-            have_func=1;
-        }
-    case 1: /* We know we have the function */
+        have_func = !!myMonitorFromWindow;
+    }
+    if(have_func) { /* We know we have the function */
         return myMonitorFromWindow(hwnd, dwFlags);
     }
     return NULL;
@@ -275,26 +263,13 @@ static HMONITOR MonitorFromWindowL(HWND hwnd, DWORD dwFlags)
 
 static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 {
-    HINSTANCE hdll=NULL;
     static char have_func=HAVE_FUNC;
 
-    switch(have_func){
-    case -1: /* First time */
-        hdll = LoadLibraryA("DWMAPI.DLL");
-        if(!hdll) {
-                have_func = 0;
-                break;
-        } else {
-            myDwmGetWindowAttribute=(void *)GetProcAddress(hdll, "DwmGetWindowAttribute");
-            if(myDwmGetWindowAttribute){
-                have_func = 1;
-            } else {
-                FreeLibrary(hdll);
-                have_func = 0;
-                break;
-            }
-        }
-    case 1: /* We know we have the function */
+    if (have_func < 0) { /* First time */
+        myDwmGetWindowAttribute=LoadDLLProc("DWMAPI.DLL", "DwmGetWindowAttribute");
+        have_func = !!myDwmGetWindowAttribute;
+    }
+    if (have_func) { /* We know we have the function */
         return myDwmGetWindowAttribute(hwnd, a, b, c);
     }
     /* DwmGetWindowAttribute return 0 on sucess ! */
@@ -353,16 +328,11 @@ static LONG NtSuspendProcessL(HANDLE ProcessHandle)
 {
     static char have_func=HAVE_FUNC;
 
-    switch(have_func){
-    case -1: /* First time */
+    if (have_func < 0) { /* First time */
         myNtSuspendProcess=(void *)GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtSuspendProcess");
-        if(myNtSuspendProcess){
-            have_func = 1;
-        } else {
-            have_func = 0;
-            break;
-        }
-    case 1: /* We know we have the function */
+        have_func = !!myNtSuspendProcess;
+    }
+    if (have_func) { /* We know we have the function */
         return myNtSuspendProcess(ProcessHandle);
     }
     return 666; /* Here we FAIL with 666 error    */
@@ -373,16 +343,11 @@ static LONG NtResumeProcessL(HANDLE ProcessHandle)
 {
     static char have_func=HAVE_FUNC;
 
-    switch(have_func){
-    case -1: /* First time */
+    if (have_func < 0) { /* First time */
         myNtResumeProcess=(void *)GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtResumeProcess");
-        if(myNtResumeProcess){
-            have_func = 1;
-        } else {
-            have_func = 0;
-            break;
-        }
-    case 1: /* We know we have the function */
+        have_func =  !!myNtResumeProcess;
+    }
+    if (have_func) { /* We know we have the function */
         return myNtResumeProcess(ProcessHandle);
     }
     return 666; /* Here we FAIL with 666 error    */
@@ -422,43 +387,17 @@ static BOOL HaveDWM()
     return have_dwm;
 }
 
-static BOOL HaveProc(char *DLLname, char *PROCname)
-{
-    HINSTANCE hdll = LoadLibraryA(DLLname);
-    BOOL ret = FALSE;
-    if (hdll) {
-        if(GetProcAddress(hdll, PROCname)) {
-            ret = TRUE ;
-        }
-        FreeLibrary(hdll);
-    }
-    return ret;
-}
-
 /* PSAPI.DLL */
 static DWORD (WINAPI *myGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize);
 static DWORD GetModuleFileNameExL(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize)
 {
-    HINSTANCE hPSAPIdll=NULL;
     static char have_func=HAVE_FUNC;
 
-    switch(have_func){
-    case -1:
-        hPSAPIdll = LoadLibraryA("PSAPI.DLL");
-        if(!hPSAPIdll) {
-            have_func = 0;
-            break;
-        } else {
-            myGetModuleFileNameEx=(void *)GetProcAddress(hPSAPIdll, "GetModuleFileNameExW");
-            if(myGetModuleFileNameEx){
-                have_func = 1;
-            } else {
-                FreeLibrary(hPSAPIdll);
-                have_func = 0;
-                break;
-            }
-        }
-    case 1:
+    if (have_func < 0) { /* First time */
+        myGetModuleFileNameEx=LoadDLLProc("PSAPI.DLL", "GetModuleFileNameExW");
+        have_func = !!myGetModuleFileNameEx;
+    }
+    if (have_func) { /* We have the function */
         return myGetModuleFileNameEx(hProcess, hModule, lpFilename, nSize);
     }
     return 0;
@@ -466,30 +405,14 @@ static DWORD GetModuleFileNameExL(HANDLE hProcess, HMODULE hModule, LPTSTR lpFil
 static DWORD (WINAPI *myGetProcessImageFileName)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD    nSize);
 DWORD GetProcessImageFileNameL(HANDLE hProcess, LPWSTR lpImageFileName, DWORD    nSize)
 {
-    HINSTANCE hPSAPIdll=NULL;
     static char have_func=HAVE_FUNC;
 
-    switch(have_func){
-    case -1:
-        hPSAPIdll = LoadLibraryA("PSAPI.DLL");
-        if(!hPSAPIdll) {
-            have_func = 0;
-            break;
-        } else {
-            myGetProcessImageFileName=(void *)GetProcAddress(hPSAPIdll, "GetProcessImageFileNameW");
-            if(myGetProcessImageFileName){
-                have_func = 1;
-            } else {
-                FreeLibrary(hPSAPIdll);
-                hPSAPIdll = NULL;
-                have_func = 0;
-                break;
-            }
-        }
-    case 1:
+    if (have_func < 0) {
+        myGetProcessImageFileName=LoadDLLProc("PSAPI.DLL", "GetProcessImageFileNameW");
+        have_func = !!myGetProcessImageFileName;
+    }
+    if (have_func) {
         return myGetProcessImageFileName(hProcess, lpImageFileName, nSize);
-    case 0:
-    default: break;
     }
     return 0;
 }

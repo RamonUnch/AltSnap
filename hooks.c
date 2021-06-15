@@ -1484,7 +1484,7 @@ static void Send_KEY(unsigned char vkey)
 ///////////////////////////////////////////////////////////////////////////
 static void RestrictToCurentMonitor()
 {
-    if(state.action || state.alt) {
+    if (state.action || state.alt) {
         POINT pt;
         GetCursorPos(&pt);
         state.origin.maximized = 0;
@@ -2901,6 +2901,7 @@ static void freeblacklists()
         free(list->items);
         list->items = NULL;
         list->length = 0;
+        list++;
     }
 }
 /////////////////////////////////////////////////////////////////////////////

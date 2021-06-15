@@ -1683,7 +1683,6 @@ static HWND GetClass_HideIfTooltip(POINT pt, HWND hwnd, wchar_t *classname, size
 }
 /////////////////////////////////////////////////////////////////////////////
 // 1.44
-#define WM_ALTHSCROLL 0x0000
 static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
 {
     // Get window and foreground window
@@ -1714,8 +1713,7 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
 
     // Change WM_MOUSEWHEEL to WM_MOUSEHWHEEL if shift is being depressed
     // Introduced in Vista and far from all programs have implemented it.
-    if (wParam == WM_ALTHSCROLL // Force Horizontal Scroll!
-    || (wParam == WM_MOUSEWHEEL && (GetAsyncKeyState(conf.HScrollKey) &0x8000))) {
+    if ((wParam == WM_MOUSEWHEEL && (GetAsyncKeyState(conf.HScrollKey) &0x8000))) {
         wParam = WM_MOUSEHWHEEL;
         wp = -wp ; // Up is left, down is right
     }
@@ -2608,7 +2606,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
             return 0;
     }
     int ret=1;
-    enum action action = WM_MOUSEWHEEL? conf.Mouse.Scroll: conf.Mouse.HScroll;
+    enum action action = (wParam == WM_MOUSEWHEEL)? conf.Mouse.Scroll: conf.Mouse.HScroll;
 
     if (action == AC_ALTTAB)            ret = ActionAltTab(pt, delta);
     else if (action == AC_VOLUME)       ret = ActionVolume(delta);

@@ -258,39 +258,42 @@ static DWORD IsUACEnabled()
 }
 /////////////////////////////////////////////////////////////////////////////
 // Helper functions and Macro
-#define IsCheckedW(idc) _itow(Button_GetCheck(GetDlgItem(hwnd, idc)), txt, ARR_SZ(txt))
 #define IsChecked(idc) Button_GetCheck(GetDlgItem(hwnd, idc))
-static void WriteOptionBoolW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, wchar_t *txt, size_t txtsz, wchar_t *inipath)
+#define IsCheckedW(idc) _itow(Button_GetCheck(GetDlgItem(hwnd, idc)), txt, 10)
+static void WriteOptionBoolW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, wchar_t *inipath)
 {
-    WritePrivateProfileString(section, name,_itow(Button_GetCheck(GetDlgItem(hwnd, id)), txt, txtsz), inipath);
+    wchar_t txt[8];
+    WritePrivateProfileString(section, name,_itow(Button_GetCheck(GetDlgItem(hwnd, id)), txt, 10), inipath);
 }
-#define WriteOptionBool(id, section, name) WriteOptionBoolW(hwnd, id, section, name, txt, ARR_SZ(txt), inipath)
-static void WriteOptionBoolBW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, wchar_t *txt, size_t txtsz, wchar_t *inipath, int bit)
+#define WriteOptionBool(id, section, name) WriteOptionBoolW(hwnd, id, section, name, inipath)
+static void WriteOptionBoolBW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, wchar_t *inipath, int bit)
 {
+    wchar_t txt[8];
     int val = GetPrivateProfileInt(section, name, 0, inipath);
     if(Button_GetCheck(GetDlgItem(hwnd, id)))
         val = setBit(val, bit);
     else
         val = clearBit(val, bit);
 
-    WritePrivateProfileString(section, name,_itow(val, txt, txtsz), inipath);
+    WritePrivateProfileString(section, name,_itow(val, txt, 10), inipath);
 }
-#define WriteOptionBoolB(id, section, name, bit) WriteOptionBoolBW(hwnd, id, section, name, txt, ARR_SZ(txt), inipath, bit)
-static void WriteOptionStrW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, wchar_t *txt, size_t txtsz, wchar_t *inipath)
+#define WriteOptionBoolB(id, section, name, bit) WriteOptionBoolBW(hwnd, id, section, name, inipath, bit)
+
+static void WriteOptionStrW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, wchar_t *inipath)
 {
-    Edit_GetText(GetDlgItem(hwnd, id), txt, txtsz);
+    wchar_t txt[1024];
+    Edit_GetText(GetDlgItem(hwnd, id), txt, ARR_SZ(txt));
     WritePrivateProfileString(section, name, txt, inipath);
 }
+#define WriteOptionStr(id, section, name)  WriteOptionStrW(hwnd, id, section, name, inipath)
 
-#define WriteOptionStr(id, section, name)  WriteOptionStrW(hwnd, id, section, name, txt, ARR_SZ(txt), inipath)
-
-static void ReadOptionStrW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name
-                 , wchar_t *txt, size_t txtsz, wchar_t *def, wchar_t *inipath)
+static void ReadOptionStrW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, wchar_t *def, wchar_t *inipath)
 {
-    GetPrivateProfileString(section, name, def, txt, txtsz, inipath);
+    wchar_t txt[1024];
+    GetPrivateProfileString(section, name, def, txt, ARR_SZ(txt), inipath);
     SetDlgItemText(hwnd, id, txt);
 }
-#define ReadOptionStr(id, section, name, def) ReadOptionStrW(hwnd, id, section, name, txt, ARR_SZ(txt), def, inipath)
+#define ReadOptionStr(id, section, name, def) ReadOptionStrW(hwnd, id, section, name, def, inipath)
 
 static int ReadOptionIntW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, int def, wchar_t *inipath, int mask)
 {
@@ -374,11 +377,11 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             if(WIN10) Button_Enable(GetDlgItem(hwnd, IDC_INACTIVESCROLL), IsChecked(IDC_INACTIVESCROLL));
             if(HaveDWM()) Button_Enable(GetDlgItem(hwnd, IDC_FULLWIN), !IsChecked(IDC_FULLWIN));
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
-            wchar_t txt[10];
+            wchar_t txt[8];
             WriteOptionBool(IDC_AUTOFOCUS,     L"General",    L"AutoFocus");
             WriteOptionBool(IDC_AERO,          L"General",    L"Aero");
             WriteOptionBool(IDC_SMARTAERO,     L"General",    L"SmartAero");
-            WriteOptionBoolB(IDC_STICKYRESIZE,  L"General",    L"StickyResize", 0);
+            WriteOptionBoolB(IDC_STICKYRESIZE, L"General",    L"StickyResize", 0);
             WriteOptionBool(IDC_INACTIVESCROLL,L"General",    L"InactiveScroll");
             WriteOptionBool(IDC_MDI,           L"General",    L"MDI");
             WriteOptionBool(IDC_FULLWIN,       L"Performance",L"FullWin");
@@ -435,7 +438,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         ComboBox_AddString(control, l10n->general_autosnap1);
         ComboBox_AddString(control, l10n->general_autosnap2);
         ComboBox_AddString(control, l10n->general_autosnap3);
-        wchar_t txt[10];
+        wchar_t txt[8];
         GetPrivateProfileString(L"General", L"AutoSnap", L"0", txt, ARR_SZ(txt), inipath);
         ComboBox_SetCurSel(control, _wtoi(txt));
 
@@ -656,7 +659,6 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             SetDlgItemText(hwnd, IDC_MB4_HC,          l10n->input_mouse_mb4_hc);
             SetDlgItemText(hwnd, IDC_MB5_HC,          l10n->input_mouse_mb5_hc);
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
-            wchar_t txt[32];
             // Mouse actions, for all mouse buttons...
             unsigned i;
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {
@@ -777,8 +779,6 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_GRABWITHALT_H,   l10n->input_grabwithalt);
         } else if (pnmh->code == PSN_APPLY && have_to_apply ) {
             int i;
-            wchar_t txt[10];
-
             // Action without click
             i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_GRABWITHALT));
             WritePrivateProfileString(L"Input", L"GrabWithAlt", kb_actions[i].action, inipath);
@@ -802,7 +802,6 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 {
     static int have_to_apply = 0;
     if (msg == WM_INITDIALOG) {
-        wchar_t txt[1024];
         BOOL haveProcessBL = HaveProc("PSAPI.DLL", "GetModuleFileNameExW");
         ReadOptionStr(IDC_PROCESSBLACKLIST, L"Blacklist", L"Processes", L"");
         Button_Enable(GetDlgItem(hwnd, IDC_PROCESSBLACKLIST), haveProcessBL);
@@ -860,7 +859,6 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
             SetDlgItemText(hwnd, IDC_FINDWINDOW_BOX         , l10n->blacklist_findwindow_box);
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Save to the config
-            wchar_t txt[1024];
             WriteOptionStr(IDC_PROCESSBLACKLIST, L"Blacklist", L"Processes");
             WriteOptionStr(IDC_BLACKLIST,        L"Blacklist", L"Windows");
             WriteOptionStr(IDC_SCROLLLIST,       L"Blacklist", L"Scroll");
@@ -1003,8 +1001,6 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
     static HWND testwnd=NULL;
     static int have_to_apply = 0;
     if (msg == WM_INITDIALOG) {
-        wchar_t txt[10];
-
         ReadOptionInt(IDC_AUTOREMAXIMIZE,   L"Advanced", L"AutoRemaximize", 0, -1);
         ReadOptionInt(IDC_AEROTOPMAXIMIZES, L"Advanced", L"AeroTopMaximizes", 1, 1);// bit 1
         ReadOptionInt(IDC_AERODBCLICKSHIFT, L"Advanced", L"AeroTopMaximizes", 1, 2);// bit 2
@@ -1015,7 +1011,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         ReadOptionInt(IDC_MAXWITHLCLICK,    L"General", L"MMMaximize", 1, 1); // bit 1
         ReadOptionInt(IDC_RESTOREONCLICK,   L"General", L"MMMaximize", 1, 2); // bit 2
 
-        ReadOptionStr(IDC_CENTERFRACTION,L"General", L"CenterFraction", L"24");
+        ReadOptionStr(IDC_CENTERFRACTION,L"General",  L"CenterFraction",L"24");
         ReadOptionStr(IDC_AEROHOFFSET,   L"General",  L"AeroHoffset",   L"50");
         ReadOptionStr(IDC_AEROVOFFSET,   L"General",  L"AeroVoffset",   L"50");
         ReadOptionStr(IDC_SNAPTHRESHOLD, L"Advanced", L"SnapThreshold", L"20");
@@ -1084,7 +1080,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Apply or OK button was pressed.
             // Save settings
-            wchar_t txt[10];
+            wchar_t txt[8];
             int val;
             WriteOptionBool(IDC_MULTIPLEINSTANCES, L"Advanced", L"MultipleInstances");
             WriteOptionBool(IDC_AUTOREMAXIMIZE,    L"Advanced", L"AutoRemaximize");

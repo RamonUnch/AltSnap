@@ -401,7 +401,7 @@ struct strings en_US = {
  /* volume             */ L"Volume",
  /* menu               */ L"Action menu",
  /* transparency       */ L"Transparency",
- /* hscroll            */ L"Horizontal scroll",
+ /* hscroll            */ L"&Horizontal scroll:",
 
  /* hotkeys */
  /* box                */ L"Hotkeys",
@@ -439,7 +439,7 @@ struct strings en_US = {
  /* aerospeed        */   L"Ma&x snapping speed (pixels):",
  /* testwindow       */   L"Test &Window",
  /* movetrans        */   L"Opacit&y when moving:",
- 
+
  /* behavior_box     */   L"Behavior",
  /* multipleinstances*/   L"Allow multiple &instances of AltDrag",
  /* autoremaximize   */   L"Automatically &remaximize windows when changing monitor",

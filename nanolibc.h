@@ -162,9 +162,9 @@ static int wcscmp_rstar(const wchar_t *__restrict__ a, const wchar_t *__restrict
     a--;
     while(*b) b++;
     b--;
-    if(*ob != '*' && a-oa != b-ob) 
-        return 1; 
-    
+    if(*ob != '*' && a-oa != b-ob)
+        return 1;
+
     while(a > oa && b > ob && *a == *b) { a--; b--; }
 
     return (*a != *b) & (*b != '*');
@@ -271,7 +271,7 @@ static unsigned whex2u(const wchar_t *s)
     unsigned ret=0;
     while(*s && *s != L' ')
        ret = ret << 4 | h2u(*s++) ;
-    
+
     return ret;
 }
 

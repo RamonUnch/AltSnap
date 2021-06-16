@@ -33,7 +33,7 @@ static void UnhookMouse();
 static void HookMouse();
 
 // Enumerators
-enum button { BT_NONE=0, BT_LMB=0x01, BT_RMB=0x02, BT_MMB=0x04, BT_MB4=0x05, BT_MB5=0x06 };
+enum button { BT_NONE=0, BT_LMB=0x02, BT_RMB=0x03, BT_MMB=0x04, BT_MB4=0x05, BT_MB5=0x06 };
 enum resize { RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER };
 enum cursor { HAND, SIZENWSE, SIZENESW, SIZENS, SIZEWE, SIZEALL };
 
@@ -59,16 +59,16 @@ static void FinishMovement();
 #define SNBOTTOMRIGHT (SNBOTTOM|SNRIGHT)
 #define SNAPPEDSIDE   (SNTOPLEFT|SNBOTTOMRIGHT)
 
-#define PureLeft(flag)    ( (flag&SNLEFT) &&  !(flag&(SNTOP|SNBOTTOM))  )
-#define PureRight(flag)   ( (flag&SNRIGHT) && !(flag&(SNTOP|SNBOTTOM))  )
-#define PureTop(flag)     ( (flag&SNTOP) && !(flag&(SNLEFT|SNRIGHT))    )
-#define PureBottom(flag)  ( (flag&SNBOTTOM) && !(flag&(SNLEFT|SNRIGHT)) )
+#define PureLeft(flag)   ( (flag&SNLEFT) &&  !(flag&(SNTOP|SNBOTTOM))  )
+#define PureRight(flag)  ( (flag&SNRIGHT) && !(flag&(SNTOP|SNBOTTOM))  )
+#define PureTop(flag)    ( (flag&SNTOP) && !(flag&(SNLEFT|SNRIGHT))    )
+#define PureBottom(flag) ( (flag&SNBOTTOM) && !(flag&(SNLEFT|SNRIGHT)) )
 
 struct wnddata {
+    unsigned restore;
     HWND hwnd;
     int width;
     int height;
-    unsigned restore;
 };
 struct {
     struct wnddata items[NUMWNDDB];
@@ -207,7 +207,7 @@ struct {
     struct hotkeys_s Killkey;
 
     struct {
-        enum action LMB, MMB, RMB, MB4, MB5, Scroll;
+        enum action LMB, RMB, MMB, MB4, MB5, Scroll, HScroll;
     } Mouse;
 } conf;
 
@@ -292,10 +292,10 @@ static pure int blacklistedP(HWND hwnd, struct blacklist *list)
 }
 
 // To clamp width and height of windows
-static int CLAMPW(int width)  { return CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x); }
-static int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state.mmi.Max.y); }
+static pure int CLAMPW(int width)  { return CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x); }
+static pure int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state.mmi.Max.y); }
 
-static inline int IsResizable(HWND hwnd)
+static int IsResizable(HWND hwnd)
 {
     return (conf.ResizeAll || GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME);
 }
@@ -914,6 +914,11 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 
     return !ret;
 }
+static void MoveWindowInThread(struct windowRR *lw)
+{
+    DWORD lpThreadId;
+    CloseHandle(CreateThread(NULL, STACK, MoveWindowThread, lw, 0, &lpThreadId));
+}
 ///////////////////////////////////////////////////////////////////////////
 // use snwnds[numsnwnds].wnd / .flag
 static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeight, int *bottomHeight, const RECT *mon)
@@ -1122,14 +1127,10 @@ static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *w
 // Get action of button
 static pure enum action GetAction(enum button button)
 {
-    switch (button) {
-    case BT_LMB: return conf.Mouse.LMB;
-    case BT_MMB: return conf.Mouse.MMB;
-    case BT_RMB: return conf.Mouse.RMB;
-    case BT_MB4: return conf.Mouse.MB4;
-    case BT_MB5: return conf.Mouse.MB5;
-    default: return AC_NONE;
-    }
+    if (button) // Ugly pointer arithmetic (LMB <==> button == 2)
+        return *(&conf.Mouse.LMB+(button-2));
+    else
+        return AC_NONE;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -1169,7 +1170,7 @@ static void RestoreOldWin(const POINT *pt, int was_snapped, int index)
     // Restore old width/height?
     int restore = 0;
 
-    if (state.wndentry->restore & index && !state.origin.maximized) {
+    if (state.wndentry->restore & index && !(state.origin.maximized&&state.wndentry->restore&2)) {
         // Set origin width and height to the saved values
         restore = state.wndentry->restore;
         state.origin.width = state.wndentry->width;
@@ -1190,7 +1191,7 @@ static void RestoreOldWin(const POINT *pt, int was_snapped, int index)
                        / max(wnd.bottom-wnd.top,1);
     }
     if (state.origin.maximized || was_snapped == 1) {
-        if (state.wndentry->restore&3 || restore&3) {
+        if (state.wndentry->restore&ROLLED || restore&ROLLED) {
             // if we restore a  Rolled Maximized window...
             state.offset.y = GetSystemMetrics(SM_CYMIN)/2;
         }
@@ -1462,8 +1463,7 @@ static void MouseMove(POINT pt)
         if (ShouldResizeTouching()) {
             ResizeTouchingWindows(posx, posy, wndwidth, wndheight);
         }
-        DWORD lpThreadId;
-        CloseHandle(CreateThread(NULL, STACK, MoveWindowThread, &LastWin, 0, &lpThreadId));
+        MoveWindowInThread(&LastWin);
         state.moving = 1;
     } else {
         Sleep(0);
@@ -1484,7 +1484,7 @@ static void Send_KEY(unsigned char vkey)
 ///////////////////////////////////////////////////////////////////////////
 static void RestrictToCurentMonitor()
 {
-    if(state.action || state.alt) {
+    if (state.action || state.alt) {
         POINT pt;
         GetCursorPos(&pt);
         state.origin.maximized = 0;
@@ -1683,7 +1683,6 @@ static HWND GetClass_HideIfTooltip(POINT pt, HWND hwnd, wchar_t *classname, size
 }
 /////////////////////////////////////////////////////////////////////////////
 // 1.44
-#define WM_ALTHSCROLL 0x0000
 static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
 {
     // Get window and foreground window
@@ -1714,8 +1713,7 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
 
     // Change WM_MOUSEWHEEL to WM_MOUSEHWHEEL if shift is being depressed
     // Introduced in Vista and far from all programs have implemented it.
-    if (wParam == WM_ALTHSCROLL // Force Horizontal Scroll!
-    || (wParam == WM_MOUSEWHEEL && (GetAsyncKeyState(conf.HScrollKey) &0x8000))) {
+    if ((wParam == WM_MOUSEWHEEL && (GetAsyncKeyState(conf.HScrollKey) &0x8000))) {
         wParam = WM_MOUSEHWHEEL;
         wp = -wp ; // Up is left, down is right
     }
@@ -1765,7 +1763,7 @@ static int ActionAltTab(POINT pt, int delta)
     if (conf.MDI && !blacklisted(root, &BlkLst.MDIs)) {
 
         // Get Class and Hide if tooltip
-        wchar_t classname[100] = L"";
+        wchar_t classname[32] = L"";
         hwnd = GetClass_HideIfTooltip(pt, hwnd, classname, ARR_SZ(classname));
 
         if (hwnd) {
@@ -1957,13 +1955,13 @@ static void ActionLower(POINT *ptt, HWND hwnd, int delta, UCHAR shift)
         if (shift) {
             Maximize_Restore_atpt(hwnd, ptt, SW_TOGGLE_MAX_RESTORE, NULL);
         } else {
-            if(conf.AutoFocus||state.ctrl) SetForegroundWindowL(hwnd);
+            if (conf.AutoFocus || state.ctrl) SetForegroundWindowL(hwnd);
             SetWindowLevel(hwnd, HWND_TOPMOST);
             SetWindowLevel(hwnd, HWND_NOTOPMOST);
         }
     } else {
         if (shift) {
-            PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+            MinimizeWindow(hwnd);
         } else {
             if(hwnd == GetAncestor(GetForegroundWindow(), GA_ROOT)) {
                 HWND tmp = GetWindow(hwnd, GW_HWNDNEXT);
@@ -2014,7 +2012,7 @@ static void ActionMaxRestMin(POINT *ptt, HWND hwnd, int delta)
         if(maximized)
             Maximize_Restore_atpt(hwnd, ptt, SW_RESTORE, NULL);
         else
-            PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+            MinimizeWindow(hwnd);
     }
     if(conf.AutoFocus) SetForegroundWindowL(hwnd);
 }
@@ -2050,7 +2048,6 @@ static HCURSOR CursorToDraw()
     } else {
         return LoadCursor(NULL, IDC_SIZEALL);
     }
-//    return NULL;
 }
 static void UpdateCursor(POINT pt)
 {
@@ -2106,8 +2103,8 @@ static void RollWindow(HWND hwnd, int delta)
 
     if (state.wndentry->restore & ROLLED && delta <= 0) { // UNROLL
         if (state.origin.maximized) {
-            PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
-            PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+            MinimizeWindow(hwnd);
+            MaximizeWindow(hwnd);
             // state.wndentry->restore=0; // Do not clear
         } else {
             RestoreOldWin(NULL, 2, 2);
@@ -2139,7 +2136,7 @@ static int ActionMove(POINT pt, HMONITOR monitor, int button)
         if (state.shift) {
             RollWindow(state.hwnd, 0); // Roll/Unroll Window...
         } else if (state.ctrl) {
-            PostMessage(state.hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+            MinimizeWindow(state.hwnd);
         } else if (IsResizable(state.hwnd)) {
             // Toggle Maximize window
             state.action = AC_NONE; // Stop move action
@@ -2358,7 +2355,7 @@ static void TogglesAlwaysOnTop(HWND hwnd)
 static void ActionMaximize(HWND hwnd)
 {
     if (state.shift) {
-        PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+        MinimizeWindow(hwnd);
     } else if (IsResizable(hwnd)) {
         Maximize_Restore_atpt(hwnd, NULL, SW_TOGGLE_MAX_RESTORE, NULL);
     }
@@ -2367,18 +2364,15 @@ static void ActionMaximize(HWND hwnd)
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
 {
-    switch (action) {
-    case AC_MINIMIZE:    PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0); break;
-    case AC_MAXIMIZE:    ActionMaximize(hwnd); break;
-    case AC_CENTER:      CenterWindow(hwnd); break;
-    case AC_ALWAYSONTOP: TogglesAlwaysOnTop(hwnd); break;
-    case AC_BORDERLESS:  ActionBorderless(hwnd); break;
-    case AC_CLOSE:       PostMessage(hwnd, WM_CLOSE, 0, 0); break;
-    case AC_LOWER:       ActionLower(NULL, hwnd, 0, state.shift); break;
-    case AC_ROLL:        RollWindow(hwnd, 0); break;
-    case AC_KILL:        ActionKill(hwnd); break;
-    default: break;
-    }
+    if      (action==AC_MINIMIZE)    MinimizeWindow(hwnd);
+    else if (action==AC_MAXIMIZE)    ActionMaximize(hwnd);
+    else if (action==AC_CENTER)      CenterWindow(hwnd);
+    else if (action==AC_ALWAYSONTOP) TogglesAlwaysOnTop(hwnd);
+    else if (action==AC_CLOSE)       PostMessage(hwnd, WM_CLOSE, 0, 0);
+    else if (action==AC_LOWER)       ActionLower(NULL, hwnd, 0, state.shift);
+    else if (action==AC_BORDERLESS)  ActionBorderless(hwnd);
+    else if (action==AC_KILL)        ActionKill(hwnd);
+    else if (action==AC_ROLL)        RollWindow(hwnd, 0);
 }
 /////////////////////////////////////////////////////////////////////////////
 static void HideCursor()
@@ -2387,6 +2381,17 @@ static void HideCursor()
     SetWindowPos(g_mainhwnd, NULL, 0,0,0,0
         , SWP_NOMOVE|SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
     ShowWindow(g_mainhwnd, SW_HIDE);
+}
+/////////////////////////////////////////////////////////////////////////////
+static void StartSpeedMes()
+{
+    if(conf.AeroMaxSpeed < 65535)
+        SetTimer(g_timerhwnd, SPEED_TIMER, conf.AeroSpeedTau, NULL);
+}
+static void StopSpeedMes()
+{
+    if (conf.AeroMaxSpeed < 65535)
+        KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
 }
 /////////////////////////////////////////////////////////////////////////////
 static int init_movement_and_actions(POINT pt, enum action action, int button)
@@ -2483,8 +2488,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
         SetWindowTrans(state.hwnd);
         EnumOnce(NULL); // Reset enum stuff
-        if(conf.AeroMaxSpeed < 65000)
-            SetTimer(g_timerhwnd, SPEED_TIMER, conf.AeroSpeedTau, NULL);
+        StartSpeedMes(); // Speed timer
 
         int ret;
         if(state.action == AC_MOVE) {
@@ -2522,10 +2526,10 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 // Or restore an AltDrad Aero-snapped window.
 static int ActionNoAlt(POINT pt, WPARAM wParam)
 {
-    int willlower = ((conf.LowerWithMMB&1) == 1 && !state.alt)
-                 || ((conf.LowerWithMMB&2) == 2 &&  state.alt);
+    int willlower = ((conf.LowerWithMMB&1) && !state.alt)
+                 || ((conf.LowerWithMMB&2) &&  state.alt);
     if ((willlower || conf.NormRestore)
-        && !state.action && (wParam == WM_MBUTTONDOWN || wParam == WM_LBUTTONDOWN)) {
+    &&  !state.action && (wParam == WM_MBUTTONDOWN || wParam == WM_LBUTTONDOWN)) {
         HWND nhwnd = WindowFromPoint(pt);
         if (!nhwnd) return 0;
         HWND hwnd = MDIorNOT(nhwnd, &state.mdiclient);
@@ -2535,8 +2539,9 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
         int area = HitTestTimeout(nhwnd, pt.x, pt.y);
 
         if (willlower && wParam == WM_MBUTTONDOWN
-        && (area == HTCAPTION || area == HTTOP || area == HTTOPLEFT || area == HTTOPRIGHT
-          ||area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON || area == HTCLOSE)
+        && (area == HTCAPTION || (area >= HTTOP && area <= HTTOPRIGHT)
+          || area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON
+          || area == HTCLOSE || area == HTHELP)
         && !blacklisted(hwnd, &BlkLst.MMBLower)) {
             ActionLower(NULL, hwnd, 0, state.shift);
             return 1;
@@ -2558,7 +2563,7 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
         RestoreOldWin(&pt, 2, 1);
         conf.NormRestore = 1;
     }
-    return -1;
+    return -1; // fall through...
 }
 /////////////////////////////////////////////////////////////////////////////
 static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
@@ -2601,16 +2606,16 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
             return 0;
     }
     int ret=1;
-    switch (conf.Mouse.Scroll) {
-    case AC_ALTTAB:       ret = ActionAltTab(pt, delta); break;
-    case AC_VOLUME:       ret = ActionVolume(delta); break;
-    case AC_TRANSPARENCY: ret = ActionTransparency(hwnd, delta); break;
-    case AC_LOWER:        ActionLower(&pt, hwnd, delta, state.shift); break;
-    case AC_MAXIMIZE:     ActionMaxRestMin(&pt, hwnd, delta); break;
-    case AC_ROLL:         RollWindow(hwnd, delta); break;
-    case AC_HSCROLL:      ret = ScrollPointedWindow(pt, -delta, WM_MOUSEHWHEEL); break;
-    default: ret = 0;
-    }
+    enum action action = (wParam == WM_MOUSEWHEEL)? conf.Mouse.Scroll: conf.Mouse.HScroll;
+
+    if (action == AC_ALTTAB)            ret = ActionAltTab(pt, delta);
+    else if (action == AC_VOLUME)       ret = ActionVolume(delta);
+    else if (action == AC_TRANSPARENCY) ret = ActionTransparency(hwnd, delta);
+    else if (action == AC_LOWER)        ActionLower(&pt, hwnd, delta, state.shift);
+    else if (action == AC_MAXIMIZE)     ActionMaxRestMin(&pt, hwnd, delta);
+    else if (action == AC_ROLL)         RollWindow(hwnd, delta);
+    else if (action == AC_HSCROLL)      ret = ScrollPointedWindow(pt, -delta, WM_MOUSEHWHEEL);
+
     state.blockaltup = ret; // block or not;
     return ret; // block or next hook
 }
@@ -2625,19 +2630,17 @@ static void FinishMovement()
             if(state.action == AC_RESIZE) ResizeAllSnappedWindowsAsync();
         }
 
-        if(IsWindow(LastWin.hwnd)) {
-            DWORD lpThreadId;
+        if (IsWindow(LastWin.hwnd)) {
             LastWin.end = 1;
-            CloseHandle(CreateThread(NULL, STACK, MoveWindowThread, &LastWin, 0, &lpThreadId));
+            MoveWindowInThread(&LastWin);
         }
     }
-    if(conf.AeroMaxSpeed < 65000)
-        KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
+    StopSpeedMes();
 
     // Auto Remaximize if option enabled and conditions are met.
-    if(conf.AutoRemaximize && state.moving
-      && (state.origin.maximized||state.origin.fullscreen)
-      && !state.shift && !state.mdiclient && state.action == AC_MOVE) {
+    if (conf.AutoRemaximize && state.moving
+    && (state.origin.maximized || state.origin.fullscreen)
+    && !state.shift && !state.mdiclient && state.action == AC_MOVE) {
         state.action = AC_NONE;
         POINT pt;
         GetCursorPos(&pt);
@@ -2799,6 +2802,11 @@ static void HookMouse()
     if (!mousehook)
         return ;
 }
+static void DeleteDCPEN()
+{
+    if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
+    if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL; }
+}
 /////////////////////////////////////////////////////////////////////////////
 static void UnhookMouse()
 {
@@ -2808,14 +2816,12 @@ static void UnhookMouse()
     state.shift = 0;
     state.ignorectrl = 0;
     state.moving = 0;
+    DeleteDCPEN();
 
     SetWindowTrans(NULL);
-    if(conf.AeroMaxSpeed < 65000)
-        KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
+    StopSpeedMes();
 
     if (conf.NormRestore) conf.NormRestore = 1;
-    if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
-    if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL; }
 
     HideCursor();
 
@@ -2895,14 +2901,14 @@ static void freeblacklists()
         free(list->items);
         list->items = NULL;
         list->length = 0;
+        list++;
     }
 }
 /////////////////////////////////////////////////////////////////////////////
 // To be called before Free Library. Ideally it should free everything
 __declspec(dllexport) void Unload()
 {
-    if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
-    if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL; }
+    DeleteDCPEN();
 
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
     UnregisterClass(APP_NAME"-Timers", hinstDLL);
@@ -3064,6 +3070,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {L"MB4",        L"Nothing", &conf.Mouse.MB4},
         {L"MB5",        L"Nothing", &conf.Mouse.MB5},
         {L"Scroll",     L"Nothing", &conf.Mouse.Scroll},
+        {L"HScroll",    L"Nothing", &conf.Mouse.HScroll},
         {L"GrabWithAlt",L"Nothing", &conf.GrabWithAlt},
         {NULL}
     };
@@ -3101,7 +3108,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     readhotkeys(inipath, L"Killkeys", L"09 4C 2E",&conf.Killkey);
 
     conf.ToggleRzMvKey = readsinglekey(inipath, L"ToggleRzMvKey", L"");
-    conf.HScrollKey= readsinglekey(inipath, L"HScrollKey", L"10"); // VK_SHIFT
+    conf.HScrollKey = readsinglekey(inipath, L"HScrollKey", L"10"); // VK_SHIFT
 
     // Zero-out wnddb hwnds
     for (i=0; i < NUMWNDDB; i++) {

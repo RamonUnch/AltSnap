@@ -100,9 +100,9 @@ static wchar_t *itowL(unsigned num, wchar_t *str, int base)
 
     /* In standard itoa(), negative numbers are handled only with
      * base 10. Otherwise numbers are considered unsigned. */
-    if (*(int*)&num < 0 && base == 10) {
+    if ((int)num < 0 && base == 10) {
         isNegative = 1;
-        num = -*(int*)&num;
+        num = -(int)num;
     }
 
     /* Process individual digits */
@@ -155,8 +155,8 @@ static int wcscmp_star(const wchar_t *__restrict__ a, const wchar_t *__restrict_
 /* Reverse of the above function */
 static int wcscmp_rstar(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 {
-    if(!b) return 0;
     const wchar_t *oa = a, *ob=b;
+    if(!b) return 0;
 
     while(*a) a++;
     a--;

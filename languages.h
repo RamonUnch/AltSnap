@@ -88,6 +88,7 @@ struct strings {
 
   wchar_t *input_aggressive_pause;
   wchar_t *input_aggressive_kill;
+  wchar_t *input_scrolllockstate;
   wchar_t *input_keycombo;
   wchar_t *input_grabwithalt;
 
@@ -236,6 +237,7 @@ struct {
 
   { &l10n_ini.input_aggressive_pause,          L"InputAggressivePause" },
   { &l10n_ini.input_aggressive_kill,           L"InputAggressiveKill" },
+  { &l10n_ini.input_scrolllockstate,           L"InputScrollLockState" },
   { &l10n_ini.input_keycombo,                  L"InputKeyCombo" },
   { &l10n_ini.input_grabwithalt,               L"InputGrabWithAlt" },
 
@@ -381,6 +383,7 @@ struct strings en_US = {
 
  /* Aggressive Pause   */ L"&Pause process on Alt+Shift+Pause (Alt+Pause to resume)",
  /* Aggressive Kill    */ L"&Kill process on Ctrl+Alt+F4\nAlso adds the kill option to the action menu",
+ /* scroll lock state  */ L"Enable/Disable AltDrag based on &Scroll lock state",
  /* KeyCombo           */ L"Use two keys &combo to activate",
  /* GrabWithAlt        */ L"&Action without click:",
 

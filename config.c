@@ -23,9 +23,9 @@ HWND g_cfgwnd = NULL;
 
 /////////////////////////////////////////////////////////////////////////////
 // No error reporting since we don't want the user to be interrupted
-static void CheckAutostart(int *on, int *hidden, int *elevated)
+static void CheckAutostart(int *_on, int *_hidden, int *_elevated)
 {
-    *on = *hidden = *elevated = 0;
+    *_on = *_hidden = *_elevated = 0;
     // Read registry
     HKEY key;
     wchar_t value[MAX_PATH+20] = L"";
@@ -45,17 +45,17 @@ static void CheckAutostart(int *on, int *hidden, int *elevated)
         return;
     }
     // Autostart is on, check arguments
-    *on = 1;
+    *_on = 1;
     if (wcsstr(value, L" -hide") != NULL) {
-        *hidden = 1;
+        *_hidden = 1;
     }
     if (wcsstr(value, L" -elevate") != NULL) {
-        *elevated = 1;
+        *_elevated = 1;
     }
 }
 
 /////////////////////////////////////////////////////////////////////////////
-static void SetAutostart(int on, int hide, int elevate)
+static void SetAutostart(int on, int hhide, int eelevate)
 {
     // Open key
     HKEY key;
@@ -71,8 +71,8 @@ static void SetAutostart(int on, int hide, int elevate)
         unsigned ll = wcslen(value);
         value[ll] = '\"'; value[++ll]='\0';
         // Add -hide or -elevate flags
-        if(hide)    wcscat(value, L" -hide");
-        if(elevate) wcscat(value, L" -elevate");
+        if(hhide)    wcscat(value, L" -hide");
+        if(eelevate) wcscat(value, L" -elevate");
         // Set autostart
         RegSetValueEx(key, APP_NAME, 0, REG_SZ, (LPBYTE)value, (wcslen(value)+1)*sizeof(value[0]));
     } else {
@@ -260,13 +260,13 @@ static DWORD IsUACEnabled()
 // Helper functions and Macro
 #define IsChecked(idc) Button_GetCheck(GetDlgItem(hwnd, idc))
 #define IsCheckedW(idc) _itow(Button_GetCheck(GetDlgItem(hwnd, idc)), txt, 10)
-static void WriteOptionBoolW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, wchar_t *inipath)
+static void WriteOptionBoolW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name)
 {
     wchar_t txt[8];
     WritePrivateProfileString(section, name,_itow(Button_GetCheck(GetDlgItem(hwnd, id)), txt, 10), inipath);
 }
-#define WriteOptionBool(id, section, name) WriteOptionBoolW(hwnd, id, section, name, inipath)
-static void WriteOptionBoolBW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, wchar_t *inipath, int bit)
+#define WriteOptionBool(id, section, name) WriteOptionBoolW(hwnd, id, section, name)
+static void WriteOptionBoolBW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, int bit)
 {
     wchar_t txt[8];
     int val = GetPrivateProfileInt(section, name, 0, inipath);
@@ -277,31 +277,31 @@ static void WriteOptionBoolBW(HWND hwnd, WORD id, wchar_t *section, wchar_t *nam
 
     WritePrivateProfileString(section, name,_itow(val, txt, 10), inipath);
 }
-#define WriteOptionBoolB(id, section, name, bit) WriteOptionBoolBW(hwnd, id, section, name, inipath, bit)
+#define WriteOptionBoolB(id, section, name, bit) WriteOptionBoolBW(hwnd, id, section, name, bit)
 
-static void WriteOptionStrW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, wchar_t *inipath)
+static void WriteOptionStrW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name)
 {
     wchar_t txt[1024];
     Edit_GetText(GetDlgItem(hwnd, id), txt, ARR_SZ(txt));
     WritePrivateProfileString(section, name, txt, inipath);
 }
-#define WriteOptionStr(id, section, name)  WriteOptionStrW(hwnd, id, section, name, inipath)
+#define WriteOptionStr(id, section, name)  WriteOptionStrW(hwnd, id, section, name)
 
-static void ReadOptionStrW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, wchar_t *def, wchar_t *inipath)
+static void ReadOptionStrW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, wchar_t *def)
 {
     wchar_t txt[1024];
     GetPrivateProfileString(section, name, def, txt, ARR_SZ(txt), inipath);
     SetDlgItemText(hwnd, id, txt);
 }
-#define ReadOptionStr(id, section, name, def) ReadOptionStrW(hwnd, id, section, name, def, inipath)
+#define ReadOptionStr(id, section, name, def) ReadOptionStrW(hwnd, id, section, name, def)
 
-static int ReadOptionIntW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, int def, wchar_t *inipath, int mask)
+static int ReadOptionIntW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, int def, int mask)
 {
     int ret = GetPrivateProfileInt(section, name, def, inipath);
     Button_SetCheck(GetDlgItem(hwnd, id), (ret&mask)? BST_CHECKED: BST_UNCHECKED);
     return ret;
 }
-#define ReadOptionInt(id, section, name, def, mask) ReadOptionIntW(hwnd, id, section, name, def, inipath, mask)
+#define ReadOptionInt(id, section, name, def, mask) ReadOptionIntW(hwnd, id, section, name, def, mask)
 
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -367,11 +367,11 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             updatestrings = 1;
 
             // Autostart
-            int autostart = 0, hidden = 0, elevated = 0;
-            CheckAutostart(&autostart, &hidden, &elevated);
+            int autostart = 0, hidden = 0, eelevated = 0;
+            CheckAutostart(&autostart, &hidden, &eelevated);
             Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOSTART), autostart ? BST_CHECKED : BST_UNCHECKED);
             Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE), hidden ? BST_CHECKED : BST_UNCHECKED);
-            Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), elevated ? BST_CHECKED : BST_UNCHECKED);
+            Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), eelevated ? BST_CHECKED : BST_UNCHECKED);
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE), autostart);
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), autostart && VISTA);
             if(WIN10) Button_Enable(GetDlgItem(hwnd, IDC_INACTIVESCROLL), IsChecked(IDC_INACTIVESCROLL));
@@ -526,7 +526,7 @@ static void CheckConfigHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *ho
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-static void SaveHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *name, wchar_t *inipath)
+static void SaveHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *name)
 {
     wchar_t keys[32];
     // Get the current config in case there are some user added keys.
@@ -545,7 +545,7 @@ struct actiondl {
     wchar_t *action;
     wchar_t *l10n;
 };
-static void FillActionDropListS(HWND hwnd, int idc, wchar_t *inioption, struct actiondl *actions, wchar_t *inipath)
+static void FillActionDropListS(HWND hwnd, int idc, wchar_t *inioption, struct actiondl *actions)
 {
     HWND control = GetDlgItem(hwnd, idc);
     wchar_t txt[64];
@@ -634,11 +634,11 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             // Mouse actions
             unsigned i;
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {
-                FillActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option, mouse_actions, inipath);
+                FillActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option, mouse_actions);
             }
             // Scroll actions
-            FillActionDropListS(hwnd, IDC_SCROLL,  L"Scroll",  scroll_actions, inipath);
-            FillActionDropListS(hwnd, IDC_HSCROLL, L"HScroll", scroll_actions, inipath);
+            FillActionDropListS(hwnd, IDC_SCROLL,  L"Scroll",  scroll_actions);
+            FillActionDropListS(hwnd, IDC_HSCROLL, L"HScroll", scroll_actions);
 
             // Update text
             SetDlgItemText(hwnd, IDC_MOUSE_BOX,       l10n->input_mouse_box);
@@ -675,7 +675,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             WriteOptionBoolB(IDC_LOWERWITHMMB,     L"Input", L"LowerWithMMB", 0);
             WriteOptionBool(IDC_ROLLWITHTBSCROLL, L"Input", L"RollWithTBScroll");
             // Hotclicks
-            SaveHotKeys(hotclicks, hwnd, L"Hotclicks", inipath);
+            SaveHotKeys(hotclicks, hwnd, L"Hotclicks");
             UpdateSettings();
             have_to_apply = 0;
         }
@@ -733,6 +733,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         ReadOptionInt(IDC_AGGRESSIVEPAUSE, L"Input",   L"AggressivePause", 0, -1);
         Button_Enable(GetDlgItem(hwnd, IDC_AGGRESSIVEPAUSE), HaveProc("NTDLL.DLL", "NtResumeProcess"));
         ReadOptionInt(IDC_AGGRESSIVEKILL, L"Input", L"AggressiveKill", 0, -1);
+        ReadOptionInt(IDC_SCROLLLOCKSTATE,  L"Input", L"ScrollLockState",0, -1);
         ReadOptionInt(IDC_KEYCOMBO,       L"Input", L"KeyCombo", 0, -1);
         CheckConfigHotKeys(hotkeys, hwnd, L"Hotkeys", L"A4 A5");
     } else if (msg == WM_COMMAND) {
@@ -745,7 +746,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // GrabWithAlt
-            FillActionDropListS(hwnd, IDC_GRABWITHALT, L"GrabWithAlt", kb_actions, inipath);
+            FillActionDropListS(hwnd, IDC_GRABWITHALT, L"GrabWithAlt", kb_actions);
 
             // ToggleRzMvKey init
             wchar_t txt[64];
@@ -766,6 +767,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_KEYBOARD_BOX,    l10n->tab_keyboard);
             SetDlgItemText(hwnd, IDC_AGGRESSIVEPAUSE, l10n->input_aggressive_pause);
             SetDlgItemText(hwnd, IDC_AGGRESSIVEKILL,  l10n->input_aggressive_kill);
+            SetDlgItemText(hwnd, IDC_SCROLLLOCKSTATE,   l10n->input_scrolllockstate);
             SetDlgItemText(hwnd, IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box);
             SetDlgItemText(hwnd, IDC_TOGGLERZMVKEY_H, l10n->input_hotkeys_togglerzmvkey);
             SetDlgItemText(hwnd, IDC_LEFTALT,         l10n->input_hotkeys_leftalt);
@@ -784,11 +786,12 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             WritePrivateProfileString(L"Input", L"GrabWithAlt", kb_actions[i].action, inipath);
             WriteOptionBool(IDC_AGGRESSIVEPAUSE, L"Input", L"AggressivePause");
             WriteOptionBool(IDC_AGGRESSIVEKILL,  L"Input", L"AggressiveKill");
+            WriteOptionBool(IDC_SCROLLLOCKSTATE,   L"Input", L"ScrollLockState");
             // Invert move/resize key.
             i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_TOGGLERZMVKEY));
             WritePrivateProfileString(L"Input", L"ToggleRzMvKey", togglekeys[i].action, inipath);
             // Hotkeys
-            SaveHotKeys(hotkeys, hwnd, L"Hotkeys", inipath);
+            SaveHotKeys(hotkeys, hwnd, L"Hotkeys");
             WriteOptionBool(IDC_KEYCOMBO,  L"Input", L"KeyCombo");
             UpdateSettings();
             have_to_apply = 0;

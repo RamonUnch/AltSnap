@@ -201,6 +201,7 @@ struct {
     UCHAR SmartAero;
     UCHAR StickyResize;
     UCHAR HScrollKey;
+    UCHAR ScrollLockState;
 
     struct hotkeys_s Hotkeys;
     struct hotkeys_s Hotclick;
@@ -1232,9 +1233,9 @@ static int ShouldResizeTouching()
           || (conf.StickyResize==2 && !state.shift)
         );
 }
-static void DrawRect(HDC hdcc, const RECT *rc)
+static void DrawRect(HDC hdcl, const RECT *rc)
 {
-    Rectangle(hdcc, rc->left, rc->top, rc->right, rc->bottom);
+    Rectangle(hdcl, rc->left, rc->top, rc->right, rc->bottom);
 }
 ///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
@@ -1567,13 +1568,14 @@ static void SetForegroundWindowL(HWND hwnd)
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    if (nCode != HC_ACTION || state.ignorectrl) return CallNextHookEx(NULL, nCode, wParam, lParam);
+    if (nCode != HC_ACTION || state.ignorectrl 
+    || (conf.ScrollLockState && !(GetKeyState(VK_SCROLL)&1))) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     unsigned char vkey = ((PKBDLLHOOKSTRUCT)lParam)->vkCode;
 
     if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
         if (!state.alt && (!conf.KeyCombo || (state.alt1 && state.alt1 != vkey)) && IsHotkey(vkey)) {
-            // Update state
+            // Update state && (GetKeyState(VK_SCROLL)&1)
             state.alt = vkey;
             state.blockaltup = 0;
             state.blockmouseup = 0;
@@ -2200,7 +2202,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, const RECT *wnd, const RECT
         state.blockmouseup = 1; // Block the mouseup
 
         // Get and set new position
-        int posx, posy, wndwidth, wndheight;
+        int posx, posy; // wndwidth and wndheight are defined above
         int restore = 1;
         RECT bd;
         FixDWMRect(state.hwnd, &bd);
@@ -2208,8 +2210,6 @@ static int ActionResize(POINT pt, POINT mdiclientpt, const RECT *wnd, const RECT
         if(!state.shift ^ !(conf.AeroTopMaximizes&2)) { /* Extend window's borders to monitor */
             posx = wnd->left - mdiclientpt.x;
             posy = wnd->top - mdiclientpt.y;
-            wndwidth = wnd->right - wnd->left;
-            wndheight= wnd->bottom - wnd->top;
 
             if (state.resize.y == RZ_TOP) {
                 posy = mon->top - bd.top;
@@ -2676,7 +2676,7 @@ static void FinishMovement()
 // pressed, or is always on when conf.keepMousehook is enabled.
 static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    if (nCode != HC_ACTION)
+    if (nCode != HC_ACTION || (conf.ScrollLockState && !(GetKeyState(VK_SCROLL)&1)))
         return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     // Set up some variables
@@ -2767,7 +2767,7 @@ static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lPara
             UnhookMouse();
             return CallNextHookEx(NULL, nCode, wParam, lParam);
         }
-        int ret = init_movement_and_actions(pt, action, button);
+        ret = init_movement_and_actions(pt, action, button);
         if(!ret) return CallNextHookEx(NULL, nCode, wParam, lParam);
         else     return 1; // block mousedown
 
@@ -2893,7 +2893,7 @@ static LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 }
 static void freeblacklists()
 {
-    struct blacklist *list = (void*)&BlkLst;
+    struct blacklist *list = (void *)&BlkLst;
     unsigned i;
     for (i=0; i< sizeof(BlkLst)/sizeof(struct blacklist); i++) {
         free(list->data);
@@ -2983,7 +2983,7 @@ static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist
 // Used to read Hotkeys and Hotclicks
 static void readhotkeys(const wchar_t *inipath, const wchar_t *name, const wchar_t *def, struct hotkeys_s *HK)
 {
-    wchar_t txt[32];
+    wchar_t txt[64];
 
     GetPrivateProfileString(L"Input", name, def, txt, ARR_SZ(txt), inipath);
     wchar_t *pos = txt;
@@ -3102,6 +3102,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AggressiveKill  = GetPrivateProfileInt(L"Input", L"AggressiveKill",  0, inipath);
     conf.RollWithTBScroll= GetPrivateProfileInt(L"Input", L"RollWithTBScroll",0, inipath);
     conf.KeyCombo        = GetPrivateProfileInt(L"Input", L"KeyCombo",        0, inipath);
+    conf.ScrollLockState = GetPrivateProfileInt(L"Input", L"ScrollLockState", 0, inipath);
 
     readhotkeys(inipath, L"Hotkeys",  L"A4 A5",   &conf.Hotkeys);
     readhotkeys(inipath, L"Hotclicks",L"",        &conf.Hotclick);

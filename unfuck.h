@@ -82,8 +82,8 @@ MMRESULT (WINAPI *mywaveOutSetVolume)(HWAVEOUT hwo, DWORD dwVolume);
 /* Removes the trailing file name from a path */
 static BOOL PathRemoveFileSpecL(LPTSTR p)
 {
-    if (!p) return FALSE;
     int i=0;
+    if (!p) return FALSE;
 
     while(p[++i] != '\0');
     while(i > 0 && p[i] != '\\') i--;
@@ -133,9 +133,9 @@ static HWND GetAncestorL(HWND hwnd, UINT gaFlags)
 {
     static char have_func=HAVE_FUNC;
     HWND hlast, hprevious;
+    LONG wlong;
     if(!hwnd) return NULL;
     hprevious = hwnd;
-    LONG wlong;
 
     if (have_func < 0) {
         myGetAncestor=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "GetAncestor");
@@ -187,6 +187,8 @@ static BOOL SetLayeredWindowAttributesL(HWND hwnd, COLORREF crKey, BYTE bAlpha, 
 static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
 {
     static char have_func=HAVE_FUNC;
+    static char saved=0;
+    static RECT rcWork, rcMonitor;
 
     if (have_func < 0) { /* First time */
         myGetMonitorInfoW=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "GetMonitorInfoW");
@@ -195,8 +197,6 @@ static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
     if(have_func) { /* We know we have the function */
         if(hMonitor) return myGetMonitorInfoW(hMonitor, lpmi);
     }
-    static int saved=0;
-    static RECT rcWork, rcMonitor;
     if (!saved) {
         GetClientRect(GetDesktopWindow(), &rcMonitor);
         SystemParametersInfo(SPI_GETWORKAREA, 0, &rcWork, 0);
@@ -214,6 +214,7 @@ static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
 static BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, LPARAM dwData)
 {
     static char have_func=HAVE_FUNC;
+    MONITORINFO mi;
 
     if (have_func < 0) { /* First time */
         myEnumDisplayMonitors=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "EnumDisplayMonitors");
@@ -222,7 +223,6 @@ static BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfn
     if (have_func) { /* We know we have the function */
         return myEnumDisplayMonitors(hdc, lprcClip, lpfnEnum, dwData);
     }
-    MONITORINFO mi;
     GetMonitorInfoL(NULL, &mi);
 
     lpfnEnum(NULL, NULL, &mi.rcMonitor, 0); // Callback function
@@ -420,9 +420,10 @@ DWORD GetProcessImageFileNameL(HANDLE hProcess, LPWSTR lpImageFileName, DWORD   
 static DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
 {
     DWORD pid;
-    GetWindowThreadProcessId(hwnd, &pid);
-    HANDLE proc = OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ, FALSE, pid);
+    HANDLE proc;
     DWORD ret=0;
+    GetWindowThreadProcessId(hwnd, &pid);
+    proc = OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ, FALSE, pid);
 
     if (proc) ret = GetModuleFileNameExL(proc, NULL, title, title_len);
     else proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
@@ -489,14 +490,16 @@ static int HitTestTimeoutL(HWND hwnd, LPARAM lParam)
 static int IsWindowSnapped(HWND hwnd)
 {
     RECT rect;
-    if(!GetWindowRect(hwnd, &rect)) return 0;
-    int W = rect.right  - rect.left;
-    int H = rect.bottom - rect.top;
-
+    int W, H, nW, nH;
     WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+
+    if(!GetWindowRect(hwnd, &rect)) return 0;
+    W = rect.right  - rect.left;
+    H = rect.bottom - rect.top;
+
     GetWindowPlacement(hwnd, &wndpl);
-    int nW = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
-    int nH = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
+    nW = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
+    nH = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
 
     return (W != nW || H != nH);
 }

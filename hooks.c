@@ -1568,7 +1568,7 @@ static void SetForegroundWindowL(HWND hwnd)
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    if (nCode != HC_ACTION || state.ignorectrl 
+    if (nCode != HC_ACTION || state.ignorectrl
     || (conf.ScrollLockState && !(GetKeyState(VK_SCROLL)&1))) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     unsigned char vkey = ((PKBDLLHOOKSTRUCT)lParam)->vkCode;
@@ -1748,60 +1748,64 @@ static BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
     // Only store window if it's visible, not minimized
     // to taskbar and on the same monitor as the cursor
     if (IsWindowVisible(window) && !IsIconic(window)
-     && (GetWindowLongPtr(window, GWL_STYLE)&WS_CAPTION) == WS_CAPTION
-     && state.origin.monitor == MonitorFromWindow(window, MONITOR_DEFAULTTONULL)
-    ) {
+    && (GetWindowLongPtr(window, GWL_STYLE)&WS_CAPTION) == WS_CAPTION
+    && state.origin.monitor == MonitorFromWindow(window, MONITOR_DEFAULTTONULL)) {
         hwnds[numhwnds++] = window;
     }
     return TRUE;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int ActionAltTab(POINT pt, int delta)
+static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_)
 {
-    numhwnds = 0;
-    HWND hwnd = WindowFromPoint(pt);
+    HWND mdiclient = NULL;
     HWND root = GetAncestor(hwnd, GA_ROOT);
 
     if (conf.MDI && !blacklisted(root, &BlkLst.MDIs)) {
+        while (hwnd != root) {
+            HWND parent = GetParent(hwnd);
+            LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+            if ((exstyle&WS_EX_MDICHILD)) {
+                // Found MDI child, parent is now MDIClient window
+                mdiclient = parent;
+                break;
+            }
+            hwnd = parent;
+        }
+    } else {
+        hwnd = root;
+    }
+    *mdiclient_ = mdiclient;
+    return hwnd;
+}
+/////////////////////////////////////////////////////////////////////////////
+static int ActionAltTab(POINT pt, int delta)
+{
+    numhwnds = 0;
 
+    if (conf.MDI) {
         // Get Class and Hide if tooltip
         wchar_t classname[32] = L"";
+        HWND hwnd = WindowFromPoint(pt);
         hwnd = GetClass_HideIfTooltip(pt, hwnd, classname, ARR_SZ(classname));
 
-        if (hwnd) {
-            // Get MDIClient
-            HWND mdiclient = NULL;
-            if (!wcscmp(classname, L"MDIClient")) {
-                mdiclient = hwnd;
-            } else {
-                while (hwnd != NULL) {
-                    HWND parent = GetParent(hwnd);
-                    LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
-                    if (exstyle&WS_EX_MDICHILD) {
-                        mdiclient = parent;
-                        break;
-                    }
-                    hwnd = parent;
-                }
-            }
-            // Enumerate and then reorder MDI windows
-            if (mdiclient != NULL) {
-                hwnd = GetWindow(mdiclient, GW_CHILD);
-                while (hwnd != NULL) {
-                    if (numhwnds == hwnds_alloc) {
-                        hwnds_alloc += 8;
-                        hwnds = realloc(hwnds, hwnds_alloc*sizeof(HWND));
-                    }
-                    hwnds[numhwnds++] = hwnd;
-                    hwnd = GetWindow(hwnd, GW_HWNDNEXT);
-                }
-                if (numhwnds > 1) {
-                    if (delta > 0) {
-                        PostMessage(mdiclient, WM_MDIACTIVATE, (WPARAM) hwnds[numhwnds-1], 0);
-                    } else {
-                        SetWindowLevel(hwnds[0], hwnds[numhwnds-1]);
-                        PostMessage(mdiclient, WM_MDIACTIVATE, (WPARAM) hwnds[1], 0);
-                    }
+        if (!hwnd) return 0;
+        // Get MDIClient
+        HWND mdiclient = NULL;
+        if (!wcscmp(classname, L"MDIClient")) {
+            mdiclient = hwnd; // we are pointing to the MDI client!
+        } else {
+            MDIorNOT(hwnd, &mdiclient); // Get mdiclient from hwnd
+        }
+        // Enumerate and then reorder MDI windows
+        if (mdiclient) {
+            EnumChildWindows(mdiclient, EnumAltTabWindows, 0);
+
+            if (numhwnds > 1) {
+                if (delta > 0) {
+                    PostMessage(mdiclient, WM_MDIACTIVATE, (WPARAM) hwnds[numhwnds-1], 0);
+                } else {
+                    SetWindowLevel(hwnds[0], hwnds[numhwnds-1]);
+                    PostMessage(mdiclient, WM_MDIACTIVATE, (WPARAM) hwnds[1], 0);
                 }
             }
         }
@@ -1974,29 +1978,6 @@ static void ActionLower(POINT *ptt, HWND hwnd, int delta, UCHAR shift)
             SetWindowLevel(hwnd, HWND_BOTTOM);
         }
     }
-}
-/////////////////////////////////////////////////////////////////////////////
-static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_)
-{
-    HWND mdiclient = NULL;
-    HWND root = GetAncestor(hwnd, GA_ROOT);
-
-    if (conf.MDI && !blacklisted(root, &BlkLst.MDIs)) {
-        while (hwnd != root) {
-            HWND parent = GetParent(hwnd);
-            LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
-            if ((exstyle&WS_EX_MDICHILD)) {
-                // Found MDI child, parent is now MDIClient window
-                mdiclient = parent;
-                break;
-            }
-            hwnd = parent;
-        }
-    } else {
-        hwnd = root;
-    }
-    *mdiclient_ = mdiclient;
-    return hwnd;
 }
 /////////////////////////////////////////////////////////////////////////////
 static void ActionMaxRestMin(POINT *ptt, HWND hwnd, int delta)

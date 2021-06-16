@@ -120,8 +120,13 @@ static BOOL HaveProc(char *DLLname, char *PROCname)
 
 static void *LoadDLLProc(char *DLLname, char *PROCname)
 {
-    HINSTANCE hdll = LoadLibraryA(DLLname);
+    HINSTANCE hdll;
     void *ret = NULL;
+
+    if((hdll = GetModuleHandleA(DLLname))) {
+        return GetProcAddress(hdll, PROCname);
+    }
+    hdll = LoadLibraryA(DLLname);
     if (hdll) {
         ret = GetProcAddress(hdll, PROCname);
         if (!ret) FreeLibrary(hdll);
@@ -138,7 +143,7 @@ static HWND GetAncestorL(HWND hwnd, UINT gaFlags)
     hprevious = hwnd;
 
     if (have_func < 0) {
-        myGetAncestor=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "GetAncestor");
+        myGetAncestor=LoadDLLProc("USER32.DLL", "GetAncestor");
         have_func = !!myGetAncestor;
     }
     if(have_func) { /* We know we have the function */
@@ -159,7 +164,7 @@ static BOOL GetLayeredWindowAttributesL(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlp
     static char have_func=HAVE_FUNC;
 
     if (have_func < 0) {
-        myGetLayeredWindowAttributes=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "GetLayeredWindowAttributes");
+        myGetLayeredWindowAttributes=LoadDLLProc("USER32.DLL", "GetLayeredWindowAttributes");
         have_func=!!myGetLayeredWindowAttributes;
     }
     if (have_func) { /* We know we have the function */
@@ -174,7 +179,7 @@ static BOOL SetLayeredWindowAttributesL(HWND hwnd, COLORREF crKey, BYTE bAlpha, 
     static char have_func=HAVE_FUNC;
 
     if (have_func < 0) { /* First time */
-        mySetLayeredWindowAttributes=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "SetLayeredWindowAttributes");
+        mySetLayeredWindowAttributes=LoadDLLProc("USER32.DLL", "SetLayeredWindowAttributes");
         have_func = !!mySetLayeredWindowAttributes;
     }
     if(have_func) { /* We know we have the function */
@@ -191,7 +196,7 @@ static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
     static RECT rcWork, rcMonitor;
 
     if (have_func < 0) { /* First time */
-        myGetMonitorInfoW=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "GetMonitorInfoW");
+        myGetMonitorInfoW=LoadDLLProc("USER32.DLL", "GetMonitorInfoW");
         have_func = !!myGetMonitorInfoW;
     }
     if(have_func) { /* We know we have the function */
@@ -217,7 +222,7 @@ static BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfn
     MONITORINFO mi;
 
     if (have_func < 0) { /* First time */
-        myEnumDisplayMonitors=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "EnumDisplayMonitors");
+        myEnumDisplayMonitors=LoadDLLProc("USER32.DLL", "EnumDisplayMonitors");
         have_func = !!myEnumDisplayMonitors;
     }
     if (have_func) { /* We know we have the function */
@@ -236,7 +241,7 @@ static HMONITOR MonitorFromPointL(POINT pt, DWORD dwFlags)
     static char have_func=HAVE_FUNC;
 
     if (have_func < 0) { /* First time */
-        myMonitorFromPoint=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "MonitorFromPoint");
+        myMonitorFromPoint=LoadDLLProc("USER32.DLL", "MonitorFromPoint");
         have_func = !!myMonitorFromPoint;
     }
     if (have_func) { /* We know we have the function */
@@ -251,7 +256,7 @@ static HMONITOR MonitorFromWindowL(HWND hwnd, DWORD dwFlags)
     static char have_func=HAVE_FUNC;
 
     if (have_func < 0) { /* First time */
-        myMonitorFromWindow=(void *)GetProcAddress(GetModuleHandleA("USER32.DLL"), "MonitorFromWindow");
+        myMonitorFromWindow=LoadDLLProc("USER32.DLL", "MonitorFromWindow");
         have_func = !!myMonitorFromWindow;
     }
     if(have_func) { /* We know we have the function */
@@ -329,7 +334,7 @@ static LONG NtSuspendProcessL(HANDLE ProcessHandle)
     static char have_func=HAVE_FUNC;
 
     if (have_func < 0) { /* First time */
-        myNtSuspendProcess=(void *)GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtSuspendProcess");
+        myNtSuspendProcess=LoadDLLProc("NTDLL.DLL", "NtSuspendProcess");
         have_func = !!myNtSuspendProcess;
     }
     if (have_func) { /* We know we have the function */
@@ -344,7 +349,7 @@ static LONG NtResumeProcessL(HANDLE ProcessHandle)
     static char have_func=HAVE_FUNC;
 
     if (have_func < 0) { /* First time */
-        myNtResumeProcess=(void *)GetProcAddress(GetModuleHandleA("NTDLL.DLL"), "NtResumeProcess");
+        myNtResumeProcess=LoadDLLProc("NTDLL.DLL", "NtResumeProcess");
         have_func =  !!myNtResumeProcess;
     }
     if (have_func) { /* We know we have the function */

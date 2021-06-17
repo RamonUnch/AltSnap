@@ -646,21 +646,27 @@ static void EnumOnce(RECT **bd)
     }
 }
 ///////////////////////////////////////////////////////////////////////////
-static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
+static void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight)
 {
-    RECT *borders;
-    EnumOnce(&borders);
+    RECT *bd;
     if (!state.snap || state.Speed > (int)conf.AeroMaxSpeed) return;
+    EnumOnce(&bd);
+    int posx = *_posx + bd->left;
+    int posy = *_posy + bd->top;
+    wndwidth  -= bd->left + bd->right;
+    wndheight -= bd->top + bd->bottom;
 
     // thresholdx and thresholdy will shrink to make sure
     // the dragged window will snap to the closest windows
-    int i, j, thresholdx, thresholdy, stuckx=0, stucky=0, stickx=0, sticky=0;
+    int i, j, stickx=0, sticky=0;
+    short thresholdx, thresholdy;
+    UCHAR stuckx=0, stucky=0;
     thresholdx = thresholdy = conf.SnapThreshold;
 
     // Loop monitors and windows
     for (i=0, j=0; i < nummonitors || j < numwnds; ) {
         RECT snapwnd;
-        int snapinside;
+        UCHAR snapinside;
 
         // Get snapwnd
         if (i < nummonitors) {
@@ -674,88 +680,87 @@ static void MoveSnap(int *posx, int *posy, int wndwidth, int wndheight)
         }
 
         // Check if posx snaps
-        if (IsInRangeT(*posy, snapwnd.top, snapwnd.bottom, thresholdx)
-        ||  IsInRangeT(snapwnd.top, *posy, *posy+wndheight, thresholdx)) {
-            int snapinside_cond = (snapinside || *posy + wndheight - thresholdx < snapwnd.top
-                                  || snapwnd.bottom < *posy + thresholdx);
-            if (IsEqualT(snapwnd.right, *posx, thresholdx)) {
+        if (IsInRangeT(posy, snapwnd.top, snapwnd.bottom, thresholdx)
+        ||  IsInRangeT(snapwnd.top, posy, posy+wndheight, thresholdx)) {
+            UCHAR snapinside_cond = (snapinside || posy + wndheight - thresholdx < snapwnd.top
+                                  || snapwnd.bottom < posy + thresholdx);
+            if (IsEqualT(snapwnd.right, posx, thresholdx)) {
                 // The left edge of the dragged window will snap to this window's right edge
                 stuckx = 1;
-                stickx = snapwnd.right - borders->left;
-                thresholdx = snapwnd.right-*posx;
-            } else if (snapinside_cond && IsEqualT(snapwnd.right, *posx+wndwidth, thresholdx)) {
+                stickx = snapwnd.right;
+                thresholdx = snapwnd.right-posx;
+            } else if (snapinside_cond && IsEqualT(snapwnd.right, posx+wndwidth, thresholdx)) {
                 // The right edge of the dragged window will snap to this window's right edge
                 stuckx = 1;
-                stickx = snapwnd.right + borders->right - wndwidth;
-                thresholdx = snapwnd.right-(*posx+wndwidth);
-            } else if (snapinside_cond && IsEqualT(snapwnd.left, *posx, thresholdx)) {
+                stickx = snapwnd.right - wndwidth;
+                thresholdx = snapwnd.right-(posx+wndwidth);
+            } else if (snapinside_cond && IsEqualT(snapwnd.left, posx, thresholdx)) {
                 // The left edge of the dragged window will snap to this window's left edge
                 stuckx = 1;
-                stickx = snapwnd.left - borders->left;
-                thresholdx = snapwnd.left-*posx;
-            } else if (IsEqualT(snapwnd.left, *posx+wndwidth, thresholdx)) {
+                stickx = snapwnd.left;
+                thresholdx = snapwnd.left-posx;
+            } else if (IsEqualT(snapwnd.left, posx+wndwidth, thresholdx)) {
                 // The right edge of the dragged window will snap to this window's left edge
                 stuckx = 1;
-                stickx = snapwnd.left + borders->right -wndwidth;
-                thresholdx = snapwnd.left-(*posx+wndwidth);
+                stickx = snapwnd.left - wndwidth;
+                thresholdx = snapwnd.left-(posx+wndwidth);
             }
         }// end if posx snaps
 
         // Check if posy snaps
-        if (IsInRangeT(*posx, snapwnd.left, snapwnd.right, thresholdy)
-         || IsInRangeT(snapwnd.left, *posx, *posx+wndwidth, thresholdy)) {
-            int snapinside_cond = (snapinside || *posx + wndwidth - thresholdy < snapwnd.left
-                                  || snapwnd.right < *posx+thresholdy);
-            if (IsEqualT(snapwnd.bottom, *posy, thresholdy)) {
+        if (IsInRangeT(posx, snapwnd.left, snapwnd.right, thresholdy)
+         || IsInRangeT(snapwnd.left, posx, posx+wndwidth, thresholdy)) {
+            UCHAR snapinside_cond = (snapinside || posx + wndwidth - thresholdy < snapwnd.left
+                                  || snapwnd.right < posx+thresholdy);
+            if (IsEqualT(snapwnd.bottom, posy, thresholdy)) {
                 // The top edge of the dragged window will snap to this window's bottom edge
                 stucky = 1;
-                sticky = snapwnd.bottom - borders->top;
-                thresholdy = snapwnd.bottom-*posy;
-            } else if (snapinside_cond && IsEqualT(snapwnd.bottom, *posy+wndheight, thresholdy)) {
+                sticky = snapwnd.bottom;
+                thresholdy = snapwnd.bottom-posy;
+            } else if (snapinside_cond && IsEqualT(snapwnd.bottom, posy+wndheight, thresholdy)) {
                 // The bottom edge of the dragged window will snap to this window's bottom edge
                 stucky = 1;
-                sticky = snapwnd.bottom + borders->bottom - wndheight;
-                thresholdy = snapwnd.bottom-(*posy+wndheight);
-            } else if (snapinside_cond && IsEqualT(snapwnd.top, *posy, thresholdy)) {
+                sticky = snapwnd.bottom - wndheight;
+                thresholdy = snapwnd.bottom-(posy+wndheight);
+            } else if (snapinside_cond && IsEqualT(snapwnd.top, posy, thresholdy)) {
                 // The top edge of the dragged window will snap to this window's top edge
                 stucky = 1;
-                sticky = snapwnd.top - borders->top;
-                thresholdy = snapwnd.top-*posy;
-            } else if (IsEqualT(snapwnd.top, *posy+wndheight, thresholdy)) {
+                sticky = snapwnd.top;
+                thresholdy = snapwnd.top-posy;
+            } else if (IsEqualT(snapwnd.top, posy+wndheight, thresholdy)) {
                 // The bottom edge of the dragged window will snap to this window's top edge
                 stucky = 1;
-                sticky = snapwnd.top-wndheight + borders->bottom;
-                thresholdy = snapwnd.top-(*posy+wndheight);
+                sticky = snapwnd.top-wndheight;
+                thresholdy = snapwnd.top-(posy+wndheight);
             }
         } // end if posy snaps
     } // end for
 
     // Update posx and posy
     if (stuckx) {
-        *posx = stickx;
+        *_posx = stickx - bd->left;
     }
     if (stucky) {
-        *posy = sticky;
+        *_posy = sticky - bd->top;
     }
 }
 
 ///////////////////////////////////////////////////////////////////////////
 static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 {
-    RECT *borders;
-    EnumOnce(&borders);
     if(!state.snap || state.Speed > (int)conf.AeroMaxSpeed) return;
 
     // thresholdx and thresholdy will shrink to make sure
     // the dragged window will snap to the closest windows
-    int i, j, thresholdx, thresholdy;
-    int stuckleft=0, stucktop=0, stuckright=0, stuckbottom=0
-      , stickleft=0, sticktop=0, stickright=0, stickbottom=0;
+    int i, j;
+    short thresholdx, thresholdy;
+    UCHAR stuckleft=0, stucktop=0, stuckright=0, stuckbottom=0;
+    int stickleft=0, sticktop=0, stickright=0, stickbottom=0;
     thresholdx = thresholdy = conf.SnapThreshold;
     // Loop monitors and windows
     for (i=0, j=0; i < nummonitors || j < numwnds;) {
         RECT snapwnd;
-        int snapinside;
+        UCHAR snapinside;
 
         // Get snapwnd
         if (i < nummonitors) {
@@ -772,7 +777,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
         if (IsInRangeT(*posy, snapwnd.top, snapwnd.bottom, thresholdx)
          || IsInRangeT(snapwnd.top, *posy, *posy + *wndheight, thresholdx)) {
 
-            int snapinside_cond = (snapinside || *posy+*wndheight-thresholdx < snapwnd.top
+            UCHAR snapinside_cond = (snapinside || *posy+*wndheight-thresholdx < snapwnd.top
                                   || snapwnd.bottom < *posy+thresholdx);
             if (state.resize.x == RZ_LEFT
             && IsEqualT(snapwnd.right, *posx, thresholdx)) {
@@ -805,7 +810,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
         if (IsInRangeT(*posx, snapwnd.left, snapwnd.right, thresholdy)
          || IsInRangeT(snapwnd.left, *posx, *posx+*wndwidth, thresholdy)) {
 
-            int snapinside_cond = (snapinside || *posx+*wndwidth-thresholdy < snapwnd.left
+            UCHAR snapinside_cond = (snapinside || *posx+*wndwidth-thresholdy < snapwnd.left
                                 || snapwnd.right < *posx+thresholdy);
             if (state.resize.y == RZ_TOP
             && IsEqualT(snapwnd.bottom, *posy, thresholdy)) {
@@ -835,6 +840,8 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
         }
     } // end for
 
+    RECT *borders;
+    EnumOnce(&borders);
     // Update posx, posy, wndwidth and wndheight
     if (stuckleft) {
         *wndwidth = *wndwidth+*posx-stickleft + borders->left;
@@ -1423,7 +1430,7 @@ static void MouseMove(POINT pt)
         }
     }
     // LastWin is GLOBAL !
-    int mouse_thread_finished = !LastWin.hwnd;
+    UCHAR mouse_thread_finished = !LastWin.hwnd;
     LastWin.hwnd   = state.hwnd;
     LastWin.end    = 0;
     LastWin.x      = posx;
@@ -1886,9 +1893,8 @@ static int ActionVolume(int delta)
             VolumeStep = (_VolumeStep)(pAudioEndpoint->lpVtbl->VolumeStepUp);
 
         // Hold shift to make 5 steps
-        int i;
-        int num = (state.shift)?5:1;
-
+        UCHAR i;
+        UCHAR num = (state.shift)?5:1;
         for (i=0; i < num; i++) {
             hr = VolumeStep(pAudioEndpoint, NULL);
         }
@@ -2132,7 +2138,7 @@ static int ActionMove(POINT pt, HMONITOR monitor, int button)
     } else if (conf.MMMaximize&2) {
         MouseMove(pt); // Restore with simple Click
     }
-    return -1;
+    return 0;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2278,7 +2284,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, const RECT *wnd, const RECT
         }
     }
 
-    return -1;
+    return 0;
 }
 /////////////////////////////////////////////////////////////////////////////
 static void ActionBorderless(HWND hwnd)
@@ -2596,7 +2602,8 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     else if (action == AC_MAXIMIZE)     ActionMaxRestMin(&pt, hwnd, delta);
     else if (action == AC_ROLL)         RollWindow(hwnd, delta);
     else if (action == AC_HSCROLL)      ret = ScrollPointedWindow(pt, -delta, WM_MOUSEHWHEEL);
-
+    
+    // ret is 0: next hook or 1: block mousedown and AltUp.
     state.blockaltup = ret; // block or not;
     return ret; // block or next hook
 }

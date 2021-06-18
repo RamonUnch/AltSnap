@@ -19,9 +19,8 @@
 #define APP_NAME L"AltDrag"
 
 // Boring stuff
-#define INIT_TIMER      WM_APP+1
-#define REHOOK_TIMER    WM_APP+2
-#define SPEED_TIMER     WM_APP+3
+#define REHOOK_TIMER    WM_APP+1
+#define SPEED_TIMER     WM_APP+2
 
 #define CURSOR_ONLY 66
 #define NOT_MOVED 33
@@ -78,7 +77,6 @@ struct {
 RECT oldRect;
 HDC hdcc;
 HPEN hpenDot_Global=NULL;
-HDWP hWinPosInfo;
 
 struct windowRR {
     HWND hwnd;
@@ -137,11 +135,11 @@ struct {
 
 // Snap
 RECT *monitors = NULL;
-int nummonitors = 0;
+unsigned nummonitors = 0;
 RECT *wnds = NULL;
-int numwnds = 0;
+unsigned numwnds = 0;
 HWND *hwnds = NULL;
-int numhwnds = 0;
+unsigned numhwnds = 0;
 HWND progman = NULL;
 
 // Settings
@@ -316,7 +314,7 @@ static void SetWindowTrans(HWND hwnd)
     static HWND oldhwnd;
     if (conf.MoveTrans == 0 || conf.MoveTrans == 255 || !conf.FullWin) return;
 
-    if(hwnd) {
+    if (hwnd) {
         oldhwnd = hwnd;
         LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
         if (exstyle&WS_EX_LAYERED) {
@@ -339,7 +337,7 @@ static void SetWindowTrans(HWND hwnd)
 
 /////////////////////////////////////////////////////////////////////////////
 // Enumerate callback proc
-int monitors_alloc = 0;
+unsigned monitors_alloc = 0;
 static BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
 {
     // Make sure we have enough space allocated
@@ -373,7 +371,7 @@ static int ShouldSnapTo(HWND window)
            || blacklisted(window,&BlkLst.Snaplist));
 }
 /////////////////////////////////////////////////////////////////////////////
-int wnds_alloc = 0;
+unsigned wnds_alloc = 0;
 static BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
@@ -401,7 +399,7 @@ static BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
             CropRect(&wnd, &mi.rcWork);
         }
         // Return if this window is overlapped by another window
-        int i;
+        unsigned i;
         for (i=0; i < numwnds; i++) {
             if (RectInRect(&wnds[i], &wnd)) {
                 return TRUE;
@@ -421,8 +419,8 @@ struct snwdata {
     unsigned flag;
 };
 struct snwdata *snwnds;
-int numsnwnds = 0;
-int snwnds_alloc = 0;
+unsigned numsnwnds = 0;
+unsigned snwnds_alloc = 0;
 static pure struct wnddata *GetWindowInDB(HWND hwndd);
 static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 {
@@ -500,7 +498,7 @@ static BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
             OffsetRectMDI(&wnd, state.mdiclient);
 
             // Return if this window is overlapped by another window
-            int i;
+            unsigned i;
             for (i=0; i < numsnwnds; i++) {
                 if (RectInRect(&snwnds[i].wnd, &wnd)) {
                     return TRUE;
@@ -524,7 +522,7 @@ static void ResizeTouchingWindows(int posx, int posy, int width, int height)
     posx += bd->left; posy += bd->top;
     width -= bd->left+bd->right;
     height -= bd->top+bd->bottom;
-    int i;
+    unsigned i;
     for (i=0; i < numsnwnds; i++) {
         RECT *nwnd = &snwnds[i].wnd;
         unsigned flag = snwnds[i].flag;
@@ -562,7 +560,7 @@ static void ResizeTouchingWindows(int posx, int posy, int width, int height)
 /////////////////////////////////////////////////////////////////////////////
 static void ResizeAllSnappedWindowsAsync()
 {
-    int i;
+    unsigned i;
     for (i=0; i < numsnwnds; i++) {
         if(snwnds[i].flag&TORESIZE) {
             RECT bd;
@@ -658,7 +656,8 @@ static void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight)
 
     // thresholdx and thresholdy will shrink to make sure
     // the dragged window will snap to the closest windows
-    int i, j, stickx=0, sticky=0;
+    unsigned i, j;
+    int stickx=0, sticky=0;
     short thresholdx, thresholdy;
     UCHAR stuckx=0, stucky=0;
     thresholdx = thresholdy = conf.SnapThreshold;
@@ -752,7 +751,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 
     // thresholdx and thresholdy will shrink to make sure
     // the dragged window will snap to the closest windows
-    int i, j;
+    unsigned i, j;
     short thresholdx, thresholdy;
     UCHAR stuckleft=0, stucktop=0, stuckright=0, stuckbottom=0;
     int stickleft=0, sticktop=0, stickright=0, stickbottom=0;
@@ -1136,7 +1135,7 @@ static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *w
 static pure enum action GetAction(enum button button)
 {
     if (button) // Ugly pointer arithmetic (LMB <==> button == 2)
-        return *(&conf.Mouse.LMB+(button-2));
+        return *(&conf.Mouse.LMB-2+button);
     else
         return AC_NONE;
 }
@@ -1529,9 +1528,10 @@ static int ActionPause(HWND hwnd, char pause)
         if (ProcessHandle) {
             if (pause) NtSuspendProcess(ProcessHandle);
             else       NtResumeProcess(ProcessHandle);
+
+            CloseHandle(ProcessHandle);
+            return 1;
         }
-        CloseHandle(ProcessHandle);
-        return 1;
     }
     return 0;
 }
@@ -1743,7 +1743,7 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
     return 1;
 }
 /////////////////////////////////////////////////////////////////////////////
-int hwnds_alloc = 0;
+unsigned hwnds_alloc = 0;
 static BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
@@ -1840,10 +1840,10 @@ static int ActionAltTab(POINT pt, int delta)
 /////////////////////////////////////////////////////////////////////////////
 // Under Vista this will change the main volume with ole interface,
 // Under NT4-XP, this will change the waveOut volume.
-static int ActionVolume(int delta)
+static void ActionVolume(int delta)
 {
     static int HaveV=-1;
-    static HINSTANCE hOLE32DLL=NULL, hMMdll=NULL;
+    static HINSTANCE hOLE32DLL=NULL;
     if (HaveV == -1) {
         hOLE32DLL = LoadLibraryA("OLE32.DLL");
         if(hOLE32DLL){
@@ -1874,17 +1874,17 @@ static int ActionVolume(int delta)
             myCoUninitialize();
             FreeLibrary(hOLE32DLL);
             HaveV = 2;
-            return 0;
+            return;
         }
 
         hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(pDevEnumerator, eRender, eMultimedia, &pDev);
         IMMDeviceEnumerator_Release(pDevEnumerator);
-        if (hr != S_OK) return 0;
+        if (hr != S_OK) return;
 
         hr = IMMDevice_Activate(pDev, &my_IID_IAudioEndpointVolume, CLSCTX_ALL
                                     , NULL, (void**)&pAudioEndpoint);
         IMMDevice_Release(pDev);
-        if (hr != S_OK) return 0;
+        if (hr != S_OK) return;
 
         // Function pointer so we only need one for-loop
         typedef HRESULT WINAPI (*_VolumeStep)(IAudioEndpointVolume*, LPCGUID pguidEventContext);
@@ -1903,13 +1903,10 @@ static int ActionVolume(int delta)
         myCoUninitialize();
     } else {
         if (HaveV == 2) {
-            if (!hMMdll) hMMdll = LoadLibraryA("WINMM.DLL");
-            if (!hMMdll) return 0;
-            mywaveOutGetVolume = (void *)GetProcAddress(hMMdll, "waveOutGetVolume");
-            mywaveOutSetVolume = (void *)GetProcAddress(hMMdll, "waveOutSetVolume");
+            mywaveOutGetVolume = LoadDLLProc("WINMM.DLL", "waveOutGetVolume");
+            mywaveOutSetVolume = LoadDLLProc("WINMM.DLL", "waveOutSetVolume");
             if(!mywaveOutSetVolume  || !mywaveOutGetVolume) {
-                FreeLibrary(hMMdll); hMMdll=NULL;
-                return 0;
+                return;
             }
             HaveV = 3;
         }
@@ -1927,7 +1924,7 @@ static int ActionVolume(int delta)
         Volume = ( ((DWORD)leftV) << 16 ) | ( (DWORD)rightV );
         mywaveOutSetVolume(NULL, Volume);
     }
-    return 1;
+    return;
 }
 /////////////////////////////////////////////////////////////////////////////
 // Windows 2000+ Only
@@ -2596,13 +2593,13 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     enum action action = (wParam == WM_MOUSEWHEEL)? conf.Mouse.Scroll: conf.Mouse.HScroll;
 
     if (action == AC_ALTTAB)            ret = ActionAltTab(pt, delta);
-    else if (action == AC_VOLUME)       ret = ActionVolume(delta);
+    else if (action == AC_VOLUME)       ActionVolume(delta);
     else if (action == AC_TRANSPARENCY) ret = ActionTransparency(hwnd, delta);
     else if (action == AC_LOWER)        ActionLower(&pt, hwnd, delta, state.shift);
     else if (action == AC_MAXIMIZE)     ActionMaxRestMin(&pt, hwnd, delta);
     else if (action == AC_ROLL)         RollWindow(hwnd, delta);
     else if (action == AC_HSCROLL)      ret = ScrollPointedWindow(pt, -delta, WM_MOUSEHWHEEL);
-    
+
     // ret is 0: next hook or 1: block mousedown and AltUp.
     state.blockaltup = ret; // block or not;
     return ret; // block or next hook
@@ -2829,15 +2826,7 @@ static void UnhookMouse()
 static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_TIMER) {
-        if (wParam == INIT_TIMER) {
-            KillTimer(g_timerhwnd, INIT_TIMER);
-
-            // Hook mouse if a permanent hook is needed
-            if (conf.keepMousehook) {
-                HookMouse();
-                SetTimer(g_timerhwnd, REHOOK_TIMER, 5000, NULL); // Start rehook timer
-            }
-        } else if (wParam == REHOOK_TIMER) {
+        if (wParam == REHOOK_TIMER) {
             // Silently rehook hooks if they have been stopped (>= Win7 and LowLevelHooksTimeout)
             // This can often happen if locking or sleeping the computer a lot
             POINT pt;
@@ -2994,6 +2983,16 @@ static unsigned char readsinglekey(const wchar_t *inipath, const wchar_t *name, 
     return 0;
 }
 ///////////////////////////////////////////////////////////////////////////
+// Create a window for msessages handeling.
+static HWND KreateMsgWin(WNDPROC proc, wchar_t *name)
+{
+    WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0, proc, 0, 0, hinstDLL
+                     , NULL, NULL, NULL, NULL, name, NULL };
+    RegisterClassEx(&wnd);
+    return CreateWindowEx(0, wnd.lpszClassName, NULL, 0
+                     , 0, 0, 0, 0, g_mainhwnd, NULL, hinstDLL, NULL);
+}
+///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.
 __declspec(dllexport) void Load(HWND mainhwnd)
 {
@@ -3108,22 +3107,11 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     // Capture main hwnd from caller. This is also the cursor wnd
     g_mainhwnd = mainhwnd;
 
-    // Create window for timers
-    WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0, TimerWindowProc, 0, 0, hinstDLL
-                     , NULL, NULL, NULL, NULL, APP_NAME"-Timers", NULL };
-    RegisterClassEx(&wnd);
-    g_timerhwnd = CreateWindowEx(0, wnd.lpszClassName, NULL, 0
-                     , 0, 0, 0, 0, g_mainhwnd, NULL, hinstDLL, NULL);
-    // Create a timer to do further initialization
-    SetTimer(g_timerhwnd, INIT_TIMER, 10, NULL);
+    g_timerhwnd = KreateMsgWin(TimerWindowProc, APP_NAME"-Timers");
 
     // Window for Action Menu
     if (action_menu_load) {
-        WNDCLASSEX wnd2 = { sizeof(WNDCLASSEX), 0, SClickWindowProc, 0, 0, hinstDLL
-                         , NULL, NULL, NULL, NULL, APP_NAME"-SClick", NULL };
-        RegisterClassEx(&wnd2);
-        g_mchwnd = CreateWindowEx(0, wnd2.lpszClassName, NULL, 0
-                         , 0, 0, 0 , 0, g_mainhwnd, NULL, hinstDLL, NULL);
+          g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
     }
     readblacklist(inipath, &BlkLst.Processes, L"Processes");
     readblacklist(inipath, &BlkLst.Windows,   L"Windows");
@@ -3135,6 +3123,11 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     readblacklist(inipath, &BlkLst.SSizeMove, L"SSizeMove");
 
     conf.keepMousehook = ((conf.LowerWithMMB&1)|conf.NormRestore|conf.InactiveScroll|conf.Hotclick.length);
+    // Hook mouse if a permanent hook is needed
+    if (conf.keepMousehook) {
+        HookMouse();
+        SetTimer(g_timerhwnd, REHOOK_TIMER, 5000, NULL); // Start rehook timer
+    }
 }
 /////////////////////////////////////////////////////////////////////////////
 // Do not forget the -e_DllMain@12 for gcc...

@@ -22,7 +22,7 @@ static size_t wcscpy_noaccel(wchar_t *__restrict__ dest, wchar_t *__restrict__ s
             i++;
             i += source[i] == ' '; // Remove space after ) if there is one.
         } else {
-            j += source[i] != '&' && source[i] != ':';
+            j += source[i] != '&';
             i++;
         }
     }

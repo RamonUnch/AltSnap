@@ -80,6 +80,7 @@ struct strings {
   wchar_t *input_mouse_mb4;
   wchar_t *input_mouse_mb5;
   wchar_t *input_mouse_scroll;
+  wchar_t *input_mouse_hscroll;
   wchar_t *input_mouse_lowerwithmmb;
   wchar_t *input_mouse_rollwithtbscroll;
   wchar_t *input_mouse_mmb_hc;
@@ -229,6 +230,7 @@ struct {
   { &l10n_ini.input_mouse_mb4,                 L"InputMouseMB4" },
   { &l10n_ini.input_mouse_mb5,                 L"InputMouseMB5" },
   { &l10n_ini.input_mouse_scroll,              L"InputMouseScroll" },
+  { &l10n_ini.input_mouse_hscroll,             L"InputMouseHScroll" },
   { &l10n_ini.input_mouse_lowerwithmmb,        L"InputMouseLowerWithMMB" },
   { &l10n_ini.input_mouse_rollwithtbscroll,    L"InputMouseRollWithTBScroll" },
   { &l10n_ini.input_mouse_mmb_hc,              L"InputMouseMMBHC" },
@@ -375,6 +377,7 @@ struct strings en_US = {
  /* mb4                */ L"Mouse button &4:",
  /* mb5                */ L"Mouse button &5:",
  /* scroll             */ L"&Scroll wheel:",
+ /* hscroll            */ L"Scroll wheel (&horizontal):",
  /* lowerwithmmb       */ L"&Lower windows by middle clicking on title bars",
  /* rollwithtbscroll   */ L"&Roll/Unroll windows with Alt+Scroll on title bars",
  /* mmb_hr             */ L"M&iddle mouse button",
@@ -404,7 +407,7 @@ struct strings en_US = {
  /* volume             */ L"Volume",
  /* menu               */ L"Action menu",
  /* transparency       */ L"Transparency",
- /* hscroll            */ L"&Horizontal scroll:",
+ /* hscroll            */ L"Horizontal scroll",
 
  /* hotkeys */
  /* box                */ L"Hotkeys",

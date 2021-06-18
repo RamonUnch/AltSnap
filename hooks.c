@@ -217,7 +217,7 @@ struct blacklistitem {
 };
 struct blacklist {
     struct blacklistitem *items;
-    int length;
+    unsigned length;
     wchar_t *data;
 };
 struct {
@@ -246,7 +246,7 @@ static pure int blacklisted(HWND hwnd, struct blacklist *list)
 {
     wchar_t title[256]=L"", classname[256]=L"";
     DorQWORD mode ;
-    int i;
+    unsigned i;
 
     // Null hwnd or empty list
     if (!hwnd || !list->length)
@@ -270,7 +270,7 @@ static pure int blacklistedP(HWND hwnd, struct blacklist *list)
 {
     wchar_t title[MAX_PATH]=L"";
     DorQWORD mode ;
-    int i ;
+    unsigned i ;
 
     // Null hwnd or empty list
     if (!hwnd || !list->length)
@@ -338,7 +338,7 @@ static void SetWindowTrans(HWND hwnd)
 /////////////////////////////////////////////////////////////////////////////
 // Enumerate callback proc
 unsigned monitors_alloc = 0;
-static BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
+BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
 {
     // Make sure we have enough space allocated
     if (nummonitors >= monitors_alloc) {
@@ -372,7 +372,7 @@ static int ShouldSnapTo(HWND window)
 }
 /////////////////////////////////////////////////////////////////////////////
 unsigned wnds_alloc = 0;
-static BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
+BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
     if (numwnds >= wnds_alloc) {
@@ -422,7 +422,7 @@ struct snwdata *snwnds;
 unsigned numsnwnds = 0;
 unsigned snwnds_alloc = 0;
 static pure struct wnddata *GetWindowInDB(HWND hwndd);
-static BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
+BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 {
     // Make sure we have enough space allocated
     if (numsnwnds >= snwnds_alloc) {
@@ -475,7 +475,7 @@ static void EnumSnapped()
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-static BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
+BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
 {
     // Make sure we have enough space allocated
     if (numsnwnds >= snwnds_alloc) {
@@ -630,7 +630,7 @@ static void Enum()
 // at the next non null ptr.
 static void EnumOnce(RECT **bd)
 {
-    static int enumed;
+    static char enumed;
     static RECT borders;
     if (bd && !enumed) {
         Enum(); // Enumerate monitors and windows
@@ -898,7 +898,7 @@ static void Maximize_Restore_atpt(HWND hwnd, const POINT *pt, UINT sw_cmd, HMONI
 }
 /////////////////////////////////////////////////////////////////////////////
 // Move the windows in a thread in case it is very slow to resize
-static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
+DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
     int ret;
     HWND hwnd;
@@ -939,7 +939,7 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
     // To give precedence to the topmost windows
     int i;
     for (i=numsnwnds-1; i >= 0; i--) {
-        int flag = snwnds[i].flag;
+        unsigned flag = snwnds[i].flag;
         RECT *wnd = &snwnds[i].wnd;
         // if the window is in current monitor
         if (PtInRect(mon, (POINT) { wnd->left+16, wnd->top+16 })) {
@@ -1223,7 +1223,7 @@ static void RestoreOldWin(const POINT *pt, int was_snapped, int index)
 // Do not unclip the cursor if it was not clipped by AltDrag.
 static void ClipCursorOnce(const RECT *clip)
 {
-    static char trapped=0;
+    static int trapped=0;
     if (trapped && !clip) {
         ClipCursor(NULL);
         trapped=0;
@@ -1537,7 +1537,7 @@ static int ActionPause(HWND hwnd, char pause)
 }
 ///////////////////////////////////////////////////////////////////////////
 // Kill the process from hwnd
-static DWORD WINAPI ActionKillThread(LPVOID hwnd)
+DWORD WINAPI ActionKillThread(LPVOID hwnd)
 {
     if(!hwnd || blacklistedP(hwnd, &BlkLst.Pause))
        return 0;
@@ -1744,7 +1744,7 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
 }
 /////////////////////////////////////////////////////////////////////////////
 unsigned hwnds_alloc = 0;
-static BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
+BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
     if (numhwnds >= hwnds_alloc) {
@@ -1837,12 +1837,13 @@ static int ActionAltTab(POINT pt, int delta)
     }
     return 1;
 }
+
 /////////////////////////////////////////////////////////////////////////////
 // Under Vista this will change the main volume with ole interface,
 // Under NT4-XP, this will change the waveOut volume.
 static void ActionVolume(int delta)
 {
-    static int HaveV=-1;
+    static char HaveV=-1;
     static HINSTANCE hOLE32DLL=NULL;
     if (HaveV == -1) {
         hOLE32DLL = LoadLibraryA("OLE32.DLL");
@@ -2659,7 +2660,7 @@ static void FinishMovement()
 /////////////////////////////////////////////////////////////////////////////
 // This is somewhat the main function, it is active only when the ALT key is
 // pressed, or is always on when conf.keepMousehook is enabled.
-static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
     if (nCode != HC_ACTION || (conf.ScrollLockState && !(GetKeyState(VK_SCROLL)&1)))
         return CallNextHookEx(NULL, nCode, wParam, lParam);
@@ -2823,7 +2824,7 @@ static void UnhookMouse()
 }
 /////////////////////////////////////////////////////////////////////////////
 // Window for timers only...
-static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_TIMER) {
         if (wParam == REHOOK_TIMER) {
@@ -2855,7 +2856,7 @@ static LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 }
 /////////////////////////////////////////////////////////////////////////////
 // Window for single click commands
-static LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_COMMAND && state.sclickhwnd) {
         enum action action = wParam;

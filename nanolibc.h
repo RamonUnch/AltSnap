@@ -158,9 +158,9 @@ static int wcscmp_rstar(const wchar_t *__restrict__ a, const wchar_t *__restrict
     const wchar_t *oa = a, *ob=b;
     if(!b) return 0;
 
-    while(*a) a++;
+    while(*a++) ;
     a--;
-    while(*b) b++;
+    while(*b++) ;
     b--;
     if(*ob != '*' && a-oa != b-ob)
         return 1;

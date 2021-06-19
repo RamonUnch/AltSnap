@@ -145,8 +145,7 @@ HWND progman = NULL;
 // Settings
 #define MAXKEYS 7
 struct hotkeys_s {
-    unsigned char length;
-    unsigned char keys[MAXKEYS];
+    UCHAR keys[MAXKEYS+1];
 };
 
 struct {
@@ -229,9 +228,7 @@ struct {
     struct blacklist MMBLower;
     struct blacklist Scroll;
     struct blacklist SSizeMove;
-} BlkLst = { {NULL, 0, NULL}, {NULL, 0, NULL}, {NULL, 0, NULL}
-           , {NULL, 0, NULL}, {NULL, 0, NULL}, {NULL, 0, NULL}
-           , {NULL, 0, NULL}, {NULL, 0, NULL} };
+} BlkLst;
 
 // Cursor data
 HWND g_mainhwnd = NULL;
@@ -552,7 +549,7 @@ static void ResizeTouchingWindows(int posx, int posy, int width, int height)
         if (conf.FullWin) {
             MoveWindowAsync(hwnd, nwnd->left-nbd.left, nwnd->top-nbd.top
                       , nwnd->right - nwnd->left + nbd.left + nbd.right
-                      , nwnd->bottom - nwnd->top + nbd.top + nbd.bottom, TRUE);
+                      , nwnd->bottom - nwnd->top + nbd.top + nbd.bottom);
         }
         snwnds[i].flag = flag|TORESIZE;
     }
@@ -569,7 +566,7 @@ static void ResizeAllSnappedWindowsAsync()
             MoveWindowAsync(snwnds[i].hwnd
                 , snwnds[i].wnd.left, snwnds[i].wnd.top
                 , snwnds[i].wnd.right-snwnds[i].wnd.left
-                , snwnds[i].wnd.bottom-snwnds[i].wnd.top, TRUE);
+                , snwnds[i].wnd.bottom-snwnds[i].wnd.top);
         }
     }
 }
@@ -893,7 +890,7 @@ static void Maximize_Restore_atpt(HWND hwnd, const POINT *pt, UINT sw_cmd, HMONI
 
     SetWindowPlacement(hwnd, &wndpl);
     if (sw_cmd == SW_FULLSCREEN) {
-        MoveWindowAsync(hwnd, fmon.left, fmon.top, fmon.right-fmon.left, fmon.bottom-fmon.top, TRUE);
+        MoveWindowAsync(hwnd, fmon.left, fmon.top, fmon.right-fmon.left, fmon.bottom-fmon.top);
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -1097,7 +1094,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         // If we go too fast then donot move the window
         if(state.Speed > (int)conf.AeroMaxSpeed) return 1;
         if(conf.FullWin) {
-            MoveWindowAsync(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
+            MoveWindowAsync(state.hwnd, *posx, *posy, *wndwidth, *wndheight);
             return 1;
         }
     }
@@ -1144,11 +1141,12 @@ static pure enum action GetAction(enum button button)
 // Check if key is assigned in the HKlist
 static int pure IsHotkeyy(unsigned char key, struct hotkeys_s *HKlist)
 {
-    int i;
-    for (i=0; i < HKlist->length; i++) {
-        if (key == HKlist->keys[i]) {
+    UCHAR *pos=&HKlist->keys[0];
+    while (*pos) {
+        if (key == *pos) {
             return 1;
         }
+        pos++;
     }
     return 0;
 }
@@ -1158,10 +1156,11 @@ static int pure IsHotkeyy(unsigned char key, struct hotkeys_s *HKlist)
 /////////////////////////////////////////////////////////////////////////////
 static int IsHotKeyDown(struct hotkeys_s *hk)
 {
-    int i;
-    for (i=0; i < hk->length; i++) {
-        if (GetAsyncKeyState(hk->keys[i])&0x8000)
+    UCHAR *pos=&hk->keys[0];
+    while (*pos) {
+        if (GetAsyncKeyState(*pos)&0x8000)
             return 1;
+        pos++;
     }
     return 0;
 }
@@ -1172,7 +1171,7 @@ static int IsHotKeyDown(struct hotkeys_s *hk)
 // index 2 => Rolled window state.wndentry->restore & 2
 // state.wndentry->restore & 3 => Both 1 & 2 ie: Maximized then rolled.
 // Set was_snapped to 2 if you wan to
-static void RestoreOldWin(const POINT *pt, int was_snapped, int index)
+static void RestoreOldWin(const POINT *pt, unsigned was_snapped, unsigned index)
 {
     // Restore old width/height?
     int restore = 0;
@@ -1223,7 +1222,7 @@ static void RestoreOldWin(const POINT *pt, int was_snapped, int index)
 // Do not unclip the cursor if it was not clipped by AltDrag.
 static void ClipCursorOnce(const RECT *clip)
 {
-    static int trapped=0;
+    static char trapped=0;
     if (trapped && !clip) {
         ClipCursor(NULL);
         trapped=0;
@@ -1246,15 +1245,14 @@ static void DrawRect(HDC hdcl, const RECT *rc)
 ///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
 {
-    int posx=0, posy=0, wndwidth=100, wndheight=100;
+    int posx=0, posy=0, wndwidth=0, wndheight=0;
 
     // Check if window still exists
     if (!state.hwnd || !IsWindow(state.hwnd))
         { LastWin.hwnd = NULL; UnhookMouse(); return; }
 
     if(conf.UseCursor)
-        SetWindowPos(g_mainhwnd, NULL, pt.x-128, pt.y-128, 256, 256
-                    , SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
+        MoveWindow(g_mainhwnd, pt.x-128, pt.y-128, 256, 256, FALSE);
 
     if(state.moving == CURSOR_ONLY) return; // Movement blocked...
 
@@ -2260,7 +2258,7 @@ static int ActionResize(POINT pt, POINT mdiclientpt, const RECT *wnd, const RECT
             wndwidth += bd.left+bd.right; wndheight += bd.top+bd.bottom;
         }
 
-        MoveWindowAsync(state.hwnd, posx, posy, wndwidth, wndheight, TRUE);
+        MoveWindowAsync(state.hwnd, posx, posy, wndwidth, wndheight);
 
         if (!state.wndentry->restore) {
             state.wndentry->width = state.origin.width;
@@ -2330,7 +2328,7 @@ void CenterWindow(HWND hwnd)
         , mon.left+ ((mon.right-mon.left)-state.origin.width)/2
         , mon.top + ((mon.bottom-mon.top)-state.origin.height)/2
         , state.origin.width
-        , state.origin.height, TRUE);
+        , state.origin.height);
 }
 static void TogglesAlwaysOnTop(HWND hwnd)
 {
@@ -2908,11 +2906,12 @@ static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist
 {
     wchar_t txt[1024];
 
+    blacklist->data = NULL;
+    blacklist->length = 0;
+    blacklist->items = NULL;
+
     DWORD ret = GetPrivateProfileString(L"Blacklist", blacklist_str, L"", txt, ARR_SZ(txt), inipath);
     if(!ret || txt[0] == '\0') {
-        blacklist->data = NULL;
-        blacklist->length = 0;
-        blacklist->items = NULL;
         return;
     }
     blacklist->data = malloc((wcslen(txt)+1)*sizeof(wchar_t));
@@ -2964,15 +2963,17 @@ static void readhotkeys(const wchar_t *inipath, const wchar_t *name, const wchar
     wchar_t txt[64];
 
     GetPrivateProfileString(L"Input", name, def, txt, ARR_SZ(txt), inipath);
+    UCHAR i=0;
     wchar_t *pos = txt;
     while (*pos) {
         // Store key
-        if(HK->length == MAXKEYS) break;
-        HK->keys[HK->length++] = whex2u(pos);
+        if(i == MAXKEYS) break;
+        HK->keys[i++] = whex2u(pos);
 
         while(*pos && *pos != ' ') pos++; // go to next space
         while(*pos == ' ') pos++; // go to next char after spaces.
     }
+    HK->keys[i] = 0;
 }
 static unsigned char readsinglekey(const wchar_t *inipath, const wchar_t *name,  const wchar_t *def)
 {
@@ -3004,7 +3005,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     state.shift = 0;
     state.moving = 0;
     LastWin.hwnd = NULL;
-    conf.Hotkeys.length = 0;
 
     // Get ini path
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
@@ -3123,7 +3123,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     readblacklist(inipath, &BlkLst.Scroll,    L"Scroll");
     readblacklist(inipath, &BlkLst.SSizeMove, L"SSizeMove");
 
-    conf.keepMousehook = ((conf.LowerWithMMB&1)|conf.NormRestore|conf.InactiveScroll|conf.Hotclick.length);
+    conf.keepMousehook = ((conf.LowerWithMMB&1) || conf.NormRestore || conf.InactiveScroll || conf.Hotclick.keys[0]);
     // Hook mouse if a permanent hook is needed
     if (conf.keepMousehook) {
         HookMouse();

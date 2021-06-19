@@ -455,11 +455,11 @@ static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
 }
 
 /* Helper function to call SetWindowPos with the SWP_ASYNCWINDOWPOS flag */
-static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height, BOOL flag)
+static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height)
 {
-    flag = (!flag) * SWP_NOREDRAW;
+    /* flag = (!flag) * SWP_NOREDRAW; */
     return SetWindowPos(hwnd, NULL, posx, posy, width, height
-                      , SWP_NOACTIVATE|SWP_NOREPOSITION|SWP_ASYNCWINDOWPOS|flag);
+                      , SWP_NOACTIVATE|SWP_NOREPOSITION|SWP_ASYNCWINDOWPOS/*|flag*/);
 }
 static void MaximizeWindow(HWND hwnd)
 {

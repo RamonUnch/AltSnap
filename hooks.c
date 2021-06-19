@@ -428,18 +428,10 @@ BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
     }
 
     RECT wnd;
-    if (ShouldSnapTo(hwnd) && !IsZoomed(hwnd) && GetWindowRectL(hwnd, &wnd)) {
+    if (ShouldSnapTo(hwnd)
+    && !IsZoomed(hwnd)
+    && GetWindowRectL(hwnd, &wnd)) {
         struct wnddata *entry;
-
-        if (lParam) { // in case of Resize...
-            // Only considers windows that are
-            // touching the currently resized window
-            RECT statewnd;
-            GetWindowRectL(state.hwnd, &statewnd);
-            if(!AreRectsTouchingT(&statewnd, &wnd, conf.SnapThreshold/2)) {
-                return TRUE;
-            }
-        }
 
         if ((entry = GetWindowInDB(hwnd)) && entry->restore&SNAPPED && entry->restore&SNAPPEDSIDE) {
             snwnds[numsnwnds].flag = entry->restore;

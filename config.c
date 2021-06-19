@@ -212,25 +212,10 @@ static void UpdateStrings()
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-LRESULT CALLBACK PropSheetWinProc(
-    HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
-{
-
-    if (msg == WM_UPDATESETTINGS) {
-        UpdateStrings();
-        HWND page = PropSheet_GetCurrentPageHwnd(g_cfgwnd);
-        SendMessage(page, WM_INITDIALOG, 0, 0);
-        NMHDR pnmh = { g_cfgwnd, 0, PSN_SETACTIVE };
-        SendMessage(page, WM_NOTIFY, 0, (LPARAM) & pnmh);
-    }
-    return DefSubclassProc(hwnd, msg, wParam, lParam);;
-}
-/////////////////////////////////////////////////////////////////////////////
 BOOL CALLBACK PropSheetProc(HWND hwnd, UINT msg, LPARAM lParam)
 {
     if (msg == PSCB_INITIALIZED) {
         g_cfgwnd = hwnd;
-        SetWindowSubclass(g_cfgwnd, PropSheetWinProc, 0, 0);
         UpdateStrings();
 
         // Set new icon specifically for the taskbar and Alt+Tab, without changing window icon

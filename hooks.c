@@ -646,13 +646,13 @@ void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight)
 
     // thresholdx and thresholdy will shrink to make sure
     // the dragged window will snap to the closest windows
-    unsigned i, j;
     int stickx=0, sticky=0;
     short thresholdx, thresholdy;
     UCHAR stuckx=0, stucky=0;
     thresholdx = thresholdy = conf.SnapThreshold;
 
     // Loop monitors and windows
+    unsigned i, j;
     for (i=0, j=0; i < nummonitors || j < numwnds; ) {
         RECT snapwnd;
         UCHAR snapinside;
@@ -742,12 +742,13 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 
     // thresholdx and thresholdy will shrink to make sure
     // the dragged window will snap to the closest windows
-    unsigned i, j;
     short thresholdx, thresholdy;
     UCHAR stuckleft=0, stucktop=0, stuckright=0, stuckbottom=0;
     int stickleft=0, sticktop=0, stickright=0, stickbottom=0;
     thresholdx = thresholdy = conf.SnapThreshold;
+
     // Loop monitors and windows
+    unsigned i, j;
     for (i=0, j=0; i < nummonitors || j < numwnds;) {
         RECT snapwnd;
         UCHAR snapinside;
@@ -989,15 +990,19 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         GetMonitorRect(&pt, 0, &mon);
     }
 
-    int Left  = mon.left   + 2*AERO_TH ;
-    int Right = mon.right  - 2*AERO_TH ;
-    int Top   = mon.top    + 2*AERO_TH ;
-    int Bottom= mon.bottom - 2*AERO_TH ;
+    int pLeft  = mon.left   + AERO_TH ;
+    int pRight = mon.right  - AERO_TH ;
+    int pTop   = mon.top    + AERO_TH ;
+    int pBottom= mon.bottom - AERO_TH ;
     int leftWidth, rightWidth, topHeight, bottomHeight;
 
-    if(PtInRect(&(RECT){ Left, Right, Top, Bottom }, pt)) return 0;
+    if(PtInRect(&(RECT){ pLeft, pTop, pRight, pBottom}, pt)) goto restore;
 
     GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, &mon);
+    int Left  = pLeft   + AERO_TH ;
+    int Right = pRight  - AERO_TH ;
+    int Top   = pTop    + AERO_TH ;
+    int Bottom= pBottom - AERO_TH ;
 
     // Move window
     if (pt.y < Top && pt.x < Left) {
@@ -1028,7 +1033,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         *wndheight= bottomHeight;
         *posx = mon.right - *wndwidth;
         *posy = mon.bottom - *wndheight;
-    } else if (pt.y < mon.top + AERO_TH) {
+    } else if (pt.y < pTop) {
         // Pure Top
         if (!state.shift ^ !(conf.AeroTopMaximizes&1)
          &&(state.Speed < (int)conf.AeroMaxSpeed)) {
@@ -1053,21 +1058,21 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
             *posx = mon.left + (mon.right-mon.left)/2 - *wndwidth/2; // Center
             *posy = mon.top;
         }
-    } else if (pt.y > mon.bottom - AERO_TH) {
+    } else if (pt.y > pBottom) {
         // Pure Bottom
         state.wndentry->restore = SNAPPED|SNBOTTOM;
         *wndwidth  = CLAMPW( mon.right-mon.left);
         *wndheight = bottomHeight;
         *posx = mon.left + (mon.right-mon.left)/2 - *wndwidth/2; // Center
         *posy = mon.bottom - *wndheight;
-    } else if (pt.x < mon.left+AERO_TH) {
+    } else if (pt.x < pLeft) {
         // Pure Left
         state.wndentry->restore = SNAPPED|SNLEFT;
         *wndwidth = leftWidth;
         *wndheight = CLAMPH( mon.bottom-mon.top );
         *posx = mon.left;
         *posy = mon.top + (mon.bottom-mon.top)/2 - *wndheight/2; // Center
-    } else if (pt.x > mon.right - AERO_TH) {
+    } else if (pt.x > pRight) {
         // Pure Right
         state.wndentry->restore = SNAPPED|SNRIGHT;
         *wndwidth =  rightWidth;
@@ -1076,6 +1081,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         *posy = mon.top + (mon.bottom-mon.top)/2 - *wndheight/2; // Center
     } else if (state.wndentry->restore&SNAPPED) {
         // Restore original window size
+        restore:
         state.wndentry->restore = 0;
         *wndwidth = state.origin.width;
         *wndheight = state.origin.height;
@@ -1099,6 +1105,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         // If we go too fast then donot move the window
         if(state.Speed > (int)conf.AeroMaxSpeed) return 1;
         if(conf.FullWin) {
+            if (state.wndentry->restore|SNCLEAR) Maximize_Restore_atpt(state.hwnd, &pt, SW_RESTORE, NULL);
             MoveWindowAsync(state.hwnd, *posx, *posy, *wndwidth, *wndheight);
             return 1;
         }
@@ -1448,8 +1455,7 @@ static void MouseMove(POINT pt)
     if (!conf.FullWin) {
         RECT newRect;
         CopyRect(&newRect, &wnd);
-        InflateRect(&newRect, -1, -1);
-
+        newRect.left++, newRect.top++;
         if (!hdcc) {
             if (!hpenDot_Global)
                 hpenDot_Global = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
@@ -2617,13 +2623,14 @@ static void FinishMovement()
         if(!conf.FullWin) {
             DrawRect(hdcc, &oldRect);
             if(state.action == AC_RESIZE) ResizeAllSnappedWindowsAsync();
-            if(LastWin.maximize) Maximize_Restore_atpt(state.hwnd, NULL, SW_MAXIMIZE, NULL);
-
         }
-
-        if (IsWindow(LastWin.hwnd)) {
-            LastWin.end = 1;
-            MoveWindowInThread(&LastWin);
+        if(IsWindow(LastWin.hwnd)){
+            if(LastWin.maximize) {
+                Maximize_Restore_atpt(LastWin.hwnd, NULL, SW_MAXIMIZE, NULL);
+            } else{
+                LastWin.end = 1;
+                MoveWindowInThread(&LastWin);
+            }
         }
     }
     StopSpeedMes();

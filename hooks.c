@@ -80,11 +80,12 @@ HPEN hpenDot_Global=NULL;
 
 struct windowRR {
     HWND hwnd;
-    int end;
     int x;
     int y;
     int width;
     int height;
+    UCHAR end;
+    UCHAR maximize;
 } LastWin;
 
 // State
@@ -633,7 +634,7 @@ static void EnumOnce(RECT **bd)
     }
 }
 ///////////////////////////////////////////////////////////////////////////
-static void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight)
+void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight)
 {
     RECT *bd;
     if (!state.snap || state.Speed > (int)conf.AeroMaxSpeed) return;
@@ -670,7 +671,8 @@ static void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight)
         // Check if posx snaps
         if (IsInRangeT(posy, snapwnd.top, snapwnd.bottom, thresholdx)
         ||  IsInRangeT(snapwnd.top, posy, posy+wndheight, thresholdx)) {
-            UCHAR snapinside_cond = (snapinside || posy + wndheight - thresholdx < snapwnd.top
+            UCHAR snapinside_cond = (snapinside 
+                                  || posy + wndheight - thresholdx < snapwnd.top
                                   || snapwnd.bottom < posy + thresholdx);
             if (IsEqualT(snapwnd.right, posx, thresholdx)) {
                 // The left edge of the dragged window will snap to this window's right edge
@@ -969,6 +971,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
 {
     // return if last resizing is not finished or no Aero or not resizable.
     if(!conf.Aero || MM_THREAD_ON) return 0;
+    LastWin.maximize = 0;
 
     static int resizable = 1;
     if (!resizable) return 0;
@@ -1029,10 +1032,20 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         // Pure Top
         if (!state.shift ^ !(conf.AeroTopMaximizes&1)
          &&(state.Speed < (int)conf.AeroMaxSpeed)) {
-            Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
-            LastWin.hwnd = NULL;
-            state.moving = 2;
-            return 1;
+             if (conf.FullWin) {
+                Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
+                LastWin.hwnd = NULL;
+                state.moving = 2;
+                return 1;
+            } else {
+                *posx = mon.left;
+                *posy = mon.top;
+                *wndwidth = CLAMPW(mon.right - mon.left);
+                *wndheight = CLAMPH( mon.bottom-mon.top );
+                LastWin.maximize = 1;
+                state.wndentry->restore = SNAPPED|SNCLEAR;
+                return 0;
+            }
         } else {
             state.wndentry->restore = SNAPPED|SNTOP;
             *wndwidth = CLAMPW(mon.right - mon.left);
@@ -2604,6 +2617,8 @@ static void FinishMovement()
         if(!conf.FullWin) {
             DrawRect(hdcc, &oldRect);
             if(state.action == AC_RESIZE) ResizeAllSnappedWindowsAsync();
+            if(LastWin.maximize) Maximize_Restore_atpt(state.hwnd, NULL, SW_MAXIMIZE, NULL);
+
         }
 
         if (IsWindow(LastWin.hwnd)) {
@@ -2865,10 +2880,7 @@ static void freeblacklists()
     unsigned i;
     for (i=0; i< sizeof(BlkLst)/sizeof(struct blacklist); i++) {
         free(list->data);
-        list->data = NULL;
         free(list->items);
-        list->items = NULL;
-        list->length = 0;
         list++;
     }
 }

@@ -312,7 +312,7 @@ static void SetWindowTrans(HWND hwnd)
     static HWND oldhwnd;
     if (conf.MoveTrans == 0 || conf.MoveTrans == 255 || !conf.FullWin) return;
 
-    if (hwnd) {
+    if (hwnd && !oldtrans) {
         oldhwnd = hwnd;
         LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
         if (exstyle&WS_EX_LAYERED) {
@@ -322,7 +322,7 @@ static void SetWindowTrans(HWND hwnd)
             oldtrans = 255;
         }
         SetLayeredWindowAttributes(hwnd, 0, conf.MoveTrans, LWA_ALPHA);
-    } else if (oldhwnd) { // restore old trans;
+    } else if (!hwnd && oldhwnd) { // restore old trans;
         LONG_PTR exstyle = GetWindowLongPtr(oldhwnd, GWL_EXSTYLE);
         if (oldtrans == 255) {
             SetWindowLongPtr(oldhwnd, GWL_EXSTYLE, exstyle & ~WS_EX_LAYERED);
@@ -330,6 +330,14 @@ static void SetWindowTrans(HWND hwnd)
             SetLayeredWindowAttributes(oldhwnd, 0, oldtrans, LWA_ALPHA);
         }
         oldhwnd = NULL;
+        oldtrans = 0;
+    }
+}
+static void GetEnoughSpace(void **ptr, unsigned *num, unsigned *alloc, size_t size)
+{
+    if (*num >= *alloc) {
+        *alloc += 4;
+        *ptr = realloc(*ptr, *alloc*size);
     }
 }
 
@@ -339,10 +347,7 @@ unsigned monitors_alloc = 0;
 BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
 {
     // Make sure we have enough space allocated
-    if (nummonitors >= monitors_alloc) {
-        monitors_alloc++;
-        monitors = realloc(monitors, monitors_alloc*sizeof(RECT));
-    }
+    GetEnoughSpace((void **)&monitors, &nummonitors, &monitors_alloc, sizeof(RECT));
     // Add monitor
     MONITORINFO mi = { sizeof(MONITORINFO) };
     GetMonitorInfo(hMonitor, &mi);
@@ -373,10 +378,7 @@ unsigned wnds_alloc = 0;
 BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    if (numwnds >= wnds_alloc) {
-        wnds_alloc += 8;
-        wnds = realloc(wnds, wnds_alloc*sizeof(RECT));
-    }
+    GetEnoughSpace((void **)&wnds, &numwnds, &wnds_alloc, sizeof(RECT));
 
     // Only store window if it's visible, not minimized to taskbar,
     // not the window we are dragging and not blacklisted
@@ -423,10 +425,7 @@ static pure struct wnddata *GetWindowInDB(HWND hwndd);
 BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    if (numsnwnds >= snwnds_alloc) {
-        snwnds_alloc += 4;
-        snwnds = realloc(snwnds, snwnds_alloc*sizeof(struct snwdata));
-    }
+    GetEnoughSpace((void **)&snwnds, &numsnwnds, &snwnds_alloc, sizeof(struct snwdata));
 
     RECT wnd;
     if (ShouldSnapTo(hwnd)
@@ -468,10 +467,7 @@ static void EnumSnapped()
 BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    if (numsnwnds >= snwnds_alloc) {
-        snwnds_alloc += 4;
-        snwnds = realloc(snwnds, snwnds_alloc*sizeof(struct snwdata));
-    }
+    GetEnoughSpace((void **)&snwnds, &numsnwnds, &snwnds_alloc, sizeof(struct snwdata));
 
     RECT wnd;
     if (ShouldSnapTo(hwnd)
@@ -568,10 +564,7 @@ static void ResizeAllSnappedWindowsAsync()
 static void EnumMdi()
 {
     // Make sure we have enough space allocated
-    if (nummonitors >= monitors_alloc) {
-        monitors_alloc++;
-        monitors = realloc(monitors, monitors_alloc*sizeof(RECT));
-    }
+    GetEnoughSpace((void **)&monitors, &nummonitors, &monitors_alloc, sizeof(RECT));
     // Add MDIClient as the monitor
     RECT wnd;
     if (GetClientRect(state.mdiclient, &wnd) != 0) {
@@ -746,6 +739,8 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
     UCHAR stuckleft=0, stucktop=0, stuckright=0, stuckbottom=0;
     int stickleft=0, sticktop=0, stickright=0, stickbottom=0;
     thresholdx = thresholdy = conf.SnapThreshold;
+    RECT *borders;
+    EnumOnce(&borders);
 
     // Loop monitors and windows
     unsigned i, j;
@@ -831,8 +826,6 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
         }
     } // end for
 
-    RECT *borders;
-    EnumOnce(&borders);
     // Update posx, posy, wndwidth and wndheight
     if (stuckleft) {
         *wndwidth = *wndwidth+*posx-stickleft + borders->left;
@@ -1756,10 +1749,7 @@ unsigned hwnds_alloc = 0;
 BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    if (numhwnds >= hwnds_alloc) {
-        hwnds_alloc += 8;
-        hwnds = realloc(hwnds, hwnds_alloc*sizeof(HWND));
-    }
+    GetEnoughSpace((void **)&hwnds, &numhwnds, &hwnds_alloc, sizeof(HWND));
 
     // Only store window if it's visible, not minimized
     // to taskbar and on the same monitor as the cursor
@@ -2049,7 +2039,7 @@ static void UpdateCursor(POINT pt)
 {
     // Update cursor
     if (conf.UseCursor && g_mainhwnd) {
-        SetWindowPos(g_mainhwnd, NULL, pt.x-8, pt.y-8, 16, 16
+        SetWindowPos(g_mainhwnd, HWND_TOPMOST, pt.x-8, pt.y-8, 16, 16
                     , SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
         SetClassLongPtr(g_mainhwnd, GCLP_HCURSOR, (LONG_PTR)CursorToDraw());
         ShowWindow(g_mainhwnd, SW_SHOWNA);
@@ -2328,7 +2318,7 @@ static int IsFullscreen(HWND hwnd, const RECT *wnd, const RECT *fmon)
     return fs; // = 1 for fulscreen, 2 for SYSMENU and 3 for both.
 }
 /////////////////////////////////////////////////////////////////////////////
-void CenterWindow(HWND hwnd)
+static void CenterWindow(HWND hwnd)
 {
     RECT mon;
     POINT pt;

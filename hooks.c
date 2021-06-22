@@ -664,7 +664,7 @@ void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight)
         // Check if posx snaps
         if (IsInRangeT(posy, snapwnd.top, snapwnd.bottom, thresholdx)
         ||  IsInRangeT(snapwnd.top, posy, posy+wndheight, thresholdx)) {
-            UCHAR snapinside_cond = (snapinside 
+            UCHAR snapinside_cond = (snapinside
                                   || posy + wndheight - thresholdx < snapwnd.top
                                   || snapwnd.bottom < posy + thresholdx);
             if (IsEqualT(snapwnd.right, posx, thresholdx)) {
@@ -1098,7 +1098,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         // If we go too fast then donot move the window
         if(state.Speed > (int)conf.AeroMaxSpeed) return 1;
         if(conf.FullWin) {
-            if (state.wndentry->restore|SNCLEAR) Maximize_Restore_atpt(state.hwnd, &pt, SW_RESTORE, NULL);
+            if (IsZoomed(state.hwnd)) Maximize_Restore_atpt(state.hwnd, &pt, SW_RESTORE, NULL);
             MoveWindowAsync(state.hwnd, *posx, *posy, *wndwidth, *wndheight);
             return 1;
         }
@@ -1245,7 +1245,7 @@ static int ShouldResizeTouching()
 }
 static void DrawRect(HDC hdcl, const RECT *rc)
 {
-    Rectangle(hdcl, rc->left, rc->top, rc->right, rc->bottom);
+    Rectangle(hdcl, rc->left+1, rc->top+1, rc->right, rc->bottom);
 }
 ///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
@@ -1446,9 +1446,6 @@ static void MouseMove(POINT pt)
     wnd.bottom = posy + mdiclientpt.y + wndheight;
 
     if (!conf.FullWin) {
-        RECT newRect;
-        CopyRect(&newRect, &wnd);
-        newRect.left++, newRect.top++;
         if (!hdcc) {
             if (!hpenDot_Global)
                 hpenDot_Global = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
@@ -1456,7 +1453,7 @@ static void MouseMove(POINT pt)
             SetROP2(hdcc, R2_NOTXORPEN);
             SelectObject(hdcc, hpenDot_Global);
         }
-        DrawRect(hdcc, &newRect);
+        DrawRect(hdcc, &wnd);
         if (state.moving == 1)
             DrawRect(hdcc, &oldRect);
 
@@ -1464,7 +1461,7 @@ static void MouseMove(POINT pt)
             ResizeTouchingWindows(posx, posy, wndwidth, wndheight);
         }
 
-        CopyRect(&oldRect, &newRect); // oldRect is GLOBAL!
+        CopyRect(&oldRect, &wnd); // oldRect is GLOBAL!
         state.moving = 1;
 
     } else if (mouse_thread_finished) {

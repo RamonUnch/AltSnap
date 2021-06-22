@@ -2036,7 +2036,7 @@ static void UpdateCursor(POINT pt)
 {
     // Update cursor
     if (conf.UseCursor && g_mainhwnd) {
-        SetWindowPos(g_mainhwnd, HWND_TOPMOST, pt.x-8, pt.y-8, 16, 16
+        SetWindowPos(g_mainhwnd, NULL, pt.x-8, pt.y-8, 16, 16
                     , SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
         SetClassLongPtr(g_mainhwnd, GCLP_HCURSOR, (LONG_PTR)CursorToDraw());
         ShowWindow(g_mainhwnd, SW_SHOWNA);
@@ -2432,7 +2432,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // An action will be performed...
     // Set state
     state.blockaltup = 1;
-    if (!SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 64, &lpdwResult)) {
+    if (!SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 255, &lpdwResult)) {
         state.blockmouseup = 1;
         if(action == AC_MOVE || action == AC_RESIZE) return 1;
     } // return if window has to be moved/resized
@@ -2443,8 +2443,9 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         state.snap = conf.AutoSnap;
     }
     AddWindowToDB(state.hwnd);
-
-    if (state.wndentry->restore && !state.origin.maximized) { // Set Origin width and height ==2)
+    
+    // Set Origin width and height needed for AC_MOVE/RESIZE/CENTER
+    if (state.wndentry->restore && !state.origin.maximized) {
         state.origin.width = state.wndentry->width;
         state.origin.height = state.wndentry->height;
     } else {

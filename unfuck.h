@@ -554,7 +554,7 @@ static pure unsigned AreRectsAligned(const RECT *a, const RECT *b, const int tol
          | IsEqualT(a->right, b->left, tol) << 3
          | IsEqualT(a->bottom, b->top, tol) << 5;
 }
-static xpure fastcall int SegT(int ax, int bx, int ay1, int ay2, int by1, int by2, int tol)
+static xpure int SegT(int ax, int bx, int ay1, int ay2, int by1, int by2, int tol)
 {
     return IsEqualT(ax, bx, tol) /* ax == bx */
         && ( (ay1 >= by1 && ay1 <= by2)

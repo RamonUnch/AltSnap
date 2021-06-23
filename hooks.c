@@ -1570,12 +1570,20 @@ static void SetForegroundWindowL(HWND hwnd)
         PostMessage(state.mdiclient, WM_MDIACTIVATE, (WPARAM)hwnd, 0);
     }
 }
+// Returns true if AltDrag must be disabled based on scroll lock
+// If conf.ScrollLockState&2 then Altdrag is disabled by Scroll Lock
+// otherwise it is enabled by Scroll lock.
+static int ScrollLockState()
+{
+    return conf.ScrollLockState&1
+        &&!( !(GetKeyState(VK_SCROLL)&1) ^ !(conf.ScrollLockState&2) );
+}
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
     if (nCode != HC_ACTION || state.ignorectrl
-    || (conf.ScrollLockState && !(GetKeyState(VK_SCROLL)&1))) return CallNextHookEx(NULL, nCode, wParam, lParam);
+    || ScrollLockState()) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     unsigned char vkey = ((PKBDLLHOOKSTRUCT)lParam)->vkCode;
 
@@ -2662,7 +2670,7 @@ static void FinishMovement()
 // pressed, or is always on when conf.keepMousehook is enabled.
 LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    if (nCode != HC_ACTION || (conf.ScrollLockState && !(GetKeyState(VK_SCROLL)&1)))
+    if (nCode != HC_ACTION || ScrollLockState())
         return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     // Set up some variables

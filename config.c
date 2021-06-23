@@ -796,7 +796,6 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         ReadOptionStr(IDC_BLACKLIST, L"Blacklist",  L"Windows", L"");
         ReadOptionStr(IDC_SCROLLLIST,L"Blacklist", L"Scroll", L"");
         ReadOptionStr(IDC_MDIS,      L"Blacklist", L"MDIs", L"");
-        Button_Enable(GetDlgItem(hwnd, IDC_MDIS), GetPrivateProfileInt(L"General", L"MDI", 1, inipath));
         ReadOptionStr(IDC_PAUSEBL,   L"Blacklist", L"Pause", L"");
         Button_Enable(GetDlgItem(hwnd, IDC_PAUSEBL), haveProcessBL);
     } else if (msg == WM_COMMAND) {
@@ -845,6 +844,10 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
             SetDlgItemText(hwnd, IDC_MDISBL_HEADER          , l10n->blacklist_mdis);
             SetDlgItemText(hwnd, IDC_PAUSEBL_HEADER         , l10n->blacklist_pause);
             SetDlgItemText(hwnd, IDC_FINDWINDOW_BOX         , l10n->blacklist_findwindow_box);
+            Button_Enable(GetDlgItem(hwnd, IDC_MDIS), GetPrivateProfileInt(L"General", L"MDI", 1, inipath));
+            Button_Enable(GetDlgItem(hwnd, IDC_PAUSEBL)
+                       , GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath)
+                       | GetPrivateProfileInt(L"Input", L"AggressiveKill", 0, inipath));
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Save to the config
             WriteOptionStr(IDC_PROCESSBLACKLIST, L"Blacklist", L"Processes");

@@ -40,12 +40,11 @@ int InitTray()
 
     return 0;
 }
-
 /////////////////////////////////////////////////////////////////////////////
 int UpdateTray()
 {
     strcpy(tray.szTip, ENABLED()? "AltDrag (On)": "AltDrag (Off)");
-    tray.hIcon = icon[ENABLED()?1:0];
+    tray.hIcon = icon[!!ENABLED()];
 
     // Only add or modify if not hidden or if balloon will be displayed
     if (!hide || tray.uFlags&NIF_INFO) {
@@ -66,7 +65,6 @@ int UpdateTray()
     }
     return 0;
 }
-
 /////////////////////////////////////////////////////////////////////////////
 int RemoveTray()
 {

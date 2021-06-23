@@ -5,7 +5,7 @@
 /////////////////////////////////////////////////////////////////////////////
 IDD_ABOUTPAGE DIALOGEX 0, 0, 220, 200
 STYLE WS_CHILD | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | DS_3DLOOK
-CAPTION "About"
+CAPTION "" // ABOUT
 FONT 8, "Ms Sans Serif", 400, 0, 0x1
 BEGIN
     GROUPBOX        "",IDC_ABOUT_BOX, 3,1, 212,105
@@ -27,7 +27,7 @@ END
 /////////////////////////////////////////////////////////////////////////////
 IDD_BLACKLISTPAGE DIALOG DISCARDABLE  0, 0, 220, 200
 STYLE WS_CHILD | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | DS_3DLOOK
-CAPTION "Blacklist"
+CAPTION "" // BLACKLIST
 FONT 8, "Ms Shell Dlg"
 BEGIN
 
@@ -57,7 +57,7 @@ END
 IDD_GENERALPAGE DIALOGEX 0, 0, 220, 200
 STYLE WS_CHILD | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | DS_3DLOOK
 EXSTYLE WS_EX_WINDOWEDGE
-CAPTION "General"
+CAPTION "" // GENERAL
 FONT 8, "Ms Shell Dlg"
 BEGIN
     GROUPBOX      "", IDC_GENERAL_BOX,3,1,212,152
@@ -150,7 +150,7 @@ END
 /////////////////////////////////////////////////////////////////////////////
 IDD_ADVANCEDPAGE DIALOG DISCARDABLE  0, 0, 220, 200
 STYLE WS_CHILD | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | DS_3DLOOK
-CAPTION "Advanced"
+CAPTION "" // ADVANCED
 FONT 8, "Ms Shell Dlg"
 BEGIN
     GROUPBOX  "", IDC_METRICS_BOX, 3,1,212,95

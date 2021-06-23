@@ -310,7 +310,7 @@ static void SetWindowTrans(HWND hwnd)
 {
     static BYTE oldtrans;
     static HWND oldhwnd;
-    if (conf.MoveTrans == 0 || conf.MoveTrans == 255 || !conf.FullWin) return;
+    if (conf.MoveTrans == 0 || conf.MoveTrans == 255) return;
 
     if (hwnd && !oldtrans) {
         oldhwnd = hwnd;

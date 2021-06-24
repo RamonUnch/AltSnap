@@ -251,7 +251,7 @@ static void WriteOptionBoolW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name
     WritePrivateProfileString(section, name,_itow(Button_GetCheck(GetDlgItem(hwnd, id)), txt, 10), inipath);
 }
 #define WriteOptionBool(id, section, name) WriteOptionBoolW(hwnd, id, section, name)
-static void WriteOptionBoolBW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, int bit)
+static int WriteOptionBoolBW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, int bit)
 {
     wchar_t txt[8];
     int val = GetPrivateProfileInt(section, name, 0, inipath);
@@ -260,7 +260,8 @@ static void WriteOptionBoolBW(HWND hwnd, WORD id, wchar_t *section, wchar_t *nam
     else
         val = clearBit(val, bit);
 
-    WritePrivateProfileString(section, name,_itow(val, txt, 10), inipath);
+    WritePrivateProfileString(section, name, _itow(val, txt, 10), inipath);
+    return val;
 }
 #define WriteOptionBoolB(id, section, name, bit) WriteOptionBoolBW(hwnd, id, section, name, bit)
 
@@ -718,7 +719,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         ReadOptionInt(IDC_AGGRESSIVEPAUSE, L"Input",   L"AggressivePause", 0, -1);
         Button_Enable(GetDlgItem(hwnd, IDC_AGGRESSIVEPAUSE), HaveProc("NTDLL.DLL", "NtResumeProcess"));
         ReadOptionInt(IDC_AGGRESSIVEKILL, L"Input", L"AggressiveKill", 0, -1);
-        ReadOptionInt(IDC_SCROLLLOCKSTATE,  L"Input", L"ScrollLockState",0, -1);
+        ReadOptionInt(IDC_SCROLLLOCKSTATE,  L"Input", L"ScrollLockState",0, 1);
         ReadOptionInt(IDC_KEYCOMBO,       L"Input", L"KeyCombo", 0, -1);
         CheckConfigHotKeys(hotkeys, hwnd, L"Hotkeys", L"A4 A5");
     } else if (msg == WM_COMMAND) {
@@ -752,7 +753,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_KEYBOARD_BOX,    l10n->tab_keyboard);
             SetDlgItemText(hwnd, IDC_AGGRESSIVEPAUSE, l10n->input_aggressive_pause);
             SetDlgItemText(hwnd, IDC_AGGRESSIVEKILL,  l10n->input_aggressive_kill);
-            SetDlgItemText(hwnd, IDC_SCROLLLOCKSTATE,   l10n->input_scrolllockstate);
+            SetDlgItemText(hwnd, IDC_SCROLLLOCKSTATE, l10n->input_scrolllockstate);
             SetDlgItemText(hwnd, IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box);
             SetDlgItemText(hwnd, IDC_TOGGLERZMVKEY_H, l10n->input_hotkeys_togglerzmvkey);
             SetDlgItemText(hwnd, IDC_LEFTALT,         l10n->input_hotkeys_leftalt);
@@ -771,7 +772,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             WritePrivateProfileString(L"Input", L"GrabWithAlt", kb_actions[i].action, inipath);
             WriteOptionBool(IDC_AGGRESSIVEPAUSE, L"Input", L"AggressivePause");
             WriteOptionBool(IDC_AGGRESSIVEKILL,  L"Input", L"AggressiveKill");
-            WriteOptionBool(IDC_SCROLLLOCKSTATE,   L"Input", L"ScrollLockState");
+            ScrollLockState=WriteOptionBoolB(IDC_SCROLLLOCKSTATE,   L"Input", L"ScrollLockState", 0);
             // Invert move/resize key.
             i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_TOGGLERZMVKEY));
             WritePrivateProfileString(L"Input", L"ToggleRzMvKey", togglekeys[i].action, inipath);

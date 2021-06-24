@@ -1,7 +1,7 @@
 app_icon ICON "media/icon.ico"
 tray_disabled ICON "media/tray-disabled.ico"
 tray_enabled ICON "media/tray-enabled.ico"
-
+tray_suspended ICON "media/tray-suspended.ico"
 #include "window.rc"
 
 CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "AltDrag.exe.manifest"

@@ -43,6 +43,7 @@ HINSTANCE hinstDLL = NULL;
 HHOOK keyhook = NULL;
 char elevated = 0;
 char WinVer = 0;
+char ScrollLockState = 0;
 
 // Include stuff
 #include "hooks.h"
@@ -195,6 +196,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     } else if (msg == WM_ADDTRAY) {
         hide = 0;
         UpdateTray();
+    } else if (msg == WM_UPDATETRAY) {
+        UpdateTray();
     } else if (msg == WM_HIDETRAY) {
         hide = 1;
         RemoveTray();
@@ -336,6 +339,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
                             NULL, WS_POPUP, 0, 0, 0, 0, NULL, NULL, hInst, NULL);
     LOG("Create main APP Window: %s\n", g_hwnd? "Sucess": "Failed");
     // Tray icon
+
     InitTray();
     UpdateTray();
 

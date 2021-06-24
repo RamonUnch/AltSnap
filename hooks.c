@@ -1575,17 +1575,18 @@ static void SetForegroundWindowL(HWND hwnd)
 // otherwise it is enabled by Scroll lock.
 static int ScrollLockState()
 {
-    return conf.ScrollLockState&1
-        &&!( !(GetKeyState(VK_SCROLL)&1) ^ !(conf.ScrollLockState&2) );
+    return (conf.ScrollLockState&1) &&
+        !( !(GetKeyState(VK_SCROLL)&1) ^ !(conf.ScrollLockState&2) );
 }
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    if (nCode != HC_ACTION || state.ignorectrl
-    || ScrollLockState()) return CallNextHookEx(NULL, nCode, wParam, lParam);
+    if (nCode != HC_ACTION || state.ignorectrl) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     unsigned char vkey = ((PKBDLLHOOKSTRUCT)lParam)->vkCode;
+    if (vkey == VK_SCROLL) PostMessage(g_mainhwnd, WM_UPDATETRAY, 0, 0);
+    if (ScrollLockState()) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
         if (!state.alt && (!conf.KeyCombo || (state.alt1 && state.alt1 != vkey)) && IsHotkey(vkey)) {
@@ -2451,7 +2452,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         state.snap = conf.AutoSnap;
     }
     AddWindowToDB(state.hwnd);
-    
+
     // Set Origin width and height needed for AC_MOVE/RESIZE/CENTER
     if (state.wndentry->restore && !state.origin.maximized) {
         state.origin.width = state.wndentry->width;

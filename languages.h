@@ -386,7 +386,7 @@ struct strings en_US = {
 
  /* Aggressive Pause   */ L"&Pause process on Alt+Shift+Pause (Alt+Pause to resume)",
  /* Aggressive Kill    */ L"&Kill process on Ctrl+Alt+F4\nAlso adds the kill option to the action menu",
- /* scroll lock state  */ L"Enable/Disable AltDrag based on &Scroll lock state",
+ /* scroll lock state  */ L"Suspend/Resume AltDrag based on &Scroll lock state",
  /* KeyCombo           */ L"Use two keys &combo to activate",
  /* GrabWithAlt        */ L"&Action without click:",
 

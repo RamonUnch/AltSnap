@@ -1158,18 +1158,25 @@ static int pure IsHotkeyy(unsigned char key, struct hotkeys_s *HKlist)
 #define IsHotkey(a)   IsHotkeyy(a, &conf.Hotkeys)
 #define IsHotclick(a) IsHotkeyy(a, &conf.Hotclick)
 #define IsKillkey(a)  IsHotkeyy(a, &conf.Killkey)
-/////////////////////////////////////////////////////////////////////////////
-static int IsHotKeyDown(struct hotkeys_s *hk)
-{
-    UCHAR *pos=&hk->keys[0];
-    while (*pos) {
-        if (GetAsyncKeyState(*pos)&0x8000)
-            return 1;
-        pos++;
-    }
-    return 0;
-}
 
+// Return true if required amount of hotkeys are holded.
+// If KeyCombo is disabled, user needs to hold only one hotkey.
+// Otherwise, user needs to hold at least two hotkeys.
+static int IsHotkeyDown()
+{
+    // required keys 1 or 2
+    UCHAR rkeys = 1 + conf.KeyCombo;
+    UCHAR ckeys = 0; // current keys
+
+    // loop over all hotkeys
+    UCHAR *pos=&conf.Hotkeys.keys[0];
+    while (*pos && ckeys < rkeys) {
+        // check if key is held down
+        ckeys += !!(GetAsyncKeyState(*pos++)&0x8000);
+    }
+    // return true if required amount of hotkeys are down
+    return ckeys >= rkeys;
+}
 /////////////////////////////////////////////////////////////////////////////
 // if pt is NULL then the window is not moved when restored.
 // index 1 => normal restore on any move state.wndentry->restore & 1
@@ -1569,30 +1576,6 @@ static void SetForegroundWindowL(HWND hwnd)
         SetForegroundWindow(state.mdiclient);
         PostMessage(state.mdiclient, WM_MDIACTIVATE, (WPARAM)hwnd, 0);
     }
-}
-// Return true if required amount of hotkeys are holded.
-// Defaults hotkeys are left and right Alt.
-// If KeyCombo is disabled, user needs to hold only one hotkey.
-// Otherwise, user needs to hold at least two hotkeys.
-static int AltState()
-{
-    // required keys, default 1
-    UCHAR rkeys = 1;
-    // if KeyCombo is enabled, one more key is required to be holded
-    if (conf.KeyCombo) rkeys++;
-    // current keys
-    UCHAR ckeys = 0;
-    // loop over all hotkeys
-    struct hotkeys_s *hk = &conf.Hotkeys;
-    UCHAR *pos=&hk->keys[0];
-    while (*pos && ckeys < rkeys) {
-        // check if key is held down
-        if (GetAsyncKeyState(*pos)&0x8000)
-            ckeys++;
-        pos++;
-    }
-    // return true if required amount of hotkeys are holded 
-    return ckeys >= rkeys;
 }
 // Returns true if AltDrag must be disabled based on scroll lock
 // If conf.ScrollLockState&2 then Altdrag is disabled by Scroll Lock
@@ -2589,7 +2572,8 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     if (!state.alt && !state.action && conf.InactiveScroll) {
         return ScrollPointedWindow(pt, delta, wParam);
     } else if(!state.alt || state.action != conf.GrabWithAlt
-          || (conf.GrabWithAlt && !IsSamePTT(&pt, &state.clickpt)) ) {
+          || (conf.GrabWithAlt && !IsSamePTT(&pt, &state.clickpt)) 
+          || (!IsHotkeyDown() && !IsHotclick(state.alt))) {
         return 0; // continue if no actions to be made
     }
 
@@ -2723,11 +2707,9 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             return CallNextHookEx(NULL, nCode, wParam, lParam);
         }
     } else if (wParam == WM_MOUSEWHEEL || wParam == WM_MOUSEHWHEEL) {
-        // Force check of hotkeys state
-        if (AltState()) {
-            int ret = WheelActions(pt, msg, wParam);
-            if (ret == 1) return 1;
-        }
+        int ret = WheelActions(pt, msg, wParam);
+        if (ret == 1) return 1;
+
         return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
 
@@ -2785,7 +2767,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         // Double ckeck some hotkey is pressed.
         if(!state.action
         && !IsHotclick(state.alt)
-        && !IsHotKeyDown(&conf.Hotkeys)) {
+        && !IsHotkeyDown()) {
             UnhookMouse();
             return CallNextHookEx(NULL, nCode, wParam, lParam);
         }

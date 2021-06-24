@@ -1570,6 +1570,30 @@ static void SetForegroundWindowL(HWND hwnd)
         PostMessage(state.mdiclient, WM_MDIACTIVATE, (WPARAM)hwnd, 0);
     }
 }
+// Return true if required amount of hotkeys are holded.
+// Defaults hotkeys are left and right Alt.
+// If KeyCombo is disabled, user needs to hold only one hotkey.
+// Otherwise, user needs to hold at least two hotkeys.
+static int AltState()
+{
+    // required keys, default 1
+    UCHAR rkeys = 1;
+    // if KeyCombo is enabled, one more key is required to be holded
+    if (conf.KeyCombo) rkeys++;
+    // current keys
+    UCHAR ckeys = 0;
+    // loop over all hotkeys
+    struct hotkeys_s *hk = &conf.Hotkeys;
+    UCHAR *pos=&hk->keys[0];
+    while (*pos && ckeys < rkeys) {
+        // check if key is held down
+        if (GetAsyncKeyState(*pos)&0x8000)
+            ckeys++;
+        pos++;
+    }
+    // return true if required amount of hotkeys are holded 
+    return ckeys >= rkeys;
+}
 // Returns true if AltDrag must be disabled based on scroll lock
 // If conf.ScrollLockState&2 then Altdrag is disabled by Scroll Lock
 // otherwise it is enabled by Scroll lock.
@@ -2699,8 +2723,11 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             return CallNextHookEx(NULL, nCode, wParam, lParam);
         }
     } else if (wParam == WM_MOUSEWHEEL || wParam == WM_MOUSEHWHEEL) {
-        int ret = WheelActions(pt, msg, wParam);
-        if (ret == 1) return 1;
+        // Force check of hotkeys state
+        if (AltState()) {
+            int ret = WheelActions(pt, msg, wParam);
+            if (ret == 1) return 1;
+        }
         return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
 

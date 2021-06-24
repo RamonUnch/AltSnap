@@ -11,20 +11,21 @@ HICON icon[3];
 int tray_added = 0;
 int hide = 0;
 
+char *iconstr[] = {
+    "tray_disabled",
+    "tray_enabled",
+    "tray_suspended"
+};
+char *traystr[] = {
+    "AltDrag (Off)",
+    "AltDrag (On)",
+    "AltDrag...",
+};
+
 /////////////////////////////////////////////////////////////////////////////
 int InitTray()
 {
-    // Load icons
-    icon[0] = LoadIconA(g_hinst, "tray_disabled");
-    icon[1] = LoadIconA(g_hinst, "tray_enabled");
-    icon[2] = LoadIconA(g_hinst, "tray_suspended");
-
     ScrollLockState = GetPrivateProfileInt(L"Input", L"ScrollLockState", 0, inipath);
-
-    if (icon[0] == NULL || icon[1] == NULL) {
-        LOG("Could not Load Icons for tray\n");
-        return 1;
-    }
 
     // Create icondata
     tray.cbSize = sizeof(tray);
@@ -50,8 +51,8 @@ int UpdateTray()
     if (Index && (ScrollLockState&1))
         Index += !( !(GetKeyState(VK_SCROLL)&1) ^ !(ScrollLockState&2) );
 
-    strcpy(tray.szTip, Index? "AltDrag (On)": "AltDrag (Off)");
-    tray.hIcon = icon[Index];
+    strcpy(tray.szTip, traystr[Index]);
+    tray.hIcon = LoadIconA(g_hinst, iconstr[Index]);
 
     // Only add or modify if not hidden or if balloon will be displayed
     if (!hide || tray.uFlags&NIF_INFO) {

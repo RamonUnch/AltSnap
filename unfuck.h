@@ -193,8 +193,6 @@ static BOOL SetLayeredWindowAttributesL(HWND hwnd, COLORREF crKey, BYTE bAlpha, 
 static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
 {
     static char have_func=HAVE_FUNC;
-    static char saved=0;
-    static RECT rcWork, rcMonitor;
 
     if (have_func < 0) { /* First time */
         myGetMonitorInfoW=LoadDLLProc("USER32.DLL", "GetMonitorInfoW");
@@ -203,13 +201,9 @@ static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
     if(have_func) { /* We know we have the function */
         if(hMonitor) return myGetMonitorInfoW(hMonitor, lpmi);
     }
-    if (!saved) {
-        GetClientRect(GetDesktopWindow(), &rcMonitor);
-        SystemParametersInfo(SPI_GETWORKAREA, 0, &rcWork, 0);
-        saved=1;
-    }
-    CopyRect(&lpmi->rcMonitor, &rcMonitor);
-    CopyRect(&lpmi->rcWork,    &rcWork);
+    /* Fallback for NT4 */
+    GetClientRect(GetDesktopWindow(), &lpmi->rcMonitor);
+    SystemParametersInfo(SPI_GETWORKAREA, 0, &lpmi->rcWork, 0);
     lpmi->dwFlags = MONITORINFOF_PRIMARY;
 
     return TRUE;
@@ -229,8 +223,9 @@ static BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfn
     if (have_func) { /* We know we have the function */
         return myEnumDisplayMonitors(hdc, lprcClip, lpfnEnum, dwData);
     }
-    GetMonitorInfoL(NULL, &mi);
 
+    /* Fallbak */
+    GetMonitorInfoL(NULL, &mi);
     lpfnEnum(NULL, NULL, &mi.rcMonitor, 0); // Callback function
 
     return TRUE;
@@ -477,7 +472,7 @@ static BOOL SetWindowLevel(HWND hwnd, HWND hafter)
 }
 static int HitTestTimeoutL(HWND hwnd, LPARAM lParam)
 {
-    DWORD area=0;
+    DorQWORD area=0;
     while(hwnd && SendMessageTimeout(hwnd, WM_NCHITTEST, 0, lParam, SMTO_NORMAL, 255, &area)){
         if((int)area == HTTRANSPARENT)
             hwnd = GetParent(hwnd);

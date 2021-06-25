@@ -1165,17 +1165,16 @@ static int pure IsHotkeyy(unsigned char key, struct hotkeys_s *HKlist)
 static int IsHotkeyDown()
 {
     // required keys 1 or 2
-    UCHAR rkeys = 1 + conf.KeyCombo;
-    UCHAR ckeys = 0; // current keys
+    UCHAR ckeys = 1 + conf.KeyCombo;
 
     // loop over all hotkeys
     UCHAR *pos=&conf.Hotkeys.keys[0];
-    while (*pos && ckeys < rkeys) {
+    while (*pos && ckeys) {
         // check if key is held down
-        ckeys += !!(GetAsyncKeyState(*pos++)&0x8000);
+        ckeys -= !!(GetAsyncKeyState(*pos++)&0x8000);
     }
     // return true if required amount of hotkeys are down
-    return ckeys >= rkeys;
+    return !ckeys;
 }
 /////////////////////////////////////////////////////////////////////////////
 // if pt is NULL then the window is not moved when restored.
@@ -1204,7 +1203,7 @@ static void RestoreOldWin(const POINT *pt, unsigned was_snapped, unsigned index)
     // Set offset
     if (pt) {
         state.offset.x = state.origin.width  * min(pt->x-wnd.left, wnd.right-wnd.left)
-                        / max(wnd.right-wnd.left,1);
+                       / max(wnd.right-wnd.left,1);
         state.offset.y = state.origin.height * min(pt->y-wnd.top, wnd.bottom-wnd.top)
                        / max(wnd.bottom-wnd.top,1);
     }
@@ -2572,7 +2571,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     if (!state.alt && !state.action && conf.InactiveScroll) {
         return ScrollPointedWindow(pt, delta, wParam);
     } else if(!state.alt || state.action != conf.GrabWithAlt
-          || (conf.GrabWithAlt && !IsSamePTT(&pt, &state.clickpt)) 
+          || (conf.GrabWithAlt && !IsSamePTT(&pt, &state.clickpt))
           || (!IsHotkeyDown() && !IsHotclick(state.alt))) {
         return 0; // continue if no actions to be made
     }

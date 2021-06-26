@@ -133,6 +133,10 @@ struct {
         POINT Max;
     } mmi;
 } state;
+// mdiclientpt is global!
+// initialized by init_movement_and_actions
+POINT mdiclientpt;
+
 
 // Snap
 RECT *monitors = NULL;
@@ -359,9 +363,9 @@ BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMon
 static void OffsetRectMDI(RECT *wnd, HWND mdihwnd)
 {
     if (mdihwnd) {
-        POINT mdiclientpt = { 0, 0 };
-        if(ClientToScreen(mdihwnd, &mdiclientpt))
-            OffsetRect(wnd, -mdiclientpt.x, -mdiclientpt.y);
+        POINT mdipt = { 0, 0 };
+        if(ClientToScreen(mdihwnd, &mdipt))
+            OffsetRect(wnd, -mdipt.x, -mdipt.y);
     }
 }
 static int ShouldSnapTo(HWND window)
@@ -946,9 +950,7 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
 static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
 {
     if (state.mdiclient) {
-        RECT mdirect;
-        if (GetClientRect(state.mdiclient, &mdirect)) {
-            CopyRect(_mon, &mdirect);
+        if (GetClientRect(state.mdiclient, _mon)) {
             return;
         }
     }
@@ -961,7 +963,7 @@ static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
 ///////////////////////////////////////////////////////////////////////////
 #define AERO_TH conf.AeroThreshold
 #define MM_THREAD_ON (LastWin.hwnd && conf.FullWin)
-static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight, const RECT *_mon)
+static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight)
 {
     // return if last resizing is not finished or no Aero or not resizable.
     if(!conf.Aero || MM_THREAD_ON) return 0;
@@ -977,11 +979,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
 
     // We HAVE to check the monitor for each pt...
     RECT mon;
-    if(_mon) {
-        CopyRect(&mon, _mon);
-    } else {
-        GetMonitorRect(&pt, 0, &mon);
-    }
+    GetMonitorRect(&pt, 0, &mon);
 
     int pLeft  = mon.left   + AERO_TH ;
     int pRight = mon.right  - AERO_TH ;
@@ -1195,10 +1193,8 @@ static void RestoreOldWin(const POINT *pt, unsigned was_snapped, unsigned index)
         state.wndentry->restore = 0; // and clear restore flag
     }
 
-    POINT mdiclientpt = { 0, 0 };
     RECT wnd;
     GetWindowRect(state.hwnd, &wnd);
-    ClientToScreen(state.mdiclient, &mdiclientpt);
 
     // Set offset
     if (pt) {
@@ -1259,7 +1255,7 @@ static void MouseMove(POINT pt)
     int posx=0, posy=0, wndwidth=0, wndheight=0;
 
     // Check if window still exists
-    if (!state.hwnd || !IsWindow(state.hwnd))
+    if (!IsWindow(state.hwnd))
         { LastWin.hwnd = NULL; UnhookMouse(); return; }
 
     if(conf.UseCursor)
@@ -1269,32 +1265,18 @@ static void MouseMove(POINT pt)
 
     // Restore Aero snapped window when movement starts
     int was_snapped=0;
-    if(state.action == AC_MOVE && !state.moving) {
+    if(!state.moving && state.action == AC_MOVE) {
         was_snapped = IsWindowSnapped(state.hwnd);
         RestoreOldWin(&pt, was_snapped, 1);
     }
 
-    static RECT wnd;
+    static RECT wnd; // wnd will be updated and is initialized once.
     if (!state.moving && !GetWindowRect(state.hwnd, &wnd)) return;
 
-    static RECT mdimon;
-    static POINT mdiclientpt;
-    RECT *_curentmon=NULL;
-    if (state.mdiclient) { // MDI
-        if(!state.moving) {
-            mdiclientpt.x = mdiclientpt.y = 0;
-            if (!GetClientRect(state.mdiclient, &mdimon)
-             || !ClientToScreen(state.mdiclient, &mdiclientpt)) {
-                return;
-            }
-        }
-        _curentmon = &mdimon;
-        // Convert pt in MDI coordinates.
-        pt.x -= mdiclientpt.x;
-        pt.y -= mdiclientpt.y;
-    } else {
-        mdiclientpt = (POINT) { 0, 0 };
-    }
+    // Convert pt in MDI coordinates.
+    // mdiclientpt is global!
+    pt.x -= mdiclientpt.x;
+    pt.y -= mdiclientpt.y;
 
     // Restrict pt within origin monitor if Ctrl|Shift is being pressed
     if ((state.ctrl && !state.ignorectrl) || state.shift) {
@@ -1311,7 +1293,7 @@ static void MouseMove(POINT pt)
         if (state.ctrl || state.shift) {
             RECT clip;
             if (state.mdiclient) {
-                CopyRect(&clip, &mdimon);
+                CopyRect(&clip, &state.origin.mon);
                 OffsetRect(&clip, mdiclientpt.x, mdiclientpt.y);
             } else {
                 CopyRect(&clip, &fmon);
@@ -1331,7 +1313,7 @@ static void MouseMove(POINT pt)
 
         // Check if the window will snap anywhere
         MoveSnap(&posx, &posy, wndwidth, wndheight);
-        int ret = AeroMoveSnap(pt, &posx, &posy, &wndwidth, &wndheight, _curentmon);
+        int ret = AeroMoveSnap(pt, &posx, &posy, &wndwidth, &wndheight);
         if ( ret == 1) { state.moving = 1; return; }
 
         // Restore window if maximized when starting
@@ -1358,8 +1340,8 @@ static void MouseMove(POINT pt)
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
 
-            // Set size to monitor to prevent flickering
-            CopyRect(&wnd, state.mdiclient? &mdimon: &state.origin.mon);
+            // Set size to origin monitor to prevent flickering
+            CopyRect(&wnd, &state.origin.mon);
             CopyRect(&wndpl.rcNormalPosition, &wnd);
 
             if (state.mdiclient) {
@@ -2151,7 +2133,7 @@ static int ActionMove(POINT pt, HMONITOR monitor, int button)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-static int ActionResize(POINT pt, POINT mdiclientpt, const RECT *wnd, const RECT *mon, int button)
+static int ActionResize(POINT pt, const RECT *wnd, const RECT *mon, int button)
 {
     if(!IsResizable(state.hwnd)) {
         state.blockmouseup = 1;
@@ -2401,7 +2383,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     state.mdiclient = NULL;
     state.hwnd = WindowFromPoint(pt);
     DorQWORD lpdwResult;
-    if (state.hwnd == NULL || state.hwnd == LastWin.hwnd) {
+    if (!state.hwnd || state.hwnd == LastWin.hwnd) {
         return 0;
     }
 
@@ -2419,7 +2401,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 
     // MDI or not
     state.hwnd = MDIorNOT(state.hwnd, &state.mdiclient);
-    POINT mdiclientpt = {0,0};
+    mdiclientpt = (POINT) { 0, 0 };
     if (state.mdiclient) {
         if (!GetClientRect(state.mdiclient, &fmon)
          || !ClientToScreen(state.mdiclient, &mdiclientpt) ) {
@@ -2449,7 +2431,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     state.blockaltup = 1;
     if (!SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 255, &lpdwResult)) {
         state.blockmouseup = 1;
-        if(action == AC_MOVE || action == AC_RESIZE) return 1;
+        if(MOUVEMENT(action)) return 1; // Move or resize
     } // return if window has to be moved/resized
     state.origin.maximized = IsZoomed(state.hwnd);
     state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
@@ -2472,7 +2454,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     if (conf.AutoFocus || state.ctrl) { SetForegroundWindowL(state.hwnd); }
 
     // Do things depending on what button was pressed
-    if (action == AC_MOVE || action == AC_RESIZE) {
+    if (MOUVEMENT(action)) {
         // Set action state.
         state.action = action;
         // Toggle Resize and Move actions if the toggle key is Down
@@ -2491,7 +2473,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         if(state.action == AC_MOVE) {
             ret = ActionMove(pt, monitor, button);
         } else {
-            ret = ActionResize(pt, mdiclientpt, &wnd, &state.origin.mon, button);
+            ret = ActionResize(pt, &wnd, &state.origin.mon, button);
         }
         if (ret == 1) return 1; // block mouse down!
         UpdateCursor(pt);

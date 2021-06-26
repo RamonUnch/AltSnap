@@ -137,7 +137,7 @@ void OpenConfig(int startpage)
     psh.dwFlags = PSH_PROPSHEETPAGE|PSH_USECALLBACK|PSH_USEHICON ;
     psh.hwndParent = NULL;
     psh.hInstance = g_hinst;
-    psh.hIcon = icon[1];
+    psh.hIcon = LoadIconA(g_hinst, iconstr[1]);
     psh.pszCaption = APP_NAME;
     psh.nPages = ARR_SZ(pages);
     psh.ppsp = (LPCPROPSHEETPAGE) &psp;
@@ -1028,7 +1028,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 sizeof(WNDCLASSEX)
               , CS_HREDRAW|CS_VREDRAW
               , TestWindowProc
-              , 0, 0, g_hinst, icon[1]
+              , 0, 0, g_hinst, LoadIconA(g_hinst, iconstr[1])
               , LoadCursor(NULL, IDC_ARROW)
               , (HBRUSH)(COLOR_BACKGROUND+1)
               , NULL, APP_NAME"-Test", NULL

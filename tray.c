@@ -7,14 +7,13 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 struct _NOTIFYICONDATAA tray;
-HICON icon[3];
 int tray_added = 0;
 int hide = 0;
 
 char *iconstr[] = {
-    "tray_disabled",
-    "tray_enabled",
-    "tray_suspended"
+    "tray_off",
+    "tray_on",
+    "tray_sus"
 };
 char *traystr[] = {
     "AltDrag (Off)",

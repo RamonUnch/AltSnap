@@ -767,8 +767,9 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
         if (IsInRangeT(*posy, snapwnd.top, snapwnd.bottom, thresholdx)
          || IsInRangeT(snapwnd.top, *posy, *posy + *wndheight, thresholdx)) {
 
-            UCHAR snapinside_cond = (snapinside || *posy+*wndheight-thresholdx < snapwnd.top
-                                  || snapwnd.bottom < *posy+thresholdx);
+            UCHAR snapinside_cond =  snapinside
+                                 || (*posy+*wndheight-thresholdx < snapwnd.top)
+                                 || (snapwnd.bottom < *posy+thresholdx) ;
             if (state.resize.x == RZ_LEFT
             && IsEqualT(snapwnd.right, *posx, thresholdx)) {
                 // The left edge of the dragged window will snap to this window's right edge
@@ -800,8 +801,9 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
         if (IsInRangeT(*posx, snapwnd.left, snapwnd.right, thresholdy)
          || IsInRangeT(snapwnd.left, *posx, *posx+*wndwidth, thresholdy)) {
 
-            UCHAR snapinside_cond = (snapinside || *posx+*wndwidth-thresholdy < snapwnd.left
-                                || snapwnd.right < *posx+thresholdy);
+            UCHAR snapinside_cond = snapinside
+                                 || (*posx+*wndwidth-thresholdy < snapwnd.left)
+                                 || (snapwnd.right < *posx+thresholdy) ;
             if (state.resize.y == RZ_TOP
             && IsEqualT(snapwnd.bottom, *posy, thresholdy)) {
                 // The top edge of the dragged window will snap to this window's bottom edge
@@ -1252,8 +1254,6 @@ static void DrawRect(HDC hdcl, const RECT *rc)
 ///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
 {
-    int posx=0, posy=0, wndwidth=0, wndheight=0;
-
     // Check if window still exists
     if (!IsWindow(state.hwnd))
         { LastWin.hwnd = NULL; UnhookMouse(); return; }
@@ -1264,7 +1264,7 @@ static void MouseMove(POINT pt)
     if(state.moving == CURSOR_ONLY) return; // Movement blocked...
 
     // Restore Aero snapped window when movement starts
-    int was_snapped=0;
+    UCHAR was_snapped=0;
     if(!state.moving && state.action == AC_MOVE) {
         was_snapped = IsWindowSnapped(state.hwnd);
         RestoreOldWin(&pt, was_snapped, 1);
@@ -1272,6 +1272,7 @@ static void MouseMove(POINT pt)
 
     static RECT wnd; // wnd will be updated and is initialized once.
     if (!state.moving && !GetWindowRect(state.hwnd, &wnd)) return;
+    int posx=0, posy=0, wndwidth=0, wndheight=0;
 
     // Convert pt in MDI coordinates.
     // mdiclientpt is global!
@@ -1422,11 +1423,11 @@ static void MouseMove(POINT pt)
     // LastWin is GLOBAL !
     UCHAR mouse_thread_finished = !LastWin.hwnd;
     LastWin.hwnd   = state.hwnd;
-    LastWin.end    = 0;
     LastWin.x      = posx;
     LastWin.y      = posy;
     LastWin.width  = wndwidth;
     LastWin.height = wndheight;
+    LastWin.end    = 0;
 
     wnd.left   = posx + mdiclientpt.x;
     wnd.top    = posy + mdiclientpt.y;
@@ -2133,7 +2134,7 @@ static int ActionMove(POINT pt, HMONITOR monitor, int button)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-static int ActionResize(POINT pt, const RECT *wnd, const RECT *mon, int button)
+static int ActionResize(POINT pt, const RECT *wnd, int button)
 {
     if(!IsResizable(state.hwnd)) {
         state.blockmouseup = 1;
@@ -2182,6 +2183,7 @@ static int ActionResize(POINT pt, const RECT *wnd, const RECT *mon, int button)
         // Get and set new position
         int posx, posy; // wndwidth and wndheight are defined above
         int restore = 1;
+        RECT *mon = &state.origin.mon;
         RECT bd;
         FixDWMRect(state.hwnd, &bd);
 
@@ -2473,7 +2475,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         if(state.action == AC_MOVE) {
             ret = ActionMove(pt, monitor, button);
         } else {
-            ret = ActionResize(pt, &wnd, &state.origin.mon, button);
+            ret = ActionResize(pt, &wnd, button);
         }
         if (ret == 1) return 1; // block mouse down!
         UpdateCursor(pt);

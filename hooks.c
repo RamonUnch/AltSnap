@@ -145,7 +145,6 @@ RECT *wnds = NULL;
 unsigned numwnds = 0;
 HWND *hwnds = NULL;
 unsigned numhwnds = 0;
-HWND progman = NULL;
 
 // Settings
 #define MAXKEYS 7
@@ -301,11 +300,12 @@ static int IsResizable(HWND hwnd)
     return (conf.ResizeAll || GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME);
 }
 /////////////////////////////////////////////////////////////////////////////
-static void SendSizeMove_on(int on)
+// WM_ENTERSIZEMOVE or WM_EXITSIZEMOVE...
+static void SendSizeMove(DWORD msg)
 {
     // Don't send WM_ENTER/EXIT SIZEMOVE if the window is in SSizeMove BL
     if(!blacklisted(state.hwnd, &BlkLst.SSizeMove)) {
-        PostMessage(state.hwnd, on? WM_ENTERSIZEMOVE: WM_EXITSIZEMOVE, 0, 0);
+        PostMessage(state.hwnd, msg, 0, 0);
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -371,10 +371,10 @@ static void OffsetRectMDI(RECT *wnd, HWND mdihwnd)
 static int ShouldSnapTo(HWND window)
 {
     LONG_PTR style;
-    return window != state.hwnd && window != progman
+    return window != state.hwnd
         && IsWindowVisible(window) && !IsIconic(window)
          &&( ((style=GetWindowLongPtr(window,GWL_STYLE))&WS_CAPTION) == WS_CAPTION
-           || (style&WS_THICKFRAME) == WS_THICKFRAME
+           || (style&WS_THICKFRAME)
            || blacklisted(window,&BlkLst.Snaplist));
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -595,11 +595,6 @@ static void Enum()
         return;
     }
 
-    // Update handle to progman
-    if (!IsWindow(progman)) {
-        progman = FindWindow(L"Progman", L"Program Manager");
-    }
-
     // Enumerate monitors
     EnumDisplayMonitors(NULL, NULL, EnumMonitorsProc, 0);
 
@@ -634,7 +629,7 @@ static void EnumOnce(RECT **bd)
 void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight)
 {
     RECT *bd;
-    if (!state.snap || state.Speed > (int)conf.AeroMaxSpeed) return;
+    if (!state.snap || state.Speed > conf.AeroMaxSpeed) return;
     EnumOnce(&bd);
     int posx = *_posx + bd->left;
     int posy = *_posy + bd->top;
@@ -735,7 +730,7 @@ void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight)
 ///////////////////////////////////////////////////////////////////////////
 static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 {
-    if(!state.snap || state.Speed > (int)conf.AeroMaxSpeed) return;
+    if(!state.snap || state.Speed > conf.AeroMaxSpeed) return;
 
     // thresholdx and thresholdy will shrink to make sure
     // the dragged window will snap to the closest windows
@@ -1029,7 +1024,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     } else if (pt.y < pTop) {
         // Pure Top
         if (!state.shift ^ !(conf.AeroTopMaximizes&1)
-         &&(state.Speed < (int)conf.AeroMaxSpeed)) {
+         &&(state.Speed < conf.AeroMaxSpeed)) {
              if (conf.FullWin) {
                 Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
                 LastWin.hwnd = NULL;
@@ -1096,7 +1091,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         *wndheight+= borders.top+borders.bottom;
 
         // If we go too fast then donot move the window
-        if(state.Speed > (int)conf.AeroMaxSpeed) return 1;
+        if(state.Speed > conf.AeroMaxSpeed) return 1;
         if(conf.FullWin) {
             if (IsZoomed(state.hwnd)) Maximize_Restore_atpt(state.hwnd, &pt, SW_RESTORE, NULL);
             MoveWindowAsync(state.hwnd, *posx, *posy, *wndwidth, *wndheight);
@@ -1109,7 +1104,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
 static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight)
 {
     // return if last resizing is not finished
-    if(!conf.Aero || MM_THREAD_ON || state.Speed > (int)conf.AeroMaxSpeed)
+    if(!conf.Aero || MM_THREAD_ON || state.Speed > conf.AeroMaxSpeed)
         return;
 
     static RECT borders;
@@ -1627,7 +1622,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                     DrawRect(hdcc, &oldRect);
                 }
                 // Send WM_EXITSIZEMOVE
-                SendSizeMove_on(0);
+                SendSizeMove(WM_EXITSIZEMOVE);
 
                 state.alt = 0;
                 state.alt1 = 0;
@@ -2041,7 +2036,7 @@ static void UpdateCursor(POINT pt)
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-// Return the entry if it was already in db.
+// Return the entry if it was already in db. Or NULL otherwise
 static pure struct wnddata *GetWindowInDB(HWND hwndd)
 {
     // Check if window is already in the wnddb database
@@ -2418,8 +2413,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Return if window is blacklisted,
     // if we can't get information about it,
     // or if the window is fullscreen and hans no sysmenu nor caption.
-    if (state.hwnd == progman
-     || blacklistedP(state.hwnd, &BlkLst.Processes)
+    if (blacklistedP(state.hwnd, &BlkLst.Processes)
      || blacklisted(state.hwnd, &BlkLst.Windows)
      || GetWindowPlacement(state.hwnd, &wndpl) == 0
      || GetWindowRect(state.hwnd, &wnd) == 0
@@ -2481,7 +2475,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         UpdateCursor(pt);
 
         // Send WM_ENTERSIZEMOVE
-        SendSizeMove_on(1);
+        SendSizeMove(WM_ENTERSIZEMOVE);
     } else if (action == AC_MENU) {
         state.sclickhwnd = state.hwnd;
         PostMessage(g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd, conf.AggressiveKill);
@@ -2644,7 +2638,7 @@ static void FinishMovement()
         }
     }
     // Send WM_EXITSIZEMOVE
-    SendSizeMove_on(0);
+    SendSizeMove(WM_EXITSIZEMOVE);
 
     state.action = AC_NONE;
     state.moving = 0;

@@ -2369,6 +2369,7 @@ static void StopSpeedMes()
         KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
 }
 /////////////////////////////////////////////////////////////////////////////
+// action cannot be AC_NONE here...
 static int init_movement_and_actions(POINT pt, enum action action, int button)
 {
     RECT wnd;
@@ -2413,7 +2414,8 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Return if window is blacklisted,
     // if we can't get information about it,
     // or if the window is fullscreen and hans no sysmenu nor caption.
-    if (blacklistedP(state.hwnd, &BlkLst.Processes)
+    if (!state.hwnd 
+     || blacklistedP(state.hwnd, &BlkLst.Processes)
      || blacklisted(state.hwnd, &BlkLst.Windows)
      || GetWindowPlacement(state.hwnd, &wndpl) == 0
      || GetWindowRect(state.hwnd, &wnd) == 0
@@ -2425,10 +2427,13 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // An action will be performed...
     // Set state
     state.blockaltup = 1;
-    if (!SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 255, &lpdwResult)) {
+    // return if window as to be moved/resized and does not respond in 1/4 s.
+    if (MOUVEMENT(action)
+    && !SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 255, &lpdwResult)) {
         state.blockmouseup = 1;
-        if(MOUVEMENT(action)) return 1; // Move or resize
-    } // return if window has to be moved/resized
+        return 1; // Unresponsive window...
+    }
+
     state.origin.maximized = IsZoomed(state.hwnd);
     state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
 
@@ -2452,7 +2457,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Do things depending on what button was pressed
     if (MOUVEMENT(action)) {
         // Set action state.
-        state.action = action;
+        state.action = action; // MOVE OR RESIZE
         // Toggle Resize and Move actions if the toggle key is Down
         if (conf.ToggleRzMvKey
         && ((button == conf.ToggleRzMvKey && !conf.KeyCombo)
@@ -2488,7 +2493,8 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // IE (and maybe some other program?)
     Send_CTRL();
 
-    // Remember time of this click so we can check for double-click
+    // Remember time, position and button of this click
+    // so we can check for double-click
     state.clicktime = GetTickCount();
     state.clickpt = pt;
     state.clickbutton = button;

@@ -460,6 +460,7 @@ static void MaximizeWindow(HWND hwnd)
 {
     PostMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
 }
+/* #define MinimizeWindow(x) CloseWindow(x) */
 static void MinimizeWindow(HWND hwnd)
 {
     PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);

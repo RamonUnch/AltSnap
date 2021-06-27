@@ -1751,6 +1751,7 @@ BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
     return TRUE;
 }
 /////////////////////////////////////////////////////////////////////////////
+// Returns the GA_ROOT window if not MDI or MDIblacklist
 static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_)
 {
     HWND mdiclient = NULL;
@@ -2414,7 +2415,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Return if window is blacklisted,
     // if we can't get information about it,
     // or if the window is fullscreen and hans no sysmenu nor caption.
-    if (!state.hwnd 
+    if (!state.hwnd
      || blacklistedP(state.hwnd, &BlkLst.Processes)
      || blacklisted(state.hwnd, &BlkLst.Windows)
      || GetWindowPlacement(state.hwnd, &wndpl) == 0
@@ -2510,26 +2511,27 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
     int willlower = ((conf.LowerWithMMB&1) && !state.alt)
                  || ((conf.LowerWithMMB&2) &&  state.alt);
     if ((willlower || conf.NormRestore)
-    &&  !state.action && (wParam == WM_MBUTTONDOWN || wParam == WM_LBUTTONDOWN)) {
+    &&  !state.action
+    && (wParam == WM_MBUTTONDOWN || wParam == WM_LBUTTONDOWN)) {
         HWND nhwnd = WindowFromPoint(pt);
         if (!nhwnd) return 0;
         HWND hwnd = MDIorNOT(nhwnd, &state.mdiclient);
-        if (blacklisted(hwnd, &BlkLst.Windows))
-            return 0;
+        if (blacklisted(hwnd, &BlkLst.Windows)) return 0; // Next hook
+        if (blacklisted(hwnd, &BlkLst.MMBLower)) return -1; // fall through...
 
+        // The hittest causes problesm with DOSBox
+        // Be sure to check MMBLower blacklist before.
         int area = HitTestTimeout(nhwnd, pt.x, pt.y);
 
         if (willlower && wParam == WM_MBUTTONDOWN
         && (area == HTCAPTION || (area >= HTTOP && area <= HTTOPRIGHT)
           || area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON
-          || area == HTCLOSE || area == HTHELP)
-        && !blacklisted(hwnd, &BlkLst.MMBLower)) {
+          || area == HTCLOSE || area == HTHELP)) {
             ActionLower(NULL, hwnd, 0, state.shift);
             return 1;
         } else if (conf.NormRestore
         && wParam == WM_LBUTTONDOWN && area == HTCAPTION
-        && !IsZoomed(hwnd) && !IsWindowSnapped(hwnd)
-        && !blacklisted(hwnd, &BlkLst.MMBLower)) {
+        && !IsZoomed(hwnd) && !IsWindowSnapped(hwnd)) {
             if ((state.wndentry=GetWindowInDB(hwnd))) {
                 // Set NormRestore to 2 in order to signal that
                 // The window should be restored

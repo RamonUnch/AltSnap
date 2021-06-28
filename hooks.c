@@ -919,8 +919,8 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
 
     // Check on all the other snapped windows from the bottom most
     // To give precedence to the topmost windows
-    int i;
-    for (i=numsnwnds-1; i >= 0; i--) {
+    unsigned i = numsnwnds;
+    while (i--) {
         unsigned flag = snwnds[i].flag;
         RECT *wnd = &snwnds[i].wnd;
         // if the window is in current monitor
@@ -942,10 +942,9 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
 ///////////////////////////////////////////////////////////////////////////
 static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
 {
-    if (state.mdiclient) {
-        if (GetClientRect(state.mdiclient, _mon)) {
-            return;
-        }
+    if (state.mdiclient
+    && GetClientRect(state.mdiclient, _mon)) {
+        return; // MDI!
     }
 
     MONITORINFO mi = { sizeof(MONITORINFO) };
@@ -1063,7 +1062,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         *wndheight = CLAMPH( mon.bottom-mon.top );
         *posx = mon.right - *wndwidth;
         *posy = mon.top + (mon.bottom-mon.top)/2 - *wndheight/2; // Center
-    } else { 
+    } else {
         restore:
         if (state.wndentry->restore&SNAPPED) {
             // Restore original window size
@@ -1718,11 +1717,11 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
     }
 
     // Add button information since we don't get it with the hook
-    if (GetAsyncKeyState(VK_CONTROL) &0x8000) wp |= MK_CONTROL;
     if (GetAsyncKeyState(VK_LBUTTON) &0x8000) wp |= MK_LBUTTON;
-    if (GetAsyncKeyState(VK_MBUTTON) &0x8000) wp |= MK_MBUTTON;
     if (GetAsyncKeyState(VK_RBUTTON) &0x8000) wp |= MK_RBUTTON;
+    if (GetAsyncKeyState(VK_CONTROL) &0x8000) wp |= MK_CONTROL;
     if (GetAsyncKeyState(VK_SHIFT)   &0x8000) wp |= MK_SHIFT;
+    if (GetAsyncKeyState(VK_MBUTTON) &0x8000) wp |= MK_MBUTTON;
     if (GetAsyncKeyState(VK_XBUTTON1)&0x8000) wp |= MK_XBUTTON1;
     if (GetAsyncKeyState(VK_XBUTTON2)&0x8000) wp |= MK_XBUTTON2;
 
@@ -1835,7 +1834,7 @@ static void ActionVolume(int delta)
     static HINSTANCE hOLE32DLL=NULL;
     if (HaveV == -1) {
         hOLE32DLL = LoadLibraryA("OLE32.DLL");
-        if(hOLE32DLL){
+        if (hOLE32DLL) {
             myCoInitialize = (void *)GetProcAddress(hOLE32DLL, "CoInitialize");
             myCoUninitialize= (void *)GetProcAddress(hOLE32DLL, "CoUninitialize");
             myCoCreateInstance= (void *)GetProcAddress(hOLE32DLL, "CoCreateInstance");
@@ -1882,9 +1881,8 @@ static void ActionVolume(int delta)
             VolumeStep = (_VolumeStep)(pAudioEndpoint->lpVtbl->VolumeStepUp);
 
         // Hold shift to make 5 steps
-        UCHAR i;
         UCHAR num = (state.shift)?5:1;
-        for (i=0; i < num; i++) {
+        while (num--) {
             hr = VolumeStep(pAudioEndpoint, NULL);
         }
 
@@ -1913,7 +1911,6 @@ static void ActionVolume(int delta)
         Volume = ( ((DWORD)leftV) << 16 ) | ( (DWORD)rightV );
         mywaveOutSetVolume(NULL, Volume);
     }
-    return;
 }
 /////////////////////////////////////////////////////////////////////////////
 // Windows 2000+ Only
@@ -1928,6 +1925,7 @@ static int ActionTransparency(HWND hwnd, int delta)
 
     LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
     if (alpha_delta < 0 && !(exstyle&WS_EX_LAYERED)) {
+        // Add layered attribute to be able to change alpha
         SetWindowLongPtr(hwnd, GWL_EXSTYLE, exstyle|WS_EX_LAYERED);
         SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
     }
@@ -1939,7 +1937,7 @@ static int ActionTransparency(HWND hwnd, int delta)
 
     alpha = CLAMP(conf.MinAlpha, alpha+alpha_delta, 255); // Limit alpha
 
-    if (alpha >= 255)
+    if (alpha >= 255) // Remove layered attribute if opacity is 100%
         SetWindowLongPtr(hwnd, GWL_EXSTYLE, exstyle & ~WS_EX_LAYERED);
     else
         SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
@@ -1997,10 +1995,10 @@ static HCURSOR CursorToDraw()
 {
     HCURSOR cursor;
 
-    if(conf.UseCursor == 3) {
+    if (conf.UseCursor == 3) {
         return LoadCursor(NULL, IDC_ARROW);
     }
-    if(state.action == AC_MOVE) {
+    if (state.action == AC_MOVE) {
         if(conf.UseCursor == 4)
             return LoadCursor(NULL, IDC_SIZEALL);
         cursor = LoadCursor(NULL, conf.UseCursor>1? IDC_ARROW: IDC_HAND);
@@ -2040,7 +2038,7 @@ static pure struct wnddata *GetWindowInDB(HWND hwndd)
 {
     // Check if window is already in the wnddb database
     // And set it in the current state
-    int i;
+    unsigned i;
     for (i=0; i < NUMWNDDB; i++) {
         if (wnddb.items[i].hwnd == hwndd) {
             return &wnddb.items[i];
@@ -2053,7 +2051,7 @@ static void AddWindowToDB(HWND hwndd)
     state.wndentry = GetWindowInDB(hwndd);
 
     // Find a nice place in wnddb if not already present
-    int i;
+    unsigned i;
     if (state.wndentry == NULL) {
         for (i=0; i < NUMWNDDB+1 && wnddb.pos->restore ; i++) {
             wnddb.pos = (wnddb.pos == &wnddb.items[NUMWNDDB-1])?&wnddb.items[0]:wnddb.pos+1;
@@ -3064,8 +3062,8 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {L"GrabWithAlt",L"Nothing", &conf.GrabWithAlt},
         {NULL}
     };
-    int i;
-    int action_menu_load = 0;
+    unsigned i;
+    UCHAR action_menu_load = 0;
     for (i=0; buttons[i].key != NULL; i++) {
         GetPrivateProfileString(L"Input", buttons[i].key, buttons[i].def, txt, ARR_SZ(txt), inipath);
         if      (!wcsicmp(txt,L"Move"))         *buttons[i].ptr = AC_MOVE;
@@ -3125,7 +3123,8 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     readblacklist(inipath, &BlkLst.Scroll,    L"Scroll");
     readblacklist(inipath, &BlkLst.SSizeMove, L"SSizeMove");
 
-    conf.keepMousehook = ((conf.LowerWithMMB&1) || conf.NormRestore || conf.InactiveScroll || conf.Hotclick.keys[0]);
+    conf.keepMousehook = ((conf.LowerWithMMB&1) || conf.NormRestore
+                         || conf.InactiveScroll || conf.Hotclick.keys[0]);
     // Hook mouse if a permanent hook is needed
     if (conf.keepMousehook) {
         HookMouse();

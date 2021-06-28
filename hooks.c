@@ -360,13 +360,9 @@ BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMon
     return TRUE;
 }
 /////////////////////////////////////////////////////////////////////////////
-static void OffsetRectMDI(RECT *wnd, HWND mdihwnd)
+static void OffsetRectMDI(RECT *wnd)
 {
-    if (mdihwnd) {
-        POINT mdipt = { 0, 0 };
-        if(ClientToScreen(mdihwnd, &mdipt))
-            OffsetRect(wnd, -mdipt.x, -mdipt.y);
-    }
+    OffsetRect(wnd, -mdiclientpt.x, -mdiclientpt.y);
 }
 static int ShouldSnapTo(HWND window)
 {
@@ -402,6 +398,7 @@ BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
             // border (a border that stretches onto other monitors)
             CropRect(&wnd, &mi.rcWork);
         }
+        OffsetRectMDI(&wnd);
         // Return if this window is overlapped by another window
         unsigned i;
         for (i=0; i < numwnds; i++) {
@@ -410,7 +407,6 @@ BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
             }
         }
         // Add window to wnds db
-        OffsetRectMDI(&wnd, state.mdiclient);
         CopyRect(&wnds[numwnds++], &wnd);
     }
     return TRUE;
@@ -448,7 +444,7 @@ BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
             return TRUE; // next hwnd
         }
         // Add the window to the list
-        OffsetRectMDI(&wnd, state.mdiclient);
+        OffsetRectMDI(&wnd);
         CopyRect(&snwnds[numsnwnds].wnd, &wnd);
         snwnds[numsnwnds].hwnd = hwnd;
         numsnwnds++;
@@ -485,7 +481,7 @@ BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
         GetWindowRectL(state.hwnd, &statewnd);
         unsigned flag;
         if((flag = AreRectsTouchingT(&statewnd, &wnd, conf.SnapThreshold/2))) {
-            OffsetRectMDI(&wnd, state.mdiclient);
+            OffsetRectMDI(&wnd);
 
             // Return if this window is overlapped by another window
             unsigned i;
@@ -1067,12 +1063,14 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         *wndheight = CLAMPH( mon.bottom-mon.top );
         *posx = mon.right - *wndwidth;
         *posy = mon.top + (mon.bottom-mon.top)/2 - *wndheight/2; // Center
-    } else if (state.wndentry->restore&SNAPPED) {
-        // Restore original window size
+    } else { 
         restore:
-        state.wndentry->restore = 0;
-        *wndwidth = state.origin.width;
-        *wndheight = state.origin.height;
+        if (state.wndentry->restore&SNAPPED) {
+            // Restore original window size
+            state.wndentry->restore = 0;
+            *wndwidth = state.origin.width;
+            *wndheight = state.origin.height;
+        }
     }
 
     // Aero-move the window?
@@ -2398,8 +2396,10 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     RECT fmon;
     CopyRect(&fmon, &mi.rcMonitor);
 
-    // MDI or not
+    // Get MDI chlild hwnd or root hwnd if not MDI!
     state.hwnd = MDIorNOT(state.hwnd, &state.mdiclient);
+
+    // mdiclientpt HAS to be set to Zero for ClientToScreen adds the offset
     mdiclientpt = (POINT) { 0, 0 };
     if (state.mdiclient) {
         if (!GetClientRect(state.mdiclient, &fmon)

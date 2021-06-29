@@ -879,36 +879,42 @@ static void Maximize_Restore_atpt(HWND hwnd, const POINT *pt, UINT sw_cmd, HMONI
 }
 /////////////////////////////////////////////////////////////////////////////
 // Move the windows in a thread in case it is very slow to resize
-DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
+static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
 {
     HWND hwnd;
-    struct windowRR *lw = LastWinV;
     hwnd = lw->hwnd;
 
     if (lw->end&1 && conf.FullWin) Sleep(conf.RefreshRate+5); // at least 5ms...
 
-    UINT flag = (lw->end&2)? SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOSIZE
-                                     : SWP_NOZORDER|SWP_NOACTIVATE;
-
     SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
-    // SWP_NOSENDCHANGING  in case of MOVE!
 
     if (lw->end&1) {
         RedrawWindow(hwnd, NULL, NULL, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE|RDW_ALLCHILDREN);
         lw->hwnd = NULL;
-        return 0;
+        return;
     }
-
     if (conf.RefreshRate) Sleep(conf.RefreshRate);
 
     lw->hwnd = NULL;
-
+}
+DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
+{
+    MoveResizeWindowThread(LastWinV, SWP_NOZORDER|SWP_NOACTIVATE);
+    return 0;
+}
+DWORD WINAPI ResizeWindowThread(LPVOID LastWinV)
+{
+    MoveResizeWindowThread(LastWinV, SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOSIZE);
     return 0;
 }
 static void MoveWindowInThread(struct windowRR *lw)
 {
     DWORD lpThreadId;
-    CloseHandle(CreateThread(NULL, STACK, MoveWindowThread, lw, 0, &lpThreadId));
+    CloseHandle(
+        CreateThread( NULL, STACK
+            , (lw->end&2)? ResizeWindowThread: MoveWindowThread
+            , lw, 0, &lpThreadId)
+    );
 }
 ///////////////////////////////////////////////////////////////////////////
 // use snwnds[numsnwnds].wnd / .flag
@@ -1302,6 +1308,7 @@ static void MouseMove(POINT pt)
     }
 
     // Get new position for window
+    LastWin.end = 0;
     if (state.action == AC_MOVE) {
         // Set end to 2 to add the SWP_NOSIZE to SetWindowPos
         LastWin.end = 2;
@@ -1336,7 +1343,6 @@ static void MouseMove(POINT pt)
         }
     } else if (state.action == AC_RESIZE) {
         // Restore the window (to monitor size) if it's maximized
-        LastWin.end = 0; // Resize will occur...
         if (!state.moving && IsZoomed(state.hwnd)) {
             state.wndentry->restore = 0; //Clear restore flag.
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };

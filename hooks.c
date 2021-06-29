@@ -887,7 +887,7 @@ DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 
     if (lw->end&1 && conf.FullWin) Sleep(conf.RefreshRate+5); // at least 5ms...
 
-    UINT flag = (lw->end&2)? SWP_NOSENDCHANGING|SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOSIZE
+    UINT flag = (lw->end&2)? SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOSIZE
                                      : SWP_NOZORDER|SWP_NOACTIVATE;
 
     SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
@@ -988,6 +988,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     int Right = pRight  - AERO_TH ;
     int Top   = pTop    + AERO_TH ;
     int Bottom= pBottom - AERO_TH ;
+    LastWin.end = 0; // We are resizing the window.
 
     // Move window
     if (pt.y < Top && pt.x < Left) {
@@ -1071,6 +1072,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
             state.wndentry->restore = 0;
             *wndwidth = state.origin.width;
             *wndheight = state.origin.height;
+            LastWin.end = 0; // Restored => resize
         }
     }
 
@@ -1091,13 +1093,11 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
 
         // If we go too fast then donot move the window
         if(state.Speed > conf.AeroMaxSpeed) return 1;
-        LastWin.end = 0;
         if(conf.FullWin) {
             if (IsZoomed(state.hwnd)) Maximize_Restore_atpt(state.hwnd, &pt, SW_RESTORE, NULL);
-            MoveWindowAsync(state.hwnd, *posx, *posy, *wndwidth, *wndheight);
+            MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
             return 1;
         }
-
     }
     return 0;
 }
@@ -1302,11 +1302,9 @@ static void MouseMove(POINT pt)
     }
 
     // Get new position for window
-    LastWin.end = 0;
     if (state.action == AC_MOVE) {
-        // If not FullWin or DWM set end&2 to avoid
-        // sending WM_WINDOWPOSCHANGING/ED
-        LastWin.end = (!conf.FullWin||HaveDWM()) << 1;
+        // Set end to 2 to add the SWP_NOSIZE to SetWindowPos
+        LastWin.end = 2;
 
         posx = pt.x-state.offset.x;
         posy = pt.y-state.offset.y;
@@ -1320,6 +1318,7 @@ static void MouseMove(POINT pt)
 
         // Restore window if maximized when starting
         if (was_snapped || IsZoomed(state.hwnd)) {
+            LastWin.end = 0;
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
             // Restore original width and height in case we are restoring
@@ -1337,6 +1336,7 @@ static void MouseMove(POINT pt)
         }
     } else if (state.action == AC_RESIZE) {
         // Restore the window (to monitor size) if it's maximized
+        LastWin.end = 0; // Resize will occur...
         if (!state.moving && IsZoomed(state.hwnd)) {
             state.wndentry->restore = 0; //Clear restore flag.
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };

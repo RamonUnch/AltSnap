@@ -897,12 +897,12 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
 
     lw->hwnd = NULL;
 }
-DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
+DWORD WINAPI ResizeWindowThread(LPVOID LastWinV)
 {
     MoveResizeWindowThread(LastWinV, SWP_NOZORDER|SWP_NOACTIVATE);
     return 0;
 }
-DWORD WINAPI ResizeWindowThread(LPVOID LastWinV)
+DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
     MoveResizeWindowThread(LastWinV, SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOSIZE);
     return 0;
@@ -912,7 +912,7 @@ static void MoveWindowInThread(struct windowRR *lw)
     DWORD lpThreadId;
     CloseHandle(
         CreateThread( NULL, STACK
-            , (lw->end&2)? ResizeWindowThread: MoveWindowThread
+            , (lw->end&2)? MoveWindowThread: ResizeWindowThread
             , lw, 0, &lpThreadId)
     );
 }

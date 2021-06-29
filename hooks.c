@@ -887,7 +887,7 @@ DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 
     if (lw->end&1 && conf.FullWin) Sleep(conf.RefreshRate+5); // at least 5ms...
 
-    UINT flag = (lw->end&2)? SWP_NOSENDCHANGING|SWP_NOZORDER|SWP_NOACTIVATE
+    UINT flag = (lw->end&2)? SWP_NOSENDCHANGING|SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOSIZE
                                      : SWP_NOZORDER|SWP_NOACTIVATE;
 
     SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
@@ -1302,8 +1302,12 @@ static void MouseMove(POINT pt)
     }
 
     // Get new position for window
-    LastWin.end = state.action << 1; // 2/4 <=> MOVE/RESIZE!
+    LastWin.end = 0;
     if (state.action == AC_MOVE) {
+        // If not FullWin or DWM set end&2 to avoid
+        // sending WM_WINDOWPOSCHANGING/ED
+        LastWin.end = (!conf.FullWin||HaveDWM()) << 1;
+
         posx = pt.x-state.offset.x;
         posy = pt.y-state.offset.y;
         wndwidth = wnd.right-wnd.left;

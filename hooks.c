@@ -887,7 +887,6 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
     if (lw->end&1 && conf.FullWin) Sleep(conf.RefreshRate+5); // at least 5ms...
 
     SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
-
     if (lw->end&1) {
         RedrawWindow(hwnd, NULL, NULL, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE|RDW_ALLCHILDREN);
         lw->hwnd = NULL;
@@ -897,14 +896,14 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
 
     lw->hwnd = NULL;
 }
-DWORD WINAPI ResizeWindowThread(LPVOID LastWinV)
+static DWORD WINAPI ResizeWindowThread(LPVOID LastWinV)
 {
     MoveResizeWindowThread(LastWinV, SWP_NOZORDER|SWP_NOACTIVATE);
     return 0;
 }
-DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
+static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
-    MoveResizeWindowThread(LastWinV, SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOSIZE);
+    MoveResizeWindowThread(LastWinV, SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS);
     return 0;
 }
 static void MoveWindowInThread(struct windowRR *lw)
@@ -1218,11 +1217,12 @@ static void RestoreOldWin(const POINT *pt, unsigned was_snapped, unsigned index)
             // the offset along Y to be unchanged...
             state.offset.y = pt->y-wnd.top;
         }
+        // If pt is null it means UnRoll...
         SetWindowPos(state.hwnd, NULL
                 , pt? pt->x - state.offset.x - mdiclientpt.x: 0
                 , pt? pt->y - state.offset.y - mdiclientpt.y: 0
                 , state.origin.width, state.origin.height
-                , pt? SWP_NOZORDER: SWP_NOSENDCHANGING|SWP_NOZORDER|SWP_NOMOVE);
+                , pt? SWP_NOZORDER: SWP_NOSENDCHANGING|SWP_NOZORDER|SWP_NOMOVE|SWP_ASYNCWINDOWPOS);
     } else if (pt) {
         state.offset.x = pt->x - wnd.left;
         state.offset.y = pt->y - wnd.top;
@@ -1249,8 +1249,12 @@ static int ShouldResizeTouching()
           || (conf.StickyResize==2 && !state.shift)
         );
 }
+//static HRGN hrgn;
 static void DrawRect(HDC hdcl, const RECT *rc)
 {
+//    SetRectRgn(hrgn, rc->left, rc->top, rc->right, rc->bottom);
+//    SelectClipRgn(hdcl, hrgn);
+//    ExcludeClipRect(hdcl, rc->left+2, rc->top+2, rc->right-2, rc->bottom-2);
     Rectangle(hdcl, rc->left+1, rc->top+1, rc->right, rc->bottom);
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -1447,6 +1451,7 @@ static void MouseMove(POINT pt)
             hdcc = CreateDCA("DISPLAY", NULL, NULL, NULL);
             SetROP2(hdcc, R2_NOTXORPEN);
             SelectObject(hdcc, hpenDot_Global);
+            // if (!hrgn) hrgn = CreateRectRgn(0,0,0,0);
         }
         DrawRect(hdcc, &wnd);
         if (state.moving == 1)
@@ -2302,7 +2307,7 @@ static void ActionBorderless(HWND hwnd)
     if(HaveDWM()) {
         RECT rc;
         GetWindowRect(hwnd, &rc);
-        SetWindowPos(hwnd, NULL, rc.left, rc.top, rc.right-rc.left+1, rc.bottom-rc.top
+        SetWindowPos(hwnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top+1
                    , SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_FRAMECHANGED|SWP_NOZORDER);
         SetWindowPos(hwnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top
                    , SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_NOZORDER);
@@ -2810,6 +2815,7 @@ static void DeleteDCPEN()
 {
     if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
     if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL; }
+    // if (hrgn) { DeleteObject(hrgn); hrgn = NULL; }
 }
 /////////////////////////////////////////////////////////////////////////////
 static void UnhookMouse()

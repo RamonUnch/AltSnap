@@ -1097,8 +1097,8 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         *wndheight+= borders.top+borders.bottom;
 
         // If we go too fast then donot move the window
-        if(state.Speed > conf.AeroMaxSpeed) return 1;
-        if(conf.FullWin) {
+        if (state.Speed > conf.AeroMaxSpeed) return 1;
+        if (conf.FullWin) {
             if (IsZoomed(state.hwnd)) Maximize_Restore_atpt(state.hwnd, &pt, SW_RESTORE, NULL);
             MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
             return 1;
@@ -1249,12 +1249,8 @@ static int ShouldResizeTouching()
           || (conf.StickyResize==2 && !state.shift)
         );
 }
-//static HRGN hrgn;
 static void DrawRect(HDC hdcl, const RECT *rc)
 {
-//    SetRectRgn(hrgn, rc->left, rc->top, rc->right, rc->bottom);
-//    SelectClipRgn(hdcl, hrgn);
-//    ExcludeClipRect(hdcl, rc->left+2, rc->top+2, rc->right-2, rc->bottom-2);
     Rectangle(hdcl, rc->left+1, rc->top+1, rc->right, rc->bottom);
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -1451,7 +1447,6 @@ static void MouseMove(POINT pt)
             hdcc = CreateDCA("DISPLAY", NULL, NULL, NULL);
             SetROP2(hdcc, R2_NOTXORPEN);
             SelectObject(hdcc, hpenDot_Global);
-            // if (!hrgn) hrgn = CreateRectRgn(0,0,0,0);
         }
         DrawRect(hdcc, &wnd);
         if (state.moving == 1)
@@ -2815,7 +2810,6 @@ static void DeleteDCPEN()
 {
     if (hdcc) { DeleteDC(hdcc); hdcc = NULL; }
     if (hpenDot_Global) { DeleteObject(hpenDot_Global); hpenDot_Global = NULL; }
-    // if (hrgn) { DeleteObject(hrgn); hrgn = NULL; }
 }
 /////////////////////////////////////////////////////////////////////////////
 static void UnhookMouse()

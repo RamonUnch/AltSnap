@@ -34,7 +34,6 @@ static void HookMouse();
 // Enumerators
 enum button { BT_NONE=0, BT_LMB=0x02, BT_RMB=0x03, BT_MMB=0x04, BT_MB4=0x05, BT_MB5=0x06 };
 enum resize { RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER };
-enum cursor { HAND, SIZENWSE, SIZENESW, SIZENS, SIZEWE, SIZEALL };
 
 static int init_movement_and_actions(POINT pt, enum action action, int button);
 static void FinishMovement();
@@ -78,7 +77,7 @@ RECT oldRect;
 HDC hdcc;
 HPEN hpenDot_Global=NULL;
 
-struct windowRR {
+static struct windowRR {
     HWND hwnd;
     int x;
     int y;
@@ -89,7 +88,7 @@ struct windowRR {
 } LastWin;
 
 // State
-struct {
+static struct {
     POINT clickpt;
     POINT prevpt;
     POINT offset;
@@ -135,7 +134,7 @@ struct {
 } state;
 // mdiclientpt is global!
 // initialized by init_movement_and_actions
-POINT mdiclientpt;
+static POINT mdiclientpt;
 
 
 // Snap
@@ -152,7 +151,7 @@ struct hotkeys_s {
     UCHAR keys[MAXKEYS+1];
 };
 
-struct {
+static struct {
     enum action GrabWithAlt;
 
     UCHAR AutoFocus;
@@ -223,7 +222,7 @@ struct blacklist {
     unsigned length;
     wchar_t *data;
 };
-struct {
+static struct {
     struct blacklist Processes;
     struct blacklist Windows;
     struct blacklist Snaplist;
@@ -880,33 +879,41 @@ static void Maximize_Restore_atpt(HWND hwnd, const POINT *pt, UINT sw_cmd, HMONI
 }
 /////////////////////////////////////////////////////////////////////////////
 // Move the windows in a thread in case it is very slow to resize
-DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
+static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
 {
-    int ret;
     HWND hwnd;
-    struct windowRR *lw = LastWinV;
     hwnd = lw->hwnd;
 
-    if (lw->end && conf.FullWin) Sleep(conf.RefreshRate+5);
+    if (lw->end&1 && conf.FullWin) Sleep(conf.RefreshRate+5); // at least 5ms...
 
-    ret = SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height
-                     , SWP_NOACTIVATE|SWP_NOREPOSITION); // |WP_NOSENDCHANGING|SWP_DEFERERASE
-    if (lw->end) {
+    SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
+    if (lw->end&1) {
         RedrawWindow(hwnd, NULL, NULL, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE|RDW_ALLCHILDREN);
         lw->hwnd = NULL;
-        return !ret;
+        return;
     }
-
     if (conf.RefreshRate) Sleep(conf.RefreshRate);
 
     lw->hwnd = NULL;
-
-    return !ret;
+}
+static DWORD WINAPI ResizeWindowThread(LPVOID LastWinV)
+{
+    MoveResizeWindowThread(LastWinV, SWP_NOZORDER|SWP_NOACTIVATE);
+    return 0;
+}
+static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
+{
+    MoveResizeWindowThread(LastWinV, SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS);
+    return 0;
 }
 static void MoveWindowInThread(struct windowRR *lw)
 {
     DWORD lpThreadId;
-    CloseHandle(CreateThread(NULL, STACK, MoveWindowThread, lw, 0, &lpThreadId));
+    CloseHandle(
+        CreateThread( NULL, STACK
+            , (lw->end&2)? MoveWindowThread: ResizeWindowThread
+            , lw, 0, &lpThreadId)
+    );
 }
 ///////////////////////////////////////////////////////////////////////////
 // use snwnds[numsnwnds].wnd / .flag
@@ -986,6 +993,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     int Right = pRight  - AERO_TH ;
     int Top   = pTop    + AERO_TH ;
     int Bottom= pBottom - AERO_TH ;
+    LastWin.end = 0; // We are resizing the window.
 
     // Move window
     if (pt.y < Top && pt.x < Left) {
@@ -1069,6 +1077,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
             state.wndentry->restore = 0;
             *wndwidth = state.origin.width;
             *wndheight = state.origin.height;
+            LastWin.end = 0; // Restored => resize
         }
     }
 
@@ -1088,10 +1097,10 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         *wndheight+= borders.top+borders.bottom;
 
         // If we go too fast then donot move the window
-        if(state.Speed > conf.AeroMaxSpeed) return 1;
-        if(conf.FullWin) {
+        if (state.Speed > conf.AeroMaxSpeed) return 1;
+        if (conf.FullWin) {
             if (IsZoomed(state.hwnd)) Maximize_Restore_atpt(state.hwnd, &pt, SW_RESTORE, NULL);
-            MoveWindowAsync(state.hwnd, *posx, *posy, *wndwidth, *wndheight);
+            MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
             return 1;
         }
     }
@@ -1105,18 +1114,17 @@ static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *w
         return;
 
     static RECT borders;
-    RECT mon = state.origin.mon;
     if(!state.moving) {
         FixDWMRect(state.hwnd, &borders);
     }
-    if (state.resize.x == RZ_CENTER && state.resize.y == RZ_TOP && pt.y < mon.top + AERO_TH) {
+    if (state.resize.x == RZ_CENTER && state.resize.y == RZ_TOP && pt.y < state.origin.mon.top + AERO_TH) {
         state.wndentry->restore = SNAPPED|SNMAXH;
-        *wndheight = CLAMPH(mon.bottom - mon.top + borders.bottom + borders.top);
-        *posy = mon.top - borders.top;
-    } else if (state.resize.x == RZ_LEFT && state.resize.y == RZ_CENTER && pt.x < mon.left + AERO_TH) {
+        *wndheight = CLAMPH(state.origin.mon.bottom - state.origin.mon.top + borders.bottom + borders.top);
+        *posy = state.origin.mon.top - borders.top;
+    } else if (state.resize.x == RZ_LEFT && state.resize.y == RZ_CENTER && pt.x < state.origin.mon.left + AERO_TH) {
         state.wndentry->restore = SNAPPED|SNMAXW;
-        *wndwidth = CLAMPW(mon.right - mon.left + borders.left + borders.right);
-        *posx = mon.left - borders.left;
+        *wndwidth = CLAMPW(state.origin.mon.right - state.origin.mon.left + borders.left + borders.right);
+        *posx = state.origin.mon.left - borders.left;
     }
     // Aero-move the window?
     if (state.wndentry->restore&SNAPPED && state.wndentry->restore&(SNMAXH|SNMAXW)) {
@@ -1174,6 +1182,7 @@ static int IsHotkeyDown()
 // index 2 => Rolled window state.wndentry->restore & 2
 // state.wndentry->restore & 3 => Both 1 & 2 ie: Maximized then rolled.
 // Set was_snapped to 2 if you wan to
+// if pt is NULL we also restore with SWP_NOSENDCHANGING
 static void RestoreOldWin(const POINT *pt, unsigned was_snapped, unsigned index)
 {
     // Restore old width/height?
@@ -1208,11 +1217,12 @@ static void RestoreOldWin(const POINT *pt, unsigned was_snapped, unsigned index)
             // the offset along Y to be unchanged...
             state.offset.y = pt->y-wnd.top;
         }
+        // If pt is null it means UnRoll...
         SetWindowPos(state.hwnd, NULL
                 , pt? pt->x - state.offset.x - mdiclientpt.x: 0
                 , pt? pt->y - state.offset.y - mdiclientpt.y: 0
                 , state.origin.width, state.origin.height
-                , pt? SWP_NOZORDER: SWP_NOZORDER|SWP_NOMOVE);
+                , pt? SWP_NOZORDER: SWP_NOSENDCHANGING|SWP_NOZORDER|SWP_NOMOVE|SWP_ASYNCWINDOWPOS);
     } else if (pt) {
         state.offset.x = pt->x - wnd.left;
         state.offset.y = pt->y - wnd.top;
@@ -1298,7 +1308,11 @@ static void MouseMove(POINT pt)
     }
 
     // Get new position for window
+    LastWin.end = 0;
     if (state.action == AC_MOVE) {
+        // Set end to 2 to add the SWP_NOSIZE to SetWindowPos
+        LastWin.end = 2;
+
         posx = pt.x-state.offset.x;
         posy = pt.y-state.offset.y;
         wndwidth = wnd.right-wnd.left;
@@ -1311,6 +1325,7 @@ static void MouseMove(POINT pt)
 
         // Restore window if maximized when starting
         if (was_snapped || IsZoomed(state.hwnd)) {
+            LastWin.end = 0;
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
             // Restore original width and height in case we are restoring
@@ -1419,7 +1434,6 @@ static void MouseMove(POINT pt)
     LastWin.y      = posy;
     LastWin.width  = wndwidth;
     LastWin.height = wndheight;
-    LastWin.end    = 0;
 
     wnd.left   = posx + mdiclientpt.x;
     wnd.top    = posy + mdiclientpt.y;
@@ -2092,6 +2106,7 @@ static void RollWindow(HWND hwnd, int delta)
                 state.wndentry->width = rc.right - rc.left;
                 state.wndentry->height = rc.bottom - rc.top;
             }
+            // Add the SNAPPED falg is maximized and and add the SNTHENROLLED flag is snapped
             state.wndentry->restore = ROLLED | state.origin.maximized|IsWindowSnapped(hwnd)<<10;
         }
     }
@@ -2179,7 +2194,8 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
         RECT bd;
         FixDWMRect(state.hwnd, &bd);
 
-        if(!state.shift ^ !(conf.AeroTopMaximizes&2)) { /* Extend window's borders to monitor */
+        if(!state.shift ^ !(conf.AeroTopMaximizes&2)) {
+        /* Extend window's borders to monitor */
             posx = wnd->left - mdiclientpt.x;
             posy = wnd->top - mdiclientpt.y;
 
@@ -2286,7 +2302,7 @@ static void ActionBorderless(HWND hwnd)
     if(HaveDWM()) {
         RECT rc;
         GetWindowRect(hwnd, &rc);
-        SetWindowPos(hwnd, NULL, rc.left, rc.top, rc.right-rc.left+1, rc.bottom-rc.top
+        SetWindowPos(hwnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top+1
                    , SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_FRAMECHANGED|SWP_NOZORDER);
         SetWindowPos(hwnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top
                    , SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_NOZORDER);
@@ -2615,8 +2631,9 @@ static void FinishMovement()
         if(IsWindow(LastWin.hwnd)){
             if(LastWin.maximize) {
                 Maximize_Restore_atpt(LastWin.hwnd, NULL, SW_MAXIMIZE, NULL);
+                LastWin.hwnd = NULL;
             } else{
-                LastWin.end = 1;
+                LastWin.end |= 1;
                 MoveWindowInThread(&LastWin);
             }
         }
@@ -2755,8 +2772,8 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             return CallNextHookEx(NULL, nCode, wParam, lParam);
         }
         ret = init_movement_and_actions(pt, action, button);
-        if(!ret) return CallNextHookEx(NULL, nCode, wParam, lParam);
-        else     return 1; // block mousedown
+        if (!ret) return CallNextHookEx(NULL, nCode, wParam, lParam);
+        else      return 1; // block mousedown
 
     // BUTTON UP
     } else if (buttonstate == STATE_UP) {
@@ -3112,7 +3129,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     // Window for Action Menu
     if (action_menu_load) {
-          g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
+        g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
     }
     readblacklist(inipath, &BlkLst.Processes, L"Processes");
     readblacklist(inipath, &BlkLst.Windows,   L"Windows");

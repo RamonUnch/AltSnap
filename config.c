@@ -938,13 +938,12 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     static int centerfrac=24;
     switch (msg) {
     case WM_PAINT:;
-        RECT cRect, wRect;
+        RECT wRect;
         HPEN pen = (HPEN) CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
 
         GetWindowRect(hwnd, &wRect);
-        GetClientRect(hwnd, &cRect);
         POINT Offset = { wRect.left, wRect.top };
         ScreenToClient(hwnd, &Offset);
 
@@ -954,7 +953,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         int width = wRect.right - wRect.left;
         int height = wRect.bottom - wRect.top;
 
-        FillRect(hdc, &cRect, GetStockObject(WHITE_BRUSH));
+        FillRect(hdc, &ps.rcPaint, GetStockObject(WHITE_BRUSH));
         Rectangle(hdc
             , Offset.x+(width-width*centerfrac/100)/2
             , Offset.y

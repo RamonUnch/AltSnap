@@ -309,7 +309,7 @@ static void FixDWMRect(HWND hwnd, RECT *bbb)
         CopyRect(bbb, &frame);
         return;
     }
-    // bbb->left = bbb->right = bbb->top = bbb->bottom = 0;
+//    bbb->left = bbb->right = bbb->top = bbb->bottom = -10;
     SetRectEmpty(bbb);
 }
 
@@ -460,7 +460,6 @@ static void MaximizeWindow(HWND hwnd)
 {
     PostMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
 }
-/* #define MinimizeWindow(x) CloseWindow(x) */
 static void MinimizeWindow(HWND hwnd)
 {
     PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);

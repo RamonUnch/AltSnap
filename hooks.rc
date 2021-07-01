@@ -1,6 +1,6 @@
 1 VERSIONINFO
-  FILEVERSION 1,4,4,0
-  PRODUCTVERSION 1,4,4,0
+  FILEVERSION 1,4,5,0
+  PRODUCTVERSION 1,4,5,0
   FILEFLAGSMASK 0x3fL
   FILEFLAGS 0x0L
   FILEOS 0x40004L
@@ -14,7 +14,7 @@ BEGIN
       VALUE "FileDescription", "Hooks for AltDrag"
       VALUE "InternalName", "hooks"
       VALUE "OriginalFilename", "hooks.dll"
-      VALUE "FileVersion", "1.44"
+      VALUE "FileVersion", "1.45"
       VALUE "CompanyName", "Gillibert Software"
       VALUE "LegalCopyright", "Stefan Sundin"
     END

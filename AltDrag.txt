@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTDRAG for NT4 to Win10                         *
 *   Modified by Raymond Gillibert from original source by Stefan Sundin   *
-*                       release 1.44 (June 23, 2021)                      *
+*                       release 1.45 (Jully 2, 2021)                      *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltDrag/releases/         *
@@ -182,6 +182,28 @@ Note that this version has some more feature.
 
 ===========================================================================
 == CHANGELOG ==
+
+== AltDrag 1.45 ==
+
++ New: Now the `ScrollLockState` option in the [Input] section of the ini
+  file can be set to 3 to enable AltDrag only when Scroll Lock is off.
+
+* Fixed: Now the `SWP_NOSIZE` and flag is used when simply moving a window.
+  This prevents rolled windows from partially unrolling. Also the 
+  SWP_ASYNCWINDOWPOS flag was added where applicable and this fixes
+  an ugly Win 10 bug that would changes the borders of some moved window.
+
+* Fixed: When using maximizing a window by snapping to the top,
+  it would sometime prevemt further movement when FullWin=0.
+
+* Fixed a last minute bug introduced in 1.44 that would restore rolled
+  windows as soon as you moved them.
+
+* Fixed: Now whe AltDrag is suspended with the Scroll lock state option,
+  The notification icon will change.
+
+* Fixed some stuck alt bugs thanks to **scx**.
+
 
 == AltDrag 1.44 ==
 

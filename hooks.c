@@ -887,11 +887,13 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
     if (lw->end&1 && conf.FullWin) Sleep(conf.RefreshRate+5); // at least 5ms...
 
     SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
-    if (lw->end&1) {
-        RedrawWindow(hwnd, NULL, NULL, RDW_ERASE|RDW_FRAME|RDW_INVALIDATE|RDW_ALLCHILDREN);
+    if (lw->end&1 && !conf.FullWin && state.origin.maximized) {
+        InvalidateRect(hwnd, NULL, FALSE);
         lw->hwnd = NULL;
         return;
     }
+
+
     if (conf.RefreshRate) Sleep(conf.RefreshRate);
 
     lw->hwnd = NULL;

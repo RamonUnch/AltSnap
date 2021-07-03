@@ -566,9 +566,8 @@ static void EnumMdi()
     GetEnoughSpace((void **)&monitors, &nummonitors, &monitors_alloc, sizeof(RECT));
 
     // Add MDIClient as the monitor
-    if (!GetClientRect(state.mdiclient, &monitors[nummonitors++])) {
-        return;
-    }
+    nummonitors = !!GetClientRect(state.mdiclient, &monitors[0]);
+
     if (state.snap > 1) {
         EnumChildWindows(state.mdiclient, EnumWindowsProc, 0);
     }
@@ -2713,7 +2712,6 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             if (updaterate == 0) {
                 MouseMove(pt);
             }
-            // Start speed measurement
             return CallNextHookEx(NULL, nCode, wParam, lParam);
         }
     } else if (wParam == WM_MOUSEWHEEL || wParam == WM_MOUSEHWHEEL) {

@@ -564,10 +564,10 @@ static void EnumMdi()
 {
     // Make sure we have enough space allocated
     GetEnoughSpace((void **)&monitors, &nummonitors, &monitors_alloc, sizeof(RECT));
+
     // Add MDIClient as the monitor
-    RECT wnd;
-    if (GetClientRect(state.mdiclient, &wnd) != 0) {
-        CopyRect(&monitors[nummonitors++], &wnd);
+    if (!GetClientRect(state.mdiclient, &monitors[nummonitors++])) {
+        return;
     }
     if (state.snap > 1) {
         EnumChildWindows(state.mdiclient, EnumWindowsProc, 0);
@@ -585,7 +585,7 @@ static void Enum()
     numsnwnds = 0;
 
     // MDI
-    if (state.mdiclient) {
+    if (state.mdiclient && IsWindow(state.mdiclient)) {
         EnumMdi();
         return;
     }
@@ -887,12 +887,16 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
     if (lw->end&1 && conf.FullWin) Sleep(conf.RefreshRate+5); // at least 5ms...
 
     SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
+
+    // Send WM_SYNCPAINT in case of MOVE to wait for the end of movement
+    // And to avoid windows to "slide through" the whole WM_MOVE queue
+    if (flag|SWP_NOSIZE) SendMessage(hwnd, WM_SYNCPAINT, 0, 0);
+
     if (lw->end&1 && !conf.FullWin && state.origin.maximized) {
         InvalidateRect(hwnd, NULL, FALSE);
         lw->hwnd = NULL;
         return;
     }
-
 
     if (conf.RefreshRate) Sleep(conf.RefreshRate);
 
@@ -1255,34 +1259,9 @@ static void DrawRect(HDC hdcl, const RECT *rc)
 {
     Rectangle(hdcl, rc->left+1, rc->top+1, rc->right, rc->bottom);
 }
-///////////////////////////////////////////////////////////////////////////
-static void MouseMove(POINT pt)
+
+static void RestrictCursorToMon(POINT pt)
 {
-    // Check if window still exists
-    if (!IsWindow(state.hwnd))
-        { LastWin.hwnd = NULL; UnhookMouse(); return; }
-
-    if(conf.UseCursor)
-        MoveWindow(g_mainhwnd, pt.x-128, pt.y-128, 256, 256, FALSE);
-
-    if(state.moving == CURSOR_ONLY) return; // Movement blocked...
-
-    // Restore Aero snapped window when movement starts
-    UCHAR was_snapped=0;
-    if(!state.moving && state.action == AC_MOVE) {
-        was_snapped = IsWindowSnapped(state.hwnd);
-        RestoreOldWin(&pt, was_snapped, 1);
-    }
-
-    static RECT wnd; // wnd will be updated and is initialized once.
-    if (!state.moving && !GetWindowRect(state.hwnd, &wnd)) return;
-    int posx=0, posy=0, wndwidth=0, wndheight=0;
-
-    // Convert pt in MDI coordinates.
-    // mdiclientpt is global!
-    pt.x -= mdiclientpt.x;
-    pt.y -= mdiclientpt.y;
-
     // Restrict pt within origin monitor if Ctrl|Shift is being pressed
     if ((state.ctrl && !state.ignorectrl) || state.shift) {
         static HMONITOR origMonitor;
@@ -1305,9 +1284,37 @@ static void MouseMove(POINT pt)
             }
             ClipCursorOnce(&clip);
         }
-        pt.x = CLAMP(fmon.left, pt.x, fmon.right);
-        pt.y = CLAMP(fmon.top, pt.y, fmon.bottom);
     }
+}
+///////////////////////////////////////////////////////////////////////////
+static void MouseMove(POINT pt)
+{
+    // Check if window still exists
+    if (!IsWindow(state.hwnd))
+        { LastWin.hwnd = NULL; UnhookMouse(); return; }
+
+    if(conf.UseCursor) // Draw the invisible cursor window
+        MoveWindow(g_mainhwnd, pt.x-128, pt.y-128, 256, 256, FALSE);
+
+    if(state.moving == CURSOR_ONLY) return; // Movement was blocked...
+
+    // Restore Aero snapped window when movement starts
+    UCHAR was_snapped = 0;
+    if(!state.moving && state.action == AC_MOVE) {
+        was_snapped = IsWindowSnapped(state.hwnd);
+        RestoreOldWin(&pt, was_snapped, 1);
+    }
+
+    static RECT wnd; // wnd will be updated and is initialized once.
+    if (!state.moving && !GetWindowRect(state.hwnd, &wnd)) return;
+    int posx=0, posy=0, wndwidth=0, wndheight=0;
+
+    // Convert pt in MDI coordinates.
+    // mdiclientpt is global!
+    pt.x -= mdiclientpt.x;
+    pt.y -= mdiclientpt.y;
+
+    RestrictCursorToMon(pt);
 
     // Get new position for window
     LastWin.end = 0;
@@ -1373,6 +1380,8 @@ static void MouseMove(POINT pt)
                 }
                 state.origin.right = wnd.right;
                 state.origin.bottom=wnd.bottom;
+                // Update origin mon rect
+                CopyRect(&state.origin.mon, &wnd);
             }
             // Fix wnd for MDI offset and invisible borders
             RECT borders;
@@ -1385,9 +1394,8 @@ static void MouseMove(POINT pt)
             // Always clear when AeroSmart is disabled.
             state.wndentry->restore = 0;
         } else {
-            // Do not ckear is the window was snapped to some side
-            // or maximized Vertically/horizontally or rolled.
-            unsigned smart_restore_flag=(SNAPPEDSIDE|ROLLED|SNMAXW|SNMAXH);
+            // Do not clear is the window was snapped to some side or rolled.
+            unsigned smart_restore_flag=(SNAPPEDSIDE|ROLLED);
             if(!(state.wndentry->restore & smart_restore_flag))
                 state.wndentry->restore = 0;
         }
@@ -1490,7 +1498,7 @@ static void RestrictToCurentMonitor()
     if (state.action || state.alt) {
         POINT pt;
         GetCursorPos(&pt);
-        state.origin.maximized = 0;
+        state.origin.maximized = 0; // To prevent auto-remax on Ctrl
         state.origin.monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
     }
 }

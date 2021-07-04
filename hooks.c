@@ -1286,6 +1286,17 @@ static void RestrictCursorToMon(POINT pt)
     }
 }
 ///////////////////////////////////////////////////////////////////////////
+// Get mdiclientpt and mdi monitor
+static BOOL GetMDInfo(POINT *mdicpt, RECT *wnd)
+{
+    *mdicpt= (POINT) { 0, 0 };
+    if (!GetClientRect(state.mdiclient, wnd)
+    ||  !ClientToScreen(state.mdiclient, mdicpt) ) {
+         return FALSE;
+    }
+    return TRUE;
+}
+///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
 {
     // Check if window still exists
@@ -1369,18 +1380,14 @@ static void MouseMove(POINT pt)
             wndpl.showCmd = SW_RESTORE;
             SetWindowPlacement(state.hwnd, &wndpl);
             if (state.mdiclient) {
-                // Get new values from MDIClient, since restoring the child have changed them,
-                // The amount they change with differ depending on implementation (compare mIRC and Spy++)
+                // Get new values from MDIClient,
+                // since restoring the child have changed them,
                 Sleep(1); // Sometimes needed
-                mdiclientpt = (POINT) { 0, 0 };
-                if (!GetClientRect(state.mdiclient, &wnd)
-                 || !ClientToScreen(state.mdiclient, &mdiclientpt) ) {
-                     return;
-                }
+                GetMDInfo(&mdiclientpt, &wnd);
+                CopyRect(&state.origin.mon, &wnd);
+
                 state.origin.right = wnd.right;
                 state.origin.bottom=wnd.bottom;
-                // Update origin mon rect
-                CopyRect(&state.origin.mon, &wnd);
             }
             // Fix wnd for MDI offset and invisible borders
             RECT borders;
@@ -1542,9 +1549,6 @@ static int ActionPause(HWND hwnd, char pause)
 // Kill the process from hwnd
 DWORD WINAPI ActionKillThread(LPVOID hwnd)
 {
-    if(!hwnd || blacklistedP(hwnd, &BlkLst.Pause))
-       return 0;
-
     DWORD pid;
     GetWindowThreadProcessId(hwnd, &pid);
 
@@ -1558,10 +1562,11 @@ DWORD WINAPI ActionKillThread(LPVOID hwnd)
 }
 static int ActionKill(HWND hwnd)
 {
+    if(!hwnd || blacklistedP(hwnd, &BlkLst.Pause))
+       return 0;
+
     DWORD lpThreadId;
-    HANDLE thread;
-    thread = CreateThread(NULL, STACK, ActionKillThread, hwnd, 0, &lpThreadId);
-    CloseHandle(thread);
+    CloseHandle(CreateThread(NULL, STACK, ActionKillThread, hwnd, 0, &lpThreadId));
 
     return 1;
 }
@@ -1649,6 +1654,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
                 UnhookMouse();
 
+                // Block ESC if an action was ongoing
                 if (action) return 1;
             }
         } else if (conf.AggressivePause && state.alt && vkey == VK_PAUSE) {
@@ -2425,11 +2431,8 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // mdiclientpt HAS to be set to Zero for ClientToScreen adds the offset
     mdiclientpt = (POINT) { 0, 0 };
     if (state.mdiclient) {
-        if (!GetClientRect(state.mdiclient, &fmon)
-         || !ClientToScreen(state.mdiclient, &mdiclientpt) ) {
-            return 0;
-        }
-        CopyRect(&state.origin.mon, &fmon); // = MDI client rect
+        GetMDInfo(&mdiclientpt, &fmon);
+        CopyRect(&state.origin.mon, &fmon);
     }
 
     WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
@@ -2526,6 +2529,13 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Prevent mousedown from propagating
     return 1;
 }
+static int IsAreaCaption(int area)
+{
+    return area == HTCAPTION
+       || (area >= HTTOP && area <= HTTOPRIGHT)
+       || area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON
+       || area == HTCLOSE || area == HTHELP;
+}
 /////////////////////////////////////////////////////////////////////////////
 // Lower window if middle mouse button is used on the title bar/top of the win
 // Or restore an AltDrad Aero-snapped window.
@@ -2546,10 +2556,7 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
         // Be sure to check MMBLower blacklist before.
         int area = HitTestTimeout(nhwnd, pt.x, pt.y);
 
-        if (willlower && wParam == WM_MBUTTONDOWN
-        && (area == HTCAPTION || (area >= HTTOP && area <= HTTOPRIGHT)
-          || area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON
-          || area == HTCLOSE || area == HTHELP)) {
+        if (willlower && wParam == WM_MBUTTONDOWN && IsAreaCaption(area)) {
             ActionLower(NULL, hwnd, 0, state.shift);
             return 1;
         } else if (conf.NormRestore
@@ -2564,7 +2571,7 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
             }
         }
     } else if (wParam == WM_LBUTTONUP) {
-        if (conf.NormRestore) conf.NormRestore = 1;
+        conf.NormRestore = !!conf.NormRestore;
     } else if (conf.NormRestore > 1) {
         RestoreOldWin(&pt, 2, 1);
         conf.NormRestore = 1;
@@ -2594,7 +2601,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     if (conf.RollWithTBScroll && wParam == WM_MOUSEWHEEL && !state.ctrl) {
 
         int area= HitTestTimeout(nhwnd, pt.x, pt.y);
-        if(area == HTCAPTION || area == HTTOP ) {
+        if(IsAreaCaption(area)) {
             RollWindow(hwnd, delta);
             // Block original scroll event
             state.blockaltup = 1;
@@ -2631,6 +2638,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
 // Called on MouseUp and on AltUp when using GrabWithAlt
 static void FinishMovement()
 {
+    StopSpeedMes();
     if (LastWin.hwnd && (state.moving == NOT_MOVED || (!conf.FullWin&&state.moving))) {
         // to erase the last rectangle...
         if(!conf.FullWin) {
@@ -2647,8 +2655,6 @@ static void FinishMovement()
             }
         }
     }
-    StopSpeedMes();
-
     // Auto Remaximize if option enabled and conditions are met.
     if (conf.AutoRemaximize && state.moving
     && (state.origin.maximized || state.origin.fullscreen)

@@ -267,6 +267,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     OSVERSIONINFO vi = { sizeof(OSVERSIONINFO) };
     GetVersionEx(&vi);
     WinVer = vi.dwMajorVersion;
+    LOG("Running with Windows version %d\n", WinVer);
     if (VISTA) { // Vista +
         HANDLE token;
         TOKEN_ELEVATION elevation;
@@ -277,18 +278,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
             elevated = elevation.TokenIsElevated;
             CloseHandle(token);
         }
+        LOG("Process started %s elevated\n", elevated? "already": "non");
     }
-    LOG("Command line parameters read\n");
-
-    // Register some messages
-    WM_UPDATESETTINGS = RegisterWindowMessage(L"UpdateSettings");
-    WM_OPENCONFIG     = RegisterWindowMessage(L"OpenConfig");
-    WM_CLOSECONFIG    = RegisterWindowMessage(L"CloseConfig");
-    WM_ADDTRAY        = RegisterWindowMessage(L"AddTray");
-    WM_HIDETRAY       = RegisterWindowMessage(L"HideTray");
-    LOG("Messages Registered: %s\n"
-      , WM_UPDATESETTINGS && WM_OPENCONFIG && WM_CLOSECONFIG && WM_ADDTRAY && WM_HIDETRAY
-        ? "OK": "Some messages Failed to register");
+    LOG("Command line parameters read, hide=%d, quiet=%d, elevate=%d, multi=%d, config=%d\n"
+                                     , hide, quiet, elevate, multi, config);
 
     // Look for previous instance
     if (!multi && !GetPrivateProfileInt(L"Advanced", L"MultipleInstances", 0, inipath)){
@@ -308,7 +301,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
 
     // Check AlwaysElevate
     if (!elevated) {
-        elevate = GetPrivateProfileInt(L"Advanced", L"AlwaysElevate", 0, inipath);
+        if(!elevate) elevate = GetPrivateProfileInt(L"Advanced", L"AlwaysElevate", 0, inipath);
 
         // Handle request to elevate to administrator privileges
         if (elevate) {

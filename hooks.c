@@ -15,8 +15,6 @@
 #include <endpointvolume.h>
 #include "unfuck.h"
 #include "hooks.h"
-// App
-#define APP_NAME L"AltDrag"
 
 // Boring stuff
 #define REHOOK_TIMER    WM_APP+1
@@ -2629,6 +2627,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     else if (action == AC_MAXIMIZE)     ActionMaxRestMin(&pt, hwnd, delta);
     else if (action == AC_ROLL)         RollWindow(hwnd, delta);
     else if (action == AC_HSCROLL)      ret = ScrollPointedWindow(pt, -delta, WM_MOUSEHWHEEL);
+    else                                ret = 0; // No action
 
     // ret is 0: next hook or 1: block mousedown and AltUp.
     state.blockaltup = ret; // block or not;

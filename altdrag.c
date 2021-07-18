@@ -11,11 +11,6 @@
 #define _WIN32_WINNT 0x0400
 #include <windows.h>
 
-// App
-#define APP_NAME       L"AltDrag"
-#define APP_NAMEA      "AltDrag"
-#define APP_VERSION    "1.45"
-
 // Messages
 #define SWM_TOGGLE     (WM_APP+1)
 #define SWM_HIDE       (WM_APP+2)
@@ -31,11 +26,6 @@
 HINSTANCE g_hinst = NULL;
 HWND g_hwnd = NULL;
 UINT WM_TASKBARCREATED = 0;
-UINT WM_UPDATESETTINGS = 0;
-UINT WM_ADDTRAY = 0;
-UINT WM_HIDETRAY = 0;
-UINT WM_OPENCONFIG = 0;
-UINT WM_CLOSECONFIG = 0;
 wchar_t inipath[MAX_PATH];
 
 // Cool stuff
@@ -167,11 +157,12 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
 /////////////////////////////////////////////////////////////////////////////
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    if (msg == WM_TRAY) {
+    if (!msg) {
+        // In case some messages are not registered.
+    } else if (msg == WM_TRAY) {
         if (lParam == WM_LBUTTONDOWN || lParam == WM_LBUTTONDBLCLK) {
             ToggleState();
-            if (lParam == WM_LBUTTONDBLCLK
-                && !(GetAsyncKeyState(VK_SHIFT) & 0x8000)) {
+            if (lParam == WM_LBUTTONDBLCLK) {
                 SendMessage(hwnd, WM_OPENCONFIG, 0, 0);
             }
         } else if (lParam == WM_MBUTTONDOWN) {
@@ -368,7 +359,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
 }
 /////////////////////////////////////////////////////////////////////////////
 // use -nostdlib and -e_unfuckMain@0 to use this main
-void WINAPI unfuckWinMain(void)
+void WINAPI noreturn unfuckWinMain(void)
 {
     HINSTANCE hInst;
     HINSTANCE hPrevInstance = NULL;

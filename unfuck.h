@@ -26,12 +26,6 @@
 #define NIIF_USER 0x00000004
 #endif
 
-#define flatten __attribute__((flatten))
-#define xpure __attribute__((const))
-#define pure __attribute__((pure))
-#define noreturn __attribute__((noreturn))
-#define fastcall __attribute__((fastcall))
-
 #ifndef SUBCLASSPROC
 typedef LRESULT (CALLBACK *SUBCLASSPROC)
     (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
@@ -538,10 +532,11 @@ static xpure int IsEqualT(int a, int b, int th)
 {
     return (b - th <= a) & (a <= b + th);
 }
-static xpure int IsInRangeT(int x, int a, int b, int T)
+static int IsInRangeT(int x, int a, int b, int T)
 {
     return (a-T <= x) & (x <= b+T);
 }
+
 static pure unsigned AreRectsAligned(const RECT *a, const RECT *b, const int tol)
 {
     return IsEqualT(a->left, b->right, tol) << 2
@@ -549,20 +544,28 @@ static pure unsigned AreRectsAligned(const RECT *a, const RECT *b, const int tol
          | IsEqualT(a->right, b->left, tol) << 3
          | IsEqualT(a->bottom, b->top, tol) << 5;
 }
-static xpure int SegT(int ax, int bx, int ay1, int ay2, int by1, int by2, int tol)
+static int InRange(int x, int a, int b)
 {
-    return IsEqualT(ax, bx, tol) /* ax == bx */
-        && ( (ay1 >= by1 && ay1 <= by2)
-          || (by1 >= ay1 && by1 <= ay2)
-          || (ay2 >= by1 && ay2 <= by2)
-          || (by2 >= ay1 && by2 <= ay2) );
+    return (x >= a) && (x <= b);
 }
+static xpure int SegT(long ax, long bx, const long *_ay12, const long *_by12, int tol)
+{
+    const long by1 = _by12[0]; /* left/top */
+    const long by2 = _by12[2]; /* right/bottom */
+    const long ay1 = _ay12[0]; /* left/top */
+    const long ay2 = _ay12[2]; /* right/bottom */
+    return IsEqualT(ax, bx, tol) /* ax == bx */
+        && ( InRange(ay1, by1, by2)
+          || InRange(by1, ay1, ay2)
+          || InRange(ay2, by1, by2)
+          || InRange(by2, ay1, ay2) );
+ }
 static pure unsigned AreRectsTouchingT(const RECT *a, const RECT *b, const int tol)
 {
-    return SegT(a->left, b->right, a->top, a->bottom, b->top, b->bottom, tol) << 2
-         | SegT(a->right, b->left, a->top, a->bottom, b->top, b->bottom, tol) << 3
-         | SegT(a->top, b->bottom, a->left, a->right, b->left, b->right, tol) << 4
-         | SegT(a->bottom, b->top, a->left, a->right, b->left, b->right, tol) << 5;
+    return SegT(a->left, b->right, &a->top, &b->top, tol) << 2
+         | SegT(a->right, b->left, &a->top, &b->top, tol) << 3
+         | SegT(a->top, b->bottom, &a->left, &b->left, tol) << 4
+         | SegT(a->bottom, b->top, &a->left, &b->left, tol) << 5;
 }
 static void CropRect(RECT *__restrict__ wnd, RECT *crop)
 {

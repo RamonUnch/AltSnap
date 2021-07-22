@@ -1,11 +1,35 @@
 #ifndef NANOLIBC_H
 #define NANOLIBC_H
 
+#define flatten __attribute__((flatten))
+#define xpure __attribute__((const))
+#define pure __attribute__((pure))
+#define noreturn __attribute__((noreturn))
+#define fastcall __attribute__((fastcall))
+#define ainline __attribute__((always_inline))
+
 /* return +/-1 if x is +/- and 0 if x == 0 */
-static inline int sign(int x)
+static xpure int sign(int x)
 {
     return (x > 0) - (x < 0);
 }
+
+#if defined(__x86_64__) || defined(__i386__)
+static xpure int Iabs(int x)
+{
+    __asm__ (
+        "cdq \n"
+        "xor %%edx, %%eax \n"
+        "sub %%edx, %%eax \n"
+    : "=eax" (x)
+    : "eax" (x)
+    : "%edx"
+    );
+    return x;
+}
+#define abs(x) Iabs(x)
+#endif
+
 /* Function to set the kth bit of n */
 static int setBit(int n, int k)
 {
@@ -72,7 +96,6 @@ static int wtoiL(const wchar_t *s)
     return sign*v;
 }
 #define _wtoi wtoiL
-
 static inline void reverse(wchar_t *str, int length)
 {
     int start = 0;

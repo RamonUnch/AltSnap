@@ -39,7 +39,7 @@ int InitTray()
 
     // Register TaskbarCreated so we can re-add the tray icon if (when) explorer.exe crashes
     WM_TASKBARCREATED = RegisterWindowMessage(L"TaskbarCreated");
-    LOG("Register TaskbarCreated message: %s\n", WM_TASKBARCREATED? "OK": "Fail!");
+    LOG("Register TaskbarCreated message: %X\n", WM_TASKBARCREATED);
 
     return 0;
 }

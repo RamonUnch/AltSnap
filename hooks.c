@@ -32,6 +32,7 @@ static void HookMouse();
 // Enumerators
 enum button { BT_NONE=0, BT_LMB=0x02, BT_RMB=0x03, BT_MMB=0x04, BT_MB4=0x05, BT_MB5=0x06 };
 enum resize { RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER };
+enum buttonstate {STATE_NONE, STATE_DOWN, STATE_UP};
 
 static int init_movement_and_actions(POINT pt, enum action action, int button);
 static void FinishMovement();
@@ -200,6 +201,8 @@ static struct {
     UCHAR StickyResize;
     UCHAR HScrollKey;
     UCHAR ScrollLockState;
+    
+    UCHAR TitlebarMove;
 
     struct hotkeys_s Hotkeys;
     struct hotkeys_s Hotclick;
@@ -1135,6 +1138,15 @@ static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *w
         state.wndentry->height = state.origin.height;
     }
 }
+/////////////////////////////////////////////////////////////////////////////
+static void HideCursor()
+{
+    // Reduce the size to 0 to avoid redrawing.
+    SetWindowPos(g_mainhwnd, NULL, 0,0,0,0
+        , SWP_NOMOVE|SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
+    ShowWindow(g_mainhwnd, SW_HIDE);
+}
+
 ///////////////////////////////////////////////////////////////////////////
 // Get action of button
 static pure enum action GetAction(enum button button)
@@ -1162,6 +1174,27 @@ static int pure IsHotkeyy(unsigned char key, struct hotkeys_s *HKlist)
 #define IsHotclick(a) IsHotkeyy(a, &conf.Hotclick)
 #define IsKillkey(a)  IsHotkeyy(a, &conf.Killkey)
 
+static int IsHotClickPt(enum button button, POINT pt, enum buttonstate bstate)
+{
+    if (IsHotkeyy(button, &conf.Hotclick)) {
+        return 1;
+    } else if (conf.TitlebarMove && button == BT_LMB) {
+        if (conf.TitlebarMove&2 && bstate == STATE_UP) {
+            conf.TitlebarMove = 1;
+            return 1;
+        }
+
+        HideCursor(); // In case...
+        HWND hwnd = WindowFromPoint(pt);
+        if (blacklisted(GetAncestor(hwnd, GA_ROOT), &BlkLst.MMBLower)) 
+            return 0;
+        if(HTCAPTION == HitTestTimeout(hwnd, pt.x, pt.y)) {
+            conf.TitlebarMove = 2;
+            return 1;
+        }
+    }
+    return 0;
+}
 // Return true if required amount of hotkeys are holded.
 // If KeyCombo is disabled, user needs to hold only one hotkey.
 // Otherwise, user needs to hold at least two hotkeys.
@@ -2376,14 +2409,6 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_ROLL)        RollWindow(hwnd, 0);
 }
 /////////////////////////////////////////////////////////////////////////////
-static void HideCursor()
-{
-    // Reduce the size to 0 to avoid redrawing.
-    SetWindowPos(g_mainhwnd, NULL, 0,0,0,0
-        , SWP_NOMOVE|SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
-    ShowWindow(g_mainhwnd, SW_HIDE);
-}
-/////////////////////////////////////////////////////////////////////////////
 static void StartSpeedMes()
 {
     if(conf.AeroMaxSpeed < 65535)
@@ -2739,7 +2764,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         (HIWORD(msg->mouseData)==XBUTTON1)?BT_MB4:
         (HIWORD(msg->mouseData)==XBUTTON2)?BT_MB5:BT_NONE;
 
-    enum {STATE_NONE, STATE_DOWN, STATE_UP} buttonstate =
+    enum buttonstate buttonstate =
           (wParam==WM_LBUTTONDOWN||wParam==WM_MBUTTONDOWN
         || wParam==WM_RBUTTONDOWN||wParam==WM_XBUTTONDOWN)? STATE_DOWN:
           (wParam==WM_LBUTTONUP  ||wParam==WM_MBUTTONUP
@@ -2748,7 +2773,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     enum action action = GetAction(button);
 
     // Check if the click is is a Hotclick and should enable ALT.
-    int is_hotclick = IsHotclick(button);
+    int is_hotclick = IsHotClickPt(button, pt, buttonstate);
     if(is_hotclick && buttonstate == STATE_DOWN) {
         state.alt = button;
         if(!action) return 1;
@@ -2779,7 +2804,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     } else if (buttonstate == STATE_DOWN && state.alt) {
         // Double ckeck some hotkey is pressed.
         if(!state.action
-        && !IsHotclick(state.alt)
+        && !IsHotClickPt(state.alt, pt, buttonstate)
         && !IsHotkeyDown()) {
             UnhookMouse();
             return CallNextHookEx(NULL, nCode, wParam, lParam);
@@ -3069,7 +3094,9 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AlphaDelta    = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDelta", 64, inipath), 127);
     conf.AeroMaxSpeed  = CLAMP(0, GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath), 65535);
     conf.AeroSpeedTau  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedTau", 32, inipath), 255);
-
+    conf.TitlebarMove  = GetPrivateProfileInt(L"Advanced", L"TitlebarMove",    0, inipath);
+    if (conf.TitlebarMove) conf.NormRestore = 0; // in this case disable NormRestore
+    
     // [Performance]
     conf.MoveRate  = GetPrivateProfileInt(L"Performance", L"MoveRate", 2, inipath);
     conf.ResizeRate= GetPrivateProfileInt(L"Performance", L"ResizeRate", 4, inipath);
@@ -3153,7 +3180,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     readblacklist(inipath, &BlkLst.Scroll,    L"Scroll");
     readblacklist(inipath, &BlkLst.SSizeMove, L"SSizeMove");
 
-    conf.keepMousehook = ((conf.LowerWithMMB&1) || conf.NormRestore
+    conf.keepMousehook = ((conf.LowerWithMMB&1) || conf.NormRestore || conf.TitlebarMove
                          || conf.InactiveScroll || conf.Hotclick.keys[0]);
     // Hook mouse if a permanent hook is needed
     if (conf.keepMousehook) {

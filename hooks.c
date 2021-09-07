@@ -38,7 +38,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button);
 static void FinishMovement();
 
 // Window database
-#define NUMWNDDB 64
 #define SNAPPED  1
 #define ROLLED   2
 #define SNLEFT    (1<<2)
@@ -63,14 +62,9 @@ static void FinishMovement();
 
 struct wnddata {
     unsigned restore;
-    HWND hwnd;
     int width;
     int height;
 };
-struct {
-    struct wnddata items[NUMWNDDB];
-    struct wnddata *pos;
-} wnddb;
 
 RECT oldRect;
 HDC hdcc;
@@ -94,7 +88,6 @@ static struct {
     HWND hwnd;
     HWND sclickhwnd;
     HWND mdiclient;
-    struct wnddata *wndentry;
     DWORD clicktime;
     unsigned Speed;
 
@@ -201,7 +194,7 @@ static struct {
     UCHAR StickyResize;
     UCHAR HScrollKey;
     UCHAR ScrollLockState;
-    
+
     UCHAR TitlebarMove;
 
     struct hotkeys_s Hotkeys;
@@ -421,7 +414,36 @@ struct snwdata {
 struct snwdata *snwnds;
 unsigned numsnwnds = 0;
 unsigned snwnds_alloc = 0;
-static pure struct wnddata *GetWindowInDB(HWND hwndd);
+
+/////////////////////////////////////////////////////////////////////////////
+// Windows restore data are saved in properties
+static unsigned GetRestoreData(HWND hwnd, int *width, int *height)
+{
+    DWORD WH = (DWORD)GetPropA(hwnd, APP_PROPPT);
+    *width  = LOWORD(WH);
+    *height = HIWORD(WH);
+    return (unsigned)GetPropA(hwnd, APP_PROPFL);
+}
+static void ClearRestoreData(HWND hwnd)
+{
+    RemovePropA(hwnd, APP_PROPPT);
+    RemovePropA(hwnd, APP_PROPFL);
+}
+// Sets width, height and restoore falg in a hwnd
+static void SetRestoreData(HWND hwnd, int width, int height, unsigned restore)
+{
+    SetPropA(hwnd, APP_PROPFL, (HANDLE)restore);
+    SetPropA(hwnd, APP_PROPPT, (HANDLE)MAKELONG((WORD)width, (WORD)height));
+}
+static unsigned GetRestoreFlag(HWND hwnd)
+{
+    return (unsigned)GetPropA(hwnd, APP_PROPFL);
+}
+static unsigned SetRestoreFlag(HWND hwnd, unsigned flag)
+{
+    return SetPropA(hwnd, APP_PROPFL, (HANDLE)flag);
+}
+/////////////////////////////////////////////////////////////////////////////
 BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 {
     // Make sure we have enough space allocated
@@ -431,10 +453,10 @@ BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
     if (ShouldSnapTo(hwnd)
     && !IsZoomed(hwnd)
     && GetWindowRectL(hwnd, &wnd)) {
-        struct wnddata *entry;
+        unsigned restore;
 
-        if ((entry = GetWindowInDB(hwnd)) && entry->restore&SNAPPED && entry->restore&SNAPPEDSIDE) {
-            snwnds[numsnwnds].flag = entry->restore;
+        if ((restore = GetRestoreFlag(hwnd)) && restore&SNAPPED && restore&SNAPPEDSIDE) {
+            snwnds[numsnwnds].flag = restore;
         } else if (IsWindowSnapped(hwnd)) {
             HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
             MONITORINFO mi = { sizeof(MONITORINFO) };
@@ -992,6 +1014,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     int pBottom= mon.bottom - AERO_TH ;
     int leftWidth, rightWidth, topHeight, bottomHeight;
 
+    unsigned restore = GetRestoreFlag(state.hwnd);
     if(PtInRect(&(RECT){ pLeft, pTop, pRight, pBottom}, pt)) goto restore;
 
     GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, &mon);
@@ -1004,28 +1027,28 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     // Move window
     if (pt.y < Top && pt.x < Left) {
         // Top left
-        state.wndentry->restore = SNAPPED|SNTOPLEFT;
+        restore = SNAPPED|SNTOPLEFT;
         *wndwidth =  leftWidth;
         *wndheight = topHeight;
         *posx = mon.left;
         *posy = mon.top;
     } else if (pt.y < Top && Right < pt.x) {
         // Top right
-        state.wndentry->restore = SNAPPED|SNTOPRIGHT;
+        restore = SNAPPED|SNTOPRIGHT;
         *wndwidth = rightWidth;
         *wndheight = topHeight;
         *posx = mon.right-*wndwidth;
         *posy = mon.top;
     } else if (Bottom < pt.y && pt.x < Left) {
         // Bottom left
-        state.wndentry->restore = SNAPPED|SNBOTTOMLEFT;
+        restore = SNAPPED|SNBOTTOMLEFT;
         *wndwidth = leftWidth;
         *wndheight = bottomHeight;
         *posx = mon.left;
         *posy = mon.bottom - *wndheight;
     } else if (Bottom < pt.y && Right < pt.x) {
         // Bottom right
-        state.wndentry->restore = SNAPPED|SNBOTTOMRIGHT;
+        restore = SNAPPED|SNBOTTOMRIGHT;
         *wndwidth = rightWidth;
         *wndheight= bottomHeight;
         *posx = mon.right - *wndwidth;
@@ -1045,11 +1068,11 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
                 *wndwidth = CLAMPW(mon.right - mon.left);
                 *wndheight = CLAMPH( mon.bottom-mon.top );
                 LastWin.maximize = 1;
-                state.wndentry->restore = SNAPPED|SNCLEAR;
+                restore = SNAPPED|SNCLEAR; // To clear eventual snapping info
                 return 0;
             }
         } else {
-            state.wndentry->restore = SNAPPED|SNTOP;
+            restore = SNAPPED|SNTOP;
             *wndwidth = CLAMPW(mon.right - mon.left);
             *wndheight = topHeight;
             *posx = mon.left + (mon.right-mon.left)/2 - *wndwidth/2; // Center
@@ -1057,30 +1080,30 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         }
     } else if (pt.y > pBottom) {
         // Pure Bottom
-        state.wndentry->restore = SNAPPED|SNBOTTOM;
+        restore = SNAPPED|SNBOTTOM;
         *wndwidth  = CLAMPW( mon.right-mon.left);
         *wndheight = bottomHeight;
         *posx = mon.left + (mon.right-mon.left)/2 - *wndwidth/2; // Center
         *posy = mon.bottom - *wndheight;
     } else if (pt.x < pLeft) {
         // Pure Left
-        state.wndentry->restore = SNAPPED|SNLEFT;
+        restore = SNAPPED|SNLEFT;
         *wndwidth = leftWidth;
         *wndheight = CLAMPH( mon.bottom-mon.top );
         *posx = mon.left;
         *posy = mon.top + (mon.bottom-mon.top)/2 - *wndheight/2; // Center
     } else if (pt.x > pRight) {
         // Pure Right
-        state.wndentry->restore = SNAPPED|SNRIGHT;
+        restore = SNAPPED|SNRIGHT;
         *wndwidth =  rightWidth;
         *wndheight = CLAMPH( mon.bottom-mon.top );
         *posx = mon.right - *wndwidth;
         *posy = mon.top + (mon.bottom-mon.top)/2 - *wndheight/2; // Center
     } else {
         restore:
-        if (state.wndentry->restore&SNAPPED) {
+        if (restore&SNAPPED) {
             // Restore original window size
-            state.wndentry->restore = 0;
+            restore = 0;
             *wndwidth = state.origin.width;
             *wndheight = state.origin.height;
             LastWin.end = 0; // Restored => resize
@@ -1088,12 +1111,11 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     }
 
     // Aero-move the window?
-    if (state.wndentry->restore&SNAPPED) {
+    if (restore&SNAPPED) {
         *wndwidth  = CLAMPW(*wndwidth);
         *wndheight = CLAMPH(*wndheight);
 
-        state.wndentry->width = state.origin.width;
-        state.wndentry->height = state.origin.height;
+        SetRestoreData(state.hwnd, state.origin.width, state.origin.height, restore);
 
         RECT borders;
         FixDWMRect(state.hwnd, &borders);
@@ -1123,19 +1145,19 @@ static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *w
     if(!state.moving) {
         FixDWMRect(state.hwnd, &borders);
     }
+    unsigned restore = GetRestoreFlag(state.hwnd);
     if (state.resize.x == RZ_CENTER && state.resize.y == RZ_TOP && pt.y < state.origin.mon.top + AERO_TH) {
-        state.wndentry->restore = SNAPPED|SNMAXH;
+        restore = SNAPPED|SNMAXH;
         *wndheight = CLAMPH(state.origin.mon.bottom - state.origin.mon.top + borders.bottom + borders.top);
         *posy = state.origin.mon.top - borders.top;
     } else if (state.resize.x == RZ_LEFT && state.resize.y == RZ_CENTER && pt.x < state.origin.mon.left + AERO_TH) {
-        state.wndentry->restore = SNAPPED|SNMAXW;
+        restore = SNAPPED|SNMAXW;
         *wndwidth = CLAMPW(state.origin.mon.right - state.origin.mon.left + borders.left + borders.right);
         *posx = state.origin.mon.left - borders.left;
     }
     // Aero-move the window?
-    if (state.wndentry->restore&SNAPPED && state.wndentry->restore&(SNMAXH|SNMAXW)) {
-        state.wndentry->width = state.origin.width;
-        state.wndentry->height = state.origin.height;
+    if (restore&SNAPPED && restore&(SNMAXH|SNMAXW)) {
+        SetRestoreData(state.hwnd, state.origin.width, state.origin.height, restore);
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -1186,7 +1208,7 @@ static int IsHotClickPt(enum button button, POINT pt, enum buttonstate bstate)
 
         HideCursor(); // In case...
         HWND hwnd = WindowFromPoint(pt);
-        if (blacklisted(GetAncestor(hwnd, GA_ROOT), &BlkLst.MMBLower)) 
+        if (blacklisted(GetAncestor(hwnd, GA_ROOT), &BlkLst.MMBLower))
             return 0;
         if(HTCAPTION == HitTestTimeout(hwnd, pt.x, pt.y)) {
             conf.TitlebarMove = 2;
@@ -1222,14 +1244,16 @@ static int IsHotkeyDown()
 static void RestoreOldWin(const POINT *pt, unsigned was_snapped, unsigned index)
 {
     // Restore old width/height?
-    int restore = 0;
+    unsigned restore = 0;
+    int rwidth=0, rheight=0;
+    unsigned rdata_flag = GetRestoreData(state.hwnd, &rwidth, &rheight);
 
-    if (state.wndentry->restore & index && !(state.origin.maximized&&state.wndentry->restore&2)) {
+    if (((rdata_flag & index) && !(state.origin.maximized&&rdata_flag&2))) {
         // Set origin width and height to the saved values
-        restore = state.wndentry->restore;
-        state.origin.width = state.wndentry->width;
-        state.origin.height = state.wndentry->height;
-        state.wndentry->restore = 0; // and clear restore flag
+        restore = rdata_flag;
+        state.origin.width = rwidth;
+        state.origin.height = rheight;
+        ClearRestoreData(state.hwnd);
     }
 
     RECT wnd;
@@ -1243,7 +1267,7 @@ static void RestoreOldWin(const POINT *pt, unsigned was_snapped, unsigned index)
                        / max(wnd.bottom-wnd.top,1);
     }
     if (state.origin.maximized || was_snapped == 1) {
-        if (state.wndentry->restore&ROLLED || restore&ROLLED) {
+        if (rdata_flag&ROLLED || restore&ROLLED) {
             // if we restore a  Rolled Maximized window...
             state.offset.y = GetSystemMetrics(SM_CYMIN)/2;
         }
@@ -1259,6 +1283,7 @@ static void RestoreOldWin(const POINT *pt, unsigned was_snapped, unsigned index)
                 , pt? pt->y - state.offset.y - mdiclientpt.y: 0
                 , state.origin.width, state.origin.height
                 , pt? SWP_NOZORDER: SWP_NOSENDCHANGING|SWP_NOZORDER|SWP_NOMOVE|SWP_ASYNCWINDOWPOS);
+        ClearRestoreData(state.hwnd);
     } else if (pt) {
         state.offset.x = pt->x - wnd.left;
         state.offset.y = pt->y - wnd.top;
@@ -1381,11 +1406,12 @@ static void MouseMove(POINT pt)
             // Restore original width and height in case we are restoring
             // A Snapped + Maximized window.
             wndpl.showCmd = SW_RESTORE;
-            if (!(state.wndentry->restore&ROLLED)) { // Not if window is rolled!
+            unsigned restore = GetRestoreFlag(state.hwnd);
+            if (!(restore&ROLLED)) { // Not if window is rolled!
                 wndpl.rcNormalPosition.right = wndpl.rcNormalPosition.left + state.origin.width;
                 wndpl.rcNormalPosition.bottom= wndpl.rcNormalPosition.top +  state.origin.height;
             }
-            if(state.wndentry->restore&SNTHENROLLED) state.wndentry->restore=0;
+            if(restore&SNTHENROLLED) ClearRestoreData(state.hwnd);// Only Flag?
             SetWindowPlacement(state.hwnd, &wndpl);
             // Update wndwidth and wndheight
             wndwidth  = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
@@ -1394,7 +1420,7 @@ static void MouseMove(POINT pt)
     } else if (state.action == AC_RESIZE) {
         // Restore the window (to monitor size) if it's maximized
         if (!state.moving && IsZoomed(state.hwnd)) {
-            state.wndentry->restore = 0; //Clear restore flag.
+            ClearRestoreData(state.hwnd); //Clear restore flag and data
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
 
@@ -1429,12 +1455,16 @@ static void MouseMove(POINT pt)
         // Clear restore flag
         if(!conf.SmartAero) {
             // Always clear when AeroSmart is disabled.
-            state.wndentry->restore = 0;
+            //state.wndentry->restore = 0;
+            //SetRestoreFlag(state.hwnd, 0);
+            ClearRestoreData(state.hwnd);
         } else {
             // Do not clear is the window was snapped to some side or rolled.
             unsigned smart_restore_flag=(SNAPPEDSIDE|ROLLED);
-            if(!(state.wndentry->restore & smart_restore_flag))
-                state.wndentry->restore = 0;
+            if(!(GetRestoreFlag(state.hwnd) & smart_restore_flag))
+                //state.wndentry->restore = 0;
+                //SetRestoreFlag(state.hwnd, 0);
+                ClearRestoreData(state.hwnd);
         }
 
         // Figure out new placement
@@ -2093,37 +2123,6 @@ static void UpdateCursor(POINT pt)
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-// Return the entry if it was already in db. Or NULL otherwise
-static pure struct wnddata *GetWindowInDB(HWND hwndd)
-{
-    // Check if window is already in the wnddb database
-    // And set it in the current state
-    unsigned i;
-    for (i=0; i < NUMWNDDB; i++) {
-        if (wnddb.items[i].hwnd == hwndd) {
-            return &wnddb.items[i];
-        }
-    }
-    return NULL;
-}
-static void AddWindowToDB(HWND hwndd)
-{
-    state.wndentry = GetWindowInDB(hwndd);
-
-    // Find a nice place in wnddb if not already present
-    unsigned i;
-    if (state.wndentry == NULL) {
-        for (i=0; i < NUMWNDDB+1 && wnddb.pos->restore ; i++) {
-            wnddb.pos = (wnddb.pos == &wnddb.items[NUMWNDDB-1])?&wnddb.items[0]:wnddb.pos+1;
-        }
-        state.wndentry = wnddb.pos;
-        state.wndentry->hwnd = hwndd;
-        state.wndentry->restore = 0;
-    } else if (state.wndentry->restore&SNCLEAR) {
-        state.wndentry->restore=0;
-    }
-}
-/////////////////////////////////////////////////////////////////////////////
 // Roll/Unroll Window. If delta > 0: Roll if < 0: Unroll if == 0: Toggle.
 static void RollWindow(HWND hwnd, int delta)
 {
@@ -2132,28 +2131,26 @@ static void RollWindow(HWND hwnd, int delta)
     state.origin.maximized = IsZoomed(state.hwnd);
     state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
 
-    AddWindowToDB(state.hwnd);
+    unsigned restore = GetRestoreFlag(hwnd);
 
-    if (state.wndentry->restore & ROLLED && delta <= 0) { // UNROLL
+    if (restore & ROLLED && delta <= 0) { // UNROLL
         if (state.origin.maximized) {
             MinimizeWindow(hwnd);
             MaximizeWindow(hwnd);
-            // state.wndentry->restore=0; // Do not clear
         } else {
             RestoreOldWin(NULL, 2, 2);
         }
-    } else if ((!(state.wndentry->restore & ROLLED) && delta == 0) || delta > 0 ) { // ROLL
+    } else if (((!(restore & ROLLED) && delta == 0)) || delta > 0 ) { // ROLL
         GetWindowRect(state.hwnd, &rc);
         SetWindowPos(state.hwnd, NULL, 0, 0, rc.right - rc.left
               , GetSystemMetrics(SM_CYMIN)
               , SWP_NOMOVE|SWP_NOZORDER|SWP_NOSENDCHANGING|SWP_ASYNCWINDOWPOS);
-        if(!(state.wndentry->restore & ROLLED)) { // Save window size if not saved already.
+        if(!(restore & ROLLED)) { // Save window size if not saved already.
             if (!state.origin.maximized) {
-                state.wndentry->width = rc.right - rc.left;
-                state.wndentry->height = rc.bottom - rc.top;
+                SetRestoreData(hwnd, rc.right - rc.left, rc.bottom - rc.top, 0);
             }
             // Add the SNAPPED falg is maximized and and add the SNTHENROLLED flag is snapped
-            state.wndentry->restore = ROLLED | state.origin.maximized|IsWindowSnapped(hwnd)<<10;
+            SetRestoreFlag(hwnd, ROLLED | state.origin.maximized|IsWindowSnapped(hwnd)<<10);
         }
     }
 }
@@ -2310,12 +2307,8 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
         }
 
         MoveWindowAsync(state.hwnd, posx, posy, wndwidth, wndheight);
-
-        if (!state.wndentry->restore) {
-            state.wndentry->width = state.origin.width;
-            state.wndentry->height = state.origin.height;
-        }
-        state.wndentry->restore = SNAPPED|restore;
+        // Save data to the window...
+        SetRestoreData(state.hwnd, state.origin.width, state.origin.height, SNAPPED|restore);
 
         // Prevent mousedown from propagating
         return 1;
@@ -2394,6 +2387,24 @@ static void ActionMaximize(HWND hwnd)
         Maximize_Restore_atpt(hwnd, NULL, SW_TOGGLE_MAX_RESTORE, NULL);
     }
 }
+//static void MaximizeHV(HWND hwnd, int horizontal)
+//{
+//    RECT rc;
+//    if(!GetWindowRect(hwnd, &rc)) return;
+//
+//    SetRestoreData(hwnd, rc.right - rc.left, rc.bottom - rc.top, 0);
+//    if (horizontal) {
+//        SetRestoreFlag(hwnd, SNAPPED|SNMAXW);
+//        MoveWindowAsync(hwnd
+//            , state.origin.mon.left, rc.top
+//            , state.origin.mon.right-state.origin.mon.left, rc.bottom-rc.top);
+//    } else { // vertical
+//        SetRestoreFlag(hwnd, SNAPPED|SNMAXH);
+//        MoveWindowAsync(hwnd
+//            , rc.left, state.origin.mon.top
+//            , rc.right-rc.left, state.origin.mon.bottom-state.origin.mon.top);
+//    }
+//}
 /////////////////////////////////////////////////////////////////////////////
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
@@ -2407,6 +2418,7 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_BORDERLESS)  ActionBorderless(hwnd);
     else if (action==AC_KILL)        ActionKill(hwnd);
     else if (action==AC_ROLL)        RollWindow(hwnd, 0);
+//    else if (action==AC_MAXHV)       MaximizeHV(hwnd, state.shift);
 }
 /////////////////////////////////////////////////////////////////////////////
 static void StartSpeedMes()
@@ -2490,12 +2502,16 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     if (!state.snap) {
         state.snap = conf.AutoSnap;
     }
-    AddWindowToDB(state.hwnd);
 
     // Set Origin width and height needed for AC_MOVE/RESIZE/CENTER
-    if (state.wndentry->restore && !state.origin.maximized) {
-        state.origin.width = state.wndentry->width;
-        state.origin.height = state.wndentry->height;
+    int rwidth=0, rheight=0;
+    unsigned rdata_flag = GetRestoreData(state.hwnd, &rwidth, &rheight);
+    // Clear restore flag if asked.
+    if (rdata_flag&SNCLEAR) SetRestoreFlag(state.hwnd, (rdata_flag=0));
+
+    if (rdata_flag && !state.origin.maximized) {
+        state.origin.width = rwidth;
+        state.origin.height = rheight;
     } else {
         state.origin.width = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
         state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
@@ -2585,7 +2601,7 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
         } else if (conf.NormRestore
         && wParam == WM_LBUTTONDOWN && area == HTCAPTION
         && !IsZoomed(hwnd) && !IsWindowSnapped(hwnd)) {
-            if ((state.wndentry=GetWindowInDB(hwnd))) {
+            if (GetRestoreFlag(hwnd)) {
                 // Set NormRestore to 2 in order to signal that
                 // The window should be restored
                 conf.NormRestore=2;
@@ -3096,7 +3112,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AeroSpeedTau  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedTau", 32, inipath), 255);
     conf.TitlebarMove  = GetPrivateProfileInt(L"Advanced", L"TitlebarMove",    0, inipath);
     if (conf.TitlebarMove) conf.NormRestore = 0; // in this case disable NormRestore
-    
+
     // [Performance]
     conf.MoveRate  = GetPrivateProfileInt(L"Performance", L"MoveRate", 2, inipath);
     conf.ResizeRate= GetPrivateProfileInt(L"Performance", L"ResizeRate", 4, inipath);
@@ -3139,6 +3155,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         else if (!wcsicmp(txt,L"HScroll"))      *buttons[i].ptr = AC_HSCROLL;
         else if (!wcsicmp(txt,L"Menu"))       { *buttons[i].ptr = AC_MENU ; action_menu_load=1; }
         else if (!wcsicmp(txt,L"Kill"))         *buttons[i].ptr = AC_KILL;
+//        else if (!wcsicmp(txt,L"MaximizeHV"))   *buttons[i].ptr = AC_MAXHV;
         else                                    *buttons[i].ptr = AC_NONE;
     }
 
@@ -3155,12 +3172,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     conf.ToggleRzMvKey = readsinglekey(inipath, L"ToggleRzMvKey", L"");
     conf.HScrollKey = readsinglekey(inipath, L"HScrollKey", L"10"); // VK_SHIFT
-
-    // Zero-out wnddb hwnds
-    for (i=0; i < NUMWNDDB; i++) {
-        wnddb.items[i].hwnd = NULL;
-    }
-    wnddb.pos = &wnddb.items[0];
 
     // Capture main hwnd from caller. This is also the cursor wnd
     g_mainhwnd = mainhwnd;

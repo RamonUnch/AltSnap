@@ -4,7 +4,9 @@
 // App
 #define APP_NAME       L"AltDrag"
 #define APP_NAMEA      "AltDrag"
-#define APP_VERSION    "1.46"
+#define APP_VERSION    "1.47"
+#define APP_PROPPT     APP_NAMEA"-RestoreDimentions"
+#define APP_PROPFL     APP_NAMEA"-RestoreFlag"
 
 // User Messages
 #define WM_TRAY           (WM_USER+1)
@@ -19,7 +21,7 @@
 
 // List of possible actions
 enum action { AC_NONE=0, AC_MOVE, AC_RESIZE, AC_MENU, AC_MINIMIZE, AC_MAXIMIZE, AC_CENTER
-            , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_BORDERLESS, AC_KILL
+            , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_BORDERLESS, AC_KILL, AC_MAXHV
             , AC_ROLL, AC_ALTTAB, AC_VOLUME, AC_TRANSPARENCY, AC_HSCROLL };
 
 #define MOUVEMENT(action) (action <= AC_RESIZE)

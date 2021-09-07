@@ -353,6 +353,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     }
     // EXIT
     UnregisterClass(APP_NAME, hInst);
+
     DestroyWindow(g_hwnd);
     LOG("GOOD NORMAL EXIT\n");
     return msg.wParam;

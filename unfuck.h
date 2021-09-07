@@ -19,6 +19,7 @@
 #define DorQWORD unsigned long
 #endif
 
+
 #define ARR_SZ(x) (sizeof(x) / sizeof((x)[0]))
 #define IDAPPLY 0x3021
 

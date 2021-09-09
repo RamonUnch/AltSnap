@@ -734,11 +734,11 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             // GrabWithAlt
             FillActionDropListS(hwnd, IDC_GRABWITHALT, L"GrabWithAlt", kb_actions);
 
-            // ToggleRzMvKey init
+            // ModKey init
             wchar_t txt[64];
-            HWND control = GetDlgItem(hwnd, IDC_TOGGLERZMVKEY);
+            HWND control = GetDlgItem(hwnd, IDC_MODKEY);
             ComboBox_ResetContent(control);
-            GetPrivateProfileString(L"Input", L"ToggleRzMvKey", L"", txt, ARR_SZ(txt), inipath);
+            GetPrivateProfileString(L"Input", L"ModKey", L"", txt, ARR_SZ(txt), inipath);
             unsigned j, sel = ARR_SZ(togglekeys) - 1;
             for (j = 0; j < ARR_SZ(togglekeys); j++) {
                 wchar_t key_name[256];
@@ -755,7 +755,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_AGGRESSIVEKILL,  l10n->input_aggressive_kill);
             SetDlgItemText(hwnd, IDC_SCROLLLOCKSTATE, l10n->input_scrolllockstate);
             SetDlgItemText(hwnd, IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box);
-            SetDlgItemText(hwnd, IDC_TOGGLERZMVKEY_H, l10n->input_hotkeys_togglerzmvkey);
+            SetDlgItemText(hwnd, IDC_MODKEY_H,        l10n->input_hotkeys_modkey);
             SetDlgItemText(hwnd, IDC_LEFTALT,         l10n->input_hotkeys_leftalt);
             SetDlgItemText(hwnd, IDC_RIGHTALT,        l10n->input_hotkeys_rightalt);
             SetDlgItemText(hwnd, IDC_LEFTWINKEY,      l10n->input_hotkeys_leftwinkey);
@@ -774,8 +774,8 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             WriteOptionBool(IDC_AGGRESSIVEKILL,  L"Input", L"AggressiveKill");
             ScrollLockState=WriteOptionBoolB(IDC_SCROLLLOCKSTATE,   L"Input", L"ScrollLockState", 0);
             // Invert move/resize key.
-            i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_TOGGLERZMVKEY));
-            WritePrivateProfileString(L"Input", L"ToggleRzMvKey", togglekeys[i].action, inipath);
+            i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_MODKEY));
+            WritePrivateProfileString(L"Input", L"ModKey", togglekeys[i].action, inipath);
             // Hotkeys
             SaveHotKeys(hotkeys, hwnd, L"Hotkeys");
             WriteOptionBool(IDC_KEYCOMBO,  L"Input", L"KeyCombo");
@@ -998,6 +998,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         ReadOptionInt(IDC_MULTIPLEINSTANCES,L"Advanced", L"MultipleInstances",0, -1);
         ReadOptionInt(IDC_NORMRESTORE,      L"General",  L"NormRestore", 0, -1);
         ReadOptionInt(IDC_FULLSCREEN,       L"Advanced", L"FullScreen", 1, -1);
+        ReadOptionInt(IDC_TITLEBARMOVE,     L"Advanced", L"TitlebarMove", 0, -1);
 
         ReadOptionInt(IDC_MAXWITHLCLICK,    L"General", L"MMMaximize", 1, 1); // bit 1
         ReadOptionInt(IDC_RESTOREONCLICK,   L"General", L"MMMaximize", 1, 2); // bit 2
@@ -1067,6 +1068,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_MAXWITHLCLICK,    l10n->advanced_maxwithlclick);
             SetDlgItemText(hwnd, IDC_RESTOREONCLICK,   l10n->advanced_restoreonclick);
             SetDlgItemText(hwnd, IDC_FULLSCREEN,       l10n->advanced_fullscreen);
+            SetDlgItemText(hwnd, IDC_TITLEBARMOVE,     l10n->advanced_titlebarmove);
 
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Apply or OK button was pressed.
@@ -1077,6 +1079,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             WriteOptionBool(IDC_AUTOREMAXIMIZE,    L"Advanced", L"AutoRemaximize");
             WriteOptionBool(IDC_NORMRESTORE,       L"General",  L"NormRestore");
             WriteOptionBool(IDC_FULLSCREEN,        L"Advanced", L"FullScreen");
+            WriteOptionBool(IDC_TITLEBARMOVE,      L"Advanced", L"TitlebarMove");
 
             val = IsChecked(IDC_AEROTOPMAXIMIZES) + 2 * IsChecked(IDC_AERODBCLICKSHIFT);
             WritePrivateProfileString(L"Advanced",L"AeroTopMaximizes", _itow(val, txt, 10), inipath);

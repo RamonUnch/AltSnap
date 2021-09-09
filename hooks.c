@@ -60,12 +60,6 @@ static void FinishMovement();
 #define PureTop(flag)    ( (flag&SNTOP) && !(flag&(SNLEFT|SNRIGHT))    )
 #define PureBottom(flag) ( (flag&SNBOTTOM) && !(flag&(SNLEFT|SNRIGHT)) )
 
-struct wnddata {
-    unsigned restore;
-    int width;
-    int height;
-};
-
 RECT oldRect;
 HDC hdcc;
 HPEN hpenDot_Global=NULL;
@@ -144,7 +138,7 @@ struct hotkeys_s {
 };
 
 static struct {
-    enum action GrabWithAlt;
+    enum action GrabWithAlt[2];
 
     UCHAR AutoFocus;
     UCHAR AutoSnap;
@@ -183,7 +177,7 @@ static struct {
     UCHAR MoveTrans;
     UCHAR NormRestore;
     UCHAR AeroSpeedTau;
-    UCHAR ToggleRzMvKey;
+    UCHAR ModKey;
 
     UCHAR keepMousehook;
     UCHAR KeyCombo;
@@ -202,7 +196,7 @@ static struct {
     struct hotkeys_s Killkey;
 
     struct {
-        enum action LMB, RMB, MMB, MB4, MB5, Scroll, HScroll;
+        enum action LMB[2], RMB[2], MMB[2], MB4[2], MB5[2], Scroll[2], HScroll[2];
     } Mouse;
 } conf;
 
@@ -417,12 +411,15 @@ unsigned snwnds_alloc = 0;
 
 /////////////////////////////////////////////////////////////////////////////
 // Windows restore data are saved in properties
+// In 32b mode width and height are shrinked to 16b WORDS
+// In 64b mode width and height are stored on 32b DWORDS
+// There is a lot of cast because of annoying warnings...
 static unsigned GetRestoreData(HWND hwnd, int *width, int *height)
 {
-    DWORD WH = (DWORD)GetPropA(hwnd, APP_PROPPT);
-    *width  = LOWORD(WH);
-    *height = HIWORD(WH);
-    return (unsigned)GetPropA(hwnd, APP_PROPFL);
+    DorQWORD WH = (DorQWORD)GetPropA(hwnd, APP_PROPPT);
+    *width  = (int)LOWORDPTR(WH);
+    *height = (int)HIWORDPTR(WH);
+    return (DorQWORD)GetPropA(hwnd, APP_PROPFL);
 }
 static void ClearRestoreData(HWND hwnd)
 {
@@ -432,16 +429,16 @@ static void ClearRestoreData(HWND hwnd)
 // Sets width, height and restoore falg in a hwnd
 static void SetRestoreData(HWND hwnd, int width, int height, unsigned restore)
 {
-    SetPropA(hwnd, APP_PROPFL, (HANDLE)restore);
-    SetPropA(hwnd, APP_PROPPT, (HANDLE)MAKELONG((WORD)width, (WORD)height));
+    SetPropA(hwnd, APP_PROPFL, (HANDLE)(DorQWORD)restore);
+    SetPropA(hwnd, APP_PROPPT, (HANDLE)MAKELONGPTR((WORD)width, (WORD)height));
 }
 static unsigned GetRestoreFlag(HWND hwnd)
 {
-    return (unsigned)GetPropA(hwnd, APP_PROPFL);
+    return (DorQWORD)GetPropA(hwnd, APP_PROPFL);
 }
-static unsigned SetRestoreFlag(HWND hwnd, unsigned flag)
+static BOOL SetRestoreFlag(HWND hwnd, unsigned flag)
 {
-    return SetPropA(hwnd, APP_PROPFL, (HANDLE)flag);
+    return SetPropA(hwnd, APP_PROPFL, (HANDLE)(DorQWORD)flag);
 }
 /////////////////////////////////////////////////////////////////////////////
 BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
@@ -1168,13 +1165,18 @@ static void HideCursor()
         , SWP_NOMOVE|SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
     ShowWindow(g_mainhwnd, SW_HIDE);
 }
-
+/////////////////////////////////////////////////////////////////////////////
+// Mod Key can return 0 or 1, maybe more in the future...
+static int ModKey()
+{
+    return conf.ModKey && GetAsyncKeyState(conf.ModKey)&0x8000;
+}
 ///////////////////////////////////////////////////////////////////////////
 // Get action of button
 static pure enum action GetAction(enum button button)
 {
     if (button) // Ugly pointer arithmetic (LMB <==> button == 2)
-        return *(&conf.Mouse.LMB-2+button);
+        return conf.Mouse.LMB[(button-2)*2+ModKey()];
     else
         return AC_NONE;
 }
@@ -1236,9 +1238,9 @@ static int IsHotkeyDown()
 }
 /////////////////////////////////////////////////////////////////////////////
 // if pt is NULL then the window is not moved when restored.
-// index 1 => normal restore on any move state.wndentry->restore & 1
-// index 2 => Rolled window state.wndentry->restore & 2
-// state.wndentry->restore & 3 => Both 1 & 2 ie: Maximized then rolled.
+// index 1 => normal restore on any move restore & 1
+// index 2 => Rolled window restore & 2
+// restore & 3 => Both 1 & 2 ie: Maximized then rolled.
 // Set was_snapped to 2 if you wan to
 // if pt is NULL we also restore with SWP_NOSENDCHANGING
 static void RestoreOldWin(const POINT *pt, unsigned was_snapped, unsigned index)
@@ -1455,14 +1457,12 @@ static void MouseMove(POINT pt)
         // Clear restore flag
         if(!conf.SmartAero) {
             // Always clear when AeroSmart is disabled.
-            //state.wndentry->restore = 0;
             //SetRestoreFlag(state.hwnd, 0);
             ClearRestoreData(state.hwnd);
         } else {
             // Do not clear is the window was snapped to some side or rolled.
             unsigned smart_restore_flag=(SNAPPEDSIDE|ROLLED);
             if(!(GetRestoreFlag(state.hwnd) & smart_restore_flag))
-                //state.wndentry->restore = 0;
                 //SetRestoreFlag(state.hwnd, 0);
                 ClearRestoreData(state.hwnd);
         }
@@ -1581,7 +1581,7 @@ static void HotkeyUp()
     // Hotkeys have been released
     state.alt = 0;
     state.alt1 = 0;
-    if(state.action && conf.GrabWithAlt) {
+    if(state.action && conf.GrabWithAlt[0]) {
         FinishMovement();
     }
 
@@ -1667,10 +1667,10 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
             // Hook mouse
             HookMouse();
-            if(conf.GrabWithAlt) {
+            if(conf.GrabWithAlt[0]) {
                 POINT pt;
                 GetCursorPos(&pt);
-                if(!init_movement_and_actions(pt, conf.GrabWithAlt, vkey)) {
+                if(!init_movement_and_actions(pt, conf.GrabWithAlt[vkey==conf.ModKey||ModKey()], vkey)) {
                     UnhookMouse();
                 }
             }
@@ -1692,7 +1692,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         } else if (vkey == VK_SPACE && state.action && state.snap) {
             state.snap = 0;
             return 1; // Block to avoid sys menu.
-        } else if (state.alt && state.action == conf.GrabWithAlt && IsKillkey(vkey)) {
+        } else if (state.alt && state.action == conf.GrabWithAlt[ModKey()] && IsKillkey(vkey)) {
            // Release Hook on Alt+Tab in case there is DisplayFusion which creates an
            // elevated Att+Tab windows that captures the AltUp key.
             HotkeyUp();
@@ -2475,13 +2475,13 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 
     // Return if window is blacklisted,
     // if we can't get information about it,
-    // or if the window is fullscreen and hans no sysmenu nor caption.
+    // or if the window is fullscreen and has no sysmenu nor caption.
     if (!state.hwnd
-     || blacklistedP(state.hwnd, &BlkLst.Processes)
-     || blacklisted(state.hwnd, &BlkLst.Windows)
-     || GetWindowPlacement(state.hwnd, &wndpl) == 0
-     || GetWindowRect(state.hwnd, &wnd) == 0
-     || ( (state.origin.fullscreen = IsFullscreen(state.hwnd, &wnd, &fmon)&conf.FullScreen) == conf.FullScreen )
+    || blacklistedP(state.hwnd, &BlkLst.Processes)
+    || blacklisted(state.hwnd, &BlkLst.Windows)
+    || GetWindowPlacement(state.hwnd, &wndpl) == 0
+    || GetWindowRect(state.hwnd, &wnd) == 0
+    || ( (state.origin.fullscreen = IsFullscreen(state.hwnd, &wnd, &fmon)&conf.FullScreen) == conf.FullScreen )
     ){
         return 0;
     }
@@ -2524,12 +2524,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     if (MOUVEMENT(action)) {
         // Set action state.
         state.action = action; // MOVE OR RESIZE
-        // Toggle Resize and Move actions if the toggle key is Down
-        if (conf.ToggleRzMvKey
-        && ((button == conf.ToggleRzMvKey && !conf.KeyCombo)
-          || GetAsyncKeyState(conf.ToggleRzMvKey)&0x8000) ) {
-            state.action = (action == AC_MOVE)? AC_RESIZE: AC_MOVE;
-        }
 
         GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
         SetWindowTrans(state.hwnd);
@@ -2625,8 +2619,8 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     // 1st Scroll inactive windows.. If enabled
     if (!state.alt && !state.action && conf.InactiveScroll) {
         return ScrollPointedWindow(pt, delta, wParam);
-    } else if(!state.alt || state.action != conf.GrabWithAlt
-          || (conf.GrabWithAlt && !IsSamePTT(&pt, &state.clickpt))
+    } else if(!state.alt || state.action != conf.GrabWithAlt[ModKey()]
+          || (conf.GrabWithAlt[ModKey()] && !IsSamePTT(&pt, &state.clickpt))
           || (!IsHotkeyDown() && !IsHotclick(state.alt))) {
         return 0; // continue if no actions to be made
     }
@@ -2659,7 +2653,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
             return 0;
     }
     int ret=1;
-    enum action action = (wParam == WM_MOUSEWHEEL)? conf.Mouse.Scroll: conf.Mouse.HScroll;
+    enum action action = (wParam == WM_MOUSEWHEEL)? conf.Mouse.Scroll[ModKey()]: conf.Mouse.HScroll[ModKey()];
 
     if (action == AC_ALTTAB)            ret = ActionAltTab(pt, delta);
     else if (action == AC_VOLUME)       ActionVolume(delta);
@@ -2801,7 +2795,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     if (!action) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     // Handle another click if we are already busy with an action
-    if (buttonstate == STATE_DOWN && state.action && state.action != conf.GrabWithAlt) {
+    if (buttonstate == STATE_DOWN && state.action && state.action != conf.GrabWithAlt[ModKey()]) {
         // Maximize/Restore the window if pressing Move, Resize mouse buttons.
         if((conf.MMMaximize&1) && state.action == AC_MOVE && action == AC_RESIZE) {
             if(LastWin.hwnd) Sleep(10);
@@ -2831,7 +2825,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 
     // BUTTON UP
     } else if (buttonstate == STATE_UP) {
-        SetWindowTrans(NULL);
+        SetWindowTrans(NULL); // Reset window transparency
         if(state.blockmouseup) {
             state.blockmouseup = 0;
             return 1;
@@ -3125,14 +3119,22 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         wchar_t *def;
         enum action *ptr;
     } buttons[] = {
-        {L"LMB",        L"Move",    &conf.Mouse.LMB},
-        {L"MMB",        L"Maximize",&conf.Mouse.MMB},
-        {L"RMB",        L"Resize",  &conf.Mouse.RMB},
-        {L"MB4",        L"Nothing", &conf.Mouse.MB4},
-        {L"MB5",        L"Nothing", &conf.Mouse.MB5},
-        {L"Scroll",     L"Nothing", &conf.Mouse.Scroll},
-        {L"HScroll",    L"Nothing", &conf.Mouse.HScroll},
-        {L"GrabWithAlt",L"Nothing", &conf.GrabWithAlt},
+        {L"LMB",        L"Move",    &conf.Mouse.LMB[0]},
+        {L"MMB",        L"Maximize",&conf.Mouse.MMB[0]},
+        {L"RMB",        L"Resize",  &conf.Mouse.RMB[0]},
+        {L"MB4",        L"Nothing", &conf.Mouse.MB4[0]},
+        {L"MB5",        L"Nothing", &conf.Mouse.MB5[0]},
+        {L"Scroll",     L"Nothing", &conf.Mouse.Scroll[0]},
+        {L"HScroll",    L"Nothing", &conf.Mouse.HScroll[0]},
+        {L"LMBB",       L"Resize",  &conf.Mouse.LMB[1]},
+        {L"MMBB",       L"Maximize",&conf.Mouse.MMB[1]},
+        {L"RMBB",       L"Move",    &conf.Mouse.RMB[1]},
+        {L"MB4B",       L"Nothing", &conf.Mouse.MB4[1]},
+        {L"MB5B",       L"Nothing", &conf.Mouse.MB5[1]},
+        {L"ScrollB",    L"Volume",  &conf.Mouse.Scroll[1]},
+        {L"HScrollB",   L"Nothing", &conf.Mouse.HScroll[1]},
+        {L"GrabWithAlt",L"Nothing", &conf.GrabWithAlt[0]},
+        {L"GrabWithAltB",L"Nothing", &conf.GrabWithAlt[1]},
         {NULL}
     };
     unsigned i;
@@ -3170,7 +3172,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     readhotkeys(inipath, L"Hotclicks",L"",        &conf.Hotclick);
     readhotkeys(inipath, L"Killkeys", L"09 4C 2E",&conf.Killkey);
 
-    conf.ToggleRzMvKey = readsinglekey(inipath, L"ToggleRzMvKey", L"");
+    conf.ModKey     = readsinglekey(inipath, L"ModKey", L"");
     conf.HScrollKey = readsinglekey(inipath, L"HScrollKey", L"10"); // VK_SHIFT
 
     // Capture main hwnd from caller. This is also the cursor wnd

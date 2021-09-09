@@ -122,8 +122,8 @@
 #define IDC_GRABWITHALT_H               2045
 #define IDC_METRICS_BOX                 2046
 #define IDC_BEHAVIOR_BOX                2047
-#define IDC_TOGGLERZMVKEY_H             2048
-#define IDC_TOGGLERZMVKEY               2049
+#define IDC_MODKEY_H                    2048
+#define IDC_MODKEY                      2049
 #define IDC_AERODBCLICKSHIFT            2050
 #define IDC_FULLSCREEN                  2051
 #define IDC_AGGRESSIVEKILL              2052
@@ -140,3 +140,4 @@
 #define IDC_HSCROLL                     2063
 #define IDC_HSCROLL_HEADER              2064
 #define IDC_SCROLLLOCKSTATE             2065
+#define IDC_TITLEBARMOVE                2066

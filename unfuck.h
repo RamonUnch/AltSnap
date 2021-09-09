@@ -13,10 +13,17 @@
 #include <stdio.h>
 #include "nanolibc.h"
 
+#define QWORD unsigned long long
 #ifdef WIN64
-#define DorQWORD unsigned long long
+    #define DorQWORD QWORD
+    #define HIWORDPTR(ll)   ((DWORD) (((QWORD) (ll) >> 32) & 0xFFFFFFFF))
+    #define LOWORDPTR(ll)   ((DWORD) (ll))
+    #define MAKELONGPTR(lo, hi) ((QWORD) (((DWORD) (lo)) | ((QWORD) ((DWORD) (hi))) << 32)) 
 #else
-#define DorQWORD unsigned long
+    #define DorQWORD unsigned long
+    #define HIWORDPTR(l)   ((WORD) (((DWORD) (l) >> 16) & 0xFFFF)) 
+    #define LOWORDPTR(l)   ((WORD) (l))
+    #define MAKELONGPTR(lo, hi) ((DWORD) (((WORD) (lo)) | ((DWORD) ((WORD) (hi))) << 16)) 
 #endif
 
 

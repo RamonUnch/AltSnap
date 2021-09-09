@@ -114,7 +114,7 @@ struct strings {
 
   // hotkeys
   wchar_t *input_hotkeys_box;
-  wchar_t *input_hotkeys_togglerzmvkey;
+  wchar_t *input_hotkeys_modkey;
   wchar_t *input_hotclicks_box;
   wchar_t *input_hotclicks_more;
   wchar_t *input_hotkeys_leftalt;
@@ -156,6 +156,7 @@ struct strings {
   wchar_t *advanced_maxwithlclick;
   wchar_t *advanced_restoreonclick;
   wchar_t *advanced_fullscreen;
+  wchar_t *advanced_titlebarmove;
 
   // about
   wchar_t *about_box;
@@ -262,7 +263,7 @@ struct {
   { &l10n_ini.input_actions_hscroll,           L"InputActionHScroll" },
 
   { &l10n_ini.input_hotkeys_box,               L"InputHotkeysBox" },
-  { &l10n_ini.input_hotkeys_togglerzmvkey,     L"InputHotkeystogglerzmvkey" },
+  { &l10n_ini.input_hotkeys_modkey,            L"InputHotkeysModKey" },
   { &l10n_ini.input_hotclicks_box,             L"InputHotclicksBox" },
   { &l10n_ini.input_hotclicks_more,            L"InputHotclicksMore" },
   { &l10n_ini.input_hotkeys_leftalt,           L"InputHotkeysLeftAlt" },
@@ -302,7 +303,8 @@ struct {
   { &l10n_ini.advanced_maxwithlclick,          L"AdvancedMaxWithLClick"},
   { &l10n_ini.advanced_restoreonclick,         L"AdvancedRestoreOnClick"},
   { &l10n_ini.advanced_fullscreen,             L"AdvancedFullScreen"},
-
+  { &l10n_ini.advanced_titlebarmove,           L"AdvancedTitlebarMove"},
+  
   { &l10n_ini.about_box,                       L"AboutBox" },
   { &l10n_ini.about_version,                   L"AboutVersion" },
   { &l10n_ini.about_author,                    L"AboutAuthor" },
@@ -411,7 +413,7 @@ struct strings en_US = {
 
  /* hotkeys */
  /* box                */ L"Hotkeys",
- /* togglerzmvkey      */ L"Inver&t move and resize actions with:",
+ /* modkey             */ L"Modifier key for al&ternate action:",
  /* hotclicks box      */ L"Activate with click",
  /* hotclicks more     */ L"Checked buttons will not be usable outside of AltDrag. They can be combined with an action.",
  /* leftalt            */ L"L&eft Alt",
@@ -455,6 +457,7 @@ struct strings en_US = {
  /* maxwithlclick    */   L"&Toggle maximize state with right-click while moving",
  /* restoreonclick   */   L"Rest&ore window with single click like original AltDrag",
  /* fullscreen       */   L"Enable on &full screen windows",
+ /* titlebarmove     */   L"&Use AltDrag for normal titlebar movement",
 
  /* about tab */
  /* box                */ L"About "APP_NAME,

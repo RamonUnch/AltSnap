@@ -183,6 +183,30 @@ Note that this version has some more feature.
 ===========================================================================
 == CHANGELOG ==
 
+== AltSnap 1.47 ==
+
+* New: Added the option to move windows via AltDrag without hotkey, 
+  by clickling on the titlebar. It is similar to the **hooks windows**
+  feature that was present in the original AltDrag and can be activated
+  via the `TitlebarMove` option in the [Advanced] section of the `.ini`.
+
+* New: Now a modifier key can be set instead of the invert Move/resize
+  key in order to use a different set of customizable actions for all 
+  buttons. They can be configured manually in the .ini, using a B sufix
+  for buttons that contains an action ie: LMBB=Resize etc.
+
+* Project was renamed from **AltDrag** to **AltSnap** to avoid conflict with
+  Original AltDrag from Stefan Sundin. Old choco package will no longer be 
+  updated and will be given back as soon as Stefan asks for it.
+
+* Restore informations for snapped windows are now stored in Windows 
+  properties. This simplifies the code, and allows altdrag to be restarted
+  without loosing restore info.
+
+* Updated Chinese translation by *Yatao Li* (zh_CN.ini).
+
+* Updated German translation by *Ichisich* (de_DE.ini).
+
 == AltDrag 1.46 ==
 
 * Fix -elevate command line parameter being ignored. this also fixes the

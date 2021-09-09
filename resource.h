@@ -141,3 +141,5 @@
 #define IDC_HSCROLL_HEADER              2064
 #define IDC_SCROLLLOCKSTATE             2065
 #define IDC_TITLEBARMOVE                2066
+#define IDC_GRABWITHALTB                2067
+#define IDC_GRABWITHALTB_H              2068

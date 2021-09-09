@@ -733,6 +733,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         if (pnmh->code == PSN_SETACTIVE) {
             // GrabWithAlt
             FillActionDropListS(hwnd, IDC_GRABWITHALT, L"GrabWithAlt", kb_actions);
+            FillActionDropListS(hwnd, IDC_GRABWITHALTB, L"GrabWithAltB", kb_actions);
 
             // ModKey init
             wchar_t txt[64];
@@ -765,11 +766,15 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_HOTKEYS_MORE,    l10n->input_hotkeys_more);
             SetDlgItemText(hwnd, IDC_KEYCOMBO,        l10n->input_keycombo);
             SetDlgItemText(hwnd, IDC_GRABWITHALT_H,   l10n->input_grabwithalt);
+            SetDlgItemText(hwnd, IDC_GRABWITHALTB_H,  l10n->input_grabwithaltb);
         } else if (pnmh->code == PSN_APPLY && have_to_apply ) {
             int i;
             // Action without click
             i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_GRABWITHALT));
             WritePrivateProfileString(L"Input", L"GrabWithAlt", kb_actions[i].action, inipath);
+            i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_GRABWITHALTB));
+            WritePrivateProfileString(L"Input", L"GrabWithAltB", kb_actions[i].action, inipath);
+
             WriteOptionBool(IDC_AGGRESSIVEPAUSE, L"Input", L"AggressivePause");
             WriteOptionBool(IDC_AGGRESSIVEKILL,  L"Input", L"AggressiveKill");
             ScrollLockState=WriteOptionBoolB(IDC_SCROLLLOCKSTATE,   L"Input", L"ScrollLockState", 0);

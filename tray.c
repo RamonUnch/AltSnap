@@ -16,9 +16,9 @@ char *iconstr[] = {
     "tray_sus"
 };
 char *traystr[] = {
-    "AltDrag (Off)",
-    "AltDrag (On)",
-    "AltDrag...",
+    APP_NAMEA" (Off)",
+    APP_NAMEA" (On)",
+    APP_NAMEA"...",
 };
 
 /////////////////////////////////////////////////////////////////////////////

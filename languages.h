@@ -6,8 +6,8 @@
  * Modified By Raymond Gillibert in 2020                                 *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#ifndef ALTDRAG_STRINGS_H
-#define ALTDRAG_STRINGS_H
+#ifndef ALTSNAP_STRINGS_H
+#define ALTSNAP_STRINGS_H
 
 struct langinfoitem {
   wchar_t *code;
@@ -92,6 +92,7 @@ struct strings {
   wchar_t *input_scrolllockstate;
   wchar_t *input_keycombo;
   wchar_t *input_grabwithalt;
+  wchar_t *input_grabwithaltb;
 
   // actions
   wchar_t *input_actions_move;
@@ -243,6 +244,7 @@ struct {
   { &l10n_ini.input_scrolllockstate,           L"InputScrollLockState" },
   { &l10n_ini.input_keycombo,                  L"InputKeyCombo" },
   { &l10n_ini.input_grabwithalt,               L"InputGrabWithAlt" },
+  { &l10n_ini.input_grabwithaltb,               L"InputGrabWithAltB" },
 
   { &l10n_ini.input_actions_move,              L"InputActionMove" },
   { &l10n_ini.input_actions_resize,            L"InputActionResize" },
@@ -388,9 +390,10 @@ struct strings en_US = {
 
  /* Aggressive Pause   */ L"&Pause process on Alt+Shift+Pause (Alt+Pause to resume)",
  /* Aggressive Kill    */ L"&Kill process on Ctrl+Alt+F4\nAlso adds the kill option to the action menu",
- /* scroll lock state  */ L"Suspend/Resume AltDrag based on &Scroll lock state",
- /* KeyCombo           */ L"Use two keys &combo to activate",
- /* GrabWithAlt        */ L"&Action without click:",
+ /* scroll lock state  */ L"Suspend/Resume AltSnap based on &Scroll lock state",
+ /* keycombo           */ L"Use two keys &combo to activate",
+ /* grabwithalt        */ L"&Action without click:",
+ /* grabwithaltb       */ L"Acti&on without click (alt):",
 
  /* actions */
  /* move               */ L"Move window",
@@ -415,7 +418,7 @@ struct strings en_US = {
  /* box                */ L"Hotkeys",
  /* modkey             */ L"Modifier key for al&ternate action:",
  /* hotclicks box      */ L"Activate with click",
- /* hotclicks more     */ L"Checked buttons will not be usable outside of AltDrag. They can be combined with an action.",
+ /* hotclicks more     */ L"Checked buttons will not be usable outside of AltSnap. They can be combined with an action.",
  /* leftalt            */ L"L&eft Alt",
  /* rightalt           */ L"&Right Alt",
  /* leftwinkey         */ L"Left &Winkey",
@@ -449,15 +452,15 @@ struct strings en_US = {
  /* movetrans        */   L"Opacit&y when moving:",
 
  /* behavior_box     */   L"Behavior",
- /* multipleinstances*/   L"Allow multiple &instances of AltDrag",
+ /* multipleinstances*/   L"Allow multiple &instances of AltSnap",
  /* autoremaximize   */   L"Automatically &remaximize windows when changing monitor",
- /* normrestore      */   L"Restore AltDrag snapped windows with &normal move",
+ /* normrestore      */   L"Restore AltSnapped windows with &normal move",
  /* aerotopmaximizes */   L"&Maximize windows snapped at top",
  /* aerodbclickshift */   L"Invert shift &behavior for double-click aero snapping",
  /* maxwithlclick    */   L"&Toggle maximize state with right-click while moving",
  /* restoreonclick   */   L"Rest&ore window with single click like original AltDrag",
  /* fullscreen       */   L"Enable on &full screen windows",
- /* titlebarmove     */   L"&Use AltDrag for normal titlebar movement",
+ /* titlebarmove     */   L"&Use AltSnap for normal titlebar movement",
 
  /* about tab */
  /* box                */ L"About "APP_NAME,

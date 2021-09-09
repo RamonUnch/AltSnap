@@ -1669,9 +1669,12 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             HookMouse();
             if(conf.GrabWithAlt[0]) {
                 POINT pt;
-                GetCursorPos(&pt);
-                if(!init_movement_and_actions(pt, conf.GrabWithAlt[vkey==conf.ModKey||ModKey()], vkey)) {
-                    UnhookMouse();
+                enum action action = conf.GrabWithAlt[(vkey==conf.ModKey) || (!IsHotkey(conf.ModKey)&&ModKey())];
+                if (action) {
+                    GetCursorPos(&pt);
+                    if(!init_movement_and_actions(pt, action, vkey)) {
+                        UnhookMouse();
+                    }
                 }
             }
         } else if (conf.KeyCombo && !state.alt1 && IsHotkey(vkey)) {

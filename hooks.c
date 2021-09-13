@@ -13,8 +13,9 @@
 #define COBJMACROS
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
-#include "unfuck.h"
 #include "hooks.h"
+#include "unfuck.h"
+
 
 // Boring stuff
 #define REHOOK_TIMER    WM_APP+1
@@ -36,30 +37,6 @@ enum buttonstate {STATE_NONE, STATE_DOWN, STATE_UP};
 
 static int init_movement_and_actions(POINT pt, enum action action, int button);
 static void FinishMovement();
-
-// Window database
-#define SNAPPED  1
-#define ROLLED   2
-#define SNLEFT    (1<<2)
-#define SNRIGHT   (1<<3)
-#define SNTOP     (1<<4)
-#define SNBOTTOM  (1<<5)
-#define SNMAXH    (1<<6)
-#define SNMAXW    (1<<7)
-#define SNCLEAR   (1<<8) // to clear the flag at init movement.
-#define TORESIZE  (1<<9)
-#define SNTHENROLLED (1<<10)
-#define SNTOPLEFT     (SNTOP|SNLEFT)
-#define SNTOPRIGHT    (SNTOP|SNRIGHT)
-#define SNBOTTOMLEFT  (SNBOTTOM|SNLEFT)
-#define SNBOTTOMRIGHT (SNBOTTOM|SNRIGHT)
-#define SNAPPEDSIDE   (SNTOPLEFT|SNBOTTOMRIGHT)
-
-#define PureLeft(flag)   ( (flag&SNLEFT) &&  !(flag&(SNTOP|SNBOTTOM))  )
-#define PureRight(flag)  ( (flag&SNRIGHT) && !(flag&(SNTOP|SNBOTTOM))  )
-#define PureTop(flag)    ( (flag&SNTOP) && !(flag&(SNLEFT|SNRIGHT))    )
-#define PureBottom(flag) ( (flag&SNBOTTOM) && !(flag&(SNLEFT|SNRIGHT)) )
-
 RECT oldRect;
 HDC hdcc;
 HPEN hpenDot_Global=NULL;
@@ -138,8 +115,6 @@ struct hotkeys_s {
 };
 
 static struct {
-    enum action GrabWithAlt[2];
-
     UCHAR AutoFocus;
     UCHAR AutoSnap;
     UCHAR AutoRemaximize;
@@ -195,6 +170,7 @@ static struct {
     struct hotkeys_s Hotclick;
     struct hotkeys_s Killkey;
 
+    enum action GrabWithAlt[2];
     struct {
         enum action LMB[2], RMB[2], MMB[2], MB4[2], MB5[2], Scroll[2], HScroll[2];
     } Mouse;
@@ -227,6 +203,10 @@ HWND g_mainhwnd = NULL;
 // Hook data
 HINSTANCE hinstDLL = NULL;
 HHOOK mousehook = NULL;
+
+// Specific includes
+#include "snap.c"
+//#include "zones.c"
 
 /////////////////////////////////////////////////////////////////////////////
 // wether a window is present or not in a blacklist
@@ -355,10 +335,13 @@ static int ShouldSnapTo(HWND window)
 {
     LONG_PTR style;
     return window != state.hwnd
-        && IsWindowVisible(window) && !IsIconic(window)
-         &&( ((style=GetWindowLongPtr(window,GWL_STYLE))&WS_CAPTION) == WS_CAPTION
+        && IsWindowVisible(window)
+        && !IsIconic(window)
+        && !IsWindowCloaked(window)
+        &&( ((style=GetWindowLongPtr(window,GWL_STYLE))&WS_CAPTION) == WS_CAPTION
            || (style&WS_THICKFRAME)
-           || blacklisted(window,&BlkLst.Snaplist));
+           || blacklisted(window,&BlkLst.Snaplist)
+          );
 }
 /////////////////////////////////////////////////////////////////////////////
 unsigned wnds_alloc = 0;
@@ -409,38 +392,6 @@ struct snwdata *snwnds;
 unsigned numsnwnds = 0;
 unsigned snwnds_alloc = 0;
 
-/////////////////////////////////////////////////////////////////////////////
-// Windows restore data are saved in properties
-// In 32b mode width and height are shrinked to 16b WORDS
-// In 64b mode width and height are stored on 32b DWORDS
-// There is a lot of cast because of annoying warnings...
-static unsigned GetRestoreData(HWND hwnd, int *width, int *height)
-{
-    DorQWORD WH = (DorQWORD)GetPropA(hwnd, APP_PROPPT);
-    *width  = (int)LOWORDPTR(WH);
-    *height = (int)HIWORDPTR(WH);
-    return (DorQWORD)GetPropA(hwnd, APP_PROPFL);
-}
-static void ClearRestoreData(HWND hwnd)
-{
-    RemovePropA(hwnd, APP_PROPPT);
-    RemovePropA(hwnd, APP_PROPFL);
-}
-// Sets width, height and restoore falg in a hwnd
-static void SetRestoreData(HWND hwnd, int width, int height, unsigned restore)
-{
-    SetPropA(hwnd, APP_PROPFL, (HANDLE)(DorQWORD)restore);
-    SetPropA(hwnd, APP_PROPPT, (HANDLE)MAKELONGPTR((WORD)width, (WORD)height));
-}
-static unsigned GetRestoreFlag(HWND hwnd)
-{
-    return (DorQWORD)GetPropA(hwnd, APP_PROPFL);
-}
-static BOOL SetRestoreFlag(HWND hwnd, unsigned flag)
-{
-    return SetPropA(hwnd, APP_PROPFL, (HANDLE)(DorQWORD)flag);
-}
-/////////////////////////////////////////////////////////////////////////////
 BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 {
     // Make sure we have enough space allocated
@@ -454,7 +405,7 @@ BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 
         if ((restore = GetRestoreFlag(hwnd)) && restore&SNAPPED && restore&SNAPPEDSIDE) {
             snwnds[numsnwnds].flag = restore;
-        } else if (IsWindowSnapped(hwnd)) {
+        } else if (conf.SmartAero&2 || IsWindowSnapped(hwnd)) {
             HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
             MONITORINFO mi = { sizeof(MONITORINFO) };
             GetMonitorInfo(monitor, &mi);
@@ -479,7 +430,7 @@ static void EnumSnapped()
         if(state.mdiclient)
             EnumChildWindows(state.mdiclient, EnumSnappedWindows, 0);
         else
-            EnumWindows(EnumSnappedWindows, 0);
+            EnumDesktopWindows(NULL, EnumSnappedWindows, 0);
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -614,11 +565,11 @@ static void Enum()
 
     // Enumerate windows
     if (state.snap >= 2) {
-        EnumWindows(EnumWindowsProc, 0);
+        EnumDesktopWindows(NULL, EnumWindowsProc, 0);
     }
 
     if (conf.StickyResize) {
-        EnumWindows(EnumTouchingWindows, 0);
+        EnumDesktopWindows(NULL, EnumTouchingWindows, 0);
     }
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -1065,7 +1016,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
                 *wndwidth = CLAMPW(mon.right - mon.left);
                 *wndheight = CLAMPH( mon.bottom-mon.top );
                 LastWin.maximize = 1;
-                restore = SNAPPED|SNCLEAR; // To clear eventual snapping info
+                SetRestoreFlag(state.hwnd, SNAPPED|SNCLEAR); // To clear eventual snapping info
                 return 0;
             }
         } else {
@@ -1100,6 +1051,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         restore:
         if (restore&SNAPPED) {
             // Restore original window size
+            if (restore) ClearRestoreData(state.hwnd);
             restore = 0;
             *wndwidth = state.origin.width;
             *wndheight = state.origin.height;
@@ -1167,7 +1119,7 @@ static void HideCursor()
 }
 /////////////////////////////////////////////////////////////////////////////
 // Mod Key can return 0 or 1, maybe more in the future...
-static int ModKey()
+static pure int ModKey()
 {
     return conf.ModKey && GetAsyncKeyState(conf.ModKey)&0x8000;
 }
@@ -1354,6 +1306,7 @@ static BOOL GetMDInfo(POINT *mdicpt, RECT *wnd)
     }
     return TRUE;
 }
+
 ///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
 {
@@ -1398,7 +1351,8 @@ static void MouseMove(POINT pt)
         // Check if the window will snap anywhere
         MoveSnap(&posx, &posy, wndwidth, wndheight);
         int ret = AeroMoveSnap(pt, &posx, &posy, &wndwidth, &wndheight);
-        if ( ret == 1) { state.moving = 1; return; }
+        if (ret == 1) { state.moving = 1; return; }
+        //MoveSnapToZone(pt, &posx, &posy, &wndwidth, &wndheight);
 
         // Restore window if maximized when starting
         if (was_snapped || IsZoomed(state.hwnd)) {
@@ -1457,13 +1411,11 @@ static void MouseMove(POINT pt)
         // Clear restore flag
         if(!conf.SmartAero) {
             // Always clear when AeroSmart is disabled.
-            //SetRestoreFlag(state.hwnd, 0);
             ClearRestoreData(state.hwnd);
         } else {
             // Do not clear is the window was snapped to some side or rolled.
-            unsigned smart_restore_flag=(SNAPPEDSIDE|ROLLED);
+            unsigned smart_restore_flag=(SNZONE|SNAPPEDSIDE|ROLLED);
             if(!(GetRestoreFlag(state.hwnd) & smart_restore_flag))
-                //SetRestoreFlag(state.hwnd, 0);
                 ClearRestoreData(state.hwnd);
         }
 
@@ -1706,7 +1658,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             LastWin.hwnd = NULL;
             // Stop current action
             if (state.action || state.alt) {
-                int action = state.action;
+                enum action action = state.action;
                 if (!conf.FullWin && state.moving) {
                     DrawRect(hdcc, &oldRect);
                 }
@@ -1924,21 +1876,15 @@ static int ActionAltTab(POINT pt, int delta)
 static void ActionVolume(int delta)
 {
     static char HaveV=-1;
-    static HINSTANCE hOLE32DLL=NULL;
+    if (!HaveV) return;
     if (HaveV == -1) {
-        hOLE32DLL = LoadLibraryA("OLE32.DLL");
-        if (hOLE32DLL) {
-            myCoInitialize = (void *)GetProcAddress(hOLE32DLL, "CoInitialize");
-            myCoUninitialize= (void *)GetProcAddress(hOLE32DLL, "CoUninitialize");
-            myCoCreateInstance= (void *)GetProcAddress(hOLE32DLL, "CoCreateInstance");
-            if(!myCoCreateInstance || !myCoUninitialize || !myCoInitialize){
-                FreeLibrary(hOLE32DLL);
-                HaveV = 0;
-            } else {
-                HaveV = 1;
-            }
+        myCoInitialize = (void *)LoadDLLProc("OLE32.DLL", "CoInitialize");
+        myCoUninitialize= (void *)LoadDLLProc("OLE32.DLL", "CoUninitialize");
+        myCoCreateInstance= (void *)LoadDLLProc("OLE32.DLL", "CoCreateInstance");
+        if(!myCoCreateInstance || !myCoUninitialize || !myCoInitialize){
+            HaveV = 2; // Fallback to WINMM
         } else {
-            HaveV = 0;
+            HaveV = 1;
         }
     }
     if (HaveV == 1) {
@@ -1953,8 +1899,7 @@ static void ActionVolume(int delta)
                               , &my_IID_IMMDeviceEnumerator, (void**)&pDevEnumerator);
         if (hr != S_OK){
             myCoUninitialize();
-            FreeLibrary(hOLE32DLL);
-            HaveV = 2;
+            HaveV = 2; // Fallback to WINMM for next call
             return;
         }
 
@@ -1986,9 +1931,10 @@ static void ActionVolume(int delta)
             mywaveOutGetVolume = LoadDLLProc("WINMM.DLL", "waveOutGetVolume");
             mywaveOutSetVolume = LoadDLLProc("WINMM.DLL", "waveOutSetVolume");
             if(!mywaveOutSetVolume  || !mywaveOutGetVolume) {
+                HaveV = 0; // Disable volume change
                 return;
             }
-            HaveV = 3;
+            HaveV = 3; // WINMM API found!
         }
         DWORD Volume;
         mywaveOutGetVolume(NULL, &Volume);
@@ -2390,24 +2336,27 @@ static void ActionMaximize(HWND hwnd)
         Maximize_Restore_atpt(hwnd, NULL, SW_TOGGLE_MAX_RESTORE, NULL);
     }
 }
-//static void MaximizeHV(HWND hwnd, int horizontal)
-//{
-//    RECT rc;
-//    if(!GetWindowRect(hwnd, &rc)) return;
-//
-//    SetRestoreData(hwnd, rc.right - rc.left, rc.bottom - rc.top, 0);
-//    if (horizontal) {
-//        SetRestoreFlag(hwnd, SNAPPED|SNMAXW);
-//        MoveWindowAsync(hwnd
-//            , state.origin.mon.left, rc.top
-//            , state.origin.mon.right-state.origin.mon.left, rc.bottom-rc.top);
-//    } else { // vertical
-//        SetRestoreFlag(hwnd, SNAPPED|SNMAXH);
-//        MoveWindowAsync(hwnd
-//            , rc.left, state.origin.mon.top
-//            , rc.right-rc.left, state.origin.mon.bottom-state.origin.mon.top);
-//    }
-//}
+static void MaximizeHV(HWND hwnd, int horizontal)
+{
+    RECT rc, bd;
+    if(!GetWindowRect(hwnd, &rc)) return;
+
+    SetRestoreData(hwnd, rc.right - rc.left, rc.bottom - rc.top, SNAPPED);
+    FixDWMRect(hwnd, &bd);
+    if (horizontal) {
+        SetRestoreFlag(hwnd, SNAPPED|SNMAXW);
+        MoveWindowAsync(hwnd
+            , state.origin.mon.left-bd.left, rc.top
+            , state.origin.mon.right-state.origin.mon.left+bd.left+bd.right
+            , rc.bottom-rc.top);
+    } else { // vertical
+        SetRestoreFlag(hwnd, SNAPPED|SNMAXH);
+        MoveWindowAsync(hwnd
+            , rc.left, state.origin.mon.top-bd.top
+            , rc.right-rc.left
+            , state.origin.mon.bottom-state.origin.mon.top+bd.top+bd.bottom);
+    }
+}
 /////////////////////////////////////////////////////////////////////////////
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
@@ -2421,7 +2370,7 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_BORDERLESS)  ActionBorderless(hwnd);
     else if (action==AC_KILL)        ActionKill(hwnd);
     else if (action==AC_ROLL)        RollWindow(hwnd, 0);
-//    else if (action==AC_MAXHV)       MaximizeHV(hwnd, state.shift);
+    else if (action==AC_MAXHV)       MaximizeHV(hwnd, state.shift);
 }
 /////////////////////////////////////////////////////////////////////////////
 static void StartSpeedMes()
@@ -2509,8 +2458,8 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Set Origin width and height needed for AC_MOVE/RESIZE/CENTER
     int rwidth=0, rheight=0;
     unsigned rdata_flag = GetRestoreData(state.hwnd, &rwidth, &rheight);
-    // Clear restore flag if asked.
-    if (rdata_flag&SNCLEAR) SetRestoreFlag(state.hwnd, (rdata_flag=0));
+    // Clear snapping info if asked.
+    if (rdata_flag&SNCLEAR || conf.SmartAero&4){ ClearRestoreData(state.hwnd); rdata_flag=0; }
 
     if (rdata_flag && !state.origin.maximized) {
         state.origin.width = rwidth;
@@ -3160,7 +3109,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         else if (!wcsicmp(txt,L"HScroll"))      *buttons[i].ptr = AC_HSCROLL;
         else if (!wcsicmp(txt,L"Menu"))       { *buttons[i].ptr = AC_MENU ; action_menu_load=1; }
         else if (!wcsicmp(txt,L"Kill"))         *buttons[i].ptr = AC_KILL;
-//        else if (!wcsicmp(txt,L"MaximizeHV"))   *buttons[i].ptr = AC_MAXHV;
+        else if (!wcsicmp(txt,L"MaximizeHV"))   *buttons[i].ptr = AC_MAXHV;
         else                                    *buttons[i].ptr = AC_NONE;
     }
 
@@ -3203,6 +3152,8 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         HookMouse();
         SetTimer(g_timerhwnd, REHOOK_TIMER, 5000, NULL); // Start rehook timer
     }
+    ResetDB(); // Zero database
+    //ReadZones(inipath);
 }
 /////////////////////////////////////////////////////////////////////////////
 // Do not forget the -e_DllMain@12 for gcc...

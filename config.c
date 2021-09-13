@@ -577,6 +577,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"Borderless",  l10n->input_actions_borderless},
         {L"Center",      l10n->input_actions_center},
         {L"Menu",        l10n->input_actions_menu},
+        {L"MaximizeHV",  l10n->input_actions_maximizehv},
         {L"Nothing",     l10n->input_actions_nothing},
         {NULL, NULL}
     };
@@ -695,6 +696,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {L"Borderless",  l10n->input_actions_borderless},
         {L"Center",      l10n->input_actions_center},
         {L"Menu",        l10n->input_actions_menu},
+        {L"MaximizeHV",  l10n->input_actions_maximizehv},
         {L"Nothing",     l10n->input_actions_nothing},
         {NULL, NULL}
     };

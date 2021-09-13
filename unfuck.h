@@ -327,6 +327,20 @@ static BOOL GetWindowRectL(HWND hwnd, RECT *rect)
     else return GetWindowRect(hwnd, rect); /* Fallback to normal */
 }
 
+/* Under Win8 and later a window can be cloaked
+ * This falg can be obtained with this function 
+ * 1 The window was cloaked by its owner application.
+ * 2 The window was cloaked by the Shell.
+ * 4 The cloak value was inherited from its owner window. 
+ * For windows that are supposed to be logically "visible", in addition to WS_VISIBLE.
+ */
+static int IsWindowCloaked(HWND hwnd)
+{
+    int cloaked=0;
+    DwmGetWindowAttributeL(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked));
+    return cloaked;
+}
+
 static LONG NtSuspendProcessL(HANDLE ProcessHandle)
 {
     static char have_func=HAVE_FUNC;
@@ -475,6 +489,11 @@ static BOOL SetWindowLevel(HWND hwnd, HWND hafter)
 static int HitTestTimeoutL(HWND hwnd, LPARAM lParam)
 {
     DorQWORD area=0;
+
+    // Try first with the ancestor window for some buggy AppX.
+    SendMessageTimeout(GetAncestor(hwnd, GA_ROOT), WM_NCHITTEST, 0, lParam, SMTO_NORMAL, 255, &area);
+    if(area == HTCAPTION) return HTCAPTION;
+
     while(hwnd && SendMessageTimeout(hwnd, WM_NCHITTEST, 0, lParam, SMTO_NORMAL, 255, &area)){
         if((int)area == HTTRANSPARENT)
             hwnd = GetParent(hwnd);

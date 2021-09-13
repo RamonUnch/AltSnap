@@ -110,6 +110,7 @@ struct strings {
   wchar_t *input_actions_alttab;
   wchar_t *input_actions_volume;
   wchar_t *input_actions_menu;
+  wchar_t *input_actions_maximizehv;
   wchar_t *input_actions_transparency;
   wchar_t *input_actions_hscroll;
 
@@ -261,6 +262,7 @@ struct {
   { &l10n_ini.input_actions_alttab,            L"InputActionAltTab" },
   { &l10n_ini.input_actions_volume,            L"InputActionVolume" },
   { &l10n_ini.input_actions_menu,              L"InputActionMenu" },
+  { &l10n_ini.input_actions_maximizehv,        L"InputActionMaximizeHV" },
   { &l10n_ini.input_actions_transparency,      L"InputActionTransparency" },
   { &l10n_ini.input_actions_hscroll,           L"InputActionHScroll" },
 
@@ -411,6 +413,7 @@ struct strings en_US = {
  /* alttab             */ L"Alt+Tab",
  /* volume             */ L"Volume",
  /* menu               */ L"Action menu",
+ /* maximizehv         */ L"Maximize &Vertically",
  /* transparency       */ L"Transparency",
  /* hscroll            */ L"Horizontal scroll",
 

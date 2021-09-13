@@ -195,6 +195,8 @@ Note that this version has some more feature.
   buttons. They can be configured manually in the .ini, using a B sufix
   for buttons that contains an action ie: LMBB=Resize etc.
 
+* New: Maximize Vertically action, use Shift to maximize horizontally.
+
 * Project was renamed from **AltDrag** to **AltSnap** to avoid conflict with
   Original AltDrag from Stefan Sundin. Old choco package will no longer be 
   updated and will be given back as soon as Stefan asks for it.
@@ -206,6 +208,10 @@ Note that this version has some more feature.
 * Updated Chinese translation by *Yatao Li* (zh_CN.ini).
 
 * Updated German translation by *Ichisich* (de_DE.ini).
+
+* Fixed: Now cloacked windows will no longer be snapped to, this also
+  prevents windows from snapping to others through different virtual
+  desktops under Win10.
 
 == AltDrag 1.46 ==
 

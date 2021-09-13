@@ -140,6 +140,7 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_CENTER, l10n->input_actions_center);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_ROLL, l10n->input_actions_roll);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_LOWER, l10n->input_actions_lower);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MAXHV, l10n->input_actions_maximizehv);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MAXIMIZE, l10n->input_actions_maximize);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MINIMIZE, l10n->input_actions_minimize);

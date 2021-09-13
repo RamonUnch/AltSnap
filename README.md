@@ -1,7 +1,7 @@
-# AltDrag
+# AltSnap
 Fork from Stefan Sundin's AltDrag.
 
-Check the Wiki: https://github.com/RamonUnch/AltDrag/wiki
+Check the Wiki: https://github.com/RamonUnch/AltSnap/wiki
 
 Original ocumentation: https://stefansundin.github.io/altdrag/doc/
 
@@ -22,15 +22,15 @@ This version injects nothing into other applications. This means you do not have
 
 Another feature that was disabled is focus on typing, that was too much unusable for me to even start testing, so I removed it.
 
-Otherwise this has a much simpler source code, added a few extra options, such as transparent windows dragging, Maximize action, pause process options, more blacklists for finer control of AltDrag etc. 
+Otherwise this has a much simpler source code, added a few extra options, such as transparent windows dragging, Maximize action, pause process options, more blacklists for finer control of AltSnap etc. 
 
 Finally it fixed a ton of undesired behavior and bugs from the original AltDrag.
 
 WHAT'S NEW
 
-Many new features can be seen in the option dialog box, however some of them are only available through editing the AltDrag.ini file (middle click on tyhe tray icon for this).
+Many new features can be seen in the option dialog box, however some of them are only available through editing the AltSnap.ini file (middle click on tyhe tray icon for this).
 
 # Build
-AltDrag builds with gcc, I use Mingw-w64 (for i686).
+AltSnap builds with gcc, I use Mingw-w64 (for i686).
 Just install the latest version (I use gcc 8.1) and lunch mk.bat
 Use the x64 edition of MingW-w64 in oredr to make a 64 bit build of AltDarg using mk64.bat

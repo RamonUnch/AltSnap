@@ -85,6 +85,55 @@ int RemoveTray()
     tray_added = 0;
     return 0;
 }
+/////////////////////////////////////////////////////////////////////////////
+// Zones functions
+static wchar_t *RectToStr(RECT *rc, wchar_t *rectstr)
+{
+    wchar_t txt[16];
+    UCHAR i;
+    long *RC = (long *)rc;
+    rectstr[0] = '\0';
+    for(i = 0; i < 4; i++) {
+        wcscat(rectstr, _itow(RC[i], txt, 10)); 
+        wcscat(rectstr, L",");
+    }
+}
+// Save a rect as a string in a Zone<num> entry in the inifile
+static void SaveZone(RECT *rc, unsigned num)
+{
+    wchar_t txt[128], name[32];
+    LOG("Saving %d\n", num);
+    LOG("%S\n", ZidxToZonestr(num, name))
+    LOG("%S\n", RectToStr(rc, txt))
+    WritePrivateProfileString(L"Zones", ZidxToZonestr(num, name), RectToStr(rc, txt), inipath);
+}
+
+// Call with lParam = 1 to reset NZones
+BOOL CALLBACK SaveTestWindow(HWND hwnd, LPARAM lParam)
+{
+    static unsigned NZones;
+    if (lParam) { // Reset number of Zones
+        NZones = 0; 
+        return FALSE;
+    }
+
+    wchar_t classn[256];
+    RECT rc;
+    if (IsWindowVisible(hwnd)
+    && GetClassName(hwnd, classn, sizeof(classn))
+    && !wcscmp(classn, APP_NAME"-Test")
+    && GetWindowRectL(hwnd, &rc)) {
+        SaveZone(&rc, NZones++);
+    }
+    return TRUE;
+}
+
+static void SaveCurrentLayout()
+{
+    LOGA("saving current layout\n")
+    SaveTestWindow(NULL, 1);
+    EnumDesktopWindows(NULL, SaveTestWindow, 0);
+}
 
 /////////////////////////////////////////////////////////////////////////////
 void ShowContextMenu(HWND hwnd)
@@ -102,6 +151,7 @@ void ShowContextMenu(HWND hwnd)
     InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
     InsertMenu(menu, -1, MF_BYPOSITION, SWM_CONFIG, l10n->menu_config);
     InsertMenu(menu, -1, MF_BYPOSITION, SWM_ABOUT, l10n->menu_about);
+    InsertMenu(menu, -1, MF_BYPOSITION, SWM_SAVEZONES, L"Save Zones");
     InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
 
     InsertMenu(menu, -1, MF_BYPOSITION, SWM_EXIT, l10n->menu_exit);

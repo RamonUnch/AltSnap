@@ -165,6 +165,8 @@ static struct {
     UCHAR ScrollLockState;
 
     UCHAR TitlebarMove;
+    UCHAR FancyZone;
+    UCHAR UseZones;
 
     struct hotkeys_s Hotkeys;
     struct hotkeys_s Hotclick;
@@ -206,7 +208,7 @@ HHOOK mousehook = NULL;
 
 // Specific includes
 #include "snap.c"
-//#include "zones.c"
+#include "zones.c"
 
 /////////////////////////////////////////////////////////////////////////////
 // wether a window is present or not in a blacklist
@@ -1352,7 +1354,7 @@ static void MouseMove(POINT pt)
         MoveSnap(&posx, &posy, wndwidth, wndheight);
         int ret = AeroMoveSnap(pt, &posx, &posy, &wndwidth, &wndheight);
         if (ret == 1) { state.moving = 1; return; }
-        //MoveSnapToZone(pt, &posx, &posy, &wndwidth, &wndheight);
+        MoveSnapToZone(pt, &posx, &posy, &wndwidth, &wndheight);
 
         // Restore window if maximized when starting
         if (was_snapped || IsZoomed(state.hwnd)) {
@@ -3056,7 +3058,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AlphaDelta    = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDelta", 64, inipath), 127);
     conf.AeroMaxSpeed  = CLAMP(0, GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath), 65535);
     conf.AeroSpeedTau  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedTau", 32, inipath), 255);
-    conf.TitlebarMove  = GetPrivateProfileInt(L"Advanced", L"TitlebarMove",    0, inipath);
+    conf.TitlebarMove  = GetPrivateProfileInt(L"Advanced", L"TitlebarMove", 0, inipath);
     if (conf.TitlebarMove) conf.NormRestore = 0; // in this case disable NormRestore
 
     // [Performance]
@@ -3153,7 +3155,12 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         SetTimer(g_timerhwnd, REHOOK_TIMER, 5000, NULL); // Start rehook timer
     }
     ResetDB(); // Zero database
-    //ReadZones(inipath);
+
+    // Zones
+    conf.UseZones      = GetPrivateProfileInt(L"Zones", L"UseZones", 1, inipath);
+    conf.FancyZone     = GetPrivateProfileInt(L"Zones", L"FancyZone", 1, inipath);
+    if (conf.FancyZone) conf.NormRestore = 0;
+    if (conf.UseZones) ReadZones(inipath);
 }
 /////////////////////////////////////////////////////////////////////////////
 // Do not forget the -e_DllMain@12 for gcc...

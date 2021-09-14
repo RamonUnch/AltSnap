@@ -1,39 +1,15 @@
 #include "hooks.h"
 
-RECT Zones[10];
+RECT Zones[32];
 unsigned nzones;
-
-static void SaveZone(RECT *rc, unsigned nzones, wchar_t *inipath)
-{
-}
-
-BOOL CALLBACK EnumAndSaveTestWindows(HWND hwnd, LPARAM lParam)
-{
-    wchar_t classn[256];
-    RECT rc;
-    if (IsVisible(hwnd) 
-    && GetClassName(hwnd, classn, sizeof(classn))
-    && wcscmp(classn, L"AltSnap-Test*")
-    && GetWindowRect(hwnd, &rc)) {
-        SaveZone(&rc, nzones, inipath);
-    }
-    return TRUE;
-}
-
-static void SaveCurrentLayout()
-{
-    nzones = 0;
-}
 
 static int ReadRectFromini(RECT *zone, unsigned idx, wchar_t *inipath)
 {
-     if (idx > 1024) return 0;
+     if (idx > 32) return 0;
      long *ZONE = (long *)zone;
      wchar_t zaschii[256], zname[32]=L"", txt[8];
-     wcscat(zname, L"Zone");
-     wcscat(zname, _itow(idx, txt, 10)); // Zone Name from zone number
 
-     DWORD ret = GetPrivateProfileString(L"Zones", zname, L"", zaschii, ARR_SZ(zaschii), inipath);
+     DWORD ret = GetPrivateProfileString(L"Zones", ZidxToZonestr(idx, zname), L"", zaschii, ARR_SZ(zaschii), inipath);
 
      if (!ret || zaschii[0] =='\0') return 0;
 
@@ -55,13 +31,14 @@ static void ReadZones(wchar_t *inifile)
 {
     nzones = 0;
     while (ReadRectFromini(&Zones[nzones], nzones, inifile)) {
+        LOG("Zone%d = %d, %d, %d, %d\n", nzones, Zones[0],Zones[1],Zones[2],Zones[3]);
         nzones++;
     }
 }
 
-static int GetZoneFromPoint(POINT pt, RECT *urc)
+static unsigned GetZoneFromPoint(POINT pt, RECT *urc)
 {
-    unsigned i, j=0;
+    unsigned i, j=0 ;
     SetRectEmpty(urc);
     for (i=0; i < nzones; i++) {
         InflateRect(&Zones[i], 32, 32);
@@ -75,10 +52,14 @@ static int GetZoneFromPoint(POINT pt, RECT *urc)
     return j;
 }
 
-
 static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *height)
 {
-     if (!state.shift) return;
+     if (!conf.UseZones || !state.shift 
+     || state.Speed > conf.AeroMaxSpeed) 
+         return;
+
+     static RECT bd;
+     FixDWMRect(state.hwnd, &bd);
 
      RECT rc;
      int ret = GetZoneFromPoint(pt, &rc);
@@ -86,8 +67,8 @@ static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *heig
      LastWin.end = 0;
 
      SetRestoreData(state.hwnd, state.origin.width, state.origin.height, SNAPPED|SNZONE);
-     *posx = rc.left;
-     *posy = rc.top;
-     *width = rc.right - rc.left;
-     *height = rc.bottom - rc.top;
+     *posx = rc.left-bd.left;
+     *posy = rc.top-bd.top;
+     *width = rc.right - rc.left + bd.left + bd.right;
+     *height = rc.bottom - rc.top +bd.top + bd.bottom;
 }

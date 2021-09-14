@@ -21,6 +21,7 @@ LRESULT CALLBACK FindWindowProc(HWND, UINT, WPARAM, LPARAM);
 
 HWND g_cfgwnd = NULL;
 
+
 /////////////////////////////////////////////////////////////////////////////
 // No error reporting since we don't want the user to be interrupted
 static void CheckAutostart(int *_on, int *_hidden, int *_elevated)
@@ -1028,9 +1029,6 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             have_to_apply = 1;
         }
         if (id == IDC_TESTWINDOW) { // Click on the Test Window button
-            if (testwnd && IsWindow(testwnd)) {
-                return FALSE;
-            }
             WNDCLASSEX wnd = {
                 sizeof(WNDCLASSEX)
               , CS_HREDRAW|CS_VREDRAW

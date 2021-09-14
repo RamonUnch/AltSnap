@@ -20,6 +20,7 @@
 #define SWM_EXIT       (WM_APP+6)
 #define SWM_FIND       (WM_APP+7)
 #define SWM_HELP       (WM_APP+8)
+#define SWM_SAVEZONES  (WM_APP+9)
 
 // Boring stuff
 #define ENABLED() (keyhook)
@@ -215,6 +216,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             SendMessage(hwnd, WM_OPENCONFIG, 5, 0);
         } else if (wmId == SWM_EXIT) {
             DestroyWindow(hwnd);
+        } else if (wmId == SWM_SAVEZONES) {
+            UnhookSystem();
+            SaveCurrentLayout();
+            HookSystem();
         }
     } else if (msg == WM_QUERYENDSESSION) {
         showerror = 0;

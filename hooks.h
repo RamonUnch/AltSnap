@@ -7,6 +7,8 @@
 #define APP_VERSION    "1.47"
 #define APP_PROPPT     APP_NAMEA"-RestoreDimentions"
 #define APP_PROPFL     APP_NAMEA"-RestoreFlag"
+#define FZ_PROPPT      "FancyZones_RestoreSize"
+//#define APP_PROPFL     "FancyZones_zones"
 
 // User Messages
 #define WM_TRAY           (WM_USER+1)
@@ -25,5 +27,17 @@ enum action { AC_NONE=0, AC_MOVE, AC_RESIZE, AC_MENU, AC_MINIMIZE, AC_MAXIMIZE, 
             , AC_ROLL, AC_ALTTAB, AC_VOLUME, AC_TRANSPARENCY, AC_HSCROLL };
 
 #define MOUVEMENT(action) (action <= AC_RESIZE)
+
+
+// Convert 
+static wchar_t *ZidxToZonestr(int idx, wchar_t *zname)
+{
+    wchar_t txt[8];
+    zname[0] = '\0';
+    wcscat(zname, L"Zone");
+    wcscat(zname, _itow(idx, txt, 10)); // Zone Name from zone number
+    
+    return zname;
+}
 
 #endif /* ALTDRAG_RPC_H */

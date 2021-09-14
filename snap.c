@@ -95,6 +95,12 @@ static unsigned GetRestoreData(HWND hwnd, int *width, int *height)
         *height = (int)HIWORDPTR(WH);
 
         return (DorQWORD)GetPropA(hwnd, APP_PROPFL);
+  # ifdef WIN64 // Try fancy zone flag
+    } else if (conf.FancyZone && (WH = (DorQWORD)GetPropA(hwnd, FZ_PROPPT))) {
+        *width  = (int)LOWORDPTR(WH);
+        *height = (int)HIWORDPTR(WH);
+        return SNAPPED|SNZONE;
+  # endif
     } else { // fallback to database
         int idx = GetWindowInDB(hwnd);
         if (idx >= 0) {
@@ -110,6 +116,9 @@ static void ClearRestoreData(HWND hwnd)
 {
     RemovePropA(hwnd, APP_PROPPT);
     RemovePropA(hwnd, APP_PROPFL);
+  # ifdef WIN64
+    if(conf.FancyZone) RemovePropA(hwnd, FZ_PROPPT);
+  # endif
     DelWindowFromDB(hwnd);
 }
 // Sets width, height and restoore falg in a hwnd
@@ -117,13 +126,21 @@ static void SetRestoreData(HWND hwnd, int width, int height, unsigned restore)
 {
     BOOL ret;
     ret  = SetPropA(hwnd, APP_PROPFL, (HANDLE)(DorQWORD)restore);
-    ret &= SetPropA(hwnd, APP_PROPPT, (HANDLE)MAKELONGPTR((WORD)width, (WORD)height));
+    ret &= SetPropA(hwnd, APP_PROPPT, (HANDLE)MAKELONGPTR(width, height));
+  # ifdef WIN64
+    if(conf.FancyZone) SetPropA(hwnd, FZ_PROPPT, (HANDLE)MAKELONGPTR(width, height));;
+  # endif
     if (!ret) AddWindowToDB(hwnd, width, height, restore);
 }
 static unsigned GetRestoreFlag(HWND hwnd)
 {
     unsigned flag = (DorQWORD)GetPropA(hwnd, APP_PROPFL);
-    int idx;
+
+  # ifdef WIN64
+    if(conf.FancyZone) flag |= !!GetPropA(hwnd, FZ_PROPPT);
+  # endif
+    
+    int idx; // fallback to db.
     if (!flag && ((idx = GetWindowInDB(hwnd)) >=0)) {
         return wnddb[idx].restore;
     }

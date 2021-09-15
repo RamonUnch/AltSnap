@@ -9,6 +9,7 @@
 struct _NOTIFYICONDATAA tray;
 int tray_added = 0;
 int hide = 0;
+int UseZones = 0;
 
 char *iconstr[] = {
     "tray_off",
@@ -25,6 +26,7 @@ char *traystr[] = {
 int InitTray()
 {
     ScrollLockState = GetPrivateProfileInt(L"Input", L"ScrollLockState", 0, inipath);
+    UseZones = GetPrivateProfileInt(L"Zones", L"UseZones", 0, inipath);
 
     // Create icondata
     tray.cbSize = sizeof(tray);
@@ -94,7 +96,7 @@ static wchar_t *RectToStr(RECT *rc, wchar_t *rectstr)
     long *RC = (long *)rc;
     rectstr[0] = '\0';
     for(i = 0; i < 4; i++) {
-        wcscat(rectstr, _itow(RC[i], txt, 10)); 
+        wcscat(rectstr, _itow(RC[i], txt, 10));
         wcscat(rectstr, L",");
     }
     return rectstr;
@@ -108,13 +110,23 @@ static void SaveZone(RECT *rc, unsigned num)
 //    LOG("%S\n", RectToStr(rc, txt))
     WritePrivateProfileString(L"Zones", ZidxToZonestr(num, name), RectToStr(rc, txt), inipath);
 }
-
+static void ClearAllZones()
+{
+    int i;
+    wchar_t txt[128], name[32];
+    for (i = 0; i < 32; i++) {
+        ZidxToZonestr(i, name);
+        if (GetPrivateProfileString(L"Zones", name, L"", txt, sizeof(txt), inipath)) {
+            WritePrivateProfileString(L"Zones", name, L"", inipath);
+        }
+    }
+}
 // Call with lParam = 1 to reset NZones
 BOOL CALLBACK SaveTestWindow(HWND hwnd, LPARAM lParam)
 {
     static unsigned NZones;
     if (lParam) { // Reset number of Zones
-        NZones = 0; 
+        NZones = 0;
         return FALSE;
     }
 
@@ -125,13 +137,14 @@ BOOL CALLBACK SaveTestWindow(HWND hwnd, LPARAM lParam)
     && !wcscmp(classn, APP_NAME"-Test")
     && GetWindowRectL(hwnd, &rc)) {
         SaveZone(&rc, NZones++);
+        PostMessage(hwnd, WM_CLOSE, 0, 0);
     }
     return TRUE;
 }
 
 static void SaveCurrentLayout()
 {
-    LOGA("saving current layout\n")
+    ClearAllZones();
     SaveTestWindow(NULL, 1);
     EnumDesktopWindows(NULL, SaveTestWindow, 0);
 }
@@ -152,7 +165,15 @@ void ShowContextMenu(HWND hwnd)
     InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
     InsertMenu(menu, -1, MF_BYPOSITION, SWM_CONFIG, l10n->menu_config);
     InsertMenu(menu, -1, MF_BYPOSITION, SWM_ABOUT, l10n->menu_about);
-    InsertMenu(menu, -1, MF_BYPOSITION, SWM_SAVEZONES, L"Save Zones");
+
+    if (UseZones) { // Zones section
+        InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
+        InsertMenu(menu, -1, MF_BYPOSITION, SWM_TESTWIN,  L"&New Test Window");
+        if(FindWindow(APP_NAME"-test", NULL)) {
+            InsertMenu(menu, -1, MF_BYPOSITION, SWM_SAVEZONES, L"&Save test windows as zones");
+        }
+    }
+
     InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
 
     InsertMenu(menu, -1, MF_BYPOSITION, SWM_EXIT, l10n->menu_exit);

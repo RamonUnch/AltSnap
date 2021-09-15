@@ -21,6 +21,7 @@
 #define SWM_FIND       (WM_APP+7)
 #define SWM_HELP       (WM_APP+8)
 #define SWM_SAVEZONES  (WM_APP+9)
+#define SWM_TESTWIN    (WM_APP+10)
 
 // Boring stuff
 #define ENABLED() (keyhook)
@@ -220,6 +221,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             UnhookSystem();
             SaveCurrentLayout();
             HookSystem();
+        } else if (wmId == SWM_TESTWIN) {
+            NewTestWindow();
         }
     } else if (msg == WM_QUERYENDSESSION) {
         showerror = 0;

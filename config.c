@@ -812,7 +812,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         int event = HIWORD(wParam);
         if (event == EN_UPDATE
         && id != IDC_NEWRULE && id != IDC_NEWPROGNAME
-        && id != IDC_NCHITTEST && id != IDC_GWLSTYLE) {
+        && id != IDC_NCHITTEST && id != IDC_GWLSTYLE && id != IDC_RECT) {
             PropSheet_Changed(g_cfgwnd, hwnd); // Enable the Apply Button
             have_to_apply = 1;
         } else if (event == STN_CLICKED && id == IDC_FINDWINDOW) {
@@ -896,8 +896,13 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             if(GetWindowProgName(window, txt, ARR_SZ(txt))) {
                 SetDlgItemText(page, IDC_NEWPROGNAME, txt);
             }
-            SetDlgItemText(page, IDC_NCHITTEST, _itow(HitTestTimeout(nwindow, pt.x, pt.y), txt, 10));
             SetDlgItemText(page, IDC_GWLSTYLE, _itow(GetWindowLongPtr(window, GWL_STYLE), txt, 16));
+            SetDlgItemText(page, IDC_NCHITTEST, _itow(HitTestTimeout(nwindow, pt.x, pt.y), txt, 10));
+            RECT rc;
+            if(GetWindowRectL(window, &rc)) {
+                SetDlgItemText(page, IDC_RECT, RectToStr(&rc, txt));
+            }
+
         }
         // Show icon again
         ShowWindowAsync(GetDlgItem(page, IDC_FINDWINDOW), SW_SHOW);
@@ -994,6 +999,32 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
+static HWND NewTestWindow() 
+{
+    HWND testwnd;
+    WNDCLASSEX wnd = {
+        sizeof(WNDCLASSEX)
+      , CS_HREDRAW|CS_VREDRAW
+      , TestWindowProc
+      , 0, 0, g_hinst, LoadIconA(g_hinst, iconstr[1])
+      , LoadCursor(NULL, IDC_ARROW)
+      , (HBRUSH)(COLOR_BACKGROUND+1)
+      , NULL, APP_NAME"-Test", NULL
+    };
+    RegisterClassEx(&wnd);
+    wchar_t wintitle[256];
+    wcscpy_noaccel(wintitle, l10n->advanced_testwindow, ARR_SZ(wintitle));
+    testwnd = CreateWindowEx(0
+         , wnd.lpszClassName
+         , wintitle, WS_CAPTION|WS_OVERLAPPEDWINDOW
+         , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT
+         , NULL, NULL, g_hinst, NULL);
+    PostMessage(testwnd, WM_UPDCFRACTION, 0
+         , GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath));
+    ShowWindow(testwnd, SW_SHOW);
+    
+    return testwnd;
+}
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -1029,26 +1060,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             have_to_apply = 1;
         }
         if (id == IDC_TESTWINDOW) { // Click on the Test Window button
-            WNDCLASSEX wnd = {
-                sizeof(WNDCLASSEX)
-              , CS_HREDRAW|CS_VREDRAW
-              , TestWindowProc
-              , 0, 0, g_hinst, LoadIconA(g_hinst, iconstr[1])
-              , LoadCursor(NULL, IDC_ARROW)
-              , (HBRUSH)(COLOR_BACKGROUND+1)
-              , NULL, APP_NAME"-Test", NULL
-            };
-            RegisterClassEx(&wnd);
-            wchar_t wintitle[256];
-            wcscpy_noaccel(wintitle, l10n->advanced_testwindow, ARR_SZ(wintitle));
-            testwnd = CreateWindowEx(0
-                 , wnd.lpszClassName
-                 , wintitle, WS_CAPTION|WS_OVERLAPPEDWINDOW
-                 , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT
-                 , NULL, NULL, g_hinst, NULL);
-            PostMessage(testwnd, WM_UPDCFRACTION, 0
-                 , GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath));
-            ShowWindow(testwnd, SW_SHOW);
+            testwnd = NewTestWindow();
         }
     } else if (msg == WM_NOTIFY) {
         LPNMHDR pnmh = (LPNMHDR) lParam;

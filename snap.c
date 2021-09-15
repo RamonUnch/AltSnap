@@ -34,6 +34,18 @@ struct wnddata {
 };
 struct wnddata wnddb[NUMWNDDB];
 
+/////////////////////////////////////////////////////////////////////////////
+// Database functions:
+
+// Zero-out the database to be called in Load()
+static void ResetDB()
+{
+    int i;
+    for (i=0; i < NUMWNDDB; i++) {
+        wnddb[i].hwnd = NULL;
+        wnddb[i].restore = 0;
+    }
+}
 // Return the entry if it was already in db. Or NULL otherwise
 static pure int GetWindowInDB(HWND hwndd)
 {
@@ -46,15 +58,6 @@ static pure int GetWindowInDB(HWND hwndd)
         }
     }
     return -1;
-}
-/////////////////////////////////////////////////////////////////////////////
-static void ResetDB()
-{
-    int i;
-    for (i=0; i < NUMWNDDB; i++) {
-        wnddb[i].hwnd = NULL;
-        wnddb[i].restore = 0;
-    }
 }
 static void AddWindowToDB(HWND hwndd, int width, int height, unsigned flag)
 {
@@ -86,7 +89,9 @@ static void DelWindowFromDB(HWND hwnd)
 // Windows restore data are saved in properties
 // In 32b mode width and height are shrinked to 16b WORDS
 // In 64b mode width and height are stored on 32b DWORDS
+// I 64b mode we also check for FancyZone info that are stored the same way!
 // There is a lot of cast because of annoying warnings...
+// There is also a fallback to a database for some spetial windows.
 static unsigned GetRestoreData(HWND hwnd, int *width, int *height)
 {
     DorQWORD WH = (DorQWORD)GetPropA(hwnd, APP_PROPPT);
@@ -95,7 +100,7 @@ static unsigned GetRestoreData(HWND hwnd, int *width, int *height)
         *height = (int)HIWORDPTR(WH);
 
         return (DorQWORD)GetPropA(hwnd, APP_PROPFL);
-  # ifdef WIN64 // Try fancy zone flag
+  # ifdef WIN64 // Try fancy zone flag only in 64bit mode!
     } else if (conf.FancyZone && (WH = (DorQWORD)GetPropA(hwnd, FZ_PROPPT))) {
         *width  = (int)LOWORDPTR(WH);
         *height = (int)HIWORDPTR(WH);
@@ -137,9 +142,10 @@ static unsigned GetRestoreFlag(HWND hwnd)
     unsigned flag = (DorQWORD)GetPropA(hwnd, APP_PROPFL);
 
   # ifdef WIN64
-    if(conf.FancyZone) flag |= !!GetPropA(hwnd, FZ_PROPPT);
+    if(conf.FancyZone && GetPropA(hwnd, FZ_PROPPT))
+        flag |= SNAPPED|SNZONE;
   # endif
-    
+
     int idx; // fallback to db.
     if (!flag && ((idx = GetWindowInDB(hwnd)) >=0)) {
         return wnddb[idx].restore;

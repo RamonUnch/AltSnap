@@ -7,7 +7,7 @@ static int ReadRectFromini(RECT *zone, unsigned idx, wchar_t *inipath)
 {
      if (idx > 32) return 0;
      long *ZONE = (long *)zone;
-     wchar_t zaschii[256], zname[32]=L"", txt[8];
+     wchar_t zaschii[128], zname[32]=L"";
 
      DWORD ret = GetPrivateProfileString(L"Zones", ZidxToZonestr(idx, zname), L"", zaschii, ARR_SZ(zaschii), inipath);
 
@@ -31,7 +31,7 @@ static void ReadZones(wchar_t *inifile)
 {
     nzones = 0;
     while (ReadRectFromini(&Zones[nzones], nzones, inifile)) {
-        LOG("Zone%d = %d, %d, %d, %d\n", nzones, Zones[0],Zones[1],Zones[2],Zones[3]);
+//        LOG("Zone%d = %d, %d, %d, %d\n", nzones, Zones[0],Zones[1],Zones[2],Zones[3]);
         nzones++;
     }
 }

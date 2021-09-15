@@ -97,14 +97,15 @@ static wchar_t *RectToStr(RECT *rc, wchar_t *rectstr)
         wcscat(rectstr, _itow(RC[i], txt, 10)); 
         wcscat(rectstr, L",");
     }
+    return rectstr;
 }
 // Save a rect as a string in a Zone<num> entry in the inifile
 static void SaveZone(RECT *rc, unsigned num)
 {
     wchar_t txt[128], name[32];
-    LOG("Saving %d\n", num);
-    LOG("%S\n", ZidxToZonestr(num, name))
-    LOG("%S\n", RectToStr(rc, txt))
+//    LOG("Saving %d\n", num);
+//    LOG("%S\n", ZidxToZonestr(num, name))
+//    LOG("%S\n", RectToStr(rc, txt))
     WritePrivateProfileString(L"Zones", ZidxToZonestr(num, name), RectToStr(rc, txt), inipath);
 }
 

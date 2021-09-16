@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTSNAP for NT4 to Win10                         *
 *  Modified by Raymond Gillibert from original AltDrag by Stefan Sundin   *
-*                    release 1.47 (September 13, 2021)                    *
+*                    release 1.47 (September 20, 2021)                    *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltSnap/releases/         *
@@ -185,6 +185,11 @@ Note that this version has some more feature.
 
 == AltSnap 1.47 ==
 
+* Project was renamed from **AltDrag** to **AltSnap** to avoid conflict with
+  Original AltDrag from Stefan Sundin. Old choco package will no longer be 
+  updated and will be given back as soon as Stefan asks for it. 
+  I advise to all users to uninstall AltDrag and install AltSnap.
+
 * New: Added the option to move windows via AltDrag without hotkey, 
   by clickling on the titlebar. It is similar to the **hooks windows**
   feature that was present in the original AltDrag and can be activated
@@ -197,9 +202,8 @@ Note that this version has some more feature.
 
 * New: Maximize Vertically action, use Shift to maximize horizontally.
 
-* Project was renamed from **AltDrag** to **AltSnap** to avoid conflict with
-  Original AltDrag from Stefan Sundin. Old choco package will no longer be 
-  updated and will be given back as soon as Stefan asks for it.
+* Changed default `RefreshRate` to 0 to favor smoothest movement instead 
+  of performances.
 
 * Restore informations for snapped windows are now stored in Windows 
   properties. This simplifies the code, and allows altdrag to be restarted

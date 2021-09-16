@@ -29,6 +29,7 @@ struct strings {
   wchar_t *menu_hide;
   wchar_t *menu_config;
   wchar_t *menu_about;
+  wchar_t *menu_savezones;
   wchar_t *menu_exit;
 
   // config
@@ -169,6 +170,7 @@ struct strings {
 
   /* misc */
   wchar_t *unhook_error;
+  wchar_t *zone_confirmation;
 };
 
 struct strings l10n_ini;
@@ -187,6 +189,7 @@ struct {
   { &l10n_ini.menu_hide,                       L"MenuHideTray" },
   { &l10n_ini.menu_config,                     L"MenuConfigure" },
   { &l10n_ini.menu_about,                      L"MenuAbout" },
+  { &l10n_ini.menu_savezones,                  L"MenuSaveZones" },
   { &l10n_ini.menu_exit,                       L"MenuExit" },
 
   { &l10n_ini.title,                           L"ConfigTitle" },
@@ -245,7 +248,7 @@ struct {
   { &l10n_ini.input_scrolllockstate,           L"InputScrollLockState" },
   { &l10n_ini.input_keycombo,                  L"InputKeyCombo" },
   { &l10n_ini.input_grabwithalt,               L"InputGrabWithAlt" },
-  { &l10n_ini.input_grabwithaltb,               L"InputGrabWithAltB" },
+  { &l10n_ini.input_grabwithaltb,              L"InputGrabWithAltB" },
 
   { &l10n_ini.input_actions_move,              L"InputActionMove" },
   { &l10n_ini.input_actions_resize,            L"InputActionResize" },
@@ -316,6 +319,7 @@ struct {
   { &l10n_ini.about_translation_credit,        L"AboutTranslationCredit" },
 
   { &l10n_ini.unhook_error,                    L"MiscUnhookError" },
+  { &l10n_ini.zone_confirmation,               L"MiscZoneConfirmation" },
 };
 
 struct strings en_US = {
@@ -332,6 +336,7 @@ struct strings en_US = {
  /* hide               */ L"&Hide tray",
  /* config             */ L"&Configure",
  /* about              */ L"&About",
+ /* savezones          */ L"&Save test windows as snap layout",
  /* exit               */ L"E&xit",
 
  /* === config === */
@@ -474,6 +479,8 @@ struct strings en_US = {
 
  /* === misc === */
  /* unhook_error       */ L"There was an error disabling "APP_NAME". This was most likely caused by Windows having already disabled "APP_NAME"'s hooks.\n\nIf this is the first time this has happened, you can safely ignore it and continue using "APP_NAME".\n\nIf this is happening repeatedly, you can read on the website how to prevent this from happening again (look for '"APP_NAME" mysteriously stops working' in the documentation).",
+ /* zoneconfirmation   */ L"Erase old snap layout and save current Test Windows positions as the new snap layout?",
+
 };
 
 #endif

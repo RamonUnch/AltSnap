@@ -161,8 +161,11 @@ static struct {
     UCHAR ScrollLockState;
 
     UCHAR TitlebarMove;
+  # ifdef WIN64
     UCHAR FancyZone;
+  #endif
     UCHAR UseZones;
+    char InterZone;
 
     struct hotkeys_s Hotkeys;
     struct hotkeys_s Hotclick;
@@ -424,7 +427,7 @@ BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 static void EnumSnapped()
 {
     numsnwnds = 0;
-    if (conf.SmartAero) {
+    if (conf.SmartAero&1) {
         if(state.mdiclient)
             EnumChildWindows(state.mdiclient, EnumSnappedWindows, 0);
         else
@@ -1405,7 +1408,7 @@ static void MouseMove(POINT pt)
             InflateRectBorder(&wnd, &borders);
         }
         // Clear restore flag
-        if(!conf.SmartAero) {
+        if(!(conf.SmartAero&1)) {
             // Always clear when AeroSmart is disabled.
             ClearRestoreData(state.hwnd);
         } else {
@@ -3146,10 +3149,13 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     ResetDB(); // Zero database
 
     // Zones
-    conf.UseZones      = GetPrivateProfileInt(L"Zones", L"UseZones", 0, inipath);
-    conf.FancyZone     = GetPrivateProfileInt(L"Zones", L"FancyZone", 0, inipath);
+    conf.UseZones  = GetPrivateProfileInt(L"Zones", L"UseZones", 0, inipath);
     if (conf.UseZones) ReadZones(inipath);
+    conf.InterZone = GetPrivateProfileInt(L"Zones", L"InterZone", 0, inipath);
+  # ifdef WIN64
+    conf.FancyZone     = GetPrivateProfileInt(L"Zones", L"FancyZone", 0, inipath);
     if (conf.FancyZone && !conf.TitlebarMove) conf.NormRestore = 1;
+  # endif
 
     conf.keepMousehook = ((conf.LowerWithMMB&1) || conf.NormRestore || conf.TitlebarMove
                          || conf.InactiveScroll || conf.Hotclick.keys[0]);

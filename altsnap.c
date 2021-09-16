@@ -207,9 +207,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         } else if (wmId == SWM_EXIT) {
             DestroyWindow(hwnd);
         } else if (wmId == SWM_SAVEZONES) {
-            UnhookSystem();
-            SaveCurrentLayout();
-            HookSystem();
+            int ret = MessageBox(NULL, l10n->zone_confirmation, APP_NAME, MB_OKCANCEL);
+            if (ret == IDOK) {
+                UnhookSystem();
+                SaveCurrentLayout();
+                HookSystem();
+            }
         } else if (wmId == SWM_TESTWIN) {
             NewTestWindow();
         }

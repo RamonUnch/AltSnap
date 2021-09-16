@@ -19,8 +19,8 @@ static int ReadRectFromini(RECT *zone, unsigned idx, wchar_t *inipath)
      for (i=0; i < 4; i++) {
          newptr = wcschr(oldptr, ',');
          if (!newptr) return 0;
-         *newptr = '\0'; 
-         newptr++; 
+         *newptr = '\0';
+         newptr++;
          if(!*oldptr) return 0;
          ZONE[i] = _wtoi(oldptr); // 0 left, 1 top, 2 right, 3 bottom;
          oldptr = newptr;
@@ -40,9 +40,10 @@ static unsigned GetZoneFromPoint(POINT pt, RECT *urc)
 {
     unsigned i, j=0, flag=0;
     SetRectEmpty(urc);
+    int iz = conf.InterZone;
     for (i=0; i < nzones; i++) {
-        InflateRect(&Zones[i], 32, 32);
-        
+        InflateRect(&Zones[i], iz, iz);
+
         int inrect=0;
         if (state.ctrl) {
             RECT ptrect, bouffe;
@@ -51,7 +52,7 @@ static unsigned GetZoneFromPoint(POINT pt, RECT *urc)
         } else {
             inrect = PtInRect(&Zones[i], pt);
         }
-        InflateRect(&Zones[i], -32, -32);
+        InflateRect(&Zones[i], -iz, -iz);
         if (inrect) {
             UnionRect(urc, urc, &Zones[i]);
             flag |= 1 << j++ ;
@@ -62,9 +63,7 @@ static unsigned GetZoneFromPoint(POINT pt, RECT *urc)
 
 static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *height)
 {
-     if (!conf.UseZones || !state.shift
-     || state.mdiclient
-     || state.Speed > conf.AeroMaxSpeed) 
+     if (!conf.UseZones || !state.shift|| state.mdiclient)
          return;
 
      RECT rc, bd;

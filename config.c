@@ -299,7 +299,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         int ret;
         ReadOptionInt(IDC_AUTOFOCUS,      L"General", L"AutoFocus", 0, -1);
         ReadOptionInt(IDC_AERO,           L"General", L"Aero", 1, -1);
-        ReadOptionInt(IDC_SMARTAERO,      L"General",    L"SmartAero", 1, -1);
+        ReadOptionInt(IDC_SMARTAERO,      L"General",    L"SmartAero", 1, 1);
         ReadOptionInt(IDC_STICKYRESIZE,   L"General",    L"StickyResize", 1, 1);
         ReadOptionInt(IDC_INACTIVESCROLL, L"General", L"InactiveScroll", 0, -1);
         ReadOptionInt(IDC_MDI,            L"General", L"MDI", 1, -1);
@@ -367,7 +367,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             wchar_t txt[8];
             WriteOptionBool(IDC_AUTOFOCUS,     L"General",    L"AutoFocus");
             WriteOptionBool(IDC_AERO,          L"General",    L"Aero");
-            WriteOptionBool(IDC_SMARTAERO,     L"General",    L"SmartAero");
+            WriteOptionBoolB(IDC_SMARTAERO,     L"General",    L"SmartAero", 0);
             WriteOptionBoolB(IDC_STICKYRESIZE, L"General",    L"StickyResize", 0);
             WriteOptionBool(IDC_INACTIVESCROLL,L"General",    L"InactiveScroll");
             WriteOptionBool(IDC_MDI,           L"General",    L"MDI");

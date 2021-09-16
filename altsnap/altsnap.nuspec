@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- Do not remove this test for UTF-8: if “Ω” doesn’t appear as greek uppercase omega letter enclosed in quotation marks, you should use an editor that supports UTF-8, not this one. -->
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>altsnap</id>
+    <title>AltSnap</title>
+    <version>1.47</version>
+    <authors>Raymond Gillibert</authors>
+    <owners>RamonUnch</owners>
+    <summary>Easily drag windows when pressing the alt key</summary>
+    <description>
+This is a fork by RamonUnch of the original AltDrag made by Stefan Sundin
+
+AltSnap gives you the ability to move and resize your windows in a new way. After you have started AltSnap, you can simply hold down the Alt key and then click and drag any window. Besides just moving windows, you can resize, maximize and close them too. AltSnap simply allows you to do more with less mouse movements.
+
+This behavior already exists in Linux and other operating systems, and AltSnap was made with the mission to copy that behavior to the Windows platform.
+    </description>
+    <projectUrl>https://github.com/RamonUnch/AltSnap/wiki</projectUrl>
+    <projectSourceUrl>https://github.com/RamonUnch/AltSnap</projectSourceUrl>
+    <iconUrl>https://rawcdn.githack.com/RamonUnch/AltSnapChocoPackage/d0ca6170a9373be4a8c846ac30f8ebebcd1389ab/AltSnap.png</iconUrl>
+    <packageSourceUrl> https://github.com/RamonUnch/AltSnapChocoPackage </packageSourceUrl>
+    <tags>altsnap admin drag windows</tags>
+    <licenseUrl>https://www.gnu.org/licenses/gpl-3.0.html</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <releaseNotes>https://github.com/RamonUnch/AltSnap/releases</releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

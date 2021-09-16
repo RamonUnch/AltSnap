@@ -168,9 +168,9 @@ void ShowContextMenu(HWND hwnd)
 
     if (UseZones) { // Zones section
         InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
-        InsertMenu(menu, -1, MF_BYPOSITION, SWM_TESTWIN,  L"&New Test Window");
+        InsertMenu(menu, -1, MF_BYPOSITION, SWM_TESTWIN,  l10n->advanced_testwindow);
         if(FindWindow(APP_NAME"-test", NULL)) {
-            InsertMenu(menu, -1, MF_BYPOSITION, SWM_SAVEZONES, L"&Save test windows as zones");
+            InsertMenu(menu, -1, MF_BYPOSITION, SWM_SAVEZONES, l10n->menu_savezones);
         }
     }
 

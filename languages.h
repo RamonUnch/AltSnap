@@ -311,7 +311,7 @@ struct {
   { &l10n_ini.advanced_restoreonclick,         L"AdvancedRestoreOnClick"},
   { &l10n_ini.advanced_fullscreen,             L"AdvancedFullScreen"},
   { &l10n_ini.advanced_titlebarmove,           L"AdvancedTitlebarMove"},
-  
+
   { &l10n_ini.about_box,                       L"AboutBox" },
   { &l10n_ini.about_version,                   L"AboutVersion" },
   { &l10n_ini.about_author,                    L"AboutAuthor" },

@@ -22,7 +22,7 @@
 #define APP_PROPPT     APP_NAMEA"-RestoreDimentions"
 #define APP_PROPFL     APP_NAMEA"-RestoreFlag"
 #define FZ_PROPPT      "FancyZones_RestoreSize"
-//#define APP_PROPFL     "FancyZones_zones"
+#define FZ_PROPZONES   "FancyZones_zones"
 
 // User Messages
 #define WM_TRAY           (WM_USER+1)

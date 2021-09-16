@@ -122,7 +122,10 @@ static void ClearRestoreData(HWND hwnd)
     RemovePropA(hwnd, APP_PROPPT);
     RemovePropA(hwnd, APP_PROPFL);
   # ifdef WIN64
-    if(conf.FancyZone) RemovePropA(hwnd, FZ_PROPPT);
+    if(conf.FancyZone) {
+        RemovePropA(hwnd, FZ_PROPPT);
+        RemovePropA(hwnd, FZ_PROPZONES);
+    }
   # endif
     DelWindowFromDB(hwnd);
 }

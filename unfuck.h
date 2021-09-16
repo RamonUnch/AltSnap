@@ -136,7 +136,13 @@ static void *LoadDLLProc(char *DLLname, char *PROCname)
     }
     return ret;
 }
-
+static BOOL FreeDLLByName(char *DLLname)
+{
+    HINSTANCE hdll;
+    if((hdll = GetModuleHandleA(DLLname)))
+        return FreeLibrary(hdll);
+    return FALSE;
+}
 static HWND GetAncestorL(HWND hwnd, UINT gaFlags)
 {
     static char have_func=HAVE_FUNC;
@@ -610,6 +616,14 @@ static void CenterRectInRect(RECT *__restrict__ wnd, const RECT *mon)
     wnd->top  = mon->top  + (mon->bottom-mon->top)/2-height/2;
     wnd->right  = wnd->left + width;
     wnd->bottom = wnd->top  + height;
+}
+
+static void RectFromPts(RECT *rc, const POINT a, const POINT b)
+{
+    rc->left = min(a.x, b.x);
+    rc->top = min(a.y, b.y);
+    rc->right = max(a.x, b.x);
+    rc->bottom= max(a.y, b.y);
 }
 
 #endif

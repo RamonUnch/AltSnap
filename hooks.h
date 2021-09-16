@@ -1,6 +1,20 @@
 #ifndef ALTDRAG_RPC_H
 #define ALTDRAG_RPC_H
 
+#define UNICODE
+#define _UNICODE
+#define _WIN32_WINNT 0x0400
+#include <windows.h>
+
+#include "unfuck.h"
+
+// Undecorated entry name in x64 mode
+#ifdef WIN64
+#define LOW_LEVELK_BPROC "LowLevelKeyboardProc"
+#else
+#define LOW_LEVELK_BPROC "LowLevelKeyboardProc@12"
+#endif
+
 // App
 #define APP_NAME       L"AltSnap"
 #define APP_NAMEA      "AltSnap"
@@ -29,14 +43,14 @@ enum action { AC_NONE=0, AC_MOVE, AC_RESIZE, AC_MENU, AC_MINIMIZE, AC_MAXIMIZE, 
 #define MOUVEMENT(action) (action <= AC_RESIZE)
 
 
-// Convert 
+// Convert zone number to ini name entry
 static wchar_t *ZidxToZonestr(int idx, wchar_t *zname)
 {
     wchar_t txt[8];
     zname[0] = '\0';
     wcscat(zname, L"Zone");
-    wcscat(zname, _itow(idx, txt, 10)); // Zone Name from zone number
-    
+    wcscat(zname, itowL(idx, txt, 10)); // Zone Name from zone number
+
     return zname;
 }
 

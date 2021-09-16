@@ -116,7 +116,7 @@ static void ClearAllZones()
     wchar_t txt[128], name[32];
     for (i = 0; i < 32; i++) {
         ZidxToZonestr(i, name);
-        if (GetPrivateProfileString(L"Zones", name, L"", txt, sizeof(txt), inipath)) {
+        if (GetPrivateProfileString(L"Zones", name, L"", txt, ARR_SZ(txt), inipath)) {
             WritePrivateProfileString(L"Zones", name, L"", inipath);
         }
     }

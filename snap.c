@@ -35,7 +35,7 @@ struct wnddata {
 struct wnddata wnddb[NUMWNDDB];
 
 /////////////////////////////////////////////////////////////////////////////
-// Database functions:
+// Database functions: used as fallback if SetPropA fails
 
 // Zero-out the database to be called in Load()
 static void ResetDB()
@@ -126,15 +126,12 @@ static void ClearRestoreData(HWND hwnd)
   # endif
     DelWindowFromDB(hwnd);
 }
-// Sets width, height and restoore falg in a hwnd
+// Sets width, height and restore flag in a hwnd
 static void SetRestoreData(HWND hwnd, int width, int height, unsigned restore)
 {
     BOOL ret;
     ret  = SetPropA(hwnd, APP_PROPFL, (HANDLE)(DorQWORD)restore);
     ret &= SetPropA(hwnd, APP_PROPPT, (HANDLE)MAKELONGPTR(width, height));
-  # ifdef WIN64
-    if(conf.FancyZone) SetPropA(hwnd, FZ_PROPPT, (HANDLE)MAKELONGPTR(width, height));;
-  # endif
     if (!ret) AddWindowToDB(hwnd, width, height, restore);
 }
 static unsigned GetRestoreFlag(HWND hwnd)

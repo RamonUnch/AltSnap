@@ -38,15 +38,23 @@ static void ReadZones(wchar_t *inifile)
 
 static unsigned GetZoneFromPoint(POINT pt, RECT *urc)
 {
-    unsigned i, j=0 ;
+    unsigned i, j=0, flag=0;
     SetRectEmpty(urc);
     for (i=0; i < nzones; i++) {
         InflateRect(&Zones[i], 32, 32);
-        int inrect = PtInRect(&Zones[i], pt);
+        
+        int inrect=0;
+        if (state.ctrl) {
+            RECT ptrect, bouffe;
+            RectFromPts(&ptrect, state.ctrlpt, pt);
+            inrect = IntersectRect(&bouffe, &Zones[i], &ptrect);
+        } else {
+            inrect = PtInRect(&Zones[i], pt);
+        }
         InflateRect(&Zones[i], -32, -32);
         if (inrect) {
             UnionRect(urc, urc, &Zones[i]);
-            j++;
+            flag |= 1 << j++ ;
         }
     }
     return j;
@@ -54,21 +62,22 @@ static unsigned GetZoneFromPoint(POINT pt, RECT *urc)
 
 static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *height)
 {
-     if (!conf.UseZones || !state.shift 
+     if (!conf.UseZones || !state.shift
+     || state.mdiclient
      || state.Speed > conf.AeroMaxSpeed) 
          return;
 
-     static RECT bd;
-     FixDWMRect(state.hwnd, &bd);
+     RECT rc, bd;
+     unsigned ret = GetZoneFromPoint(pt, &rc);
+     if (!ret) return; // Outside of a rect
 
-     RECT rc;
-     int ret = GetZoneFromPoint(pt, &rc);
-     if(!ret) return;
      LastWin.end = 0;
+     FixDWMRect(state.hwnd, &bd);
+     InflateRectBorder(&rc, &bd);
 
      SetRestoreData(state.hwnd, state.origin.width, state.origin.height, SNAPPED|SNZONE);
-     *posx = rc.left-bd.left;
-     *posy = rc.top-bd.top;
-     *width = rc.right - rc.left + bd.left + bd.right;
-     *height = rc.bottom - rc.top +bd.top + bd.bottom;
+     *posx = rc.left;
+     *posy = rc.top;
+     *width = rc.right - rc.left;
+     *height = rc.bottom - rc.top;
 }

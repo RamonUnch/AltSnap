@@ -6,16 +6,11 @@
  * Modified By Raymond Gillibert in 2021                                 *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#define UNICODE
-#define _UNICODE
-#define _WIN32_WINNT 0x0400
-#include <windows.h>
+#include "hooks.h"
+
 #define COBJMACROS
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
-#include "hooks.h"
-#include "unfuck.h"
-
 
 // Boring stuff
 #define REHOOK_TIMER    WM_APP+1
@@ -55,6 +50,7 @@ static struct windowRR {
 static struct {
     POINT clickpt;
     POINT prevpt;
+    POINT ctrlpt;
     POINT offset;
     HWND hwnd;
     HWND sclickhwnd;
@@ -1273,8 +1269,8 @@ static void DrawRect(HDC hdcl, const RECT *rc)
 
 static void RestrictCursorToMon(POINT pt)
 {
-    // Restrict pt within origin monitor if Ctrl|Shift is being pressed
-    if ((state.ctrl && !state.ignorectrl) || state.shift) {
+    // Restrict pt within origin monitor if Ctrlis being pressed
+    if (state.ctrl && !state.ignorectrl) {
         static HMONITOR origMonitor;
         static RECT fmon;
         if(origMonitor != state.origin.monitor || !state.origin.monitor) {
@@ -1285,16 +1281,14 @@ static void RestrictCursorToMon(POINT pt)
             fmon.left++; fmon.top++;
             fmon.right--; fmon.bottom--;
         }
-        if (state.ctrl || state.shift) {
-            RECT clip;
-            if (state.mdiclient) {
-                CopyRect(&clip, &state.origin.mon);
-                OffsetRect(&clip, mdiclientpt.x, mdiclientpt.y);
-            } else {
-                CopyRect(&clip, &fmon);
-            }
-            ClipCursorOnce(&clip);
+        RECT clip;
+        if (state.mdiclient) {
+            CopyRect(&clip, &state.origin.mon);
+            OffsetRect(&clip, mdiclientpt.x, mdiclientpt.y);
+        } else {
+            CopyRect(&clip, &fmon);
         }
+        ClipCursorOnce(&clip);
     }
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -1337,7 +1331,7 @@ static void MouseMove(POINT pt)
     pt.x -= mdiclientpt.x;
     pt.y -= mdiclientpt.y;
 
-    RestrictCursorToMon(pt);
+    RestrictCursorToMon(pt); // When CTRL is pressed.
 
     // Get new position for window
     LastWin.end = 0;
@@ -1636,7 +1630,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
         } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
             if(!state.shift) {
-                RestrictToCurentMonitor();
                 EnumOnce(NULL); // Reset enum state.
                 state.snap = 3;
             }
@@ -1688,7 +1681,8 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         } else if (!state.ctrl && state.alt!=vkey &&(vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
             RestrictToCurentMonitor();
             state.ctrl = 1;
-            if(state.action){
+            state.ctrlpt = state.prevpt; // Save point where click was pressed.
+            if (state.action) {
                 SetForegroundWindowL(state.hwnd);
             }
         } else if (state.sclickhwnd && state.alt && (vkey == VK_LMENU || vkey == VK_RMENU)) {
@@ -1699,7 +1693,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         if (IsHotkey(vkey)) {
             HotkeyUp();
         } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
-            ClipCursorOnce(NULL); // Release cursor trapping
             state.shift = 0;
             state.snap = conf.AutoSnap;
         } else if (vkey == VK_LCONTROL || vkey == VK_RCONTROL) {
@@ -1884,6 +1877,7 @@ static void ActionVolume(int delta)
         myCoUninitialize= (void *)LoadDLLProc("OLE32.DLL", "CoUninitialize");
         myCoCreateInstance= (void *)LoadDLLProc("OLE32.DLL", "CoCreateInstance");
         if(!myCoCreateInstance || !myCoUninitialize || !myCoInitialize){
+            FreeDLLByName("OLE32.DLL");
             HaveV = 2; // Fallback to WINMM
         } else {
             HaveV = 1;
@@ -1901,6 +1895,7 @@ static void ActionVolume(int delta)
                               , &my_IID_IMMDeviceEnumerator, (void**)&pDevEnumerator);
         if (hr != S_OK){
             myCoUninitialize();
+            FreeDLLByName("OLE32.DLL");
             HaveV = 2; // Fallback to WINMM for next call
             return;
         }
@@ -1934,6 +1929,7 @@ static void ActionVolume(int delta)
             mywaveOutSetVolume = LoadDLLProc("WINMM.DLL", "waveOutSetVolume");
             if(!mywaveOutSetVolume  || !mywaveOutGetVolume) {
                 HaveV = 0; // Disable volume change
+                FreeDLLByName("WINMM.DLL");
                 return;
             }
             HaveV = 3; // WINMM API found!
@@ -3147,6 +3143,14 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     readblacklist(inipath, &BlkLst.Scroll,    L"Scroll");
     readblacklist(inipath, &BlkLst.SSizeMove, L"SSizeMove");
 
+    ResetDB(); // Zero database
+
+    // Zones
+    conf.UseZones      = GetPrivateProfileInt(L"Zones", L"UseZones", 0, inipath);
+    conf.FancyZone     = GetPrivateProfileInt(L"Zones", L"FancyZone", 0, inipath);
+    if (conf.UseZones) ReadZones(inipath);
+    if (conf.FancyZone && !conf.TitlebarMove) conf.NormRestore = 1;
+
     conf.keepMousehook = ((conf.LowerWithMMB&1) || conf.NormRestore || conf.TitlebarMove
                          || conf.InactiveScroll || conf.Hotclick.keys[0]);
     // Hook mouse if a permanent hook is needed
@@ -3154,13 +3158,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         HookMouse();
         SetTimer(g_timerhwnd, REHOOK_TIMER, 5000, NULL); // Start rehook timer
     }
-    ResetDB(); // Zero database
-
-    // Zones
-    conf.UseZones      = GetPrivateProfileInt(L"Zones", L"UseZones", 1, inipath);
-    conf.FancyZone     = GetPrivateProfileInt(L"Zones", L"FancyZone", 1, inipath);
-    if (conf.FancyZone) conf.NormRestore = 0;
-    if (conf.UseZones) ReadZones(inipath);
 }
 /////////////////////////////////////////////////////////////////////////////
 // Do not forget the -e_DllMain@12 for gcc...

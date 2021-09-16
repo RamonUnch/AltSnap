@@ -6,10 +6,7 @@
  * Modified By Raymond Gillibert in 2020                                 *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#define UNICODE
-#define _UNICODE
-#define _WIN32_WINNT 0x0400
-#include <windows.h>
+#include "hooks.h"
 
 // Messages
 #define SWM_TOGGLE     (WM_APP+1)
@@ -38,17 +35,9 @@ char WinVer = 0;
 char ScrollLockState = 0;
 
 // Include stuff
-#include "hooks.h"
-#include "unfuck.h"
 #include "languages.c"
 #include "tray.c"
 #include "config.c"
-
-#ifdef WIN64
-#define LOW_LEVELK_BPROC "LowLevelKeyboardProc"
-#else
-#define LOW_LEVELK_BPROC "LowLevelKeyboardProc@12"
-#endif
 
 /////////////////////////////////////////////////////////////////////////////
 int HookSystem()

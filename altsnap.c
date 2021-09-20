@@ -121,6 +121,8 @@ void ToggleState()
     }
 }
 /////////////////////////////////////////////////////////////////////////////
+// if param&1 -> Add Kill action
+// if param&2 -> Add Size Option
 void ShowSClickMenu(HWND hwnd, LPARAM param)
 {
     POINT pt;

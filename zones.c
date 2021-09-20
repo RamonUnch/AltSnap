@@ -42,17 +42,13 @@ static unsigned GetZoneFromPoint(POINT pt, RECT *urc)
     SetRectEmpty(urc);
     int iz = conf.InterZone;
     for (i=0; i < nzones; i++) {
-        InflateRect(&Zones[i], iz, iz);
+        if (iz) InflateRect(&Zones[i], iz, iz);
 
         int inrect=0;
-        if (state.ctrl) {
-            RECT ptrect, bouffe;
-            RectFromPts(&ptrect, state.ctrlpt, pt);
-            inrect = IntersectRect(&bouffe, &Zones[i], &ptrect);
-        } else {
-            inrect = PtInRect(&Zones[i], pt);
-        }
-        InflateRect(&Zones[i], -iz, -iz);
+        inrect = PtInRect(&Zones[i], pt);
+        if (state.ctrl && !inrect) inrect = PtInRect(&Zones[i], state.ctrlpt);
+
+        if (iz) InflateRect(&Zones[i], -iz, -iz);
         if (inrect) {
             UnionRect(urc, urc, &Zones[i]);
             flag |= 1 << j++ ;
@@ -60,10 +56,11 @@ static unsigned GetZoneFromPoint(POINT pt, RECT *urc)
     }
     return j;
 }
+static int pure IsResizable(HWND hwnd);
 
 static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *height)
 {
-     if (!conf.UseZones || !state.shift|| state.mdiclient)
+     if (!conf.UseZones || !state.shift|| state.mdiclient/* || !IsResizable(state.hwnd)*/)
          return;
 
      RECT rc, bd;

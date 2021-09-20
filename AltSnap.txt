@@ -186,28 +186,48 @@ Note that this version has some more feature.
 == AltSnap 1.47 ==
 
 * Project was renamed from **AltDrag** to **AltSnap** to avoid conflict with
-  Original AltDrag from Stefan Sundin. Old choco package will no longer be 
-  updated and will be given back as soon as Stefan asks for it. 
+  Original AltDrag from Stefan Sundin. Old choco package will no longer be
+  updated and will be given back as soon as Stefan asks for it.
   I advise to all users to uninstall AltDrag and install AltSnap.
 
-* New: Added the option to move windows via AltDrag without hotkey, 
+* New: Support of Snap Layouts, also called Zones. All associated settings
+  are in the `[Zones]` section of the .ini file **Read carefully:**
+  1) Set `UseZones=1`
+  2) Configure your layout by opening several *Test Windows* from the tray menu.
+  3) Arrange those windows across all of your monitors as you you wish.
+  4) Go again to the tray menu and hit **Save test windows as snap layout**
+  5) A confirmation dialog will ask you if you want to save, hit yes.
+  Now you will be able using the Shift key to sanp the window you move to the
+  pointed zone, Add the Ctrl key and drag the cursor to extend the windows
+  across several zones. If the cursor is close from two or more zones then
+  the window will also be extended to several zones. Use the `InterZone`
+  value to adjust this threshold distance in pixels (default 32).
+
+* New: added the `FancyZone` option in the [Zones] section of the .ini file
+  set it to 1 if you want AltSnap to be able to restore windows that were
+  snapped using PowerToys' FancyZones. This only applies to x86_64 builds
+  of AltSnap. I highly recommend this to FancyZones users.
+
+* New: Added the option to move windows via AltDrag without hotkey,
   by clickling on the titlebar. It is similar to the **hooks windows**
   feature that was present in the original AltDrag and can be activated
   via the `TitlebarMove` option in the [Advanced] section of the `.ini`.
 
-* New: Now a modifier key can be set instead of the invert Move/resize
-  key in order to use a different set of customizable actions for all 
+* New: Now a **modifier key** can be set instead of the invert Move/resize
+  key in order to use a different set of customizable actions for all
   buttons. They can be configured manually in the .ini, using a B sufix
   for buttons that contains an action ie: LMBB=Resize etc.
 
 * New: Maximize Vertically action, use Shift to maximize horizontally.
 
-* Changed default `RefreshRate` to 0 to favor smoothest movement instead 
+* Changed default `RefreshRate` to 0 to favor smoothest movement instead
   of performances.
 
-* Restore informations for snapped windows are now stored in Windows 
+* Restore informations for snapped windows are now stored in Windows
   properties. This simplifies the code, and allows altdrag to be restarted
   without loosing restore info.
+
+* Updated to tdm-gcc-10.3 for i386 and x86_64 builds with one compiler.
 
 * Updated Chinese translation by *Yatao Li* (zh_CN.ini).
 
@@ -216,6 +236,9 @@ Note that this version has some more feature.
 * Fixed: Now cloacked windows will no longer be snapped to, this also
   prevents windows from snapping to others through different virtual
   desktops under Win10.
+
+* Fixed: When disabling the "Resize all windows" option, then windows would
+  no longer snap properly, even if they were resizeable.
 
 == AltDrag 1.46 ==
 
@@ -233,7 +256,7 @@ Note that this version has some more feature.
   file can be set to 3 to enable AltDrag only when Scroll Lock is off.
 
 * Fixed: Now the `SWP_NOSIZE` and flag is used when simply moving a window.
-  This prevents rolled windows from partially unrolling. Also the 
+  This prevents rolled windows from partially unrolling. Also the
   SWP_ASYNCWINDOWPOS flag was added where applicable and this fixes
   an ugly Win 10 bug that would changes the borders of some moved window.
 

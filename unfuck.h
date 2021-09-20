@@ -18,12 +18,12 @@
     #define DorQWORD QWORD
     #define HIWORDPTR(ll)   ((DWORD) (((QWORD) (ll) >> 32) & 0xFFFFFFFF))
     #define LOWORDPTR(ll)   ((DWORD) (ll))
-    #define MAKELONGPTR(lo, hi) ((QWORD) (((DWORD) (lo)) | ((QWORD) ((DWORD) (hi))) << 32)) 
+    #define MAKELONGPTR(lo, hi) ((QWORD) (((DWORD) (lo)) | ((QWORD) ((DWORD) (hi))) << 32))
 #else
     #define DorQWORD unsigned long
-    #define HIWORDPTR(l)   ((WORD) (((DWORD) (l) >> 16) & 0xFFFF)) 
+    #define HIWORDPTR(l)   ((WORD) (((DWORD) (l) >> 16) & 0xFFFF))
     #define LOWORDPTR(l)   ((WORD) (l))
-    #define MAKELONGPTR(lo, hi) ((DWORD) (((WORD) (lo)) | ((DWORD) ((WORD) (hi))) << 16)) 
+    #define MAKELONGPTR(lo, hi) ((DWORD) (((WORD) (lo)) | ((DWORD) ((WORD) (hi))) << 16))
 #endif
 
 
@@ -334,10 +334,10 @@ static BOOL GetWindowRectL(HWND hwnd, RECT *rect)
 }
 
 /* Under Win8 and later a window can be cloaked
- * This falg can be obtained with this function 
+ * This falg can be obtained with this function
  * 1 The window was cloaked by its owner application.
  * 2 The window was cloaked by the Shell.
- * 4 The cloak value was inherited from its owner window. 
+ * 4 The cloak value was inherited from its owner window.
  * For windows that are supposed to be logically "visible", in addition to WS_VISIBLE.
  */
 static int IsWindowCloaked(HWND hwnd)
@@ -496,9 +496,9 @@ static int HitTestTimeoutL(HWND hwnd, LPARAM lParam)
 {
     DorQWORD area=0;
 
-    // Try first with the ancestor window for some buggy AppX.
-    SendMessageTimeout(GetAncestor(hwnd, GA_ROOT), WM_NCHITTEST, 0, lParam, SMTO_NORMAL, 255, &area);
-    if(area == HTCAPTION) return HTCAPTION;
+    // Try first with the ancestor window for some buggy AppX?
+//    SendMessageTimeout(GetAncestor(hwnd, GA_ROOT), WM_NCHITTEST, 0, lParam, SMTO_NORMAL, 255, &area);
+//    if(area == HTCAPTION) return HTCAPTION;
 
     while(hwnd && SendMessageTimeout(hwnd, WM_NCHITTEST, 0, lParam, SMTO_NORMAL, 255, &area)){
         if((int)area == HTTRANSPARENT)

@@ -195,6 +195,7 @@ static struct {
     struct blacklist Pause;
     struct blacklist MMBLower;
     struct blacklist Scroll;
+    struct blacklist AResize;
     struct blacklist SSizeMove;
 } BlkLst;
 
@@ -263,9 +264,11 @@ static pure int blacklistedP(HWND hwnd, struct blacklist *list)
 static pure int CLAMPW(int width)  { return CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x); }
 static pure int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state.mmi.Max.y); }
 
-static int IsResizable(HWND hwnd)
+static int pure IsResizable(HWND hwnd)
 {
-    return (conf.ResizeAll || GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME);
+    return (conf.ResizeAll 
+        || GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME
+        || blacklisted(hwnd, &BlkLst.AResize)); // Always resize list
 }
 /////////////////////////////////////////////////////////////////////////////
 // WM_ENTERSIZEMOVE or WM_EXITSIZEMOVE...
@@ -943,14 +946,10 @@ static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
 static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight)
 {
     // return if last resizing is not finished or no Aero or not resizable.
-    if(!conf.Aero || MM_THREAD_ON) return 0;
+    if(!conf.Aero || MM_THREAD_ON || !IsResizable(state.hwnd)) return 0;
     LastWin.maximize = 0;
 
-    static int resizable = 1;
-    if (!resizable) return 0;
     if (!state.moving) {
-        if (!(resizable=IsResizable(state.hwnd)))
-            return 0;
         EnumSnapped();
     }
 
@@ -3081,6 +3080,8 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {L"MB5",        L"Nothing", &conf.Mouse.MB5[0]},
         {L"Scroll",     L"Nothing", &conf.Mouse.Scroll[0]},
         {L"HScroll",    L"Nothing", &conf.Mouse.HScroll[0]},
+        {L"GrabWithAlt",L"Nothing", &conf.GrabWithAlt[0]},
+
         {L"LMBB",       L"Resize",  &conf.Mouse.LMB[1]},
         {L"MMBB",       L"Maximize",&conf.Mouse.MMB[1]},
         {L"RMBB",       L"Move",    &conf.Mouse.RMB[1]},
@@ -3088,7 +3089,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {L"MB5B",       L"Nothing", &conf.Mouse.MB5[1]},
         {L"ScrollB",    L"Volume",  &conf.Mouse.Scroll[1]},
         {L"HScrollB",   L"Nothing", &conf.Mouse.HScroll[1]},
-        {L"GrabWithAlt",L"Nothing", &conf.GrabWithAlt[0]},
         {L"GrabWithAltB",L"Nothing", &conf.GrabWithAlt[1]},
         {NULL}
     };
@@ -3146,6 +3146,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     readblacklist(inipath, &BlkLst.Pause,     L"Pause");
     readblacklist(inipath, &BlkLst.MMBLower,  L"MMBLower");
     readblacklist(inipath, &BlkLst.Scroll,    L"Scroll");
+    readblacklist(inipath, &BlkLst.AResize,   L"AResize");
     readblacklist(inipath, &BlkLst.SSizeMove, L"SSizeMove");
 
     ResetDB(); // Zero database
@@ -3156,7 +3157,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.InterZone = GetPrivateProfileInt(L"Zones", L"InterZone", 0, inipath);
   # ifdef WIN64
     conf.FancyZone     = GetPrivateProfileInt(L"Zones", L"FancyZone", 0, inipath);
-    if (conf.FancyZone && !conf.TitlebarMove) conf.NormRestore = 1;
   # endif
 
     conf.keepMousehook = ((conf.LowerWithMMB&1) || conf.NormRestore || conf.TitlebarMove

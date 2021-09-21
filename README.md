@@ -32,5 +32,8 @@ Many new features can be seen in the option dialog box, however some of them are
 
 # Build
 AltSnap builds with gcc, I use Mingw-w64 (for i686).
-Just install the latest version (I use gcc 8.1) and lunch mk.bat
-Use the x64 edition of MingW-w64 in oredr to make a 64 bit build of AltDarg using mk64.bat
+Just install the latest version (I use TDM-gcc 10.3, MinGW64 based) and use:
+`> make` for i386 Win32 build
+`> make -fMakefileX64` for x86_64 build.
+`> make -fMakefileX64db` for x86_64 debug build.
+You can also use mk.bart and mk64.bat files.

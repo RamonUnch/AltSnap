@@ -443,8 +443,8 @@ static int IsKeyInList(wchar_t *keys, unsigned vkey)
     while (*pos != '\0') {
         numread = 0;
         temp = whex2u(pos);
-        while(pos[numread] && pos[numread] != ' ') numread++;
-        while(pos[numread] == ' ') numread++;
+        while (pos[numread] && pos[numread] != ' ') numread++;
+        while (pos[numread] == ' ') numread++;
         if (temp == vkey) {
             return 1;
         }
@@ -483,12 +483,28 @@ static void RemoveKeyFromList(wchar_t *keys, unsigned vkey)
     }
     // Strip eventual remaining spaces
     unsigned ll = wcslen(keys);
-    while(keys[--ll] == ' ') keys[ll]='\0';
+    while(ll > 0 && keys[--ll] == ' ') keys[ll]='\0';
 }
+/////////////////////////////////////////////////////////////////////////////
 struct hk_struct {
     unsigned control;
     unsigned vkey;
 };
+static void SaveHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *name)
+{
+    wchar_t keys[32];
+    // Get the current config in case there are some user added keys.
+    GetPrivateProfileString(L"Input", name, L"", keys, ARR_SZ(keys), inipath);
+    unsigned i;
+    for (i = 0; hotkeys[i].control; i++) {
+         if(IsChecked(hotkeys[i].control)) {
+             AddvKeytoList(keys, hotkeys[i].vkey);
+         } else {
+             RemoveKeyFromList(keys, hotkeys[i].vkey);
+         }
+    }
+    WritePrivateProfileString(L"Input", name, keys, inipath);
+}
 /////////////////////////////////////////////////////////////////////////////
 static void CheckConfigHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *hotkeystr, wchar_t* def)
 {
@@ -512,22 +528,7 @@ static void CheckConfigHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *ho
         }
     }
 }
-/////////////////////////////////////////////////////////////////////////////
-static void SaveHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *name)
-{
-    wchar_t keys[32];
-    // Get the current config in case there are some user added keys.
-    GetPrivateProfileString(L"Input", name, L"", keys, ARR_SZ(keys), inipath);
-    unsigned i;
-    for (i = 0; hotkeys[i].control; i++) {
-         if(IsChecked(hotkeys[i].control)) {
-             AddvKeytoList(keys, hotkeys[i].vkey);
-         } else {
-             RemoveKeyFromList(keys, hotkeys[i].vkey);
-         }
-    }
-    WritePrivateProfileString(L"Input", name, keys, inipath);
-}
+
 struct actiondl {
     wchar_t *action;
     wchar_t *l10n;
@@ -660,7 +661,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             WritePrivateProfileString(L"Input", L"HScroll", scroll_actions[i].action, inipath);
 
             // Checkboxes...
-            WriteOptionBoolB(IDC_LOWERWITHMMB,     L"Input", L"LowerWithMMB", 0);
+            WriteOptionBoolB(IDC_LOWERWITHMMB,    L"Input", L"LowerWithMMB", 0);
             WriteOptionBool(IDC_ROLLWITHTBSCROLL, L"Input", L"RollWithTBScroll");
             // Hotclicks
             SaveHotKeys(hotclicks, hwnd, L"Hotclicks");

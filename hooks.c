@@ -266,7 +266,7 @@ static pure int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state
 
 static int pure IsResizable(HWND hwnd)
 {
-    return (conf.ResizeAll 
+    return (conf.ResizeAll
         || GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME
         || blacklisted(hwnd, &BlkLst.AResize)); // Always resize list
 }
@@ -281,17 +281,26 @@ static void SendSizeMove(DWORD msg)
 }
 /////////////////////////////////////////////////////////////////////////////
 // Use NULL to restore old transparency.
+// Set to -1 to clear old state
 static void SetWindowTrans(HWND hwnd)
 {
     static BYTE oldtrans;
     static HWND oldhwnd;
     if (conf.MoveTrans == 0 || conf.MoveTrans == 255) return;
+    if (oldhwnd == hwnd) return; // Nothing to do
+    if ((DorQWORD)hwnd == (DorQWORD)(-1)) {
+        oldhwnd = NULL;
+        oldtrans = 0;
+        return;
+    }
 
     if (hwnd && !oldtrans) {
         oldhwnd = hwnd;
         LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
         if (exstyle&WS_EX_LAYERED) {
-            GetLayeredWindowAttributes(hwnd, NULL, &oldtrans, NULL);
+            BYTE ctrans=0;
+            if(GetLayeredWindowAttributes(hwnd, NULL, &ctrans, NULL))
+                if(ctrans) oldtrans = ctrans;
         } else {
             SetWindowLongPtr(hwnd, GWL_EXSTYLE, exstyle|WS_EX_LAYERED);
             oldtrans = 255;
@@ -299,7 +308,7 @@ static void SetWindowTrans(HWND hwnd)
         SetLayeredWindowAttributes(hwnd, 0, conf.MoveTrans, LWA_ALPHA);
     } else if (!hwnd && oldhwnd) { // restore old trans;
         LONG_PTR exstyle = GetWindowLongPtr(oldhwnd, GWL_EXSTYLE);
-        if (oldtrans == 255) {
+        if (!oldtrans || oldtrans == 255) {
             SetWindowLongPtr(oldhwnd, GWL_EXSTYLE, exstyle & ~WS_EX_LAYERED);
         } else {
             SetLayeredWindowAttributes(oldhwnd, 0, oldtrans, LWA_ALPHA);
@@ -1960,6 +1969,7 @@ static int ActionTransparency(HWND hwnd, int delta)
     static int alpha=255;
 
     if (blacklisted(hwnd, &BlkLst.Windows)) return 0;
+    if (MOUVEMENT(state.action)) SetWindowTrans((HWND)-1);
 
     int alpha_delta = (state.shift)? conf.AlphaDeltaShift: conf.AlphaDelta;
     alpha_delta *= sign(delta);
@@ -3156,7 +3166,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     if (conf.UseZones) ReadZones(inipath);
     conf.InterZone = GetPrivateProfileInt(L"Zones", L"InterZone", 0, inipath);
   # ifdef WIN64
-    conf.FancyZone     = GetPrivateProfileInt(L"Zones", L"FancyZone", 0, inipath);
+    conf.FancyZone = GetPrivateProfileInt(L"Zones", L"FancyZone", 0, inipath);
   # endif
 
     conf.keepMousehook = ((conf.LowerWithMMB&1) || conf.NormRestore || conf.TitlebarMove
@@ -3168,7 +3178,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-// Do not forget the -e_DllMain@12 for gcc...
+// Do not forget the -e_DllMain@12 for gcc... -eDllMain for x86_64
 BOOL APIENTRY DllMain(HINSTANCE hInst, DWORD reason, LPVOID reserved)
 {
     if (reason == DLL_PROCESS_ATTACH) {

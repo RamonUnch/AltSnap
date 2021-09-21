@@ -60,7 +60,7 @@ static int pure IsResizable(HWND hwnd);
 
 static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *height)
 {
-     if (!conf.UseZones || !state.shift|| state.mdiclient/* || !IsResizable(state.hwnd)*/)
+     if (!conf.UseZones || !state.shift|| state.mdiclient || !IsResizable(state.hwnd))
          return;
 
      RECT rc, bd;

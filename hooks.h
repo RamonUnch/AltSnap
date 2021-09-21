@@ -42,7 +42,6 @@ enum action { AC_NONE=0, AC_MOVE, AC_RESIZE, AC_MENU, AC_MINIMIZE, AC_MAXIMIZE, 
 
 #define MOUVEMENT(action) (action <= AC_RESIZE)
 
-
 // Convert zone number to ini name entry
 static wchar_t *ZidxToZonestr(int idx, wchar_t *zname)
 {

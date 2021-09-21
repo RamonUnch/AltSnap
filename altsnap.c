@@ -362,7 +362,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     return msg.wParam;
 }
 /////////////////////////////////////////////////////////////////////////////
-// use -nostdlib and -e_unfuckMain@0 to use this main
+// Use -nostdlib and -e_unfuckMain@0 to use this main, -eunfuckMain for x64.
 void WINAPI noreturn unfuckWinMain(void)
 {
     HINSTANCE hInst;

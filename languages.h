@@ -75,6 +75,8 @@ struct strings {
   // input
   // mouse
   wchar_t *input_mouse_box;
+  wchar_t *input_mouse_btac1;
+  wchar_t *input_mouse_btac2;
   wchar_t *input_mouse_lmb;
   wchar_t *input_mouse_mmb;
   wchar_t *input_mouse_rmb;
@@ -230,6 +232,8 @@ struct {
   { &l10n_ini.general_elevation_aborted,       L"GeneralElevationAborted" },
 
   { &l10n_ini.input_mouse_box,                 L"InputMouseBox" },
+  { &l10n_ini.input_mouse_btac1,               L"InputMouseBtAc1" },
+  { &l10n_ini.input_mouse_btac2,               L"InputMouseBtAc2" },
   { &l10n_ini.input_mouse_lmb,                 L"InputMouseLMB" },
   { &l10n_ini.input_mouse_mmb,                 L"InputMouseMMB" },
   { &l10n_ini.input_mouse_rmb,                 L"InputMouseRMB" },
@@ -382,6 +386,8 @@ struct strings en_US = {
  /* input tab */
  /* mouse */
  /* box                */ L"Mouse actions",
+ /* btac1              */ L"&1. Primary",
+ /* btac2              */ L"&2. Alternate",
  /* lmb                */ L"Left mouse &button:",
  /* mmb                */ L"&Middle mouse button:",
  /* rmb                */ L"Ri&ght mouse button:",

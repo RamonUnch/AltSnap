@@ -144,3 +144,6 @@
 #define IDC_GRABWITHALTB                2067
 #define IDC_GRABWITHALTB_H              2068
 #define IDC_RECT                        2069
+
+#define IDC_MBA1                        2070
+#define IDC_MBA2                        2071

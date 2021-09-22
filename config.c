@@ -565,6 +565,16 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         { IDC_MB4, L"MB4" },
         { IDC_MB5, L"MB5" }
     };
+    struct {
+        int control;
+        wchar_t *option;
+    } mouse_buttonsB[] = {
+        { IDC_LMB, L"LMBB" },
+        { IDC_MMB, L"MMBB" },
+        { IDC_RMB, L"RMBB" },
+        { IDC_MB4, L"MB4B" },
+        { IDC_MB5, L"MB5B" }
+    };
 
     struct actiondl mouse_actions[] = {
         {L"Move",        l10n->input_actions_move},
@@ -608,11 +618,17 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     if (msg == WM_INITDIALOG) {
         ReadOptionInt(IDC_LOWERWITHMMB, L"Input", L"LowerWithMMB", 0, 1);
         ReadOptionInt(IDC_ROLLWITHTBSCROLL, L"Input",  L"RollWithTBScroll", 0, -1);
+        CheckRadioButton(hwnd, IDC_MBA1, IDC_MBA2, IDC_MBA1); // Check the primary action
 
         // Hotclicks buttons
         CheckConfigHotKeys(hotclicks, hwnd, L"Hotclicks", L"");
     } else if (msg == WM_COMMAND) {
         int event = HIWORD(wParam);
+        int id = LOWORD(wParam);
+        if (id == IDC_MBA1 || id == IDC_MBA2) {
+            CheckRadioButton(hwnd, IDC_MBA1, IDC_MBA2, id); // Check the selected action
+            goto FILLACTIONS;
+        }
         if (event == 0 || event == CBN_SELCHANGE){
             PropSheet_Changed(g_cfgwnd, hwnd);
             have_to_apply = 1;
@@ -621,15 +637,23 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // Mouse actions
+            FILLACTIONS:;
             unsigned i;
+            int primary = !!IsChecked(IDC_MBA1);
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {
-                FillActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option, mouse_actions);
+                if (primary) 
+                    FillActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option, mouse_actions);
+                else
+                    FillActionDropListS(hwnd, mouse_buttonsB[i].control, mouse_buttonsB[i].option, mouse_actions);
             }
             // Scroll actions
-            FillActionDropListS(hwnd, IDC_SCROLL,  L"Scroll",  scroll_actions);
-            FillActionDropListS(hwnd, IDC_HSCROLL, L"HScroll", scroll_actions);
+            FillActionDropListS(hwnd, IDC_SCROLL,  primary? L"Scroll": L"ScrollB",  scroll_actions);
+            FillActionDropListS(hwnd, IDC_HSCROLL, primary? L"HScroll":L"HScrollB", scroll_actions);
 
             // Update text
+            SetDlgItemText(hwnd, IDC_MBA1,            l10n->input_mouse_btac1);
+            SetDlgItemText(hwnd, IDC_MBA2,            l10n->input_mouse_btac2);
+            
             SetDlgItemText(hwnd, IDC_MOUSE_BOX,       l10n->input_mouse_box);
             SetDlgItemText(hwnd, IDC_LMB_HEADER,      l10n->input_mouse_lmb);
             SetDlgItemText(hwnd, IDC_MMB_HEADER,      l10n->input_mouse_mmb);
@@ -650,15 +674,21 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Mouse actions, for all mouse buttons...
             unsigned i;
+            int primary = !!IsChecked(IDC_MBA1);
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {
-                int j = ComboBox_GetCurSel(GetDlgItem(hwnd, mouse_buttons[i].control));
-                WritePrivateProfileString(L"Input", mouse_buttons[i].option, mouse_actions[j].action, inipath);
+                if (primary) {
+                    int j = ComboBox_GetCurSel(GetDlgItem(hwnd, mouse_buttons[i].control));
+                    WritePrivateProfileString(L"Input", mouse_buttons[i].option, mouse_actions[j].action, inipath);
+                } else {
+                    int j = ComboBox_GetCurSel(GetDlgItem(hwnd, mouse_buttonsB[i].control));
+                    WritePrivateProfileString(L"Input", mouse_buttonsB[i].option, mouse_actions[j].action, inipath);
+                }
             }
             // Scroll
             i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_SCROLL));
-            WritePrivateProfileString(L"Input", L"Scroll", scroll_actions[i].action, inipath);
+            WritePrivateProfileString(L"Input", primary?L"Scroll":L"ScrollB", scroll_actions[i].action, inipath);
             i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_HSCROLL));
-            WritePrivateProfileString(L"Input", L"HScroll", scroll_actions[i].action, inipath);
+            WritePrivateProfileString(L"Input", primary?L"HScroll":L"HScrollB", scroll_actions[i].action, inipath);
 
             // Checkboxes...
             WriteOptionBoolB(IDC_LOWERWITHMMB,    L"Input", L"LowerWithMMB", 0);

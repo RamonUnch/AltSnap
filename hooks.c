@@ -1430,6 +1430,8 @@ static void MouseMove(POINT pt)
 
         // Figure out new placement
         if (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER) {
+            if (state.shift) pt.x = state.clickpt.x;
+            else if (state.ctrl) pt.y = state.clickpt.y;
             wndwidth  = wnd.right-wnd.left + 2*(pt.x-state.offset.x);
             wndheight = wnd.bottom-wnd.top + 2*(pt.y-state.offset.y);
             posx = wnd.left - (pt.x - state.offset.x) - mdiclientpt.x;
@@ -1642,11 +1644,11 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.alt1 = vkey;
 
         } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
-            if (!state.shift) {
+            if (!state.shift && vkey != conf.ModKey) {
                 EnumOnce(NULL); // Reset enum state.
                 state.snap = 3;
+                state.shift = 1;
             }
-            state.shift = 1;
 
             // Block keydown to prevent Windows from changing keyboard layout
             if (state.alt && state.action) {
@@ -1691,7 +1693,8 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             POINT pt; GetCursorPos(&pt);
             HWND hwnd = WindowFromPoint(pt);
             if(ActionKill(hwnd)) return 1;
-        } else if (!state.ctrl && state.alt!=vkey &&(vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
+        } else if (!state.ctrl && state.alt!=vkey && vkey != conf.ModKey 
+               && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
             RestrictToCurentMonitor();
             state.ctrl = 1;
             state.ctrlpt = state.prevpt; // Save point where click was pressed.
@@ -2373,7 +2376,8 @@ static void MaximizeHV(HWND hwnd, int horizontal)
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
 {
-    if      (action==AC_MINIMIZE)    MinimizeWindow(hwnd);
+    if      (action== AC_NONE) return;
+    else if (action==AC_MINIMIZE)    MinimizeWindow(hwnd);
     else if (action==AC_MAXIMIZE)    ActionMaximize(hwnd);
     else if (action==AC_CENTER)      CenterWindow(hwnd);
     else if (action==AC_ALWAYSONTOP) TogglesAlwaysOnTop(hwnd);
@@ -2383,6 +2387,8 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_KILL)        ActionKill(hwnd);
     else if (action==AC_ROLL)        RollWindow(hwnd, 0);
     else if (action==AC_MAXHV)       MaximizeHV(hwnd, state.shift);
+    state.blockmouseup = 1;
+    
 }
 /////////////////////////////////////////////////////////////////////////////
 static void StartSpeedMes()

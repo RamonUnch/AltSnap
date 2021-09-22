@@ -23,7 +23,7 @@ char *traystr[] = {
 };
 
 /////////////////////////////////////////////////////////////////////////////
-int InitTray()
+static int InitTray()
 {
     ScrollLockState = GetPrivateProfileInt(L"Input", L"ScrollLockState", 0, inipath);
     UseZones = GetPrivateProfileInt(L"Zones", L"UseZones", 0, inipath);
@@ -46,7 +46,7 @@ int InitTray()
     return 0;
 }
 /////////////////////////////////////////////////////////////////////////////
-int UpdateTray()
+static int UpdateTray()
 {
     int Index = !!ENABLED();
     if (Index && (ScrollLockState&1))
@@ -75,7 +75,7 @@ int UpdateTray()
     return 0;
 }
 /////////////////////////////////////////////////////////////////////////////
-int RemoveTray()
+static int RemoveTray()
 {
     if (!tray_added)
         return 1;
@@ -150,7 +150,7 @@ static void SaveCurrentLayout()
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void ShowContextMenu(HWND hwnd)
+static void ShowContextMenu(HWND hwnd)
 {
     POINT pt;
     GetCursorPos(&pt);

@@ -56,6 +56,7 @@ struct strings {
   wchar_t *general_autosnap3;
   wchar_t *general_language;
   wchar_t *general_fullwin;
+  wchar_t *general_usezones;
   wchar_t *general_resizeall;
   wchar_t *general_resizecenter;
   wchar_t *general_resizecenter_norm;
@@ -162,6 +163,7 @@ struct strings {
   wchar_t *advanced_restoreonclick;
   wchar_t *advanced_fullscreen;
   wchar_t *advanced_titlebarmove;
+  wchar_t *advanced_fancyzone;
 
   // about
   wchar_t *about_box;
@@ -216,6 +218,7 @@ struct {
   { &l10n_ini.general_autosnap3,               L"GeneralAutoSnap3" },
   { &l10n_ini.general_language,                L"GeneralLanguage" },
   { &l10n_ini.general_fullwin,                 L"GeneralFullWin" },
+  { &l10n_ini.general_usezones,                L"GeneralUseZones" },
   { &l10n_ini.general_resizeall,               L"GeneralResizeAll" },
   { &l10n_ini.general_resizecenter,            L"GeneralResizeCenter" },
   { &l10n_ini.general_resizecenter_norm,       L"GeneralResizeCenterNorm" },
@@ -315,6 +318,7 @@ struct {
   { &l10n_ini.advanced_restoreonclick,         L"AdvancedRestoreOnClick"},
   { &l10n_ini.advanced_fullscreen,             L"AdvancedFullScreen"},
   { &l10n_ini.advanced_titlebarmove,           L"AdvancedTitlebarMove"},
+  { &l10n_ini.advanced_fancyzone,              L"AdvancedFancyZone"},
 
   { &l10n_ini.about_box,                       L"AboutBox" },
   { &l10n_ini.about_version,                   L"AboutVersion" },
@@ -368,6 +372,7 @@ struct strings en_US = {
  /* autosnap3          */ L"+ inside of windows",
  /* language           */ L"&Language:",
  /* FullWin            */ L"&Drag full windows",
+ /* UseZones           */ L"&Use Snap layout (configure with tray menu)",
  /* ResizeAll          */ L"&Resize all windows",
  /* ResizeCenter       */ L"Center resize mode",
  /* ResizeCenterNorm   */ L"All d&irections",
@@ -475,6 +480,7 @@ struct strings en_US = {
  /* restoreonclick   */   L"Rest&ore window with single click like original AltDrag",
  /* fullscreen       */   L"Enable on &full screen windows",
  /* titlebarmove     */   L"&Use AltSnap for normal titlebar movement",
+ /* fancyzone        */   L"Restore Fancy&Zones snapped windows",
 
  /* about tab */
  /* box                */ L"About "APP_NAME,

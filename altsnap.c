@@ -82,6 +82,8 @@ int HookSystem()
     }
     LOG("Keyboard HOOK set\n");
 
+    // Reading some config options...
+    UseZones = GetPrivateProfileInt(L"Zones", L"UseZones", 0, inipath);
     UpdateTray();
     return 0;
 }

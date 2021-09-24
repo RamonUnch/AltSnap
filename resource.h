@@ -147,3 +147,6 @@
 
 #define IDC_MBA1                        2070
 #define IDC_MBA2                        2071
+#define IDC_USEZONES                    2072
+#define IDC_FANCYZONE                   2073
+#define IDC_GWLEXSTYLE                  2074

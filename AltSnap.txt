@@ -132,7 +132,7 @@ A space can be present in the item itself or before the item.
 - Windows blacklist: List of windows with the title|class format for which
   move/resize actions from AltDrag will be disabled
   Example: Program Manager|Progman,|Shell_TrayWnd,*|Notepad
-- Windos that should ignore the scroll action: List of windows with the
+- Windows that should ignore the scroll action: List of windows with the
   title|class format that for which the scroll action of AltDrag will not
   apply. Example: *|Photoshop
 - MDIs not to be treated as such: List of windows for which AltDrag will not
@@ -193,7 +193,7 @@ Note that this version has some more feature.
 * New: Support of Snap Layouts, also called Zones. All associated settings
   are in the `[Zones]` section of the .ini file **Read carefully:**
   1) Set `UseZones=1`
-  2) Configure your layout by opening several *Test Windows* from the tray menu.
+  2) Configure your layout by opening several *Test Windows* from the tray.
   3) Arrange those windows across all of your monitors as you you wish.
   4) Go again to the tray menu and hit **Save test windows as snap layout**
   5) A confirmation dialog will ask you if you want to save, hit yes.
@@ -203,20 +203,24 @@ Note that this version has some more feature.
   the window will also be extended to several zones. Use the `InterZone`
   value to adjust this threshold distance in pixels (default 32).
 
-* New: added the `FancyZone` option in the [Zones] section of the .ini file
+* New: Added the `FancyZone` option in the [Zones] section of the .ini file
   set it to 1 if you want AltSnap to be able to restore windows that were
   snapped using PowerToys' FancyZones. This only applies to x86_64 builds
   of AltSnap. I highly recommend this to FancyZones users.
 
+* New added a `AResize` whitelist in the `[Blacklist]` section of the .ini
+  file in order to force altdrag to resize windows that do not have the
+  `WS_THICKFRAME` style, when the Resize all windows option is disabled.
+
 * New: Added the option to move windows via AltDrag without hotkey,
   by clickling on the titlebar. It is similar to the **hooks windows**
   feature that was present in the original AltDrag and can be activated
-  via the `TitlebarMove` option in the [Advanced] section of the `.ini`.
+  via the `TitlebarMove` option in the `[Advanced]` section of the .ini.
 
 * New: Now a **modifier key** can be set instead of the invert Move/resize
-  key in order to use a different set of customizable actions for all
-  buttons. They can be configured manually in the .ini, using a B sufix
-  for buttons that contains an action ie: LMBB=Resize etc.
+  key in order to use an lternatye set of customizable actions for all
+  buttons. They can be configured in the Mouse tab of the config dialog,
+  or manually in the .ini, using a B sufix for buttons eg LMBB=Resize.
 
 * New: Maximize Vertically action, use Shift to maximize horizontally.
 

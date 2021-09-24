@@ -26,7 +26,6 @@ char *traystr[] = {
 static int InitTray()
 {
     ScrollLockState = GetPrivateProfileInt(L"Input", L"ScrollLockState", 0, inipath);
-    UseZones = GetPrivateProfileInt(L"Zones", L"UseZones", 0, inipath);
 
     // Create icondata
     tray.cbSize = sizeof(tray);

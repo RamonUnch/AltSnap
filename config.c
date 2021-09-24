@@ -305,6 +305,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         ReadOptionInt(IDC_MDI,            L"General", L"MDI", 1, -1);
         ReadOptionInt(IDC_FULLWIN,        L"Performance", L"FullWin", 1, -1);
         ReadOptionInt(IDC_RESIZEALL,      L"Advanced", L"ResizeAll", 1, -1);
+        ReadOptionInt(IDC_USEZONES,       L"Zones", L"UseZones", 1, -1);
 
         ret=GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
         ret = ret==1? IDC_RZCENTER_NORM: ret==2? IDC_RZCENTER_MOVE: IDC_RZCENTER_BR;
@@ -373,6 +374,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             WriteOptionBool(IDC_MDI,           L"General",    L"MDI");
             WriteOptionBool(IDC_FULLWIN,       L"Performance",L"FullWin");
             WriteOptionBool(IDC_RESIZEALL,     L"Advanced",   L"ResizeAll");
+            WriteOptionBool(IDC_USEZONES,      L"Zones",   L"UseZones");
 
             int val = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_AUTOSNAP));
             WritePrivateProfileString(L"General",    L"AutoSnap", _itow(val, txt, 10), inipath);
@@ -407,6 +409,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         SetDlgItemText(hwnd, IDC_AUTOSNAP_HEADER,   l10n->general_autosnap);
         SetDlgItemText(hwnd, IDC_LANGUAGE_HEADER,   l10n->general_language);
         SetDlgItemText(hwnd, IDC_FULLWIN,           l10n->general_fullwin);
+        SetDlgItemText(hwnd, IDC_USEZONES,          l10n->general_usezones);
         SetDlgItemText(hwnd, IDC_RESIZEALL,         l10n->general_resizeall);
         SetDlgItemText(hwnd, IDC_RESIZECENTER,      l10n->general_resizecenter);
         SetDlgItemText(hwnd, IDC_RZCENTER_NORM,     l10n->general_resizecenter_norm);
@@ -928,6 +931,7 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 SetDlgItemText(page, IDC_NEWPROGNAME, txt);
             }
             SetDlgItemText(page, IDC_GWLSTYLE, _itow(GetWindowLongPtr(window, GWL_STYLE), txt, 16));
+            SetDlgItemText(page, IDC_GWLEXSTYLE, _itow(GetWindowLongPtr(window, GWL_EXSTYLE), txt, 16));
             SetDlgItemText(page, IDC_NCHITTEST, _itow(HitTestTimeout(nwindow, pt.x, pt.y), txt, 10));
             RECT rc;
             if(GetWindowRectL(window, &rc)) {
@@ -1069,6 +1073,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         ReadOptionInt(IDC_NORMRESTORE,      L"General",  L"NormRestore", 0, -1);
         ReadOptionInt(IDC_FULLSCREEN,       L"Advanced", L"FullScreen", 1, -1);
         ReadOptionInt(IDC_TITLEBARMOVE,     L"Advanced", L"TitlebarMove", 0, -1);
+        ReadOptionInt(IDC_FANCYZONE,        L"Zones",    L"FancyZone", 0, -1);
 
         ReadOptionInt(IDC_MAXWITHLCLICK,    L"General", L"MMMaximize", 1, 1); // bit 1
         ReadOptionInt(IDC_RESTOREONCLICK,   L"General", L"MMMaximize", 1, 2); // bit 2
@@ -1117,6 +1122,8 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_RESTOREONCLICK,   l10n->advanced_restoreonclick);
             SetDlgItemText(hwnd, IDC_FULLSCREEN,       l10n->advanced_fullscreen);
             SetDlgItemText(hwnd, IDC_TITLEBARMOVE,     l10n->advanced_titlebarmove);
+            SetDlgItemText(hwnd, IDC_FANCYZONE,        l10n->advanced_fancyzone);
+
 
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Apply or OK button was pressed.
@@ -1128,6 +1135,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             WriteOptionBool(IDC_NORMRESTORE,       L"General",  L"NormRestore");
             WriteOptionBool(IDC_FULLSCREEN,        L"Advanced", L"FullScreen");
             WriteOptionBool(IDC_TITLEBARMOVE,      L"Advanced", L"TitlebarMove");
+            WriteOptionBool(IDC_FANCYZONE,         L"Zones",    L"FancyZone");
 
             val = IsChecked(IDC_AEROTOPMAXIMIZES) + 2 * IsChecked(IDC_AERODBCLICKSHIFT);
             WritePrivateProfileString(L"Advanced",L"AeroTopMaximizes", _itow(val, txt, 10), inipath);

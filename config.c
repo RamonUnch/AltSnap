@@ -644,7 +644,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             unsigned i;
             int primary = !!IsChecked(IDC_MBA1);
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {
-                if (primary) 
+                if (primary)
                     FillActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option, mouse_actions);
                 else
                     FillActionDropListS(hwnd, mouse_buttonsB[i].control, mouse_buttonsB[i].option, mouse_actions);
@@ -656,7 +656,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             // Update text
             SetDlgItemText(hwnd, IDC_MBA1,            l10n->input_mouse_btac1);
             SetDlgItemText(hwnd, IDC_MBA2,            l10n->input_mouse_btac2);
-            
+
             SetDlgItemText(hwnd, IDC_MOUSE_BOX,       l10n->input_mouse_box);
             SetDlgItemText(hwnd, IDC_LMB_HEADER,      l10n->input_mouse_lmb);
             SetDlgItemText(hwnd, IDC_MMB_HEADER,      l10n->input_mouse_mmb);
@@ -1087,6 +1087,11 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         ReadOptionStr(IDC_AEROSPEEDTAU,  L"Advanced", L"AeroSpeedTau",  L"32");
         ReadOptionStr(IDC_MOVETRANS,     L"General",  L"MoveTrans",     L"");
 
+        Button_Enable(GetDlgItem(hwnd, IDC_NORMRESTORE), !IsChecked(IDC_TITLEBARMOVE));
+      # ifndef WIN64
+        Button_Enable(GetDlgItem(hwnd, IDC_FANCYZONE), 0);
+      # endif
+
     } else if (msg == WM_COMMAND) {
         int id = LOWORD(wParam);
         int event = HIWORD(wParam);
@@ -1094,6 +1099,8 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         if (id != IDC_TESTWINDOW && (event == 0 || event == EN_UPDATE)) {
             PropSheet_Changed(g_cfgwnd, hwnd);
             have_to_apply = 1;
+            if (id == IDC_TITLEBARMOVE)
+                Button_Enable(GetDlgItem(hwnd, IDC_NORMRESTORE), !IsChecked(IDC_TITLEBARMOVE));
         }
         if (id == IDC_TESTWINDOW) { // Click on the Test Window button
             testwnd = NewTestWindow();
@@ -1123,7 +1130,6 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_FULLSCREEN,       l10n->advanced_fullscreen);
             SetDlgItemText(hwnd, IDC_TITLEBARMOVE,     l10n->advanced_titlebarmove);
             SetDlgItemText(hwnd, IDC_FANCYZONE,        l10n->advanced_fancyzone);
-
 
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Apply or OK button was pressed.

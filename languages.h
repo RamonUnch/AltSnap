@@ -372,7 +372,7 @@ struct strings en_US = {
  /* autosnap3          */ L"+ inside of windows",
  /* language           */ L"&Language:",
  /* FullWin            */ L"&Drag full windows",
- /* UseZones           */ L"&Use Snap layout (configure with tray menu)",
+ /* UseZones           */ L"Snap to Layo&ut with Shift (configure with tray menu)",
  /* ResizeAll          */ L"&Resize all windows",
  /* ResizeCenter       */ L"Center resize mode",
  /* ResizeCenterNorm   */ L"All d&irections",

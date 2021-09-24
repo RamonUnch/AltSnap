@@ -482,6 +482,14 @@ static void MaximizeWindow(HWND hwnd)
 {
     PostMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
 }
+static void RestoreWindow(HWND hwnd)
+{
+    PostMessage(hwnd, WM_SYSCOMMAND, SC_RESTORE, 0);
+}
+static void ToggleMaxRestore(HWND hwnd)
+{
+    PostMessage(hwnd, WM_SYSCOMMAND, IsZoomed(hwnd)? SC_RESTORE: SC_MAXIMIZE, 0);
+}
 static void MinimizeWindow(HWND hwnd)
 {
     PostMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
@@ -495,10 +503,6 @@ static BOOL SetWindowLevel(HWND hwnd, HWND hafter)
 static int HitTestTimeoutL(HWND hwnd, LPARAM lParam)
 {
     DorQWORD area=0;
-
-    // Try first with the ancestor window for some buggy AppX?
-//    SendMessageTimeout(GetAncestor(hwnd, GA_ROOT), WM_NCHITTEST, 0, lParam, SMTO_NORMAL, 255, &area);
-//    if(area == HTCAPTION) return HTCAPTION;
 
     while(hwnd && SendMessageTimeout(hwnd, WM_NCHITTEST, 0, lParam, SMTO_NORMAL, 255, &area)){
         if((int)area == HTTRANSPARENT)

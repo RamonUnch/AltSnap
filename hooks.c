@@ -197,6 +197,7 @@ static struct {
     struct blacklist Scroll;
     struct blacklist AResize;
     struct blacklist SSizeMove;
+    struct blacklist NCHittest;
 } BlkLst;
 
 // Cursor data
@@ -279,6 +280,23 @@ static void SendSizeMove(DWORD msg)
         PostMessage(state.hwnd, msg, 0, 0);
     }
 }
+/////////////////////////////////////////////////////////////////////////////
+// Overloading of the Hittest function to include a whitelist
+static int HitTestTimeoutblL(HWND hwnd, LPARAM lParam)
+{
+    DorQWORD area=0;
+
+    // Try first with the ancestor window for some buggy AppX?
+    HWND ancestor;
+    if ((ancestor = GetAncestor(hwnd, GA_ROOT))
+    && hwnd != ancestor
+    && blacklisted(ancestor, &BlkLst.NCHittest)) {
+        SendMessageTimeout(ancestor, WM_NCHITTEST, 0, lParam, SMTO_NORMAL, 255, &area);
+        if(area == HTCAPTION) return HTCAPTION;
+    }
+    return HitTestTimeoutL(hwnd, lParam);
+}
+#define HitTestTimeoutbl(hwnd, x, y) HitTestTimeoutblL(hwnd, MAKELPARAM(x, y))
 /////////////////////////////////////////////////////////////////////////////
 // Use NULL to restore old transparency.
 // Set to -1 to clear old state
@@ -1175,7 +1193,7 @@ static int IsHotClickPt(enum button button, POINT pt, enum buttonstate bstate)
         HWND hwnd = WindowFromPoint(pt);
         if (blacklisted(GetAncestor(hwnd, GA_ROOT), &BlkLst.MMBLower))
             return 0;
-        if(HTCAPTION == HitTestTimeout(hwnd, pt.x, pt.y)) {
+        if(HTCAPTION == HitTestTimeoutbl(hwnd, pt.x, pt.y)) {
             conf.TitlebarMove = 2;
             return 1;
         }
@@ -1999,11 +2017,11 @@ static int ActionTransparency(HWND hwnd, int delta)
     return 1;
 }
 /////////////////////////////////////////////////////////////////////////////
-static void ActionLower(POINT *ptt, HWND hwnd, int delta, UCHAR shift)
+static void ActionLower(HWND hwnd, int delta, UCHAR shift)
 {
     if (delta > 0) {
         if (shift) {
-            Maximize_Restore_atpt(hwnd, ptt, SW_TOGGLE_MAX_RESTORE, NULL);
+            ToggleMaxRestore(hwnd);
         } else {
             if (conf.AutoFocus || state.ctrl) SetForegroundWindowL(hwnd);
             SetWindowLevel(hwnd, HWND_TOPMOST);
@@ -2024,20 +2042,20 @@ static void ActionLower(POINT *ptt, HWND hwnd, int delta, UCHAR shift)
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-static void ActionMaxRestMin(POINT *ptt, HWND hwnd, int delta)
+static void ActionMaxRestMin(HWND hwnd, int delta)
 {
     int maximized = IsZoomed(hwnd);
     if (state.shift) {
-        ActionLower(ptt, hwnd, delta, 0);
+        ActionLower(hwnd, delta, 0);
         return;
     }
 
     if (delta > 0) {
         if (!maximized && IsResizable(hwnd))
-            Maximize_Restore_atpt(hwnd, ptt, SW_MAXIMIZE, NULL);
+            MaximizeWindow(hwnd);
     } else {
         if (maximized)
-            Maximize_Restore_atpt(hwnd, ptt, SW_RESTORE, NULL);
+            RestoreWindow(hwnd);
         else
             MinimizeWindow(hwnd);
     }
@@ -2137,7 +2155,7 @@ static int ActionMove(POINT pt, HMONITOR monitor, int button)
             state.action = AC_NONE; // Stop move action
             state.clicktime = 0; // Reset double-click time
             state.blockmouseup = 1; // Block the mouseup, otherwise it can trigger a context menu
-            Maximize_Restore_atpt(state.hwnd, NULL, SW_TOGGLE_MAX_RESTORE, monitor);
+            ToggleMaxRestore(state.hwnd);
         }
         // Prevent mousedown from propagating
         return 1;
@@ -2253,7 +2271,7 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
                 if(state.resize.y == RZ_CENTER) {
                     restore |= SNMAXH;
                     if(state.ctrl) {
-                        Maximize_Restore_atpt(state.hwnd, &pt, SW_TOGGLE_MAX_RESTORE, NULL);
+                        ToggleMaxRestore(state.hwnd);
                         return 1;
                     }
                 }
@@ -2348,7 +2366,7 @@ static void ActionMaximize(HWND hwnd)
     if (state.shift) {
         MinimizeWindow(hwnd);
     } else if (IsResizable(hwnd)) {
-        Maximize_Restore_atpt(hwnd, NULL, SW_TOGGLE_MAX_RESTORE, NULL);
+        ToggleMaxRestore(hwnd);
     }
 }
 static void MaximizeHV(HWND hwnd, int horizontal)
@@ -2382,7 +2400,7 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_CENTER)      CenterWindow(hwnd);
     else if (action==AC_ALWAYSONTOP) TogglesAlwaysOnTop(hwnd);
     else if (action==AC_CLOSE)       PostMessage(hwnd, WM_CLOSE, 0, 0);
-    else if (action==AC_LOWER)       ActionLower(NULL, hwnd, 0, state.shift);
+    else if (action==AC_LOWER)       ActionLower(hwnd, 0, state.shift);
     else if (action==AC_BORDERLESS)  ActionBorderless(hwnd);
     else if (action==AC_KILL)        ActionKill(hwnd);
     else if (action==AC_ROLL)        RollWindow(hwnd, 0);
@@ -2557,10 +2575,10 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
 
         // The hittest causes problesm with DOSBox
         // Be sure to check MMBLower blacklist before.
-        int area = HitTestTimeout(nhwnd, pt.x, pt.y);
+        int area = HitTestTimeoutbl(nhwnd, pt.x, pt.y);
 
         if (willlower && wParam == WM_MBUTTONDOWN && IsAreaCaption(area)) {
-            ActionLower(NULL, hwnd, 0, state.shift);
+            ActionLower(hwnd, 0, state.shift);
             return 1;
         } else if (conf.NormRestore
         && wParam == WM_LBUTTONDOWN && area == HTCAPTION
@@ -2603,7 +2621,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
 
     if (conf.RollWithTBScroll && wParam == WM_MOUSEWHEEL && !state.ctrl) {
 
-        int area= HitTestTimeout(nhwnd, pt.x, pt.y);
+        int area= HitTestTimeoutbl(nhwnd, pt.x, pt.y);
         if (IsAreaCaption(area)) {
             RollWindow(hwnd, delta);
             // Block original scroll event
@@ -2628,8 +2646,8 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     if      (action == AC_ALTTAB)       ret = ActionAltTab(pt, delta);
     else if (action == AC_VOLUME)       ActionVolume(delta);
     else if (action == AC_TRANSPARENCY) ret = ActionTransparency(hwnd, delta);
-    else if (action == AC_LOWER)        ActionLower(&pt, hwnd, delta, state.shift);
-    else if (action == AC_MAXIMIZE)     ActionMaxRestMin(&pt, hwnd, delta);
+    else if (action == AC_LOWER)        ActionLower(hwnd, delta, state.shift);
+    else if (action == AC_MAXIMIZE)     ActionMaxRestMin(hwnd, delta);
     else if (action == AC_ROLL)         RollWindow(hwnd, delta);
     else if (action == AC_HSCROLL)      ret = ScrollPointedWindow(pt, -delta, WM_MOUSEHWHEEL);
     else                                ret = 0; // No action
@@ -3164,7 +3182,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     readblacklist(inipath, &BlkLst.Scroll,    L"Scroll");
     readblacklist(inipath, &BlkLst.AResize,   L"AResize");
     readblacklist(inipath, &BlkLst.SSizeMove, L"SSizeMove");
-
+    readblacklist(inipath, &BlkLst.NCHittest, L"NCHittest");
     ResetDB(); // Zero database
 
     // Zones

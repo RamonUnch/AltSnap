@@ -192,7 +192,7 @@ Note that this version has some more feature.
 
 * New: Support of Snap Layouts, also called Zones. All associated settings
   are in the `[Zones]` section of the .ini file **Read carefully:**
-  1) Set `UseZones=1`
+  1) Check the **Snap to layout** option (`UseZones=1`).
   2) Configure your layout by opening several *Test Windows* from the tray.
   3) Arrange those windows across all of your monitors as you you wish.
   4) Go again to the tray menu and hit **Save test windows as snap layout**
@@ -236,6 +236,13 @@ Note that this version has some more feature.
 * Updated Chinese translation by *Yatao Li* (zh_CN.ini).
 
 * Updated German translation by *Ichisich* (de_DE.ini).
+
+* Fixed: display maximize/restore animations when using the maximize action
+
+* Fixed: potential crash using the config pannel.
+
+* Fixed: avoid to play the minimize/restore animations when unrolling
+  a maximized-rolled window.
 
 * Fixed: Now cloacked windows will no longer be snapped to, this also
   prevents windows from snapping to others through different virtual

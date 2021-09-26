@@ -168,9 +168,8 @@ static void ShowContextMenu(HWND hwnd)
     if (UseZones) { // Zones section
         InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
         InsertMenu(menu, -1, MF_BYPOSITION, SWM_TESTWIN,  l10n->advanced_testwindow);
-        if(FindWindow(APP_NAME"-test", NULL)) {
-            InsertMenu(menu, -1, MF_BYPOSITION, SWM_SAVEZONES, l10n->menu_savezones);
-        }
+        InsertMenu(menu, -1, FindWindow(APP_NAME"-test", NULL)? MF_BYPOSITION:MF_BYPOSITION|MF_GRAYED
+                  , SWM_SAVEZONES, l10n->menu_savezones);
     }
 
     InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);

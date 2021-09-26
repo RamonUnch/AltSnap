@@ -287,9 +287,9 @@ static int HitTestTimeoutblL(HWND hwnd, LPARAM lParam)
     DorQWORD area=0;
 
     // Try first with the ancestor window for some buggy AppX?
-    HWND ancestor;
-    if ((ancestor = GetAncestor(hwnd, GA_ROOT))
-    && hwnd != ancestor
+    HWND ancestor = GetAncestor(hwnd, GA_ROOT);
+    if (blacklisted(ancestor, &BlkLst.MMBLower)) return 0;
+    if (hwnd != ancestor
     && blacklisted(ancestor, &BlkLst.NCHittest)) {
         SendMessageTimeout(ancestor, WM_NCHITTEST, 0, lParam, SMTO_NORMAL, 255, &area);
         if(area == HTCAPTION) return HTCAPTION;
@@ -1191,8 +1191,6 @@ static int IsHotClickPt(enum button button, POINT pt, enum buttonstate bstate)
 
         HideCursor(); // In case...
         HWND hwnd = WindowFromPoint(pt);
-        if (blacklisted(GetAncestor(hwnd, GA_ROOT), &BlkLst.MMBLower))
-            return 0;
         if(HTCAPTION == HitTestTimeoutbl(hwnd, pt.x, pt.y)) {
             conf.TitlebarMove = 2;
             return 1;
@@ -1298,7 +1296,7 @@ static void DrawRect(HDC hdcl, const RECT *rc)
     Rectangle(hdcl, rc->left+1, rc->top+1, rc->right, rc->bottom);
 }
 
-static void RestrictCursorToMon(POINT pt)
+static void RestrictCursorToMon()
 {
     // Restrict pt within origin monitor if Ctrlis being pressed
     if (state.ctrl && !state.ignorectrl) {
@@ -1362,7 +1360,7 @@ static void MouseMove(POINT pt)
     pt.x -= mdiclientpt.x;
     pt.y -= mdiclientpt.y;
 
-    RestrictCursorToMon(pt); // When CTRL is pressed.
+    RestrictCursorToMon(); // When CTRL is pressed.
 
     // Get new position for window
     LastWin.end = 0;
@@ -2117,8 +2115,12 @@ static void RollWindow(HWND hwnd, int delta)
 
     if (restore & ROLLED && delta <= 0) { // UNROLL
         if (state.origin.maximized) {
-            MinimizeWindow(hwnd);
-            MaximizeWindow(hwnd);
+            WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+            GetWindowPlacement(hwnd, &wndpl);
+            wndpl.showCmd = SW_SHOWMINIMIZED;
+            SetWindowPlacement(hwnd, &wndpl);
+            wndpl.showCmd = SW_SHOWMAXIMIZED;
+            SetWindowPlacement(hwnd, &wndpl);
         } else {
             RestoreOldWin(NULL, 2, 2);
         }
@@ -2142,7 +2144,7 @@ static int IsDoubleClick(int button)
         && GetTickCount()-state.clicktime <= GetDoubleClickTime();
 }
 /////////////////////////////////////////////////////////////////////////////
-static int ActionMove(POINT pt, HMONITOR monitor, int button)
+static int ActionMove(POINT pt, int button)
 {
     // If this is a double-click
     if (IsDoubleClick(button)) {
@@ -2394,7 +2396,7 @@ static void MaximizeHV(HWND hwnd, int horizontal)
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
 {
-    if      (action== AC_NONE) return;
+    if      (action==AC_NONE)        return;
     else if (action==AC_MINIMIZE)    MinimizeWindow(hwnd);
     else if (action==AC_MAXIMIZE)    ActionMaximize(hwnd);
     else if (action==AC_CENTER)      CenterWindow(hwnd);
@@ -2520,7 +2522,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 
         int ret;
         if (state.action == AC_MOVE) {
-            ret = ActionMove(pt, monitor, button);
+            ret = ActionMove(pt, button);
         } else {
             ret = ActionResize(pt, &wnd, button);
         }
@@ -2571,10 +2573,7 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
         if (!nhwnd) return 0;
         HWND hwnd = MDIorNOT(nhwnd, &state.mdiclient);
         if (blacklisted(hwnd, &BlkLst.Windows)) return 0; // Next hook
-        if (blacklisted(hwnd, &BlkLst.MMBLower)) return -1; // fall through...
 
-        // The hittest causes problesm with DOSBox
-        // Be sure to check MMBLower blacklist before.
         int area = HitTestTimeoutbl(nhwnd, pt.x, pt.y);
 
         if (willlower && wParam == WM_MBUTTONDOWN && IsAreaCaption(area)) {

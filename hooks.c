@@ -51,6 +51,7 @@ static struct {
     POINT clickpt;
     POINT prevpt;
     POINT ctrlpt;
+    POINT shiftpt;
     POINT offset;
     HWND hwnd;
     HWND sclickhwnd;
@@ -1446,8 +1447,8 @@ static void MouseMove(POINT pt)
 
         // Figure out new placement
         if (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER) {
-            if (state.shift) pt.x = state.clickpt.x;
-            else if (state.ctrl) pt.y = state.clickpt.y;
+            if (state.shift) pt.x = state.shiftpt.x;
+            else if (state.ctrl) pt.y = state.ctrlpt.y;
             wndwidth  = wnd.right-wnd.left + 2*(pt.x-state.offset.x);
             wndheight = wnd.bottom-wnd.top + 2*(pt.y-state.offset.y);
             posx = wnd.left - (pt.x - state.offset.x) - mdiclientpt.x;
@@ -1664,6 +1665,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 EnumOnce(NULL); // Reset enum state.
                 state.snap = 3;
                 state.shift = 1;
+                state.shiftpt = state.prevpt; // Save point where shift was pressed.
             }
 
             // Block keydown to prevent Windows from changing keyboard layout
@@ -1709,11 +1711,11 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             POINT pt; GetCursorPos(&pt);
             HWND hwnd = WindowFromPoint(pt);
             if(ActionKill(hwnd)) return 1;
-        } else if (!state.ctrl && state.alt!=vkey && vkey != conf.ModKey 
+        } else if (!state.ctrl && state.alt!=vkey && vkey != conf.ModKey
                && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
             RestrictToCurentMonitor();
             state.ctrl = 1;
-            state.ctrlpt = state.prevpt; // Save point where click was pressed.
+            state.ctrlpt = state.prevpt; // Save point where ctrl was pressed.
             if (state.action) {
                 SetForegroundWindowL(state.hwnd);
             }
@@ -2396,7 +2398,6 @@ static void MaximizeHV(HWND hwnd, int horizontal)
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
 {
-    if      (action==AC_NONE)        return;
     else if (action==AC_MINIMIZE)    MinimizeWindow(hwnd);
     else if (action==AC_MAXIMIZE)    ActionMaximize(hwnd);
     else if (action==AC_CENTER)      CenterWindow(hwnd);
@@ -2407,8 +2408,6 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_KILL)        ActionKill(hwnd);
     else if (action==AC_ROLL)        RollWindow(hwnd, 0);
     else if (action==AC_MAXHV)       MaximizeHV(hwnd, state.shift);
-    state.blockmouseup = 1;
-    
 }
 /////////////////////////////////////////////////////////////////////////////
 static void StartSpeedMes()
@@ -2537,6 +2536,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         return 1; // block mouse down
     } else {
         SClickActions(state.hwnd, action);
+        state.blockmouseup = 1;
     }
 
     // We have to send the ctrl keys here too because of

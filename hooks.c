@@ -2398,7 +2398,7 @@ static void MaximizeHV(HWND hwnd, int horizontal)
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
 {
-    else if (action==AC_MINIMIZE)    MinimizeWindow(hwnd);
+    if      (action==AC_MINIMIZE)    MinimizeWindow(hwnd);
     else if (action==AC_MAXIMIZE)    ActionMaximize(hwnd);
     else if (action==AC_CENTER)      CenterWindow(hwnd);
     else if (action==AC_ALWAYSONTOP) TogglesAlwaysOnTop(hwnd);

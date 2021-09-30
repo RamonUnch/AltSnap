@@ -2375,23 +2375,30 @@ static void ActionMaximize(HWND hwnd)
 }
 static void MaximizeHV(HWND hwnd, int horizontal)
 {
-    RECT rc, bd;
+    RECT rc, bd, mon;
     if (!GetWindowRect(hwnd, &rc)) return;
+    OffsetRectMDI(&rc);
+
+    POINT pt;
+    GetCursorPos(&pt);
+    GetMonitorRect(&pt, 0, &mon);
 
     SetRestoreData(hwnd, rc.right - rc.left, rc.bottom - rc.top, SNAPPED);
     FixDWMRect(hwnd, &bd);
     if (horizontal) {
         SetRestoreFlag(hwnd, SNAPPED|SNMAXW);
         MoveWindowAsync(hwnd
-            , state.origin.mon.left-bd.left, rc.top
-            , state.origin.mon.right-state.origin.mon.left+bd.left+bd.right
+            , mon.left-bd.left
+            , rc.top
+            , mon.right-mon.left + bd.left+bd.right
             , rc.bottom-rc.top);
     } else { // vertical
         SetRestoreFlag(hwnd, SNAPPED|SNMAXH);
         MoveWindowAsync(hwnd
-            , rc.left, state.origin.mon.top-bd.top
-            , rc.right-rc.left
-            , state.origin.mon.bottom-state.origin.mon.top+bd.top+bd.bottom);
+            , rc.left
+            , mon.top - bd.top
+            , rc.right - rc.left
+            , mon.bottom - mon.top + bd.top+bd.bottom);
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -2816,6 +2823,11 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         if (state.blockmouseup) {
             state.blockmouseup = 0;
             return 1;
+//        } else if (action == AC_MOVE && IsSamePTT(&pt, &state.clickpt)) {
+//            FinishMovement();
+//            MinimizeWindow(state.hwnd);
+//            return 1;
+
         } else if (state.action || is_hotclick) {
             FinishMovement();
             return 1;
@@ -3095,10 +3107,10 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     if (conf.TitlebarMove) conf.NormRestore = 0; // in this case disable NormRestore
 
     // [Performance]
-    conf.MoveRate  = GetPrivateProfileInt(L"Performance", L"MoveRate", 2, inipath);
-    conf.ResizeRate= GetPrivateProfileInt(L"Performance", L"ResizeRate", 4, inipath);
+    conf.MoveRate  = GetPrivateProfileInt(L"Performance", L"MoveRate", 1, inipath);
+    conf.ResizeRate= GetPrivateProfileInt(L"Performance", L"ResizeRate", 2, inipath);
     conf.FullWin   = GetPrivateProfileInt(L"Performance", L"FullWin", 1, inipath);
-    conf.RefreshRate=GetPrivateProfileInt(L"Performance", L"RefreshRate", 7, inipath);
+    conf.RefreshRate=GetPrivateProfileInt(L"Performance", L"RefreshRate", 0, inipath);
 
     // [Input]
     struct {

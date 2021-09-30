@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTSNAP for NT4 to Win10                         *
 *  Modified by Raymond Gillibert from original AltDrag by Stefan Sundin   *
-*                    release 1.47 (September 20, 2021)                    *
+*                    release 1.47 (September 30, 2021)                    *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltSnap/releases/         *
@@ -192,7 +192,7 @@ Note that this version has some more feature.
 
 * New: Support of Snap Layouts, also called Zones. All associated settings
   are in the `[Zones]` section of the .ini file **Read carefully:**
-  1) Check the **Snap to layout** option (`UseZones=1`).
+  1) Check the **Snap to layout** option (`UseZones=1` in the .ini).
   2) Configure your layout by opening several *Test Windows* from the tray.
   3) Arrange those windows across all of your monitors as you you wish.
   4) Go again to the tray menu and hit **Save test windows as snap layout**
@@ -203,7 +203,8 @@ Note that this version has some more feature.
   the window will also be extended to several zones. Use the `InterZone`
   value to adjust this threshold distance in pixels (default 32).
 
-* New: Added the `FancyZone` option in the [Zones] section of the .ini file
+* New: Added the **Restore FancyZones snapped windows** option in the 
+  Advanced tab and `FancyZone` option in the `[Zones]` section of the ini.
   set it to 1 if you want AltSnap to be able to restore windows that were
   snapped using PowerToys' FancyZones. This only applies to x86_64 builds
   of AltSnap. I highly recommend this to FancyZones users.
@@ -225,11 +226,12 @@ Note that this version has some more feature.
 * New: Maximize Vertically action, use Shift to maximize horizontally.
 
 * Changed default `RefreshRate` to 0 to favor smoothest movement instead
-  of performances.
+  of performances also default is now `MoveRate=1` and `ResizeRate=2`.
 
 * Restore informations for snapped windows are now stored in Windows
   properties. This simplifies the code, and allows altdrag to be restarted
-  without loosing restore info.
+  without loosing restore info, also restore informations become shared
+  between different AltSnap instances.
 
 * Updated to tdm-gcc-10.3 for i386 and x86_64 builds with one compiler.
 
@@ -237,9 +239,11 @@ Note that this version has some more feature.
 
 * Updated German translation by *Ichisich* (de_DE.ini).
 
-* Fixed: display maximize/restore animations when using the maximize action
+* Fixed: Sometime the mouseup would triger a menu after an action.
 
 * Fixed: potential crash using the config pannel.
+
+* Fixed: display maximize/restore animations when using the maximize action
 
 * Fixed: avoid to play the minimize/restore animations when unrolling
   a maximized-rolled window.

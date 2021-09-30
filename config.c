@@ -72,8 +72,8 @@ static void SetAutostart(int on, int hhide, int eelevate)
         unsigned ll = wcslen(value);
         value[ll] = '\"'; value[++ll]='\0';
         // Add -hide or -elevate flags
-        if(hhide)    wcscat(value, L" -hide");
-        if(eelevate) wcscat(value, L" -elevate");
+        if (hhide)    wcscat(value, L" -hide");
+        if (eelevate) wcscat(value, L" -elevate");
         // Set autostart
         RegSetValueEx(key, APP_NAME, 0, REG_SZ, (LPBYTE)value, (wcslen(value)+1)*sizeof(value[0]));
     } else {
@@ -91,7 +91,7 @@ BOOL ElevateNow(int showconfig)
         wchar_t path[MAX_PATH];
         GetModuleFileName(NULL, path, ARR_SZ(path));
         INT_PTR ret;
-        if(showconfig)
+        if (showconfig)
             ret = (INT_PTR)ShellExecute(NULL, L"runas", path, L"-config -multi", NULL, SW_SHOWNORMAL);
         else
             ret = (INT_PTR)ShellExecute(NULL, L"runas", path, L"-multi", NULL, SW_SHOWNORMAL);
@@ -256,7 +256,7 @@ static int WriteOptionBoolBW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name
 {
     wchar_t txt[8];
     int val = GetPrivateProfileInt(section, name, 0, inipath);
-    if(Button_GetCheck(GetDlgItem(hwnd, id)))
+    if (Button_GetCheck(GetDlgItem(hwnd, id)))
         val = setBit(val, bit);
     else
         val = clearBit(val, bit);
@@ -307,7 +307,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         ReadOptionInt(IDC_RESIZEALL,      L"Advanced", L"ResizeAll", 1, -1);
         ReadOptionInt(IDC_USEZONES,       L"Zones", L"UseZones", 1, -1);
 
-        ret=GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
+        ret = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
         ret = ret==1? IDC_RZCENTER_NORM: ret==2? IDC_RZCENTER_MOVE: IDC_RZCENTER_BR;
         CheckRadioButton(hwnd, IDC_RZCENTER_NORM, IDC_RZCENTER_MOVE, ret);
 
@@ -458,7 +458,7 @@ static int IsKeyInList(wchar_t *keys, unsigned vkey)
 static void AddvKeytoList(wchar_t *keys, unsigned vkey)
 {
     // Check if it is already in the list.
-    if(IsKeyInList(keys, vkey))
+    if (IsKeyInList(keys, vkey))
         return;
     // Add a key to the hotkeys list
     if (*keys != '\0') {
@@ -486,7 +486,7 @@ static void RemoveKeyFromList(wchar_t *keys, unsigned vkey)
     }
     // Strip eventual remaining spaces
     unsigned ll = wcslen(keys);
-    while(ll > 0 && keys[--ll] == ' ') keys[ll]='\0';
+    while (ll > 0 && keys[--ll] == ' ') keys[ll]='\0';
 }
 /////////////////////////////////////////////////////////////////////////////
 struct hk_struct {
@@ -500,7 +500,7 @@ static void SaveHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *name)
     GetPrivateProfileString(L"Input", name, L"", keys, ARR_SZ(keys), inipath);
     unsigned i;
     for (i = 0; hotkeys[i].control; i++) {
-         if(IsChecked(hotkeys[i].control)) {
+         if (IsChecked(hotkeys[i].control)) {
              AddvKeytoList(keys, hotkeys[i].vkey);
          } else {
              RemoveKeyFromList(keys, hotkeys[i].vkey);
@@ -640,6 +640,10 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // Mouse actions
+            wchar_t txt[8];
+            GetPrivateProfileString(L"Input", L"ModKey", L"", txt, ARR_SZ(txt), inipath);
+            Button_Enable(GetDlgItem(hwnd, IDC_MBA2), txt[0]);
+
             FILLACTIONS:;
             unsigned i;
             int primary = !!IsChecked(IDC_MBA1);
@@ -927,14 +931,14 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             wcscat(txt, title); wcscat(txt, L"|"); wcscat(txt, classname);
             SetDlgItemText(page, IDC_NEWRULE, txt);
 
-            if(GetWindowProgName(window, txt, ARR_SZ(txt))) {
+            if (GetWindowProgName(window, txt, ARR_SZ(txt))) {
                 SetDlgItemText(page, IDC_NEWPROGNAME, txt);
             }
             SetDlgItemText(page, IDC_GWLSTYLE, _itow(GetWindowLongPtr(window, GWL_STYLE), txt, 16));
             SetDlgItemText(page, IDC_GWLEXSTYLE, _itow(GetWindowLongPtr(window, GWL_EXSTYLE), txt, 16));
             SetDlgItemText(page, IDC_NCHITTEST, _itow(HitTestTimeout(nwindow, pt.x, pt.y), txt, 10));
             RECT rc;
-            if(GetWindowRectL(window, &rc)) {
+            if (GetWindowRectL(window, &rc)) {
                 SetDlgItemText(page, IDC_RECT, RectToStr(&rc, txt));
             }
 

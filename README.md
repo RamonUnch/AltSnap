@@ -3,9 +3,9 @@ Fork from Stefan Sundin's AltDrag.
 
 Check the Wiki: https://github.com/RamonUnch/AltSnap/wiki
 
-Original ocumentation: https://stefansundin.github.io/altdrag/doc/
+Original documentation: https://stefansundin.github.io/altdrag/doc/
 
-Note that documentation is not 100% accurate because it is a fork.
+Note that the documentation is not 100% accurate because it is a fork.
 Read the changelog for more details.
 
 It allows you to move and resize windows by using the Alt key and clicking wherever on the window instead of relying on very precise clicking.

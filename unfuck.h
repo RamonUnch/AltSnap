@@ -39,7 +39,10 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
     (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
     , UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 #endif
+
+#ifndef LOG_STUFF
 #define LOG_STUFF 0
+#endif
 #define LOG(X, ...) if(LOG_STUFF) { FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fclose(LOG); }
 #define LOGA(X, ...) { FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fclose(LOG); }
 

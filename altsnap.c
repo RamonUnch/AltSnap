@@ -70,7 +70,7 @@ int HookSystem()
         // Get address to keyboard hook (beware name mangling)
         procaddr = (HOOKPROC) GetProcAddress(hinstDLL, LOW_LEVELK_BPROC);
         if (procaddr == NULL) {
-            LOG("Could not find LowLevelKeyboardProc@12 entry point in HOOKS.DLL\n");
+            LOG("Could not find "LOW_LEVELK_BPROC" entry point in HOOKS.DLL\n");
             return 1;
         }
         // Set up the keyboard hook
@@ -91,6 +91,7 @@ int HookSystem()
 int showerror = 1;
 int UnhookSystem()
 {
+    LOG("Going to UnHook the system...\n");
     if (!keyhook) { // System not hooked
         return 1;
     } else if (!UnhookWindowsHookEx(keyhook) && showerror) {
@@ -194,7 +195,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         CloseConfig();
     } else if (msg == WM_TASKBARCREATED) {
         tray_added = 0;
-        UpdateTray();
+        // If it fails it means the tray was alreadt there hence
+        // set back tray_added to 1
+        if (UpdateTray()) tray_added = 1;
     } else if (msg == WM_COMMAND) {
         int wmId = LOWORD(wParam); // int wmEvent = HIWORD(wParam);
         if (wmId == SWM_TOGGLE) {
@@ -285,7 +288,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
         HWND previnst = FindWindow(APP_NAME, NULL);
         if (previnst) {
             LOG("Previous instance found and no -multi mode\n")
-            PostMessage(previnst, WM_UPDATESETTINGS, 0, 0);
+            // PostMessage(previnst, WM_UPDATESETTINGS, 0, 0);
             if(hide)   PostMessage(previnst, WM_CLOSECONFIG, 0, 0);
             if(config) PostMessage(previnst, WM_OPENCONFIG, 0, 0);
             PostMessage(previnst, hide? WM_HIDETRAY : WM_ADDTRAY, 0, 0);

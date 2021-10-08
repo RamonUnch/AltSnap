@@ -240,7 +240,7 @@ static int wcsicmpL(const wchar_t* s1, const wchar_t* s2)
 }
 #define wcsicmp wcsicmpL
 
-wchar_t* wcscat(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
+wchar_t *wcscat(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
 {
     wchar_t *orig=dest;
     for (; *dest; ++dest) ;	/* go to end of dest */

@@ -18,7 +18,7 @@
 // App
 #define APP_NAME       L"AltSnap"
 #define APP_NAMEA      "AltSnap"
-#define APP_VERSION    "1.47"
+#define APP_VERSION    "1.48"
 #define APP_PROPPT     APP_NAMEA"-RestoreDimentions"
 #define APP_PROPFL     APP_NAMEA"-RestoreFlag"
 #define FZ_PROPPT      "FancyZones_RestoreSize"

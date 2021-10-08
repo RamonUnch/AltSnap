@@ -53,6 +53,7 @@ static struct {
     POINT ctrlpt;
     POINT shiftpt;
     POINT offset;
+
     HWND hwnd;
     HWND sclickhwnd;
     HWND mdiclient;
@@ -71,6 +72,7 @@ static struct {
 
     UCHAR moving;
     UCHAR clickbutton;
+    UCHAR resizable;
     struct {
         UCHAR maximized;
         UCHAR fullscreen;
@@ -231,6 +233,7 @@ static pure int blacklisted(HWND hwnd, struct blacklist *list)
     GetWindowText(hwnd, title, ARR_SZ(title));
     GetClassName(hwnd, classname, ARR_SZ(classname));
     for ( ; i < list->length; i++) {
+        // LOGA("%S|%S, %d/%d\n", list->items[i].title, list->items[i].classname, i+1, list->length);
         if (!wcscmp_star(classname, list->items[i].classname)
         &&  !wcscmp_rstar(title, list->items[i].title)) {
               return mode;
@@ -256,6 +259,7 @@ static pure int blacklistedP(HWND hwnd, struct blacklist *list)
 
     // ProcessBlacklist is case-insensitive
     for ( ; i < list->length; i++) {
+        // LOGA("%S, %d/%d\n", list->items[i].title, i+1, list->length);
         if (list->items[i].title && !wcsicmp(title, list->items[i].title))
             return mode;
     }
@@ -974,7 +978,7 @@ static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
 static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight)
 {
     // return if last resizing is not finished or no Aero or not resizable.
-    if(!conf.Aero || MM_THREAD_ON || !IsResizable(state.hwnd)) return 0;
+    if(!conf.Aero || MM_THREAD_ON || !state.resizable) return 0;
     LastWin.maximize = 0;
 
     if (!state.moving) {
@@ -2154,7 +2158,7 @@ static int ActionMove(POINT pt, int button)
             RollWindow(state.hwnd, 0); // Roll/Unroll Window...
         } else if (state.ctrl) {
             MinimizeWindow(state.hwnd);
-        } else if (IsResizable(state.hwnd)) {
+        } else if (state.resizable) {
             // Toggle Maximize window
             state.action = AC_NONE; // Stop move action
             state.clicktime = 0; // Reset double-click time
@@ -2172,7 +2176,7 @@ static int ActionMove(POINT pt, int button)
 /////////////////////////////////////////////////////////////////////////////
 static int ActionResize(POINT pt, const RECT *wnd, int button)
 {
-    if(!IsResizable(state.hwnd)) {
+    if(!state.resizable) {
         state.blockmouseup = 1;
         state.action = AC_NONE;
         return 1;
@@ -2520,6 +2524,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     if (MOUVEMENT(action)) {
         // Set action state.
         state.action = action; // MOVE OR RESIZE
+        state.resizable = IsResizable(state.hwnd);
 
         GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
         SetWindowTrans(state.hwnd);
@@ -2950,6 +2955,7 @@ __declspec(dllexport) void Unload()
 {
     DeleteDCPEN();
 
+    conf.keepMousehook = 0;
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
     UnregisterClass(APP_NAME"-Timers", hinstDLL);
     DestroyWindow(g_timerhwnd);

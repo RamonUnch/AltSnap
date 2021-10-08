@@ -19,9 +19,8 @@ CFLAGS=-Os -fno-stack-check -fno-stack-protector -fno-ident -fomit-frame-pointer
     -mno-stack-arg-probe -m32 -march=i386 -mtune=i686 -mpreferred-stack-boundary=2 -momit-leaf-frame-pointer \
     -nostdlib -lmsvcrt -lkernel32 -luser32 -lgdi32 -s -fgcse-sm -fgcse-las -fno-plt \
     -Wl,-s,-dynamicbase,-nxcompat,--no-seh,--relax,--disable-runtime-pseudo-reloc,--enable-auto-import,--disable-stdcall-fixup \
-	-Wp,-D_FORTIFY_SOURCE=2 -fshort-enums\
+	-D__USE_MINGW_ANSI_STDIO=0  -Wp,-D_FORTIFY_SOURCE=2 -fshort-enums\
     $(INCLUDE) $(WARNINGS) -fno-exceptions -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables
-
 
 default: AltSnap.exe hooks.dll
 

@@ -61,7 +61,7 @@ static int UpdateTray()
         LOG("Updating tray icon\n");
         while (!Shell_NotifyIconA(tray_added? NIM_MODIFY: NIM_ADD, &tray) ) {
             LOG("Failed in try No. %d\n", i);
-            if (i > 3) {
+            if (i > 2) {
                 LOG("Failed all atempts!!\n");
                 return 1;
             }

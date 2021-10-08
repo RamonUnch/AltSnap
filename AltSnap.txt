@@ -185,8 +185,9 @@ Note that this version has some more feature.
 
 == AltSnap 1.48 ==
 
-* Fixed crash when launching again AltSanp with a previous instance.s
+* Fixed some crash when launching again AltSanp with a previous instance.
 
+* Fixed Tray icon handling under Win10.
 
 == AltSnap 1.47 ==
 

@@ -9,12 +9,12 @@
 *=========================================================================*
 
 == INTRODUCTION ==
-AltDrag gives you the ability to move and resize your windows in a new way.
-When AltDrag is running, you can simply hold down the Alt key and then click
+AltSnap gives you the ability to move and resize your windows in a new way.
+When AltSnap is running, you can simply hold down the Alt key and then click
 and drag any window.
 
 This behavior already exists in Linux and other operating systems,
-and AltDrag was made with the mission to copy that behavior to the
+and AltSnap was made with the mission to copy that behavior to the
 Windows platform.
 ___________
 MOVE WINDOW
@@ -27,7 +27,7 @@ RESIZE WINDOW
 You can use (by default) the right mouse button to resize windows.
 Imagine the window divided into nine squares, and you will resize the
 corner nearest to where you press. The corners are slightly bigger
-than the middle regions by default (adjust using AltDara.ini).
+than the middle regions by default (adjust using AltSnap.ini).
  ____________________________________________
 / @ Title bar   |            |         _ O X \
 |===============+============+===============|
@@ -52,7 +52,7 @@ maximize/restore the window.
 The center region can be configured to behave differently (see options).
 _____________
 OTHER ACTIONS
-AltDrag can be configured quite finely You can set any button to perform
+AltSnap can be configured quite finely You can set any button to perform
 any action among a list: Move, Resize, Close, Minimize, Maximize, Lower,
 AlwaysOnTop, Borderless, Center, Roll, Menu, Kill and Nothing.
 
@@ -60,9 +60,9 @@ By default the middle mouse button is configured for the Maximize action,
 that maximizes/restores the window. Press Shift to minimize.
 ____________________________
 TRICKS YOU SHOULD KNOW ABOUT
-* AltDrag will not bring windows to front by default. Press Ctrl to bring the
-  window to front, or configure AltDrag to do that automatically.
-* AltDrag will mimic Aero Snap by default, so try dragging windows to the
+* AltSnap will not bring windows to front by default. Press Ctrl to bring the
+  window to front, or configure AltSnap to do that automatically.
+* AltSnap will mimic Aero Snap by default, so try dragging windows to the
   edges of your monitor. Corners work too!
 * If you use multiple monitors, you can hold Ctrl or Shift while dragging to
   trap the window within the current monitor. This is particularly useful if
@@ -81,14 +81,14 @@ TRICKS YOU SHOULD KNOW ABOUT
 * If you have Scroll inactive windows enabled, you can hold the Shift key to
   scroll horizontally. Note that this relies on that the program has support
   for normal horizontal mouse wheel scrolling, which not all programs have.
-* If you can't move a particular window, try elevating AltDrag.
+* If you can't move a particular window, try elevating AltSnap.
   Normal programs can't interact with programs that are started with
   administrator privileges.
 * If you need to Alt+Click on a program and do not want to blacklist the
   program, you can use the Winkey instead of Alt. If this is not enough
   or if you do not want to use the Winkey, you can hit Ctrl and release it
   while keeping Alt pressed and then click.
-* A key combo can be used in order to activate AltDrag, this allows using
+* A key combo can be used in order to activate AltSnap, this allows using
   Alt+Winkey to drag windows and leaves alone the Win+Click and the Alt+Click
   that some programs may require.
 * Try to add the Shift modifier key for any action, usually it has an effect.
@@ -97,12 +97,12 @@ CONFIGURATION
 To change the configuration from default, double-click on the tray icon, and
 you will be presented with a lot of choices.
 
-If you want to go further into the configuration, open the AltDrag.ini file
+If you want to go further into the configuration, open the AltSnap.ini file
 by middle-clicking on the tray icon. You will see all the option there with
 a short description.
 _________
 LANGUAGES
-AltDrag is fully translated in French, Italian and mostly translated in many
+AltSnap is fully translated in French, Italian and mostly translated in many
 other languages. All translations are simple ini files encoded in UTF-16 LE.
 If you want to create or improve a translation, just add or modify the
 associated ini file in the Lang directory, and no not forget to send it to
@@ -111,31 +111,32 @@ translation. You can use "Lang\_en_US baseline.txt" as a starting point if
 you want to translate everything to a new language.
 ______
 UPDATE
-To avoid useless bloat and potential vulnerability AltDrag no longer
+To avoid useless bloat and potential vulnerability AltSnap no longer
 auto-updates. You can check for new versions on the GitHub page
-If you want automation, install altdrag via the chocolatey package.
--install with> choco install altdrag
--update with> choco update altdrag
--uninstall with > choco uninstall altdrag
-Note that the chocolatey package may take a few days before getting updated.
+If you want automation, install altsnap via the chocolatey package.
+-install with> choco install altsnap
+-update with> choco update altsnap
+-uninstall with > choco uninstall altsnap
+You can do the same with winget. Note that the chocolatey/winget package
+may take a few days before getting updated.
 _________
 BLACKLIST
-Sometime an AltDrag action interacts with a window you do not want.
+Sometime an AltSnap action interacts with a window you do not want.
 For example if you use Alt+Click on a specific window and you do not want
-AltDrag to move the window you can add the window name to the windows
+AltSnap to move the window you can add the window name to the windows
 blacklist. more details below:
 All the list are coma separated and take no spaces before the coma.
 A space can be present in the item itself or before the item.
 
 - Process blacklist: List of programs names for which move/resize from
-  AltDrag as well as the scroll actions are disabled. Example: Notepad.exe
+  AltSnap as well as the scroll actions are disabled. Example: Notepad.exe
 - Windows blacklist: List of windows with the title|class format for which
-  move/resize actions from AltDrag will be disabled
+  move/resize actions from AltSnap will be disabled
   Example: Program Manager|Progman,|Shell_TrayWnd,*|Notepad
 - Windows that should ignore the scroll action: List of windows with the
-  title|class format that for which the scroll action of AltDrag will not
+  title|class format that for which the scroll action of AltSnap will not
   apply. Example: *|Photoshop
-- MDIs not to be treated as such: List of windows for which AltDrag will not
+- MDIs not to be treated as such: List of windows for which AltSnap will not
   try to find MDI subwindow. This only applies if the Support MDI is enabled
   and by default contains *|PPTFrameClass,*|MMCMainFrame which correspond to
   the PowerPoint window and all the Microsoft Management application such as
@@ -158,7 +159,7 @@ blacklisted. This is a much less common usage.
 The title can also be empty for example: |Shell_TrayWnd corresponds to the
 Windows task bar and has an empty title.
 
-Finally more blacklists can be found in the AltDrag.ini file:
+Finally more blacklists can be found in the AltSnap.ini file:
 - Snaplist: List of windows with the name|clas format to which other windows
   should snap. By default windows that have no borders cannot be snapped to.
 - MMBLower: List of windows that should not be lowered with mouse middle
@@ -167,17 +168,17 @@ Finally more blacklists can be found in the AltDrag.ini file:
 
 ===========================================================================
 == USAGE ==
-Extract to any folder, and double click on AltDrag.exe
+Extract to any folder, and double click on AltSnap.exe
 Enjoy dragging windows...
 
 You will see a new Icon in the tray
 - Right click on the Tray Icon to see the option menu
 - Left click on the Tray Icon to enable/disable
 - Go to the "Configure" menu entry for basic options
-- Middle click on the Tray Icon to open config file AltDrag.ini (advanced)
-- You can hide the icon if you want. To show it again relaunch AltDrag.exe
+- Middle click on the Tray Icon to open config file AltSnap.ini (advanced)
+- You can hide the icon if you want. To show it again relaunch AltSnap.exe
 
-AltDrag Wiki: https://github.com/RamonUnch/AltDrag/wiki
+AltSnap Wiki: https://github.com/RamonUnch/AltSnap/wiki
 Note that this version has some more feature.
 
 ===========================================================================

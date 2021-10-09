@@ -1676,8 +1676,8 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             if (state.alt && state.action) {
                 return 1;
             }
-        } else if (vkey == VK_SPACE && state.action && state.snap) {
-            state.snap = 0;
+        } else if (vkey == VK_SPACE && state.action && !IsSamePTT(&state.clickpt, &state.prevpt)) {
+            state.snap = state.snap? 0: 3;
             return 1; // Block to avoid sys menu.
         } else if (state.alt && state.action == conf.GrabWithAlt[ModKey()] && IsKillkey(vkey)) {
            // Release Hook on Alt+Tab in case there is DisplayFusion which creates an

@@ -43,8 +43,8 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
 #ifndef LOG_STUFF
 #define LOG_STUFF 0
 #endif
-#define LOG(X, ...) if(LOG_STUFF) { FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fclose(LOG); }
 #define LOGA(X, ...) { FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fclose(LOG); }
+#define LOG(X, ...) if(LOG_STUFF) { DWORD err=GetLastError(); FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fprintf(LOG,", LastError=%lu\n",err); fclose(LOG); SetLastError(0); }
 
 /* Stuff missing in MinGW */
 #ifndef WM_MOUSEHWHEEL

@@ -43,7 +43,7 @@ char ScrollLockState = 0;
 int HookSystem()
 {
     if (keyhook) return 1; // System already hooked
-    LOG("Going to Hook the system...\n");
+    LOG("Going to Hook the system...");
 
     // Load library
     if (!hinstDLL) {
@@ -62,7 +62,7 @@ int HookSystem()
             }
         }
     }
-    LOG("HOOKS.DLL Loaded\n");
+    LOG("HOOKS.DLL Loaded");
 
     // Load keyboard hook
     HOOKPROC procaddr;
@@ -70,17 +70,17 @@ int HookSystem()
         // Get address to keyboard hook (beware name mangling)
         procaddr = (HOOKPROC) GetProcAddress(hinstDLL, LOW_LEVELK_BPROC);
         if (procaddr == NULL) {
-            LOG("Could not find "LOW_LEVELK_BPROC" entry point in HOOKS.DLL\n");
+            LOG("Could not find "LOW_LEVELK_BPROC" entry point in HOOKS.DLL");
             return 1;
         }
         // Set up the keyboard hook
         keyhook = SetWindowsHookEx(WH_KEYBOARD_LL, procaddr, hinstDLL, 0);
         if (keyhook == NULL) {
-            LOG("Keyboard HOOK could not be set\n");
+            LOG("Keyboard HOOK could not be set");
             return 1;
         }
     }
-    LOG("Keyboard HOOK set\n");
+    LOG("Keyboard HOOK set");
 
     // Reading some config options...
     UseZones = GetPrivateProfileInt(L"Zones", L"UseZones", 0, inipath);
@@ -91,7 +91,7 @@ int HookSystem()
 int showerror = 1;
 int UnhookSystem()
 {
-    LOG("Going to UnHook the system...\n");
+    LOG("Going to UnHook the system...");
     if (!keyhook) { // System not hooked
         return 1;
     } else if (!UnhookWindowsHookEx(keyhook) && showerror) {
@@ -245,7 +245,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     g_hinst = hInst;
 
     // Get ini path
-    LOG("\nALTSNAP STARTED\n");
+    LOG("\n\nALTSNAP STARTED");
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
     wcscpy(&inipath[wcslen(inipath)-3], L"ini");
 
@@ -266,7 +266,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     OSVERSIONINFO vi = { sizeof(OSVERSIONINFO) };
     GetVersionEx(&vi);
     WinVer = vi.dwMajorVersion;
-    LOG("Running with Windows version %d\n", WinVer);
+    LOG("Running with Windows version %d", WinVer);
     if (VISTA) { // Vista +
         HANDLE token;
         TOKEN_ELEVATION elevation;
@@ -277,9 +277,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
             elevated = elevation.TokenIsElevated;
             CloseHandle(token);
         }
-        LOG("Process started %s elevated\n", elevated? "already": "non");
+        LOG("Process started %s elevated", elevated? "already": "non");
     }
-    LOG("Command line parameters read, hide=%d, quiet=%d, elevate=%d, multi=%d, config=%d\n"
+    LOG("Command line parameters read, hide=%d, quiet=%d, elevate=%d, multi=%d, config=%d"
                                      , hide, quiet, elevate, multi, config);
 
     // Look for previous instance
@@ -287,15 +287,15 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
         if (quiet) return 0;
         HWND previnst = FindWindow(APP_NAME, NULL);
         if (previnst) {
-            LOG("Previous instance found and no -multi mode\n")
+            LOG("Previous instance found and no -multi mode")
             // PostMessage(previnst, WM_UPDATESETTINGS, 0, 0);
             if(hide)   PostMessage(previnst, WM_CLOSECONFIG, 0, 0);
             if(config) PostMessage(previnst, WM_OPENCONFIG, 0, 0);
             PostMessage(previnst, hide? WM_HIDETRAY : WM_ADDTRAY, 0, 0);
-            LOG("Updated old instance and NORMAL EXIT\n");
+            LOG("Updated old instance and NORMAL EXIT");
             return 0;
         }
-        LOG("No previous instance found\n");
+        LOG("No previous instance found");
     }
 
     // Check AlwaysElevate
@@ -304,32 +304,32 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
 
         // Handle request to elevate to administrator privileges
         if (elevate) {
-            LOG("Elevation requested\n");
+            LOG("Elevation requested");
             wchar_t path[MAX_PATH];
             GetModuleFileName(NULL, path, ARR_SZ(path));
             HINSTANCE ret = ShellExecute(NULL, L"runas", path, (hide? L"-h": NULL), NULL, SW_SHOWNORMAL);
             if ((DorQWORD)ret > 32){
-                LOG("Elevation Faild => Not cool NORMAL EXIT\n");
+                LOG("Elevation Faild => Not cool NORMAL EXIT");
                 return 0;
             }
-            LOG("Elevation sucess\n");
-        } else LOG("No Elevation requested\n");
+            LOG("Elevation sucess");
+        } else LOG("No Elevation requested");
 
     }
     // Language
     memset(&l10n_ini, 0, sizeof(l10n_ini));
-    ListAllTranslations(); LOG("All translations listed\n");
-    UpdateLanguage(); LOG("Language updated\n");
+    ListAllTranslations(); LOG("All translations listed");
+    UpdateLanguage(); LOG("Language updated");
 
     // Create window
     WNDCLASSEX wnd =
         { sizeof(WNDCLASSEX), 0, WindowProc, 0, 0, hInst, NULL, NULL
         , (HBRUSH) (COLOR_WINDOW + 1), NULL, APP_NAME, NULL };
     BOOL regg = RegisterClassEx(&wnd);
-    LOG("Register main APP Window: %s\n", regg? "Sucess": "Failed");
+    LOG("Register main APP Window: %s", regg? "Sucess": "Failed");
     g_hwnd = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST| WS_EX_TRANSPARENT, wnd.lpszClassName,
                             NULL, WS_POPUP, 0, 0, 0, 0, NULL, NULL, hInst, NULL);
-    LOG("Create main APP Window: %s\n", g_hwnd? "Sucess": "Failed");
+    LOG("Create main APP Window: %s", g_hwnd? "Sucess": "Failed");
     // Tray icon
 
     InitTray();
@@ -348,7 +348,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
         PostMessage(g_hwnd, WM_OPENCONFIG, 0, 0);
     }
     // Message loop
-    LOG("Starting "APP_NAMEA" message loop...\n");
+    LOG("Starting "APP_NAMEA" message loop...");
     BOOL ret;
     MSG msg;
     while ((ret = GetMessage( &msg, NULL, 0, 0 )) != 0) {
@@ -363,7 +363,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     UnregisterClass(APP_NAME, hInst);
 
     DestroyWindow(g_hwnd);
-    LOG("GOOD NORMAL EXIT\n");
+    LOG("GOOD NORMAL EXIT");
     return msg.wParam;
 }
 /////////////////////////////////////////////////////////////////////////////

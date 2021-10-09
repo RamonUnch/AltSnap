@@ -40,7 +40,7 @@ static int InitTray()
 
     // Register TaskbarCreated so we can re-add the tray icon if (when) explorer.exe crashes
     WM_TASKBARCREATED = RegisterWindowMessage(L"TaskbarCreated");
-    LOG("Register TaskbarCreated message: %X\n", WM_TASKBARCREATED);
+    LOG("Register TaskbarCreated message: %X", WM_TASKBARCREATED);
 
     return 0;
 }
@@ -57,17 +57,18 @@ static int UpdateTray()
     // Only add or modify if not hidden or if balloon will be displayed
     if (!hide || tray.uFlags&NIF_INFO) {
         // Try a few times, sleep 100 ms between each attempt
-        int i=0;
-        LOG("Updating tray icon\n");
+        int i=1;
+        LOG("Updating tray icon");
         while (!Shell_NotifyIconA(tray_added? NIM_MODIFY: NIM_ADD, &tray) ) {
-            LOG("Failed in try No. %d\n", i);
+            LOG("Failed in try No. %d", i);
             if (i > 2) {
-                LOG("Failed all atempts!!\n");
+                LOG("Failed all atempts!!");
                 return 1;
             }
             Sleep(100);
             i++;
         }
+        LOG("Sucess at try %d", i);
         // Success
         tray_added = 1;
     }
@@ -104,9 +105,9 @@ static wchar_t *RectToStr(RECT *rc, wchar_t *rectstr)
 static void SaveZone(RECT *rc, unsigned num)
 {
     wchar_t txt[128], name[32];
-//    LOG("Saving %d\n", num);
-//    LOG("%S\n", ZidxToZonestr(num, name))
-//    LOG("%S\n", RectToStr(rc, txt))
+//    LOG("Saving %d", num);
+//    LOG("%S", ZidxToZonestr(num, name))
+//    LOG("%S", RectToStr(rc, txt))
     WritePrivateProfileString(L"Zones", ZidxToZonestr(num, name), RectToStr(rc, txt), inipath);
 }
 static void ClearAllZones()

@@ -6,7 +6,16 @@
  * Modified By Raymond Gillibert in 2020                                 *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-struct _NOTIFYICONDATAA tray;
+struct { // NOTIFYICONDATA for NT4
+    DWORD cbSize;
+    HWND hWnd;
+    UINT uID;
+    UINT uFlags;
+    UINT uCallbackMessage;
+    HICON hIcon;
+    char szTip[64];
+} tray;
+
 int tray_added = 0;
 int hide = 0;
 int UseZones = 0;
@@ -29,14 +38,10 @@ static int InitTray()
 
     // Create icondata
     tray.cbSize = sizeof(tray);
+    tray.hWnd = g_hwnd;
     tray.uID = 0;
     tray.uFlags = NIF_MESSAGE|NIF_ICON|NIF_TIP;
-    tray.hWnd = g_hwnd;
     tray.uCallbackMessage = WM_TRAY;
-    // Balloon tooltip
-    tray.uTimeout = 10000;
-    strcpy(tray.szInfoTitle, APP_NAMEA);
-    tray.dwInfoFlags = NIIF_USER;
 
     // Register TaskbarCreated so we can re-add the tray icon if (when) explorer.exe crashes
     WM_TASKBARCREATED = RegisterWindowMessage(L"TaskbarCreated");
@@ -51,6 +56,7 @@ static int UpdateTray()
     if (Index && (ScrollLockState&1))
         Index += !( !(GetKeyState(VK_SCROLL)&1) ^ !(ScrollLockState&2) );
 
+    // Load info tool tip and tray icon
     strcpy(tray.szTip, traystr[Index]);
     tray.hIcon = LoadIconA(g_hinst, iconstr[Index]);
 
@@ -59,8 +65,17 @@ static int UpdateTray()
         // Try a few times, sleep 100 ms between each attempt
         int i=1;
         LOG("Updating tray icon");
-        while (!Shell_NotifyIconA(tray_added? NIM_MODIFY: NIM_ADD, &tray) ) {
+        while (!Shell_NotifyIconA(tray_added? NIM_MODIFY: NIM_ADD, (void *)&tray) ) {
             LOG("Failed in try No. %d", i);
+
+            // Maybe we just tried to add an already existing tray.
+            // Happens after DPI change under Win 10 (TaskbarCreated) msg.
+            if (!tray_added && Shell_NotifyIconA(NIM_MODIFY, (void *)&tray)) {
+                LOG("Updated tray icon");
+                tray_added = 1;
+                return 0;
+            }
+
             if (i > 2) {
                 LOG("Failed all atempts!!");
                 return 1;
@@ -80,7 +95,7 @@ static int RemoveTray()
     if (!tray_added)
         return 1;
 
-    if (!Shell_NotifyIconA(NIM_DELETE, &tray))
+    if (!Shell_NotifyIconA(NIM_DELETE, (void *)&tray))
         return 1;
 
     // Success

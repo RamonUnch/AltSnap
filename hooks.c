@@ -1509,16 +1509,17 @@ static void MouseMove(POINT pt)
             SetROP2(hdcc, R2_NOTXORPEN);
             SelectObject(hdcc, hpenDot_Global);
         }
-        DrawRect(hdcc, &wnd);
-        if (state.moving == 1)
-            DrawRect(hdcc, &oldRect);
+        if (!state.moving || !EqualRect(&wnd, &oldRect)) {
+            DrawRect(hdcc, &wnd);
+            if (state.moving == 1)
+                DrawRect(hdcc, &oldRect);
+            CopyRect(&oldRect, &wnd); // oldRect is GLOBAL!
+        }
+        state.moving = 1;
 
         if (ShouldResizeTouching()) {
             ResizeTouchingWindows(posx, posy, wndwidth, wndheight);
         }
-
-        CopyRect(&oldRect, &wnd); // oldRect is GLOBAL!
-        state.moving = 1;
 
     } else if (mouse_thread_finished) {
         // Resize other windows

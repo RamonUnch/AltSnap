@@ -2388,7 +2388,7 @@ static void MaximizeHV(HWND hwnd, int horizontal)
     GetCursorPos(&pt);
     GetMonitorRect(&pt, 0, &mon);
 
-    SetRestoreData(hwnd, rc.right - rc.left, rc.bottom - rc.top, SNAPPED);
+    SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED);
     FixDWMRect(hwnd, &bd);
     if (horizontal) {
         SetRestoreFlag(hwnd, SNAPPED|SNMAXW);
@@ -2504,7 +2504,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         state.snap = conf.AutoSnap;
     }
 
-    // Set Origin width and height needed for AC_MOVE/RESIZE/CENTER
+    // Set Origin width and height needed for AC_MOVE/RESIZE/CENTER/MAXHV
     int rwidth=0, rheight=0;
     unsigned rdata_flag = GetRestoreData(state.hwnd, &rwidth, &rheight);
     // Clear snapping info if asked.
@@ -2673,8 +2673,8 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
 static void FinishMovement()
 {
     StopSpeedMes();
-    if (LastWin.hwnd && (state.moving == NOT_MOVED 
-    || (!conf.FullWin && state.moving == 1))) {
+    if (LastWin.hwnd 
+    && (state.moving == NOT_MOVED || (!conf.FullWin && state.moving == 1))) {
         // to erase the last rectangle...
         if (!conf.FullWin) {
             DrawRect(hdcc, &oldRect);

@@ -2381,7 +2381,7 @@ static void ActionMaximize(HWND hwnd)
 static void MaximizeHV(HWND hwnd, int horizontal)
 {
     RECT rc, bd, mon;
-    if (!GetWindowRect(hwnd, &rc)) return;
+    if (!IsResizable(hwnd) || !GetWindowRect(hwnd, &rc)) return;
     OffsetRectMDI(&rc);
 
     POINT pt;
@@ -2673,7 +2673,8 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
 static void FinishMovement()
 {
     StopSpeedMes();
-    if (LastWin.hwnd && (state.moving == NOT_MOVED || (!conf.FullWin&&state.moving))) {
+    if (LastWin.hwnd && (state.moving == NOT_MOVED 
+    || (!conf.FullWin && state.moving == 1))) {
         // to erase the last rectangle...
         if (!conf.FullWin) {
             DrawRect(hdcc, &oldRect);

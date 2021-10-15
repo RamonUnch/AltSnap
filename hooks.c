@@ -947,14 +947,18 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
         if (PtInRect(mon, (POINT) { wnd->left+16, wnd->top+16 })) {
             // We have a snapped window in the monitor
             if (flag & SNLEFT) {
+                *leftWidth  = CLAMPW(wnd->right - wnd->left);
                 *rightWidth = CLAMPW(mon->right - wnd->right);
             } else if (flag & SNRIGHT) {
-                *leftWidth = CLAMPW(wnd->left - mon->left);
+                *rightWidth = CLAMPW(wnd->right - wnd->left);
+                *leftWidth  = CLAMPW(wnd->left - mon->left);
             }
             if (flag & SNTOP) {
+                *topHeight    = CLAMPH(wnd->bottom - wnd->top);
                 *bottomHeight = CLAMPH(mon->bottom - wnd->bottom);
             } else if (flag & SNBOTTOM) {
-                *topHeight = CLAMPH(wnd->top - mon->top);
+                *bottomHeight = CLAMPH(wnd->bottom - wnd->top);
+                *topHeight    = CLAMPH(wnd->top - mon->top);
             }
         }
     } // next i
@@ -3183,15 +3187,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.ModKey     = readsinglekey(inipath, L"ModKey", L"");
     conf.HScrollKey = readsinglekey(inipath, L"HScrollKey", L"10"); // VK_SHIFT
 
-    // Capture main hwnd from caller. This is also the cursor wnd
-    g_mainhwnd = mainhwnd;
-
-    g_timerhwnd = KreateMsgWin(TimerWindowProc, APP_NAME"-Timers");
-
-    // Window for Action Menu
-    if (action_menu_load) {
-        g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
-    }
     readblacklist(inipath, &BlkLst.Processes, L"Processes");
     readblacklist(inipath, &BlkLst.Windows,   L"Windows");
     readblacklist(inipath, &BlkLst.Snaplist,  L"Snaplist");
@@ -3214,11 +3209,22 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     conf.keepMousehook = ((conf.LowerWithMMB&1) || conf.NormRestore || conf.TitlebarMove
                          || conf.InactiveScroll || conf.Hotclick.keys[0]);
-    // Hook mouse if a permanent hook is needed
+        // Capture main hwnd from caller. This is also the cursor wnd
+    g_mainhwnd = mainhwnd;
+    
+    if (conf.keepMousehook || conf.AeroMaxSpeed < 65535) {
+        g_timerhwnd = KreateMsgWin(TimerWindowProc, APP_NAME"-Timers");
+    }
     if (conf.keepMousehook) {
         HookMouse();
         SetTimer(g_timerhwnd, REHOOK_TIMER, 5000, NULL); // Start rehook timer
     }
+    // Window for Action Menu
+    if (action_menu_load) {
+        g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
+    }
+
+    // Hook mouse if a permanent hook is needed
 }
 /////////////////////////////////////////////////////////////////////////////
 // Do not forget the -e_DllMain@12 for gcc... -eDllMain for x86_64

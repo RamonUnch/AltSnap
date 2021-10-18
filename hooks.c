@@ -2807,7 +2807,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             if (IsZoomed(state.hwnd)) {
                 state.moving = 0;
                 MouseMove(pt);
-            } else {
+            } else if (state.resizable) {
                 state.moving = CURSOR_ONLY; // So that MouseMove will only move g_mainhwnd
                 Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
             }

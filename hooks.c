@@ -109,10 +109,6 @@ unsigned numhwnds = 0;
 
 // Settings
 #define MAXKEYS 7
-struct hotkeys_s {
-    UCHAR keys[MAXKEYS+1];
-};
-
 static struct {
     UCHAR AutoFocus;
     UCHAR AutoSnap;
@@ -169,10 +165,11 @@ static struct {
   #endif
     UCHAR UseZones;
     char InterZone;
+    char SnapGap;
 
-    struct hotkeys_s Hotkeys;
-    struct hotkeys_s Hotclick;
-    struct hotkeys_s Killkey;
+    UCHAR Hotkeys[MAXKEYS+1];
+    UCHAR Hotclick[MAXKEYS+1];
+    UCHAR Killkey[MAXKEYS+1];
 
     enum action GrabWithAlt[2];
     struct {
@@ -209,6 +206,10 @@ HWND g_mainhwnd = NULL;
 // Hook data
 HINSTANCE hinstDLL = NULL;
 HHOOK mousehook = NULL;
+
+#define FixDWMRect(hwnd, rect) FixDWMRectLL(hwnd, rect, conf.SnapGap)
+#undef GetWindowRectL
+#define GetWindowRectL(hwnd, rect) GetWindowRectLL(hwnd, rect, conf.SnapGap)
 
 // Specific includes
 #include "snap.c"
@@ -374,7 +375,7 @@ static int ShouldSnapTo(HWND window)
         && IsWindowVisible(window)
         && !IsIconic(window)
         && !IsWindowCloaked(window)
-        &&( ((style=GetWindowLongPtr(window,GWL_STYLE))&WS_CAPTION) == WS_CAPTION
+        &&( ((style=GetWindowLongPtr(window, GWL_STYLE))&WS_CAPTION) == WS_CAPTION
            || (style&WS_THICKFRAME)
            || blacklisted(window,&BlkLst.Snaplist)
           );
@@ -1163,7 +1164,7 @@ static pure int ModKey()
 }
 ///////////////////////////////////////////////////////////////////////////
 // Get action of button
-static pure enum action GetAction(enum button button)
+static pure enum action GetAction(const enum button button)
 {
     if (button) // Ugly pointer arithmetic (LMB <==> button == 2)
         return conf.Mouse.LMB[(button-2)*2+ModKey()];
@@ -1173,9 +1174,9 @@ static pure enum action GetAction(enum button button)
 
 ///////////////////////////////////////////////////////////////////////////
 // Check if key is assigned in the HKlist
-static int pure IsHotkeyy(unsigned char key, struct hotkeys_s *HKlist)
+static int pure IsHotkeyy(unsigned char key, const UCHAR *HKlist)
 {
-    UCHAR *pos=&HKlist->keys[0];
+    const UCHAR *pos=&HKlist[0];
     while (*pos) {
         if (key == *pos) {
             return 1;
@@ -1184,13 +1185,13 @@ static int pure IsHotkeyy(unsigned char key, struct hotkeys_s *HKlist)
     }
     return 0;
 }
-#define IsHotkey(a)   IsHotkeyy(a, &conf.Hotkeys)
-#define IsHotclick(a) IsHotkeyy(a, &conf.Hotclick)
-#define IsKillkey(a)  IsHotkeyy(a, &conf.Killkey)
+#define IsHotkey(a)   IsHotkeyy(a, conf.Hotkeys)
+#define IsHotclick(a) IsHotkeyy(a, conf.Hotclick)
+#define IsKillkey(a)  IsHotkeyy(a, conf.Killkey)
 
-static int IsHotClickPt(enum button button, POINT pt, enum buttonstate bstate)
+static int IsHotClickPt(const enum button button, const POINT pt, const enum buttonstate bstate)
 {
-    if (IsHotkeyy(button, &conf.Hotclick)) {
+    if (IsHotkeyy(button, conf.Hotclick)) {
         return 1;
     } else if (conf.TitlebarMove && button == BT_LMB) {
         if (conf.TitlebarMove&2 && bstate == STATE_UP) {
@@ -1216,7 +1217,7 @@ static int IsHotkeyDown()
     UCHAR ckeys = 1 + conf.KeyCombo;
 
     // loop over all hotkeys
-    UCHAR *pos=&conf.Hotkeys.keys[0];
+    const UCHAR *pos=&conf.Hotkeys[0];
     while (*pos && ckeys) {
         // check if key is held down
         ckeys -= !!(GetAsyncKeyState(*pos++)&0x8000);
@@ -1300,9 +1301,9 @@ static int ShouldResizeTouching()
           || (conf.StickyResize==2 && !state.shift)
         );
 }
-static void DrawRect(HDC hdcl, const RECT *rc)
+static void DrawRect(const RECT *rc)
 {
-    Rectangle(hdcl, rc->left+1, rc->top+1, rc->right, rc->bottom);
+    Rectangle(hdcc, rc->left+1, rc->top+1, rc->right, rc->bottom);
 }
 
 static void RestrictCursorToMon()
@@ -1514,9 +1515,9 @@ static void MouseMove(POINT pt)
             SelectObject(hdcc, hpenDot_Global);
         }
         if (!state.moving || !EqualRect(&wnd, &oldRect)) {
-            DrawRect(hdcc, &wnd);
+            DrawRect(&wnd);
             if (state.moving == 1)
-                DrawRect(hdcc, &oldRect);
+                DrawRect(&oldRect);
             CopyRect(&oldRect, &wnd); // oldRect is GLOBAL!
         }
         state.moving = 1;
@@ -1697,7 +1698,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             if (state.action || state.alt) {
                 enum action action = state.action;
                 if (!conf.FullWin && state.moving) {
-                    DrawRect(hdcc, &oldRect);
+                    DrawRect(&oldRect);
                 }
                 // Send WM_EXITSIZEMOVE
                 SendSizeMove(WM_EXITSIZEMOVE);
@@ -2410,6 +2411,27 @@ static void MaximizeHV(HWND hwnd, int horizontal)
             , mon.bottom - mon.top + bd.top+bd.bottom);
     }
 }
+BOOL CALLBACK MinimizeWindowProc(HWND hwnd, LPARAM hMon)
+{
+    if (hwnd != state.sclickhwnd
+    && IsWindowVisible(hwnd) 
+    && !IsWindowCloaked(hwnd)
+    && !IsIconic(hwnd) 
+    && (WS_MINIMIZEBOX&GetWindowLongPtr(hwnd, GWL_STYLE))){
+        if (!hMon || (HMONITOR)hMon == MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)) {
+            MinimizeWindow(hwnd);
+        }
+    }
+    return TRUE;
+}
+
+static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
+{
+    state.sclickhwnd = hwnd;
+    HMONITOR hMon = NULL;
+    if (CurrentMonOnly)  hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    EnumDesktopWindows(NULL, MinimizeWindowProc, (LPARAM)hMon);
+}
 /////////////////////////////////////////////////////////////////////////////
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
@@ -2424,6 +2446,7 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_KILL)        ActionKill(hwnd);
     else if (action==AC_ROLL)        RollWindow(hwnd, 0);
     else if (action==AC_MAXHV)       MaximizeHV(hwnd, state.shift);
+    else if (action==AC_MINALL)      MinimizeAllOtherWindows(hwnd, state.shift);
 }
 /////////////////////////////////////////////////////////////////////////////
 static void StartSpeedMes()
@@ -2681,7 +2704,7 @@ static void FinishMovement()
     && (state.moving == NOT_MOVED || (!conf.FullWin && state.moving == 1))) {
         // to erase the last rectangle...
         if (!conf.FullWin) {
-            DrawRect(hdcc, &oldRect);
+            DrawRect(&oldRect);
             if (state.action == AC_RESIZE) ResizeAllSnappedWindowsAsync();
         }
         if (IsWindow(LastWin.hwnd)){
@@ -3034,7 +3057,7 @@ static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist
 }
 ///////////////////////////////////////////////////////////////////////////
 // Used to read Hotkeys and Hotclicks
-static void readhotkeys(const wchar_t *inipath, const wchar_t *name, const wchar_t *def, struct hotkeys_s *HK)
+static void readhotkeys(const wchar_t *inipath, const wchar_t *name, const wchar_t *def, UCHAR *keys)
 {
     wchar_t txt[64];
 
@@ -3044,12 +3067,12 @@ static void readhotkeys(const wchar_t *inipath, const wchar_t *name, const wchar
     while (*pos) {
         // Store key
         if (i == MAXKEYS) break;
-        HK->keys[i++] = whex2u(pos);
+        keys[i++] = whex2u(pos);
 
         while (*pos && *pos != ' ') pos++; // go to next space
         while (*pos == ' ') pos++; // go to next char after spaces.
     }
-    HK->keys[i] = 0;
+    keys[i] = 0;
 }
 static unsigned char readsinglekey(const wchar_t *inipath, const wchar_t *name,  const wchar_t *def)
 {
@@ -3117,6 +3140,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AeroSpeedTau  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedTau", 32, inipath), 255);
     conf.TitlebarMove  = GetPrivateProfileInt(L"Advanced", L"TitlebarMove", 0, inipath);
     if (conf.TitlebarMove) conf.NormRestore = 0; // in this case disable NormRestore
+    conf.SnapGap       = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"SnapGap", 0, inipath), 127);
 
     // [Performance]
     conf.MoveRate  = GetPrivateProfileInt(L"Performance", L"MoveRate", 1, inipath);
@@ -3170,6 +3194,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         else if (!wcsicmp(txt,L"Menu"))       { *buttons[i].ptr = AC_MENU ; action_menu_load=1; }
         else if (!wcsicmp(txt,L"Kill"))         *buttons[i].ptr = AC_KILL;
         else if (!wcsicmp(txt,L"MaximizeHV"))   *buttons[i].ptr = AC_MAXHV;
+        else if (!wcsicmp(txt,L"MinAllOther"))  *buttons[i].ptr = AC_MINALL;
         else                                    *buttons[i].ptr = AC_NONE;
     }
 
@@ -3180,9 +3205,9 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.KeyCombo        = GetPrivateProfileInt(L"Input", L"KeyCombo",        0, inipath);
     conf.ScrollLockState = GetPrivateProfileInt(L"Input", L"ScrollLockState", 0, inipath);
 
-    readhotkeys(inipath, L"Hotkeys",  L"A4 A5",   &conf.Hotkeys);
-    readhotkeys(inipath, L"Hotclicks",L"",        &conf.Hotclick);
-    readhotkeys(inipath, L"Killkeys", L"09 4C 2E",&conf.Killkey);
+    readhotkeys(inipath, L"Hotkeys",  L"A4 A5",   conf.Hotkeys);
+    readhotkeys(inipath, L"Hotclicks",L"",        conf.Hotclick);
+    readhotkeys(inipath, L"Killkeys", L"09 4C 2E",conf.Killkey);
 
     conf.ModKey     = readsinglekey(inipath, L"ModKey", L"");
     conf.HScrollKey = readsinglekey(inipath, L"HScrollKey", L"10"); // VK_SHIFT
@@ -3208,7 +3233,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
   # endif
 
     conf.keepMousehook = ((conf.LowerWithMMB&1) || conf.NormRestore || conf.TitlebarMove
-                         || conf.InactiveScroll || conf.Hotclick.keys[0]);
+                         || conf.InactiveScroll || conf.Hotclick[0]);
         // Capture main hwnd from caller. This is also the cursor wnd
     g_mainhwnd = mainhwnd;
     

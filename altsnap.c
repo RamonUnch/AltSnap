@@ -31,8 +31,11 @@ wchar_t inipath[MAX_PATH];
 HINSTANCE hinstDLL = NULL;
 HHOOK keyhook = NULL;
 char elevated = 0;
-char WinVer = 0;
+BYTE WinVer = 0;
 char ScrollLockState = 0;
+char SnapGap = 0;
+
+#define GetWindowRectL(hwnd, rect) GetWindowRectLL(hwnd, rect, SnapGap)
 
 // Include stuff
 #include "languages.c"
@@ -84,6 +87,7 @@ int HookSystem()
 
     // Reading some config options...
     UseZones = GetPrivateProfileInt(L"Zones", L"UseZones", 0, inipath);
+    SnapGap = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"SnapGap", 0, inipath), 127);
     UpdateTray();
     return 0;
 }
@@ -137,6 +141,8 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_ROLL, l10n->input_actions_roll);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_LOWER, l10n->input_actions_lower);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MAXHV, l10n->input_actions_maximizehv);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MINALL, l10n->input_actions_minallother);
+
     InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MAXIMIZE, l10n->input_actions_maximize);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MINIMIZE, l10n->input_actions_minimize);
@@ -156,6 +162,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (!msg) {
         // In case some messages are not registered.
+    } else if (wParam && (msg == WM_PAINT || msg == WM_ERASEBKGND || msg == WM_NCPAINT)) {
+        return 0;
     } else if (msg == WM_TRAY) {
         if (lParam == WM_LBUTTONDOWN || lParam == WM_LBUTTONDBLCLK) {
             ToggleState();
@@ -194,10 +202,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     } else if (msg == WM_CLOSECONFIG) {
         CloseConfig();
     } else if (msg == WM_TASKBARCREATED) {
+        // Try to add the tray icon because explorer started.
         tray_added = 0;
-        // If it fails it means the tray was alreadt there hence
-        // set back tray_added to 1
-        if (UpdateTray()) tray_added = 1;
+        UpdateTray();
     } else if (msg == WM_COMMAND) {
         int wmId = LOWORD(wParam); // int wmEvent = HIWORD(wParam);
         if (wmId == SWM_TOGGLE) {
@@ -234,8 +241,18 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         // Hide cursorwnd if clicked on, this might happen if
         // it wasn't hidden by hooks.c for some reason
         ShowWindow(hwnd, SW_HIDE);
-    } else if (wParam && (msg == WM_PAINT || msg == WM_ERASEBKGND || msg == WM_NCPAINT)) {
-        return 0;
+    } else if (WIN10 && msg == WM_POWERBROADCAST) {
+        if (wParam == PBT_APMQUERYSUSPEND) {
+            if(UnhookSystem())
+                keyhook = (void *)-1; // system was not hooked.
+            return TRUE;
+        }
+        if (wParam == PBT_APMRESUMESUSPEND) {
+            if(keyhook != (void *)-1)
+                HookSystem();
+            else  
+                keyhook = NULL;
+        }
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
@@ -263,9 +280,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     config  = !!strstr(params, "-c");
 
     // Check if elevated if in >= WinVer
-    OSVERSIONINFO vi = { sizeof(OSVERSIONINFO) };
-    GetVersionEx(&vi);
-    WinVer = vi.dwMajorVersion;
+    WinVer = LOBYTE(LOWORD(GetVersion()));
     LOG("Running with Windows version %d", WinVer);
     if (VISTA) { // Vista +
         HANDLE token;

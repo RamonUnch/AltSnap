@@ -1,1 +1,1 @@
-"%PROGRAMFILES%\nsis-2.20\makensis.exe" /V2 AltSnap.nsi
+"%PROGRAMFILES%\nsis-2.51\makensis.exe" /V2 AltSnap.nsi

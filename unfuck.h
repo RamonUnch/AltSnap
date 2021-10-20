@@ -26,6 +26,13 @@
     #define MAKELONGPTR(lo, hi) ((DWORD) (((WORD) (lo)) | ((DWORD) ((WORD) (hi))) << 16))
 #endif
 
+#ifndef LOBYTE
+#define LOBYTE(w) ((BYTE)(w))
+#endif
+
+#ifndef HIBYTE
+#define HIBYTE(w) ( (BYTE)(((WORD) (w) >> 8) & 0xFF) )
+#endif
 
 #define ARR_SZ(x) (sizeof(x) / sizeof((x)[0]))
 #define IDAPPLY 0x3021
@@ -43,8 +50,8 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
 #ifndef LOG_STUFF
 #define LOG_STUFF 0
 #endif
-#define LOGA(X, ...) { FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fclose(LOG); }
-#define LOG(X, ...) if(LOG_STUFF) { DWORD err=GetLastError(); FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fprintf(LOG,", LastError=%lu\n",err); fclose(LOG); SetLastError(0); }
+#define LOGA(X, ...) {DWORD err=GetLastError(); FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fprintf(LOG,", LastError=%lu\n",err); fclose(LOG); SetLastError(0); }
+#define LOG(X, ...) if(LOG_STUFF) LOGA(X, ##__VA_ARGS__)
 
 /* Stuff missing in MinGW */
 #ifndef WM_MOUSEHWHEEL
@@ -105,7 +112,7 @@ static void PathStripPathL(LPTSTR p)
     if (!p) return;
 
     while(p[++i] != '\0');
-    while(i > 0 && p[i] != '\\') i--;
+    while(i >= 0 && p[i] != '\\') i--;
     i++;
     for(j=0; p[i+j] != '\0'; j++) p[j]=p[i+j];
     p[j]= '\0';
@@ -292,7 +299,7 @@ static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 static void SubRect(RECT *__restrict__ frame, const RECT *rect)
 {
     frame->left -= rect->left;
-    frame->top -= rect->top;
+    frame->top  -= rect->top;
     frame->right = rect->right - frame->right;
     frame->bottom = rect->bottom - frame->bottom;
 }
@@ -310,7 +317,8 @@ static void DeflateRectBorder(RECT *__restrict__ rc, const RECT *bd)
     rc->right  -= bd->right;
     rc->bottom -= bd->bottom;
 }
-static void FixDWMRect(HWND hwnd, RECT *bbb)
+
+static void FixDWMRectLL(HWND hwnd, RECT *bbb, const int SnapGap)
 {
     RECT rect, frame;
 
@@ -318,10 +326,10 @@ static void FixDWMRect(HWND hwnd, RECT *bbb)
        && GetWindowRect(hwnd, &rect)){
         SubRect(&frame, &rect);
         CopyRect(bbb, &frame);
-        return;
+    } else {
+        SetRectEmpty(bbb);
     }
-//    bbb->left = bbb->right = bbb->top = bbb->bottom = -10;
-    SetRectEmpty(bbb);
+    if (SnapGap) OffsetRect(bbb, -SnapGap, -SnapGap);
 }
 
 /* This function is here because under Windows 10, the GetWindowRect function
@@ -329,13 +337,17 @@ static void FixDWMRect(HWND hwnd, RECT *bbb)
  * sense, this is the case on Windows 7 and 8.x for example
  * We use DWM api when available in order to get the REAL client area
  */
-static BOOL GetWindowRectL(HWND hwnd, RECT *rect)
+static BOOL GetWindowRectLL(HWND hwnd, RECT *rect, const int SnapGap)
 {
     HRESULT ret = DwmGetWindowAttributeL(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, rect, sizeof(RECT));
-    if( ret == S_OK) return 1;
-    else return GetWindowRect(hwnd, rect); /* Fallback to normal */
+    if( ret == S_OK) {
+        ret = TRUE;
+    } else { 
+        ret = GetWindowRect(hwnd, rect); /* Fallback to normal */
+    }
+    if (SnapGap) InflateRect(rect, SnapGap, SnapGap);
+    return ret;    
 }
-
 /* Under Win8 and later a window can be cloaked
  * This falg can be obtained with this function
  * 1 The window was cloaked by its owner application.
@@ -349,7 +361,10 @@ static int IsWindowCloaked(HWND hwnd)
     DwmGetWindowAttributeL(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked));
     return cloaked;
 }
-
+static BOOL IsVisible(HWND hwnd)
+{
+    return IsWindowVisible(hwnd) && !IsWindowCloaked(hwnd);
+}
 static LONG NtSuspendProcessL(HANDLE ProcessHandle)
 {
     static char have_func=HAVE_FUNC;
@@ -467,8 +482,8 @@ static DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
 static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
 {
     MINMAXINFO mmi = { {0, 0}, {0, 0}, {0, 0}
-                     , {GetSystemMetrics(SM_CXMINTRACK), GetSystemMetrics(SM_CYMINTRACK)}
-                     , {GetSystemMetrics(SM_CXMAXTRACK), GetSystemMetrics(SM_CXMAXTRACK)} };
+                     , {GetSystemMetrics(SM_CXMINTRACK)-32, GetSystemMetrics(SM_CYMINTRACK)-32}
+                     , {GetSystemMetrics(SM_CXMAXTRACK)+32, GetSystemMetrics(SM_CXMAXTRACK)+32}};
     SendMessage(hwnd, WM_GETMINMAXINFO, 0, (LPARAM)&mmi);
     *Min = mmi.ptMinTrackSize;
     *Max = mmi.ptMaxTrackSize;

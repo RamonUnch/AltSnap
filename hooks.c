@@ -341,12 +341,13 @@ static void SetWindowTrans(HWND hwnd)
         oldtrans = 0;
     }
 }
-static void GetEnoughSpace(void **ptr, unsigned *num, unsigned *alloc, size_t size)
+static void *GetEnoughSpace(void *ptr, unsigned *num, unsigned *alloc, size_t size)
 {
     if (*num >= *alloc) {
         *alloc += 4;
-        *ptr = realloc(*ptr, *alloc*size);
+        ptr = realloc(ptr, *alloc*size);
     }
+    return ptr;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -355,7 +356,8 @@ unsigned monitors_alloc = 0;
 BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
 {
     // Make sure we have enough space allocated
-    GetEnoughSpace((void **)&monitors, &nummonitors, &monitors_alloc, sizeof(RECT));
+    monitors = GetEnoughSpace(monitors, &nummonitors, &monitors_alloc, sizeof(RECT));
+    if (!monitors) return FALSE; // Stop enum, we failed
     // Add monitor
     MONITORINFO mi = { sizeof(MONITORINFO) };
     GetMonitorInfo(hMonitor, &mi);
@@ -372,9 +374,8 @@ static int ShouldSnapTo(HWND window)
 {
     LONG_PTR style;
     return window != state.hwnd
-        && IsWindowVisible(window)
+        && IsVisible(window)
         && !IsIconic(window)
-        && !IsWindowCloaked(window)
         &&( ((style=GetWindowLongPtr(window, GWL_STYLE))&WS_CAPTION) == WS_CAPTION
            || (style&WS_THICKFRAME)
            || blacklisted(window,&BlkLst.Snaplist)
@@ -385,7 +386,8 @@ unsigned wnds_alloc = 0;
 BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    GetEnoughSpace((void **)&wnds, &numwnds, &wnds_alloc, sizeof(RECT));
+    wnds = GetEnoughSpace(wnds, &numwnds, &wnds_alloc, sizeof(RECT));
+    if (!wnds) return FALSE; // Stop enum, we failed
 
     // Only store window if it's visible, not minimized to taskbar,
     // not the window we are dragging and not blacklisted
@@ -432,7 +434,8 @@ unsigned snwnds_alloc = 0;
 BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    GetEnoughSpace((void **)&snwnds, &numsnwnds, &snwnds_alloc, sizeof(struct snwdata));
+    snwnds = GetEnoughSpace(snwnds, &numsnwnds, &snwnds_alloc, sizeof(struct snwdata));
+    if (!snwnds) return FALSE; // Stop enum, we failed
 
     RECT wnd;
     if (ShouldSnapTo(hwnd)
@@ -474,7 +477,8 @@ static void EnumSnapped()
 BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    GetEnoughSpace((void **)&snwnds, &numsnwnds, &snwnds_alloc, sizeof(struct snwdata));
+    snwnds = GetEnoughSpace(snwnds, &numsnwnds, &snwnds_alloc, sizeof(struct snwdata));
+    if (!snwnds) return FALSE; // Stop enum, we failed
 
     RECT wnd;
     if (ShouldSnapTo(hwnd)
@@ -571,7 +575,8 @@ static void ResizeAllSnappedWindowsAsync()
 static void EnumMdi()
 {
     // Make sure we have enough space allocated
-    GetEnoughSpace((void **)&monitors, &nummonitors, &monitors_alloc, sizeof(RECT));
+    monitors = GetEnoughSpace(monitors, &nummonitors, &monitors_alloc, sizeof(RECT));
+    if (!monitors) return; // Fail
 
     // Add MDIClient as the monitor
     nummonitors = !!GetClientRect(state.mdiclient, &monitors[0]);
@@ -1820,7 +1825,8 @@ unsigned hwnds_alloc = 0;
 BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    GetEnoughSpace((void **)&hwnds, &numhwnds, &hwnds_alloc, sizeof(HWND));
+    hwnds = GetEnoughSpace(hwnds, &numhwnds, &hwnds_alloc, sizeof(HWND));
+    if (!hwnds) return FALSE; // Stop enum, we failed
 
     // Only store window if it's visible, not minimized
     // to taskbar and on the same monitor as the cursor
@@ -2370,11 +2376,13 @@ static void CenterWindow(HWND hwnd)
         , state.origin.width
         , state.origin.height);
 }
+/////////////////////////////////////////////////////////////////////////////
 static void TogglesAlwaysOnTop(HWND hwnd)
 {
     LONG_PTR topmost = GetWindowLongPtr(hwnd,GWL_EXSTYLE)&WS_EX_TOPMOST;
     SetWindowLevel(hwnd, topmost? HWND_NOTOPMOST: HWND_TOPMOST);
 }
+/////////////////////////////////////////////////////////////////////////////
 static void ActionMaximize(HWND hwnd)
 {
     if (state.shift) {
@@ -2383,6 +2391,7 @@ static void ActionMaximize(HWND hwnd)
         ToggleMaxRestore(hwnd);
     }
 }
+/////////////////////////////////////////////////////////////////////////////
 static void MaximizeHV(HWND hwnd, int horizontal)
 {
     RECT rc, bd, mon;
@@ -2411,26 +2420,59 @@ static void MaximizeHV(HWND hwnd, int horizontal)
             , mon.bottom - mon.top + bd.top+bd.bottom);
     }
 }
+/////////////////////////////////////////////////////////////////////////////
+HWND *minhwnds=NULL;
+unsigned minhwnds_alloc=0;
+unsigned numminhwnds=0;
 BOOL CALLBACK MinimizeWindowProc(HWND hwnd, LPARAM hMon)
 {
+    minhwnds = GetEnoughSpace(minhwnds, &numminhwnds, &minhwnds_alloc, sizeof(HWND));
+    if (!minhwnds) return FALSE; // Stop enum, we failed
+
     if (hwnd != state.sclickhwnd
-    && IsWindowVisible(hwnd) 
-    && !IsWindowCloaked(hwnd)
-    && !IsIconic(hwnd) 
+    && IsVisible(hwnd)
+    && !IsIconic(hwnd)
     && (WS_MINIMIZEBOX&GetWindowLongPtr(hwnd, GWL_STYLE))){
         if (!hMon || (HMONITOR)hMon == MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)) {
             MinimizeWindow(hwnd);
+            minhwnds[numminhwnds++] = hwnd;
         }
     }
     return TRUE;
 }
-
 static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
 {
-    state.sclickhwnd = hwnd;
+    static HWND restore = NULL;
     HMONITOR hMon = NULL;
     if (CurrentMonOnly)  hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-    EnumDesktopWindows(NULL, MinimizeWindowProc, (LPARAM)hMon);
+
+    if (restore == hwnd){
+        // We have to restore all saved windows (minhwnds) when
+        // we click again on the same hwnd and have everything saved...
+        unsigned i;
+        for (i=0; i < numminhwnds; i++) {
+            HWND hrest = minhwnds[i];
+            if (IsWindow(hrest)
+            && IsIconic(hrest)
+            && (!hMon || hMon == MonitorFromWindow(hrest, MONITOR_DEFAULTTONEAREST))){
+                // Synchronus restoration to keep the order of windows...
+                SendMessage(hrest, WM_SYSCOMMAND, SC_RESTORE, 0);
+                SetWindowLevel(hwnd, HWND_BOTTOM);
+            }
+        }
+        SetForegroundWindowL(hwnd);
+        numminhwnds = 0;
+        restore = NULL;
+    } else {
+        state.sclickhwnd = hwnd;
+        restore = hwnd;
+        numminhwnds = 0;
+        if (state.mdiclient) {
+            EnumChildWindows(state.mdiclient, MinimizeWindowProc, 0);
+        } else {
+            EnumDesktopWindows(NULL, MinimizeWindowProc, (LPARAM)hMon);
+        }
+    }
 }
 /////////////////////////////////////////////////////////////////////////////
 // Single click commands
@@ -2592,12 +2634,16 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Prevent mousedown from propagating
     return 1;
 }
+static int IsAeraCapbutton(int area)
+{
+    return area == HTMINBUTTON || area == HTMAXBUTTON
+        || area == HTCLOSE || area == HTHELP;
+}
 static int IsAreaCaption(int area)
 {
     return area == HTCAPTION
        || (area >= HTTOP && area <= HTTOPRIGHT)
-       || area == HTSYSMENU || area == HTMINBUTTON || area == HTMAXBUTTON
-       || area == HTCLOSE || area == HTHELP;
+       || area == HTSYSMENU ;
 }
 /////////////////////////////////////////////////////////////////////////////
 // Lower window if middle mouse button is used on the title bar/top of the win
@@ -2616,9 +2662,15 @@ static int ActionNoAlt(POINT pt, WPARAM wParam)
 
         int area = HitTestTimeoutbl(nhwnd, pt.x, pt.y);
 
-        if (willlower && wParam == WM_MBUTTONDOWN && IsAreaCaption(area)) {
-            ActionLower(hwnd, 0, state.shift);
-            return 1;
+        if (willlower && wParam == WM_MBUTTONDOWN
+        && (IsAreaCaption(area) || IsAeraCapbutton(area)) ) {
+            if (state.ctrl || IsAeraCapbutton(area)) {
+                TogglesAlwaysOnTop(hwnd);
+                return 1;
+            } else if(IsAreaCaption(area)) {
+                ActionLower(hwnd, 0, state.shift);
+                return 1;
+            }
         } else if (conf.NormRestore
         && wParam == WM_LBUTTONDOWN && area == HTCAPTION
         && !IsZoomed(hwnd) && !IsWindowSnapped(hwnd)) {
@@ -2661,7 +2713,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     if (conf.RollWithTBScroll && wParam == WM_MOUSEWHEEL && !state.ctrl) {
 
         int area= HitTestTimeoutbl(nhwnd, pt.x, pt.y);
-        if (IsAreaCaption(area)) {
+        if (IsAreaCaption(area) || IsAeraCapbutton(area)) {
             RollWindow(hwnd, delta);
             // Block original scroll event
             state.blockaltup = 1;
@@ -2700,7 +2752,7 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
 static void FinishMovement()
 {
     StopSpeedMes();
-    if (LastWin.hwnd 
+    if (LastWin.hwnd
     && (state.moving == NOT_MOVED || (!conf.FullWin && state.moving == 1))) {
         // to erase the last rectangle...
         if (!conf.FullWin) {
@@ -2959,6 +3011,7 @@ LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 {
     if (msg == WM_COMMAND && state.sclickhwnd) {
         enum action action = wParam;
+        state.sclickhwnd = MDIorNOT(state.sclickhwnd, &state.mdiclient);
 
         SClickActions(state.sclickhwnd, action);
         state.sclickhwnd = NULL;
@@ -2997,6 +3050,7 @@ __declspec(dllexport) void Unload()
     free(hwnds);
     free(wnds);
     free(snwnds);
+    free(minhwnds);
 }
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated and title and class are | separated.
@@ -3236,7 +3290,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
                          || conf.InactiveScroll || conf.Hotclick[0]);
         // Capture main hwnd from caller. This is also the cursor wnd
     g_mainhwnd = mainhwnd;
-    
+
     if (conf.keepMousehook || conf.AeroMaxSpeed < 65535) {
         g_timerhwnd = KreateMsgWin(TimerWindowProc, APP_NAME"-Timers");
     }

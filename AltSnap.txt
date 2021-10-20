@@ -186,9 +186,34 @@ Note that this version has some more feature.
 
 == AltSnap 1.48 ==
 
+* New action: Minimize all other windows, similar to aeroshake, but available
+  as a mouse action, and in the action menu.
+
+* New: Now when using the **Lower windows by middle-clicking on title bars**
+  option Ctrl+Middle-click in the title bar will toggle the Always on top
+  state and so will Ctrl+Middle-click on the Min/Max/Close buttons.
+
+* New: `SnapGap` value can be set into the `[Advanced]` section of the ini
+  file and will set an additional gap between snapped windows/monitor sides.
+  You can put a negative value if you want an overlap. Default is 0
+
+* Fixed AntSnap would block Alt+Space if no drag occured, this was a problem
+  when using **Action without click**.
+
+* Fixed: smart aerosnapping only taking into account windows snapped on the
+  other side of the monitor.
+
+* Fixed: non-resizeable windows will longer be maximized with right click
+  while moving.
+
+* Fixed Maximize Vertically action that would erase the old restore state.
+
 * Fixed some crash when launching again AltSanp with a previous instance.
 
 * Fixed Tray icon handling under Win10.
+
+* Changed: Now when the space key is pressed for a movement the snap sate
+  will be toggled between no snapping and all border-borders snapping.
 
 == AltSnap 1.47 ==
 
@@ -210,7 +235,7 @@ Note that this version has some more feature.
   the window will also be extended to several zones. Use the `InterZone`
   value to adjust this threshold distance in pixels (default 32).
 
-* New: Added the **Restore FancyZones snapped windows** option in the 
+* New: Added the **Restore FancyZones snapped windows** option in the
   Advanced tab and `FancyZone` option in the `[Zones]` section of the ini.
   set it to 1 if you want AltSnap to be able to restore windows that were
   snapped using PowerToys' FancyZones. This only applies to x86_64 builds

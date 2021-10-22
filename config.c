@@ -775,6 +775,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // GrabWithAlt
+            wchar_t txt[64];
             GetPrivateProfileString(L"Input", L"ModKey", L"", txt, ARR_SZ(txt), inipath);
             Static_Enable(GetDlgItem(hwnd, IDC_GRABWITHALTB_H), txt[0]);
             ListBox_Enable(GetDlgItem(hwnd, IDC_GRABWITHALTB), txt[0]);
@@ -782,7 +783,6 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             FillActionDropListS(hwnd, IDC_GRABWITHALT, L"GrabWithAlt", kb_actions);
             FillActionDropListS(hwnd, IDC_GRABWITHALTB, L"GrabWithAltB", kb_actions);
             // ModKey init
-            wchar_t txt[64];
             HWND control = GetDlgItem(hwnd, IDC_MODKEY);
             ComboBox_ResetContent(control);
             GetPrivateProfileString(L"Input", L"ModKey", L"", txt, ARR_SZ(txt), inipath);

@@ -591,9 +591,9 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
         {L"Borderless",  l10n->input_actions_borderless},
         {L"Center",      l10n->input_actions_center},
-        {L"Menu",        l10n->input_actions_menu},
         {L"MaximizeHV",  l10n->input_actions_maximizehv},
         {L"MinAllOther", l10n->input_actions_minallother},
+        {L"Menu",        l10n->input_actions_menu},
         {L"Nothing",     l10n->input_actions_nothing},
         {NULL, NULL}
     };
@@ -735,9 +735,9 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
         {L"Borderless",  l10n->input_actions_borderless},
         {L"Center",      l10n->input_actions_center},
-        {L"Menu",        l10n->input_actions_menu},
         {L"MaximizeHV",  l10n->input_actions_maximizehv},
         {L"MinAllOther", l10n->input_actions_minallother},
+        {L"Menu",        l10n->input_actions_menu},
         {L"Nothing",     l10n->input_actions_nothing},
         {NULL, NULL}
     };
@@ -775,9 +775,12 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // GrabWithAlt
+            GetPrivateProfileString(L"Input", L"ModKey", L"", txt, ARR_SZ(txt), inipath);
+            Static_Enable(GetDlgItem(hwnd, IDC_GRABWITHALTB_H), txt[0]);
+            ListBox_Enable(GetDlgItem(hwnd, IDC_GRABWITHALTB), txt[0]);
+
             FillActionDropListS(hwnd, IDC_GRABWITHALT, L"GrabWithAlt", kb_actions);
             FillActionDropListS(hwnd, IDC_GRABWITHALTB, L"GrabWithAltB", kb_actions);
-
             // ModKey init
             wchar_t txt[64];
             HWND control = GetDlgItem(hwnd, IDC_MODKEY);
@@ -810,6 +813,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_KEYCOMBO,        l10n->input_keycombo);
             SetDlgItemText(hwnd, IDC_GRABWITHALT_H,   l10n->input_grabwithalt);
             SetDlgItemText(hwnd, IDC_GRABWITHALTB_H,  l10n->input_grabwithaltb);
+
         } else if (pnmh->code == PSN_APPLY && have_to_apply ) {
             int i;
             // Action without click
@@ -897,6 +901,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
             Button_Enable(GetDlgItem(hwnd, IDC_PAUSEBL)
                        , GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath)
                        | GetPrivateProfileInt(L"Input", L"AggressiveKill", 0, inipath));
+                        // Grayout useless
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Save to the config
             WriteOptionStr(IDC_PROCESSBLACKLIST, L"Blacklist", L"Processes");

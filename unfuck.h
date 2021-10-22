@@ -342,11 +342,11 @@ static BOOL GetWindowRectLL(HWND hwnd, RECT *rect, const int SnapGap)
     HRESULT ret = DwmGetWindowAttributeL(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, rect, sizeof(RECT));
     if( ret == S_OK) {
         ret = TRUE;
-    } else { 
+    } else {
         ret = GetWindowRect(hwnd, rect); /* Fallback to normal */
     }
     if (SnapGap) InflateRect(rect, SnapGap, SnapGap);
-    return ret;    
+    return ret;
 }
 /* Under Win8 and later a window can be cloaked
  * This falg can be obtained with this function
@@ -482,8 +482,8 @@ static DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
 static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
 {
     MINMAXINFO mmi = { {0, 0}, {0, 0}, {0, 0}
-                     , {GetSystemMetrics(SM_CXMINTRACK)-32, GetSystemMetrics(SM_CYMINTRACK)-32}
-                     , {GetSystemMetrics(SM_CXMAXTRACK)+32, GetSystemMetrics(SM_CXMAXTRACK)+32}};
+                     , {GetSystemMetrics(SM_CXMINTRACK), GetSystemMetrics(SM_CYMINTRACK)}
+                     , {GetSystemMetrics(SM_CXMAXTRACK), GetSystemMetrics(SM_CXMAXTRACK)}};
     SendMessage(hwnd, WM_GETMINMAXINFO, 0, (LPARAM)&mmi);
     *Min = mmi.ptMinTrackSize;
     *Max = mmi.ptMaxTrackSize;
@@ -494,7 +494,7 @@ static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height
 {
     /* flag = (!flag) * SWP_NOREDRAW; */
     return SetWindowPos(hwnd, NULL, posx, posy, width, height
-                      , SWP_NOACTIVATE|SWP_NOREPOSITION|SWP_ASYNCWINDOWPOS/*|flag*/);
+               , SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOZORDER|SWP_ASYNCWINDOWPOS);
 }
 static void MaximizeWindow(HWND hwnd)
 {

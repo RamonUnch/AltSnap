@@ -21,7 +21,6 @@
 #define SWM_TESTWIN    (WM_APP+10)
 
 // Boring stuff
-#define ENABLED() (keyhook)
 HINSTANCE g_hinst = NULL;
 HWND g_hwnd = NULL;
 UINT WM_TASKBARCREATED = 0;
@@ -35,6 +34,8 @@ BYTE WinVer = 0;
 char ScrollLockState = 0;
 char SnapGap = 0;
 
+#define HOOK_TORESUME  ((HHOOK)1)
+static int ENABLED() { return keyhook && keyhook != HOOK_TORESUME; }
 #define GetWindowRectL(hwnd, rect) GetWindowRectLL(hwnd, rect, SnapGap)
 
 // Include stuff
@@ -243,16 +244,18 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         ShowWindow(hwnd, SW_HIDE);
     } else if (WIN10 && msg == WM_POWERBROADCAST) {
         if (wParam == PBT_APMQUERYSUSPEND) {
-            if(UnhookSystem())
-                keyhook = (void *)-1; // system was not hooked.
-            return TRUE;
+            // The system is going to suspend.
+            // We disable AltSnap on Win10+
+            if(!UnhookSystem())
+                keyhook = HOOK_TORESUME; // system was hooked.
         }
         if (wParam == PBT_APMRESUMESUSPEND) {
-            if(keyhook != (void *)-1)
-                HookSystem();
-            else  
+            if (keyhook == HOOK_TORESUME) {
                 keyhook = NULL;
+                HookSystem();
+            }
         }
+        return TRUE;
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }

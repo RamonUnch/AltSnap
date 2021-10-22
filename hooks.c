@@ -474,6 +474,8 @@ static void EnumSnapped()
     }
 }
 /////////////////////////////////////////////////////////////////////////////
+// Uses the same DB than snapped windows db because they will never
+// be used together Enum() vs EnumSnapped()
 BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
 {
     // Make sure we have enough space allocated
@@ -511,14 +513,45 @@ BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
     return TRUE;
 }
 /////////////////////////////////////////////////////////////////////////////
-static void EnumOnce(RECT **bd);
-static void ResizeTouchingWindows(int posx, int posy, int width, int height)
+//
+static DWORD WINAPI EndDeferWindowPosThread(LPVOID hwndSS)
 {
+        EndDeferWindowPos(hwndSS);
+        if (conf.RefreshRate) Sleep(conf.RefreshRate);
+        LastWin.hwnd = NULL;
+        return TRUE;
+}
+static void EndDeferWindowPosAsync(HDWP hwndSS)
+{
+    DWORD lpThreadId;
+    CloseHandle(CreateThread(NULL, STACK, EndDeferWindowPosThread, hwndSS, 0, &lpThreadId));
+}
+static int ShouldResizeTouching()
+{
+    return state.action == AC_RESIZE
+        && ( (conf.StickyResize&1 && state.shift)
+          || (conf.StickyResize==2 && !state.shift)
+        );
+}
+static void EnumOnce(RECT **bd);
+static int ResizeTouchingWindows(LPVOID lwptr)
+{
+    if (!ShouldResizeTouching()) return 0;
     RECT *bd;
     EnumOnce(&bd);
-    posx += bd->left; posy += bd->top;
-    width -= bd->left+bd->right;
-    height -= bd->top+bd->bottom;
+    if (!numsnwnds) return 0;
+    struct windowRR *lw = lwptr;
+    // posx, posy,  correspond to the VISIBLE rect
+    // of the current window...
+    int posx = lw->x + bd->left;
+    int posy = lw->y + bd->top;
+    int width = lw->width - (bd->left+bd->right);
+    int height = lw->height - (bd->top+bd->bottom);
+
+    HDWP hwndSS = NULL; // For DeferwindowPos.
+    if (conf.FullWin) {
+        hwndSS = BeginDeferWindowPos(numsnwnds+1);
+    }
     unsigned i;
     for (i=0; i < numsnwnds; i++) {
         RECT *nwnd = &snwnds[i].wnd;
@@ -543,33 +576,56 @@ static void ResizeTouchingWindows(int posx, int posy, int width, int height)
         } else {
             continue;
         }
-        RECT nbd;
-        FixDWMRect(hwnd, &nbd);
-
-        if (conf.FullWin) {
-            MoveWindowAsync(hwnd, nwnd->left-nbd.left, nwnd->top-nbd.top
-                      , nwnd->right - nwnd->left + nbd.left + nbd.right
-                      , nwnd->bottom - nwnd->top + nbd.top + nbd.bottom);
+        if (hwndSS) {
+            RECT nbd;
+            FixDWMRect(hwnd, &nbd);
+            hwndSS = DeferWindowPos(hwndSS, hwnd, NULL
+                    , nwnd->left - nbd.left
+                    , nwnd->top - nbd.top
+                    , nwnd->right - nwnd->left + nbd.left + nbd.right
+                    , nwnd->bottom - nwnd->top + nbd.top + nbd.bottom
+                    , SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER);
         }
         snwnds[i].flag = flag|TORESIZE;
     }
+
+    if (hwndSS) {
+        // Draw changes ONLY if full win is ON,
+        hwndSS = DeferWindowPos(hwndSS, state.hwnd, NULL
+                  , lw->x, lw->y, lw->width, lw->height
+                  , SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER);
+        if(hwndSS) EndDeferWindowPosAsync(hwndSS);
+    }
+    return 1;
 }
 /////////////////////////////////////////////////////////////////////////////
 static void ResizeAllSnappedWindowsAsync()
 {
+    if (!conf.StickyResize || !numsnwnds) return;
+
+    HDWP hwndSS = BeginDeferWindowPos(numsnwnds+1);
     unsigned i;
     for (i=0; i < numsnwnds; i++) {
-        if(snwnds[i].flag&TORESIZE) {
+        if(hwndSS && snwnds[i].flag&TORESIZE) {
             RECT bd;
             FixDWMRect(snwnds[i].hwnd, &bd);
             InflateRectBorder(&snwnds[i].wnd, &bd);
-            MoveWindowAsync(snwnds[i].hwnd
-                , snwnds[i].wnd.left, snwnds[i].wnd.top
-                , snwnds[i].wnd.right-snwnds[i].wnd.left
-                , snwnds[i].wnd.bottom-snwnds[i].wnd.top);
+            hwndSS = DeferWindowPos(hwndSS, snwnds[i].hwnd, NULL
+                    , snwnds[i].wnd.left
+                    , snwnds[i].wnd.top
+                    , snwnds[i].wnd.right - snwnds[i].wnd.left
+                    , snwnds[i].wnd.bottom - snwnds[i].wnd.top
+                    , SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER);
         }
     }
+    if (hwndSS)
+        hwndSS = DeferWindowPos(hwndSS, LastWin.hwnd, NULL
+               , LastWin.x, LastWin.y, LastWin.width, LastWin.height
+               , SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER);
+    if(hwndSS) EndDeferWindowPosAsync(hwndSS);
+    LastWin.hwnd = NULL;
 }
+
 ///////////////////////////////////////////////////////////////////////////
 // Just used in Enum
 static void EnumMdi()
@@ -917,12 +973,14 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
 }
 static DWORD WINAPI ResizeWindowThread(LPVOID LastWinV)
 {
-    MoveResizeWindowThread(LastWinV, SWP_NOZORDER|SWP_NOACTIVATE|SWP_ASYNCWINDOWPOS);
+    MoveResizeWindowThread(LastWinV
+        , SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_ASYNCWINDOWPOS);
     return 0;
 }
 static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
-    MoveResizeWindowThread(LastWinV, SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS);
+    MoveResizeWindowThread(LastWinV
+        , SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS);
     return 0;
 }
 static void MoveWindowInThread(struct windowRR *lw)
@@ -1299,13 +1357,6 @@ static void ClipCursorOnce(const RECT *clip)
         trapped = 1;
     }
 }
-static int ShouldResizeTouching()
-{
-    return state.action == AC_RESIZE
-        && ( (conf.StickyResize&1 && state.shift)
-          || (conf.StickyResize==2 && !state.shift)
-        );
-}
 static void DrawRect(const RECT *rc)
 {
     Rectangle(hdcc, rc->left+1, rc->top+1, rc->right, rc->bottom);
@@ -1346,7 +1397,6 @@ static BOOL GetMDInfo(POINT *mdicpt, RECT *wnd)
     }
     return TRUE;
 }
-
 ///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
 {
@@ -1526,17 +1576,14 @@ static void MouseMove(POINT pt)
             CopyRect(&oldRect, &wnd); // oldRect is GLOBAL!
         }
         state.moving = 1;
-
-        if (ShouldResizeTouching()) {
-            ResizeTouchingWindows(posx, posy, wndwidth, wndheight);
-        }
+        ResizeTouchingWindows(&LastWin);
 
     } else if (mouse_thread_finished) {
         // Resize other windows
-        if (ShouldResizeTouching()) {
-            ResizeTouchingWindows(posx, posy, wndwidth, wndheight);
+        if (!ResizeTouchingWindows(&LastWin)) { 
+            // The resize touching also resizes LastWin.
+            MoveWindowInThread(&LastWin);
         }
-        MoveWindowInThread(&LastWin);
         state.moving = 1;
     } else {
         Sleep(0);
@@ -2456,8 +2503,8 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
             && IsIconic(hrest)
             && (!hMon || hMon == MonitorFromWindow(hrest, MONITOR_DEFAULTTONEAREST))){
                 // Synchronus restoration to keep the order of windows...
-                SendMessage(hrest, WM_SYSCOMMAND, SC_RESTORE, 0);
-                SetWindowLevel(hwnd, HWND_BOTTOM);
+                ShowWindow(hrest, SW_RESTORE);
+                SetWindowLevel(hrest, HWND_BOTTOM);
             }
         }
         SetForegroundWindowL(hwnd);
@@ -2757,7 +2804,7 @@ static void FinishMovement()
         // to erase the last rectangle...
         if (!conf.FullWin) {
             DrawRect(&oldRect);
-            if (state.action == AC_RESIZE) ResizeAllSnappedWindowsAsync();
+            if (state.action == AC_RESIZE) { ResizeAllSnappedWindowsAsync(); }
         }
         if (IsWindow(LastWin.hwnd)){
             if (LastWin.maximize) {

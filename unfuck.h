@@ -13,6 +13,10 @@
 #include <stdio.h>
 #include "nanolibc.h"
 
+/* Invalid pointer with which we initialize
+ * all dynamically imported functions */
+#define IPTR ((void*)(-1))
+
 #define QWORD unsigned long long
 #ifdef WIN64
     #define DorQWORD QWORD
@@ -62,35 +66,30 @@ GUID  my_IID_IMMDeviceEnumerator = {0xA95664D2,0x9614,0x4F35,{0xA7,0x46,0xDE,0x8
 GUID  my_IID_IAudioEndpointVolume= {0x5CDF2C82,0x841E,0x4546,{0x97,0x22,0x0C,0xF7,0x40,0x78,0x22,0x9A}};
 
 /* USER32.DLL */
-static BOOL (WINAPI *mySetLayeredWindowAttributes)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags);
-static BOOL (WINAPI *myGetLayeredWindowAttributes)(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWORD *pdwFlags);
-static HWND (WINAPI *myGetAncestor)(HWND hwnd, UINT gaFlags);
-static BOOL (WINAPI *myEnumDisplayMonitors)(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, LPARAM dwData);
-static BOOL (WINAPI *myGetMonitorInfoW)(HMONITOR hMonitor, LPMONITORINFO lpmi);
-static HMONITOR (WINAPI *myMonitorFromPoint)(POINT pt, DWORD dwFlags);
-static HMONITOR (WINAPI *myMonitorFromWindow)(HWND hwnd, DWORD dwFlags);
+static BOOL (WINAPI *mySetLayeredWindowAttributes)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags) = IPTR;
+static BOOL (WINAPI *myGetLayeredWindowAttributes)(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWORD *pdwFlags) = IPTR;
+static HWND (WINAPI *myGetAncestor)(HWND hwnd, UINT gaFlags) = IPTR;
+static BOOL (WINAPI *myEnumDisplayMonitors)(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, LPARAM dwData) = IPTR;
+static BOOL (WINAPI *myGetMonitorInfoW)(HMONITOR hMonitor, LPMONITORINFO lpmi) = IPTR;
+static HMONITOR (WINAPI *myMonitorFromPoint)(POINT pt, DWORD dwFlags) = IPTR;
+static HMONITOR (WINAPI *myMonitorFromWindow)(HWND hwnd, DWORD dwFlags) = IPTR;
 
 /* DWMAPI.DLL */
-static HRESULT (WINAPI *myDwmGetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c);
-static HRESULT (WINAPI *myDwmIsCompositionEnabled)(BOOL *pfEnabled);
+static HRESULT (WINAPI *myDwmGetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c) = IPTR;
+static HRESULT (WINAPI *myDwmIsCompositionEnabled)(BOOL *pfEnabled) = IPTR;
 
 /* NTDLL.DLL */
-static LONG (NTAPI *myNtSuspendProcess)(HANDLE ProcessHandle);
-static LONG (NTAPI *myNtResumeProcess )(HANDLE ProcessHandle);
+static LONG (NTAPI *myNtSuspendProcess)(HANDLE ProcessHandle) = IPTR;
+static LONG (NTAPI *myNtResumeProcess )(HANDLE ProcessHandle) = IPTR;
 
 /* OLE32.DLL */
-HRESULT (WINAPI *myCoInitialize)(LPVOID pvReserved);
-VOID (WINAPI *myCoUninitialize)( );
-HRESULT (WINAPI *myCoCreateInstance)(REFCLSID rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, REFIID riid, LPVOID * ppv);
+HRESULT (WINAPI *myCoInitialize)(LPVOID pvReserved) = IPTR;
+VOID (WINAPI *myCoUninitialize)( ) = IPTR;
+HRESULT (WINAPI *myCoCreateInstance)(REFCLSID rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, REFIID riid, LPVOID * ppv) = IPTR;
 
 /* WINMM.DLL */
-MMRESULT (WINAPI *mywaveOutGetVolume)(HWAVEOUT hwo, LPDWORD pdwVolume);
-MMRESULT (WINAPI *mywaveOutSetVolume)(HWAVEOUT hwo, DWORD dwVolume);
-
-#define HAVE_FUNC -1
-
-#define VISTA (WinVer >= 6)
-#define WIN10 (WinVer >= 10)
+MMRESULT (WINAPI *mywaveOutGetVolume)(HWAVEOUT hwo, LPDWORD pdwVolume) = IPTR;
+MMRESULT (WINAPI *mywaveOutSetVolume)(HWAVEOUT hwo, DWORD dwVolume) = IPTR;
 
 /* Removes the trailing file name from a path */
 static BOOL PathRemoveFileSpecL(LPTSTR p)
@@ -155,17 +154,15 @@ static BOOL FreeDLLByName(char *DLLname)
 }
 static HWND GetAncestorL(HWND hwnd, UINT gaFlags)
 {
-    static char have_func=HAVE_FUNC;
     HWND hlast, hprevious;
     LONG wlong;
     if(!hwnd) return NULL;
     hprevious = hwnd;
 
-    if (have_func < 0) {
-        myGetAncestor=LoadDLLProc("USER32.DLL", "GetAncestor");
-        have_func = !!myGetAncestor;
+    if (myGetAncestor == IPTR) {
+        myGetAncestor = LoadDLLProc("USER32.DLL", "GetAncestor");
     }
-    if(have_func) { /* We know we have the function */
+    if(myGetAncestor) { /* We know we have the function */
         return myGetAncestor(hwnd, gaFlags);
     }
     /* Fallback */
@@ -180,13 +177,10 @@ static HWND GetAncestorL(HWND hwnd, UINT gaFlags)
 
 static BOOL GetLayeredWindowAttributesL(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWORD *pdwFlags)
 {
-    static char have_func=HAVE_FUNC;
-
-    if (have_func < 0) {
+    if (myGetLayeredWindowAttributes == IPTR) {
         myGetLayeredWindowAttributes=LoadDLLProc("USER32.DLL", "GetLayeredWindowAttributes");
-        have_func=!!myGetLayeredWindowAttributes;
     }
-    if (have_func) { /* We know we have the function */
+    if (myGetLayeredWindowAttributes) { /* We know we have the function */
         return myGetLayeredWindowAttributes(hwnd, pcrKey, pbAlpha, pdwFlags);
     }
     return FALSE;
@@ -195,13 +189,10 @@ static BOOL GetLayeredWindowAttributesL(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlp
 
 static BOOL SetLayeredWindowAttributesL(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)
 {
-    static char have_func=HAVE_FUNC;
-
-    if (have_func < 0) { /* First time */
+    if (mySetLayeredWindowAttributes == IPTR) { /* First time */
         mySetLayeredWindowAttributes=LoadDLLProc("USER32.DLL", "SetLayeredWindowAttributes");
-        have_func = !!mySetLayeredWindowAttributes;
     }
-    if(have_func) { /* We know we have the function */
+    if(mySetLayeredWindowAttributes) { /* We know we have the function */
         return mySetLayeredWindowAttributes(hwnd, crKey, bAlpha, dwFlags);
     }
     return FALSE;
@@ -210,13 +201,10 @@ static BOOL SetLayeredWindowAttributesL(HWND hwnd, COLORREF crKey, BYTE bAlpha, 
 
 static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
 {
-    static char have_func=HAVE_FUNC;
-
-    if (have_func < 0) { /* First time */
+    if (myGetMonitorInfoW == IPTR) { /* First time */
         myGetMonitorInfoW=LoadDLLProc("USER32.DLL", "GetMonitorInfoW");
-        have_func = !!myGetMonitorInfoW;
     }
-    if(have_func) { /* We know we have the function */
+    if(myGetMonitorInfoW) { /* We know we have the function */
         if(hMonitor) return myGetMonitorInfoW(hMonitor, lpmi);
     }
     /* Fallback for NT4 */
@@ -231,20 +219,18 @@ static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
 
 static BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, LPARAM dwData)
 {
-    static char have_func=HAVE_FUNC;
     MONITORINFO mi;
 
-    if (have_func < 0) { /* First time */
+    if (myEnumDisplayMonitors == IPTR) { /* First time */
         myEnumDisplayMonitors=LoadDLLProc("USER32.DLL", "EnumDisplayMonitors");
-        have_func = !!myEnumDisplayMonitors;
     }
-    if (have_func) { /* We know we have the function */
+    if (myEnumDisplayMonitors) { /* We know we have the function */
         return myEnumDisplayMonitors(hdc, lprcClip, lpfnEnum, dwData);
     }
 
     /* Fallbak */
     GetMonitorInfoL(NULL, &mi);
-    lpfnEnum(NULL, NULL, &mi.rcMonitor, 0); // Callback function
+    lpfnEnum(NULL, NULL, &mi.rcMonitor, 0); /* Callback function */
 
     return TRUE;
 }
@@ -252,13 +238,10 @@ static BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfn
 
 static HMONITOR MonitorFromPointL(POINT pt, DWORD dwFlags)
 {
-    static char have_func=HAVE_FUNC;
-
-    if (have_func < 0) { /* First time */
+    if (myMonitorFromPoint == IPTR) { /* First time */
         myMonitorFromPoint=LoadDLLProc("USER32.DLL", "MonitorFromPoint");
-        have_func = !!myMonitorFromPoint;
     }
-    if (have_func) { /* We know we have the function */
+    if (myMonitorFromPoint) { /* We know we have the function */
         return myMonitorFromPoint(pt, dwFlags);
     }
     return NULL;
@@ -267,13 +250,10 @@ static HMONITOR MonitorFromPointL(POINT pt, DWORD dwFlags)
 
 static HMONITOR MonitorFromWindowL(HWND hwnd, DWORD dwFlags)
 {
-    static char have_func=HAVE_FUNC;
-
-    if (have_func < 0) { /* First time */
+    if (myMonitorFromWindow == IPTR) { /* First time */
         myMonitorFromWindow=LoadDLLProc("USER32.DLL", "MonitorFromWindow");
-        have_func = !!myMonitorFromWindow;
     }
-    if(have_func) { /* We know we have the function */
+    if (myMonitorFromWindow) { /* We know we have the function */
         return myMonitorFromWindow(hwnd, dwFlags);
     }
     return NULL;
@@ -282,13 +262,10 @@ static HMONITOR MonitorFromWindowL(HWND hwnd, DWORD dwFlags)
 
 static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 {
-    static char have_func=HAVE_FUNC;
-
-    if (have_func < 0) { /* First time */
+    if (myDwmGetWindowAttribute == IPTR) { /* First time */
         myDwmGetWindowAttribute=LoadDLLProc("DWMAPI.DLL", "DwmGetWindowAttribute");
-        have_func = !!myDwmGetWindowAttribute;
     }
-    if (have_func) { /* We know we have the function */
+    if (myDwmGetWindowAttribute) { /* We know we have the function */
         return myDwmGetWindowAttribute(hwnd, a, b, c);
     }
     /* DwmGetWindowAttribute return 0 on sucess ! */
@@ -367,13 +344,10 @@ static BOOL IsVisible(HWND hwnd)
 }
 static LONG NtSuspendProcessL(HANDLE ProcessHandle)
 {
-    static char have_func=HAVE_FUNC;
-
-    if (have_func < 0) { /* First time */
+    if (myNtSuspendProcess == IPTR) { /* First time */
         myNtSuspendProcess=LoadDLLProc("NTDLL.DLL", "NtSuspendProcess");
-        have_func = !!myNtSuspendProcess;
     }
-    if (have_func) { /* We know we have the function */
+    if (myNtSuspendProcess) { /* We know we have the function */
         return myNtSuspendProcess(ProcessHandle);
     }
     return 666; /* Here we FAIL with 666 error    */
@@ -382,13 +356,10 @@ static LONG NtSuspendProcessL(HANDLE ProcessHandle)
 
 static LONG NtResumeProcessL(HANDLE ProcessHandle)
 {
-    static char have_func=HAVE_FUNC;
-
-    if (have_func < 0) { /* First time */
+    if (myNtResumeProcess == IPTR) { /* First time */
         myNtResumeProcess=LoadDLLProc("NTDLL.DLL", "NtResumeProcess");
-        have_func =  !!myNtResumeProcess;
     }
-    if (have_func) { /* We know we have the function */
+    if (myNtResumeProcess) { /* We know we have the function */
         return myNtResumeProcess(ProcessHandle);
     }
     return 666; /* Here we FAIL with 666 error    */
@@ -429,30 +400,24 @@ static BOOL HaveDWM()
 }
 
 /* PSAPI.DLL */
-static DWORD (WINAPI *myGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize);
+static DWORD (WINAPI *myGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize) = IPTR;
 static DWORD GetModuleFileNameExL(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize)
 {
-    static char have_func=HAVE_FUNC;
-
-    if (have_func < 0) { /* First time */
+    if (myGetModuleFileNameEx == IPTR) { /* First time */
         myGetModuleFileNameEx=LoadDLLProc("PSAPI.DLL", "GetModuleFileNameExW");
-        have_func = !!myGetModuleFileNameEx;
     }
-    if (have_func) { /* We have the function */
+    if (myGetModuleFileNameEx) { /* We have the function */
         return myGetModuleFileNameEx(hProcess, hModule, lpFilename, nSize);
     }
     return 0;
 }
-static DWORD (WINAPI *myGetProcessImageFileName)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD    nSize);
+static DWORD (WINAPI *myGetProcessImageFileName)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize) = IPTR;
 DWORD GetProcessImageFileNameL(HANDLE hProcess, LPWSTR lpImageFileName, DWORD    nSize)
 {
-    static char have_func=HAVE_FUNC;
-
-    if (have_func < 0) {
+    if (myGetProcessImageFileName == IPTR) {
         myGetProcessImageFileName=LoadDLLProc("PSAPI.DLL", "GetProcessImageFileNameW");
-        have_func = !!myGetProcessImageFileName;
     }
-    if (have_func) {
+    if (myGetProcessImageFileName) {
         return myGetProcessImageFileName(hProcess, lpImageFileName, nSize);
     }
     return 0;
@@ -614,13 +579,15 @@ static xpure int SegT(long ax, long bx, const long *_ay12, const long *_by12, in
           || InRange(by1, ay1, ay2)
           || InRange(ay2, by1, by2)
           || InRange(by2, ay1, ay2) );
- }
+}
+/* Tells if rect b is touching rect a and on which side
+ * 2^X, x=2 for Left, 3 for right, 4 for top and 5 for Bottom*/
 static pure unsigned AreRectsTouchingT(const RECT *a, const RECT *b, const int tol)
 {
-    return SegT(a->left, b->right, &a->top, &b->top, tol) << 2
-         | SegT(a->right, b->left, &a->top, &b->top, tol) << 3
-         | SegT(a->top, b->bottom, &a->left, &b->left, tol) << 4
-         | SegT(a->bottom, b->top, &a->left, &b->left, tol) << 5;
+    return SegT(a->left, b->right, &a->top, &b->top, tol) << 2 /* Left */
+         | SegT(a->right, b->left, &a->top, &b->top, tol) << 3 /* Right */
+         | SegT(a->top, b->bottom, &a->left, &b->left, tol) << 4 /* Top */
+         | SegT(a->bottom, b->top, &a->left, &b->left, tol) << 5; /* Bottom */
 }
 static void CropRect(RECT *__restrict__ wnd, RECT *crop)
 {

@@ -167,7 +167,10 @@ static struct {
     char InterZone;
     char SnapGap;
 
+    UCHAR ShiftSnaps;
+
     UCHAR Hotkeys[MAXKEYS+1];
+    UCHAR Shiftkeys[MAXKEYS+1];
     UCHAR Hotclick[MAXKEYS+1];
     UCHAR Killkey[MAXKEYS+1];
 
@@ -1001,6 +1004,8 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
     *topHeight    = CLAMPH((mon->bottom - mon->top)* conf.AVoff     /100);
     *bottomHeight = CLAMPH((mon->bottom - mon->top)*(100-conf.AVoff)/100);
 
+    if (state.snap != conf.AutoSnap) return; // do not go further is snapping state is toggled.
+
     // Check on all the other snapped windows from the bottom most
     // To give precedence to the topmost windows
     unsigned i = numsnwnds;
@@ -1580,7 +1585,7 @@ static void MouseMove(POINT pt)
 
     } else if (mouse_thread_finished) {
         // Resize other windows
-        if (!ResizeTouchingWindows(&LastWin)) { 
+        if (!ResizeTouchingWindows(&LastWin)) {
             // The resize touching also resizes LastWin.
             MoveWindowInThread(&LastWin);
         }
@@ -1722,10 +1727,10 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         } else if (conf.KeyCombo && !state.alt1 && IsHotkey(vkey)) {
             state.alt1 = vkey;
 
-        } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
+        } else if (IsHotkeyy(vkey, conf.Shiftkeys)) {
             if (!state.shift && vkey != conf.ModKey) {
                 EnumOnce(NULL); // Reset enum state.
-                state.snap = 3;
+                if(conf.ShiftSnaps) state.snap = 3;
                 state.shift = 1;
                 state.shiftpt = state.prevpt; // Save point where shift was pressed.
             }
@@ -1788,7 +1793,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
     } else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP) {
         if (IsHotkey(vkey)) {
             HotkeyUp();
-        } else if (vkey == VK_LSHIFT || vkey == VK_RSHIFT) {
+        } else if (IsHotkeyy(vkey, conf.Shiftkeys)) {
             state.shift = 0;
             state.snap = conf.AutoSnap;
         } else if (vkey == VK_LCONTROL || vkey == VK_RCONTROL) {
@@ -2841,6 +2846,7 @@ static void FinishMovement()
 
     state.action = AC_NONE;
     state.moving = 0;
+    state.snap = conf.AutoSnap;
 
     // Unhook mouse if Alt is released
     if (!state.alt) {
@@ -3242,7 +3248,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.TitlebarMove  = GetPrivateProfileInt(L"Advanced", L"TitlebarMove", 0, inipath);
     if (conf.TitlebarMove) conf.NormRestore = 0; // in this case disable NormRestore
     conf.SnapGap       = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"SnapGap", 0, inipath), 127);
-
+    conf.ShiftSnaps    = GetPrivateProfileInt(L"Advanced", L"ShiftSnaps", 1, inipath);
     // [Performance]
     conf.MoveRate  = GetPrivateProfileInt(L"Performance", L"MoveRate", 1, inipath);
     conf.ResizeRate= GetPrivateProfileInt(L"Performance", L"ResizeRate", 2, inipath);
@@ -3307,6 +3313,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.ScrollLockState = GetPrivateProfileInt(L"Input", L"ScrollLockState", 0, inipath);
 
     readhotkeys(inipath, L"Hotkeys",  L"A4 A5",   conf.Hotkeys);
+    readhotkeys(inipath, L"Shiftkeys",L"A0 A1",   conf.Shiftkeys);
     readhotkeys(inipath, L"Hotclicks",L"",        conf.Hotclick);
     readhotkeys(inipath, L"Killkeys", L"09 4C 2E",conf.Killkey);
 
@@ -3323,7 +3330,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     readblacklist(inipath, &BlkLst.AResize,   L"AResize");
     readblacklist(inipath, &BlkLst.SSizeMove, L"SSizeMove");
     readblacklist(inipath, &BlkLst.NCHittest, L"NCHittest");
-    ResetDB(); // Zero database
+    ResetDB(); // Zero database of restore info (snap.c)
 
     // Zones
     conf.UseZones  = GetPrivateProfileInt(L"Zones", L"UseZones", 0, inipath);

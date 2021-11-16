@@ -86,7 +86,7 @@ static void SetAutostart(int on, int hhide, int eelevate)
 
 /////////////////////////////////////////////////////////////////////////////
 // Only used in the case of Vista+
-BOOL ElevateNow(int showconfig)
+static BOOL ElevateNow(int showconfig)
 {
         wchar_t path[MAX_PATH];
         GetModuleFileName(NULL, path, ARR_SZ(path));
@@ -105,7 +105,7 @@ BOOL ElevateNow(int showconfig)
 }
 /////////////////////////////////////////////////////////////////////////////
 // Entry point
-void OpenConfig(int startpage)
+static void OpenConfig(int startpage)
 {
     if (IsWindow(g_cfgwnd)) {
         PropSheet_SetCurSel(g_cfgwnd, 0, startpage);
@@ -149,13 +149,13 @@ void OpenConfig(int startpage)
     PropertySheet(&psh);
 }
 /////////////////////////////////////////////////////////////////////////////
-void CloseConfig()
+static void CloseConfig()
 {
     PostMessage(g_cfgwnd, WM_CLOSE, 0, 0);
 }
-void UpdateSettings()
+static void UpdateSettings()
 {
-    PostMessage(g_hwnd, WM_UPDATESETTINGS, 1, 0);
+    PostMessage(g_hwnd, WM_UPDATESETTINGS, 0, 0);
 }
 static void MoveButtonUporDown(WORD id, WINDOWPLACEMENT *wndpl, int diffrows)
 {
@@ -305,7 +305,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         ReadOptionInt(IDC_MDI,            L"General", L"MDI", 1, -1);
         ReadOptionInt(IDC_FULLWIN,        L"Performance", L"FullWin", 1, -1);
         ReadOptionInt(IDC_RESIZEALL,      L"Advanced", L"ResizeAll", 1, -1);
-        ReadOptionInt(IDC_USEZONES,       L"Zones", L"UseZones", 1, -1);
+        ReadOptionInt(IDC_USEZONES,       L"Zones", L"UseZones", 0, -1);
 
         ret = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
         ret = ret==1? IDC_RZCENTER_NORM: ret==2? IDC_RZCENTER_MOVE: IDC_RZCENTER_BR;
@@ -368,13 +368,13 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             wchar_t txt[8];
             WriteOptionBool(IDC_AUTOFOCUS,     L"General",    L"AutoFocus");
             WriteOptionBool(IDC_AERO,          L"General",    L"Aero");
-            WriteOptionBoolB(IDC_SMARTAERO,     L"General",    L"SmartAero", 0);
+            WriteOptionBoolB(IDC_SMARTAERO,    L"General",    L"SmartAero", 0);
             WriteOptionBoolB(IDC_STICKYRESIZE, L"General",    L"StickyResize", 0);
             WriteOptionBool(IDC_INACTIVESCROLL,L"General",    L"InactiveScroll");
             WriteOptionBool(IDC_MDI,           L"General",    L"MDI");
             WriteOptionBool(IDC_FULLWIN,       L"Performance",L"FullWin");
             WriteOptionBool(IDC_RESIZEALL,     L"Advanced",   L"ResizeAll");
-            WriteOptionBool(IDC_USEZONES,      L"Zones",   L"UseZones");
+            WriteOptionBool(IDC_USEZONES,      L"Zones",      L"UseZones");
 
             int val = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_AUTOSNAP));
             WritePrivateProfileString(L"General",    L"AutoSnap", _itow(val, txt, 10), inipath);

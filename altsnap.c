@@ -3,7 +3,7 @@
  * This program is free software: you can redistribute it and/or modify  *
  * it under the terms of the GNU General Public License as published by  *
  * the Free Software Foundation, either version 3 or later.              *
- * Modified By Raymond Gillibert in 2020                                 *
+ * Modified By Raymond Gillibert in 2021                                 *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "hooks.h"
@@ -30,9 +30,12 @@ wchar_t inipath[MAX_PATH];
 HINSTANCE hinstDLL = NULL;
 HHOOK keyhook = NULL;
 char elevated = 0;
-BYTE WinVer = 0;
 char ScrollLockState = 0;
 char SnapGap = 0;
+BYTE WinVer = 0;
+
+#define VISTA (WinVer >= 6)
+#define WIN10 (WinVer >= 10)
 
 #define HOOK_TORESUME  ((HHOOK)1)
 static int ENABLED() { return keyhook && keyhook != HOOK_TORESUME; }
@@ -186,10 +189,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             UnhookSystem();
             HookSystem();
         }
-        // Reload config language
-        if (!wParam && IsWindow(g_cfgwnd)) {
-            SendMessage(g_cfgwnd, WM_UPDATESETTINGS, 0, 0);
-        }
     } else if (msg == WM_ADDTRAY) {
         hide = 0;
         UpdateTray();
@@ -242,20 +241,20 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         // Hide cursorwnd if clicked on, this might happen if
         // it wasn't hidden by hooks.c for some reason
         ShowWindow(hwnd, SW_HIDE);
-    } else if (WIN10 && msg == WM_POWERBROADCAST) {
-        if (wParam == PBT_APMQUERYSUSPEND) {
-            // The system is going to suspend.
-            // We disable AltSnap on Win10+
-            if(!UnhookSystem())
-                keyhook = HOOK_TORESUME; // system was hooked.
-        }
-        if (wParam == PBT_APMRESUMESUSPEND) {
-            if (keyhook == HOOK_TORESUME) {
-                keyhook = NULL;
-                HookSystem();
-            }
-        }
-        return TRUE;
+//    } else if (msg == WM_POWERBROADCAST && WIN10) {
+//        if (wParam == PBT_APMSUSPEND) {
+//            // The system is going to suspend.
+//            // We disable AltSnap on Win10+
+//            if(!UnhookSystem())
+//                keyhook = HOOK_TORESUME; // system was hooked.
+//        }
+//        if (wParam == PBT_APMRESUMEAUTOMATIC) {
+//            if (keyhook == HOOK_TORESUME) {
+//                keyhook = NULL;
+//                HookSystem();
+//            }
+//        }
+//        return TRUE;
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
@@ -268,6 +267,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     LOG("\n\nALTSNAP STARTED");
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
     wcscpy(&inipath[wcslen(inipath)-3], L"ini");
+    LOG("ini file: %S", inipath);
 
     // Read parameters on command line
     int elevate = 0, quiet = 0, config =0, multi = 0;
@@ -285,13 +285,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     // Check if elevated if in >= WinVer
     WinVer = LOBYTE(LOWORD(GetVersion()));
     LOG("Running with Windows version %d", WinVer);
-    if (VISTA) { // Vista +
+    if (WinVer >= 6) { // Vista +
         HANDLE token;
         TOKEN_ELEVATION elevation;
         DWORD len;
         if (OpenProcessToken(GetCurrentProcess(), TOKEN_READ, &token)
-            && GetTokenInformation(token, TokenElevation, &elevation,
-                                   sizeof(elevation), &len)) {
+        && GetTokenInformation(token, TokenElevation, &elevation, sizeof(elevation), &len)) {
             elevated = elevation.TokenIsElevated;
             CloseHandle(token);
         }
@@ -306,7 +305,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
         HWND previnst = FindWindow(APP_NAME, NULL);
         if (previnst) {
             LOG("Previous instance found and no -multi mode")
-            // PostMessage(previnst, WM_UPDATESETTINGS, 0, 0);
             if(hide)   PostMessage(previnst, WM_CLOSECONFIG, 0, 0);
             if(config) PostMessage(previnst, WM_OPENCONFIG, 0, 0);
             PostMessage(previnst, hide? WM_HIDETRAY : WM_ADDTRAY, 0, 0);
@@ -377,8 +375,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
             DispatchMessage(&msg);
         }
     }
-    // EXIT
-    UnregisterClass(APP_NAME, hInst);
 
     DestroyWindow(g_hwnd);
     LOG("GOOD NORMAL EXIT");
@@ -386,7 +382,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
 }
 /////////////////////////////////////////////////////////////////////////////
 // Use -nostdlib and -e_unfuckMain@0 to use this main, -eunfuckMain for x64.
-void WINAPI noreturn unfuckWinMain(void)
+void WINAPI unfuckWinMain(void)
 {
     HINSTANCE hInst;
     HINSTANCE hPrevInstance = NULL;

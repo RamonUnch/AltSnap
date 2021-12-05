@@ -150,3 +150,5 @@
 #define IDC_USEZONES                    2072
 #define IDC_FANCYZONE                   2073
 #define IDC_GWLEXSTYLE                  2074
+#define IDC_SMARTERAERO                 2075
+#define IDC_NORESTORE                   2076

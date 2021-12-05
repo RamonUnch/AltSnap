@@ -220,7 +220,7 @@ BOOL CALLBACK PropSheetProc(HWND hwnd, UINT msg, LPARAM lParam)
         UpdateStrings();
 
         // Set new icon specifically for the taskbar and Alt+Tab, without changing window icon
-        HICON taskbar_icon = LoadImage(g_hinst, L"app_icon", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
+        HICON taskbar_icon = LoadImageA(g_hinst, "APP_ICON", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
         SendMessage(g_cfgwnd, WM_SETICON, ICON_BIG, (LPARAM) taskbar_icon);
     }
     return TRUE;
@@ -300,6 +300,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         ReadOptionInt(IDC_AUTOFOCUS,      L"General", L"AutoFocus", 0, -1);
         ReadOptionInt(IDC_AERO,           L"General", L"Aero", 1, -1);
         ReadOptionInt(IDC_SMARTAERO,      L"General",    L"SmartAero", 1, 1);
+        ReadOptionInt(IDC_SMARTERAERO,    L"General",    L"SmartAero", 0, 2);
         ReadOptionInt(IDC_STICKYRESIZE,   L"General",    L"StickyResize", 1, 1);
         ReadOptionInt(IDC_INACTIVESCROLL, L"General", L"InactiveScroll", 0, -1);
         ReadOptionInt(IDC_MDI,            L"General", L"MDI", 1, -1);
@@ -328,6 +329,9 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         int event = HIWORD(wParam);
         HWND control = GetDlgItem(hwnd, id);
         int val = Button_GetCheck(control);
+        if (id == IDC_SMARTAERO) {
+            Button_Enable(GetDlgItem(hwnd, IDC_SMARTERAERO), IsChecked(IDC_SMARTAERO));
+        }
 
         if (id != IDC_ELEVATE && (event == 0 ||  event == CBN_SELCHANGE)) {
             PropSheet_Changed(g_cfgwnd, hwnd);
@@ -369,6 +373,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             WriteOptionBool(IDC_AUTOFOCUS,     L"General",    L"AutoFocus");
             WriteOptionBool(IDC_AERO,          L"General",    L"Aero");
             WriteOptionBoolB(IDC_SMARTAERO,    L"General",    L"SmartAero", 0);
+            WriteOptionBoolB(IDC_SMARTERAERO,  L"General",    L"SmartAero", 1);
             WriteOptionBoolB(IDC_STICKYRESIZE, L"General",    L"StickyResize", 0);
             WriteOptionBool(IDC_INACTIVESCROLL,L"General",    L"InactiveScroll");
             WriteOptionBool(IDC_MDI,           L"General",    L"MDI");
@@ -403,6 +408,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         SetDlgItemText(hwnd, IDC_AUTOFOCUS,         l10n->general_autofocus);
         SetDlgItemText(hwnd, IDC_AERO,              l10n->general_aero);
         SetDlgItemText(hwnd, IDC_SMARTAERO,         l10n->general_smartaero);
+        SetDlgItemText(hwnd, IDC_SMARTERAERO,       l10n->general_smarteraero);
         SetDlgItemText(hwnd, IDC_STICKYRESIZE,      l10n->general_stickyresize);
         SetDlgItemText(hwnd, IDC_INACTIVESCROLL,    l10n->general_inactivescroll);
         SetDlgItemText(hwnd, IDC_MDI,               l10n->general_mdi);
@@ -1085,6 +1091,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         ReadOptionInt(IDC_FULLSCREEN,       L"Advanced", L"FullScreen", 1, -1);
         ReadOptionInt(IDC_TITLEBARMOVE,     L"Advanced", L"TitlebarMove", 0, -1);
         ReadOptionInt(IDC_FANCYZONE,        L"Zones",    L"FancyZone", 0, -1);
+        ReadOptionInt(IDC_NORESTORE,        L"General",  L"SmartAero", 0, 4);
 
         ReadOptionInt(IDC_MAXWITHLCLICK,    L"General", L"MMMaximize", 1, 1); // bit 1
         ReadOptionInt(IDC_RESTOREONCLICK,   L"General", L"MMMaximize", 1, 2); // bit 2
@@ -1141,6 +1148,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_FULLSCREEN,       l10n->advanced_fullscreen);
             SetDlgItemText(hwnd, IDC_TITLEBARMOVE,     l10n->advanced_titlebarmove);
             SetDlgItemText(hwnd, IDC_FANCYZONE,        l10n->advanced_fancyzone);
+			SetDlgItemText(hwnd, IDC_NORESTORE,        l10n->advanced_norestore);
 
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Apply or OK button was pressed.
@@ -1153,6 +1161,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             WriteOptionBool(IDC_FULLSCREEN,        L"Advanced", L"FullScreen");
             WriteOptionBool(IDC_TITLEBARMOVE,      L"Advanced", L"TitlebarMove");
             WriteOptionBool(IDC_FANCYZONE,         L"Zones",    L"FancyZone");
+            WriteOptionBoolB(IDC_NORESTORE,        L"General",  L"SmartAero", 2);
 
             val = IsChecked(IDC_AEROTOPMAXIMIZES) + 2 * IsChecked(IDC_AERODBCLICKSHIFT);
             WritePrivateProfileString(L"Advanced",L"AeroTopMaximizes", _itow(val, txt, 10), inipath);

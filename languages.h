@@ -46,6 +46,7 @@ struct strings {
   wchar_t *general_autofocus;
   wchar_t *general_aero;
   wchar_t *general_smartaero;
+  wchar_t *general_smarteraero;
   wchar_t *general_stickyresize;
   wchar_t *general_inactivescroll;
   wchar_t *general_mdi;
@@ -165,7 +166,7 @@ struct strings {
   wchar_t *advanced_fullscreen;
   wchar_t *advanced_titlebarmove;
   wchar_t *advanced_fancyzone;
-
+  wchar_t *advanced_norestore;
   // about
   wchar_t *about_box;
   wchar_t *about_version;
@@ -209,6 +210,7 @@ struct {
   { &l10n_ini.general_autofocus,               L"GeneralAutoFocus" },
   { &l10n_ini.general_aero,                    L"GeneralAero" },
   { &l10n_ini.general_smartaero,               L"GeneralSmartAero" },
+  { &l10n_ini.general_smarteraero,             L"GeneralSmarterAero" },
   { &l10n_ini.general_stickyresize,            L"GeneralStickyResize" },
   { &l10n_ini.general_inactivescroll,          L"GeneralInactiveScroll" },
   { &l10n_ini.general_mdi,                     L"GeneralMDI" },
@@ -321,6 +323,7 @@ struct {
   { &l10n_ini.advanced_fullscreen,             L"AdvancedFullScreen"},
   { &l10n_ini.advanced_titlebarmove,           L"AdvancedTitlebarMove"},
   { &l10n_ini.advanced_fancyzone,              L"AdvancedFancyZone"},
+  { &l10n_ini.advanced_norestore,              L"AdvancedNoRestore"},
 
   { &l10n_ini.about_box,                       L"AboutBox" },
   { &l10n_ini.about_version,                   L"AboutVersion" },
@@ -364,6 +367,7 @@ struct strings en_US = {
  /* autofocus          */ L"&Focus windows when dragging.\nYou can also press Ctrl to focus windows.",
  /* aero               */ L"Mimi&c Aero Snap",
  /* smartaero          */ L"Smart Aero Sna&p dimensions",
+ /* smarteraero        */ L"Smarter Aer&o Snap dimensions",
  /* stickyresize       */ L"Resi&ze other snapped windows with Shift",
  /* inactivescroll     */ L"&Scroll inactive windows",
  /* mdi                */ L"&MDI support",
@@ -378,7 +382,7 @@ struct strings en_US = {
  /* ResizeAll          */ L"&Resize all windows",
  /* ResizeCenter       */ L"Center resize mode",
  /* ResizeCenterNorm   */ L"All d&irections",
- /* ResizeCenterBr     */ L"B&ottom right",
+ /* ResizeCenterBr     */ L"&Bottom right",
  /* ResizeCenterMove   */ L"Mo&ve",
 
  /* autostart_box      */ L"Autostart",
@@ -484,7 +488,7 @@ struct strings en_US = {
  /* fullscreen       */   L"Enable on &full screen windows",
  /* titlebarmove     */   L"&Use AltSnap for normal titlebar movement",
  /* fancyzone        */   L"Restore Fancy&Zones snapped windows",
-
+ /* norestore        */   L"Never restore AltSna&pped windows",
  /* about tab */
  /* box                */ L"About "APP_NAME,
  /* version            */ L"Version "APP_VERSION,

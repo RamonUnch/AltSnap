@@ -12,6 +12,8 @@
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
 
+BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
+
 // Boring stuff
 #define REHOOK_TIMER    WM_APP+1
 #define SPEED_TIMER     WM_APP+2
@@ -344,11 +346,11 @@ static void SetWindowTrans(HWND hwnd)
         oldtrans = 0;
     }
 }
-static void *GetEnoughSpace(void *ptr, unsigned *num, unsigned *alloc, size_t size)
+static void *GetEnoughSpace(void *ptr, unsigned num, unsigned *alloc, size_t size)
 {
-    if (*num >= *alloc) {
-        *alloc += 4;
-        ptr = realloc(ptr, *alloc*size);
+    if (num >= *alloc) {
+        ptr = realloc(ptr, (*alloc+4)*size);
+        if(ptr) *alloc = (*alloc+4); // Realloc succeeded, increase count.
     }
     return ptr;
 }
@@ -359,7 +361,7 @@ unsigned monitors_alloc = 0;
 BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
 {
     // Make sure we have enough space allocated
-    monitors = GetEnoughSpace(monitors, &nummonitors, &monitors_alloc, sizeof(RECT));
+    monitors = GetEnoughSpace(monitors, nummonitors, &monitors_alloc, sizeof(RECT));
     if (!monitors) return FALSE; // Stop enum, we failed
     // Add monitor
     MONITORINFO mi = { sizeof(MONITORINFO) };
@@ -389,7 +391,7 @@ unsigned wnds_alloc = 0;
 BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    wnds = GetEnoughSpace(wnds, &numwnds, &wnds_alloc, sizeof(RECT));
+    wnds = GetEnoughSpace(wnds, numwnds, &wnds_alloc, sizeof(RECT));
     if (!wnds) return FALSE; // Stop enum, we failed
 
     // Only store window if it's visible, not minimized to taskbar,
@@ -437,7 +439,7 @@ unsigned snwnds_alloc = 0;
 BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    snwnds = GetEnoughSpace(snwnds, &numsnwnds, &snwnds_alloc, sizeof(struct snwdata));
+    snwnds = GetEnoughSpace(snwnds, numsnwnds, &snwnds_alloc, sizeof(struct snwdata));
     if (!snwnds) return FALSE; // Stop enum, we failed
 
     RECT wnd;
@@ -482,7 +484,7 @@ static void EnumSnapped()
 BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    snwnds = GetEnoughSpace(snwnds, &numsnwnds, &snwnds_alloc, sizeof(struct snwdata));
+    snwnds = GetEnoughSpace(snwnds, numsnwnds, &snwnds_alloc, sizeof(struct snwdata));
     if (!snwnds) return FALSE; // Stop enum, we failed
 
     RECT wnd;
@@ -634,7 +636,7 @@ static void ResizeAllSnappedWindowsAsync()
 static void EnumMdi()
 {
     // Make sure we have enough space allocated
-    monitors = GetEnoughSpace(monitors, &nummonitors, &monitors_alloc, sizeof(RECT));
+    monitors = GetEnoughSpace(monitors, nummonitors, &monitors_alloc, sizeof(RECT));
     if (!monitors) return; // Fail
 
     // Add MDIClient as the monitor
@@ -1403,6 +1405,24 @@ static BOOL GetMDInfo(POINT *mdicpt, RECT *wnd)
     return TRUE;
 }
 ///////////////////////////////////////////////////////////////////////////
+//
+static void SetOriginFromRestoreData(HWND hnwd, enum action action)
+{
+    // Set Origin width and height needed for AC_MOVE/RESIZE/CENTER/MAXHV
+    int rwidth=0, rheight=0;
+    unsigned rdata_flag = GetRestoreData(state.hwnd, &rwidth, &rheight);
+    // Clear snapping info if asked.
+    if (rdata_flag&SNCLEAR || (conf.SmartAero&4 && action == AC_MOVE)) {
+        ClearRestoreData(state.hwnd);
+        rdata_flag=0;
+    }
+	// Replace origin width/height if available in the restore Data.
+    if (rdata_flag && !state.origin.maximized) {
+        state.origin.width = rwidth;
+        state.origin.height = rheight;
+    }
+}
+///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
 {
     // Check if window still exists
@@ -1416,9 +1436,12 @@ static void MouseMove(POINT pt)
 
     // Restore Aero snapped window when movement starts
     UCHAR was_snapped = 0;
-    if (!state.moving && state.action == AC_MOVE) {
-        was_snapped = IsWindowSnapped(state.hwnd);
-        RestoreOldWin(&pt, was_snapped, 1);
+    if (!state.moving) {
+        SetOriginFromRestoreData(state.hwnd, state.action);
+        if (state.action == AC_MOVE) {
+            was_snapped = IsWindowSnapped(state.hwnd);
+            RestoreOldWin(&pt, was_snapped, 1);
+        }
     }
 
     static RECT wnd; // wnd will be updated and is initialized once.
@@ -1637,6 +1660,28 @@ static void HotkeyUp()
         UnhookMouse();
     }
 }
+///////////////////////////////////////////////////////////////////////////
+//
+/*BOOL CALLBACK FindHungWindowProc(HWND hwnd, LPARAM lp)
+{
+	if(IsHungAppWindow(hwnd)) {
+		// We found the windows!
+		state.hwnd=hwnd;
+		return FALSE;
+	}
+	return TRUE;
+}
+static HWND FindHungWindow(HWND ghost)
+{
+//	title[MAX_PATH];
+//	GetWindowText(ghost, &title, ARR_SZ(title));
+//	title[]
+	if(EnumWindows(FindHungWindowProc, 0))
+		return state.hwnd;
+
+	return NULL;
+}*/
+///////////////////////////////////////////////////////////////////////////
 static int ActionPause(HWND hwnd, char pause)
 {
     if (!blacklistedP(hwnd, &BlkLst.Pause)) {
@@ -1659,9 +1704,11 @@ DWORD WINAPI ActionKillThread(LPVOID hwnd)
 {
     DWORD pid;
     GetWindowThreadProcessId(hwnd, &pid);
+	//LOG("pid=%lu", pid);
 
     // Open the process
     HANDLE proc = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+	//LOG("proc=%lx", (DWORD)proc);
     if (proc) {
         TerminateProcess(proc, 1);
         CloseHandle(proc);
@@ -1670,7 +1717,17 @@ DWORD WINAPI ActionKillThread(LPVOID hwnd)
 }
 static int ActionKill(HWND hwnd)
 {
-    if (!hwnd || blacklistedP(hwnd, &BlkLst.Pause))
+    //LOG("hwnd=%lx",(DWORD) hwnd);
+    if (!hwnd) return 0;
+
+    wchar_t classn[256];
+    if(GetClassName(hwnd, classn, ARR_SZ(classn))
+	&& !wcscmp(classn, L"Ghost")) {
+        PostMessage(hwnd, WM_CLOSE, 0, 0);
+		return 1;
+	}
+
+    if(blacklistedP(hwnd, &BlkLst.Pause))
        return 0;
 
     DWORD lpThreadId;
@@ -1678,6 +1735,7 @@ static int ActionKill(HWND hwnd)
 
     return 1;
 }
+
 static void SetForegroundWindowL(HWND hwnd)
 {
     if (!state.mdiclient) {
@@ -1877,7 +1935,7 @@ unsigned hwnds_alloc = 0;
 BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    hwnds = GetEnoughSpace(hwnds, &numhwnds, &hwnds_alloc, sizeof(HWND));
+    hwnds = GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
     if (!hwnds) return FALSE; // Stop enum, we failed
 
     // Only store window if it's visible, not minimized
@@ -2218,6 +2276,7 @@ static int ActionMove(POINT pt, int button)
 {
     // If this is a double-click
     if (IsDoubleClick(button)) {
+    	SetOriginFromRestoreData(state.hwnd, AC_MOVE);
         if (state.shift) {
             RollWindow(state.hwnd, 0); // Roll/Unroll Window...
         } else if (state.ctrl) {
@@ -2280,6 +2339,7 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
 
     // Aero-move this window if this is a double-click
     if (IsDoubleClick(button)) {
+        SetOriginFromRestoreData(state.hwnd, AC_MOVE);
         state.action = AC_NONE; // Stop resize action
         state.clicktime = 0;    // Reset double-click time
         state.blockmouseup = 1; // Block the mouseup
@@ -2420,6 +2480,7 @@ static void CenterWindow(HWND hwnd)
     RECT mon;
     POINT pt;
     if (IsZoomed(hwnd)) return;
+	SetOriginFromRestoreData(hwnd, AC_MOVE);
     GetCursorPos(&pt);
     GetMonitorRect(&pt, 0, &mon);
     MoveWindowAsync(hwnd
@@ -2453,6 +2514,7 @@ static void MaximizeHV(HWND hwnd, int horizontal)
     POINT pt;
     GetCursorPos(&pt);
     GetMonitorRect(&pt, 0, &mon);
+    SetOriginFromRestoreData(state.hwnd, AC_MOVE);
 
     SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED);
     FixDWMRect(hwnd, &bd);
@@ -2478,7 +2540,7 @@ unsigned minhwnds_alloc=0;
 unsigned numminhwnds=0;
 BOOL CALLBACK MinimizeWindowProc(HWND hwnd, LPARAM hMon)
 {
-    minhwnds = GetEnoughSpace(minhwnds, &numminhwnds, &minhwnds_alloc, sizeof(HWND));
+    minhwnds = GetEnoughSpace(minhwnds, numminhwnds, &minhwnds_alloc, sizeof(HWND));
     if (!minhwnds) return FALSE; // Stop enum, we failed
 
     if (hwnd != state.sclickhwnd
@@ -2534,7 +2596,7 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_MAXIMIZE)    ActionMaximize(hwnd);
     else if (action==AC_CENTER)      CenterWindow(hwnd);
     else if (action==AC_ALWAYSONTOP) TogglesAlwaysOnTop(hwnd);
-    else if (action==AC_CLOSE)       PostMessage(hwnd, WM_CLOSE, 0, 0);
+    else if (action==AC_CLOSE)       PostMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0);
     else if (action==AC_LOWER)       ActionLower(hwnd, 0, state.shift);
     else if (action==AC_BORDERLESS)  ActionBorderless(hwnd);
     else if (action==AC_KILL)        ActionKill(hwnd);
@@ -2618,26 +2680,14 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         return 1; // Unresponsive window...
     }
 
+    // Set origin width/height by default from current state/wndpl.
     state.origin.maximized = IsZoomed(state.hwnd);
     state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
+    state.origin.width  = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
+    state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
 
-    if (!state.snap) {
-        state.snap = conf.AutoSnap;
-    }
-
-    // Set Origin width and height needed for AC_MOVE/RESIZE/CENTER/MAXHV
-    int rwidth=0, rheight=0;
-    unsigned rdata_flag = GetRestoreData(state.hwnd, &rwidth, &rheight);
-    // Clear snapping info if asked.
-    if (rdata_flag&SNCLEAR || conf.SmartAero&4){ ClearRestoreData(state.hwnd); rdata_flag=0; }
-
-    if (rdata_flag && !state.origin.maximized) {
-        state.origin.width = rwidth;
-        state.origin.height = rheight;
-    } else {
-        state.origin.width = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
-        state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
-    }
+    // Set current snapping mode from the config.
+    if (!state.snap) { state.snap = conf.AutoSnap; }
 
     // AutoFocus
     if (conf.AutoFocus || state.ctrl) { SetForegroundWindowL(state.hwnd); }
@@ -3110,7 +3160,7 @@ __declspec(dllexport) void Unload()
 static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist
                         , const wchar_t *blacklist_str)
 {
-    wchar_t txt[1024];
+    wchar_t txt[2000];
 
     blacklist->data = NULL;
     blacklist->length = 0;
@@ -3333,9 +3383,15 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     ResetDB(); // Zero database of restore info (snap.c)
 
     // Zones
-    conf.UseZones  = GetPrivateProfileInt(L"Zones", L"UseZones", 0, inipath);
-    if (conf.UseZones) ReadZones(inipath);
+    conf.UseZones   = GetPrivateProfileInt(L"Zones", L"UseZones", 0, inipath);
+    unsigned GridNx = GetPrivateProfileInt(L"Zones", L"GridNx", 0, inipath);
+    unsigned GridNy = GetPrivateProfileInt(L"Zones", L"GridNy", 0, inipath);
+    if (conf.UseZones&1) {
+        if(conf.UseZones&2 && GridNx && GridNy) GenerateGridZones(GridNx, GridNy);
+        else ReadZones(inipath);
+    }
     conf.InterZone = GetPrivateProfileInt(L"Zones", L"InterZone", 0, inipath);
+
   # ifdef WIN64
     conf.FancyZone = GetPrivateProfileInt(L"Zones", L"FancyZone", 0, inipath);
   # endif
@@ -3348,6 +3404,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     if (conf.keepMousehook || conf.AeroMaxSpeed < 65535) {
         g_timerhwnd = KreateMsgWin(TimerWindowProc, APP_NAME"-Timers");
     }
+    // Hook mouse if a permanent hook is needed
     if (conf.keepMousehook) {
         HookMouse();
         SetTimer(g_timerhwnd, REHOOK_TIMER, 5000, NULL); // Start rehook timer
@@ -3356,8 +3413,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     if (action_menu_load) {
         g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
     }
-
-    // Hook mouse if a permanent hook is needed
 }
 /////////////////////////////////////////////////////////////////////////////
 // Do not forget the -e_DllMain@12 for gcc... -eDllMain for x86_64

@@ -297,16 +297,16 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     static int have_to_apply = 0;
     if (msg == WM_INITDIALOG) {
         int ret;
-        ReadOptionInt(IDC_AUTOFOCUS,      L"General", L"AutoFocus", 0, -1);
-        ReadOptionInt(IDC_AERO,           L"General", L"Aero", 1, -1);
-        ReadOptionInt(IDC_SMARTAERO,      L"General",    L"SmartAero", 1, 1);
-        ReadOptionInt(IDC_SMARTERAERO,    L"General",    L"SmartAero", 0, 2);
-        ReadOptionInt(IDC_STICKYRESIZE,   L"General",    L"StickyResize", 1, 1);
-        ReadOptionInt(IDC_INACTIVESCROLL, L"General", L"InactiveScroll", 0, -1);
-        ReadOptionInt(IDC_MDI,            L"General", L"MDI", 1, -1);
-        ReadOptionInt(IDC_FULLWIN,        L"Performance", L"FullWin", 1, -1);
-        ReadOptionInt(IDC_RESIZEALL,      L"Advanced", L"ResizeAll", 1, -1);
-        ReadOptionInt(IDC_USEZONES,       L"Zones", L"UseZones", 0, -1);
+        ReadOptionInt(IDC_AUTOFOCUS,     L"General",    L"AutoFocus", 0, -1);
+        ReadOptionInt(IDC_AERO,          L"General",    L"Aero", 1, -1);
+        ReadOptionInt(IDC_SMARTAERO,     L"General",    L"SmartAero", 1, 1);
+        ReadOptionInt(IDC_SMARTERAERO,   L"General",    L"SmartAero", 0, 2);
+        ReadOptionInt(IDC_STICKYRESIZE,  L"General",    L"StickyResize", 1, 1);
+        ReadOptionInt(IDC_INACTIVESCROLL,L"General",    L"InactiveScroll", 0, -1);
+        ReadOptionInt(IDC_MDI,           L"General",    L"MDI", 1, -1);
+        ReadOptionInt(IDC_FULLWIN,       L"Performance",L"FullWin", 1, -1);
+        ReadOptionInt(IDC_RESIZEALL,     L"Advanced",   L"ResizeAll", 1, -1);
+        ReadOptionInt(IDC_USEZONES,      L"Zones",      L"UseZones", 0, 1);
 
         ret = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
         ret = ret==1? IDC_RZCENTER_NORM: ret==2? IDC_RZCENTER_MOVE: IDC_RZCENTER_BR;
@@ -379,7 +379,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             WriteOptionBool(IDC_MDI,           L"General",    L"MDI");
             WriteOptionBool(IDC_FULLWIN,       L"Performance",L"FullWin");
             WriteOptionBool(IDC_RESIZEALL,     L"Advanced",   L"ResizeAll");
-            WriteOptionBool(IDC_USEZONES,      L"Zones",      L"UseZones");
+            WriteOptionBoolB(IDC_USEZONES,     L"Zones",      L"UseZones", 0);
 
             int val = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_AUTOSNAP));
             WritePrivateProfileString(L"General",    L"AutoSnap", _itow(val, txt, 10), inipath);
@@ -404,28 +404,28 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     }
     if (updatestrings) {
         // Update text
-        SetDlgItemText(hwnd, IDC_GENERAL_BOX,       l10n->general_box);
-        SetDlgItemText(hwnd, IDC_AUTOFOCUS,         l10n->general_autofocus);
-        SetDlgItemText(hwnd, IDC_AERO,              l10n->general_aero);
-        SetDlgItemText(hwnd, IDC_SMARTAERO,         l10n->general_smartaero);
-        SetDlgItemText(hwnd, IDC_SMARTERAERO,       l10n->general_smarteraero);
-        SetDlgItemText(hwnd, IDC_STICKYRESIZE,      l10n->general_stickyresize);
-        SetDlgItemText(hwnd, IDC_INACTIVESCROLL,    l10n->general_inactivescroll);
-        SetDlgItemText(hwnd, IDC_MDI,               l10n->general_mdi);
-        SetDlgItemText(hwnd, IDC_AUTOSNAP_HEADER,   l10n->general_autosnap);
-        SetDlgItemText(hwnd, IDC_LANGUAGE_HEADER,   l10n->general_language);
-        SetDlgItemText(hwnd, IDC_FULLWIN,           l10n->general_fullwin);
-        SetDlgItemText(hwnd, IDC_USEZONES,          l10n->general_usezones);
-        SetDlgItemText(hwnd, IDC_RESIZEALL,         l10n->general_resizeall);
-        SetDlgItemText(hwnd, IDC_RESIZECENTER,      l10n->general_resizecenter);
-        SetDlgItemText(hwnd, IDC_RZCENTER_NORM,     l10n->general_resizecenter_norm);
-        SetDlgItemText(hwnd, IDC_RZCENTER_BR,       l10n->general_resizecenter_br);
-        SetDlgItemText(hwnd, IDC_RZCENTER_MOVE,     l10n->general_resizecenter_move);
-        SetDlgItemText(hwnd, IDC_AUTOSTART_BOX,     l10n->general_autostart_box);
-        SetDlgItemText(hwnd, IDC_AUTOSTART,         l10n->general_autostart);
-        SetDlgItemText(hwnd, IDC_AUTOSTART_HIDE,    l10n->general_autostart_hide);
-        SetDlgItemText(hwnd, IDC_AUTOSTART_ELEVATE, l10n->general_autostart_elevate);
-        SetDlgItemText(hwnd, IDC_ELEVATE, (elevated? l10n->general_elevated: l10n->general_elevate));
+        SetDlgItemText(hwnd, IDC_GENERAL_BOX,      l10n->general_box);
+        SetDlgItemText(hwnd, IDC_AUTOFOCUS,        l10n->general_autofocus);
+        SetDlgItemText(hwnd, IDC_AERO,             l10n->general_aero);
+        SetDlgItemText(hwnd, IDC_SMARTAERO,        l10n->general_smartaero);
+        SetDlgItemText(hwnd, IDC_SMARTERAERO,      l10n->general_smarteraero);
+        SetDlgItemText(hwnd, IDC_STICKYRESIZE,     l10n->general_stickyresize);
+        SetDlgItemText(hwnd, IDC_INACTIVESCROLL,   l10n->general_inactivescroll);
+        SetDlgItemText(hwnd, IDC_MDI,              l10n->general_mdi);
+        SetDlgItemText(hwnd, IDC_AUTOSNAP_HEADER,  l10n->general_autosnap);
+        SetDlgItemText(hwnd, IDC_LANGUAGE_HEADER,  l10n->general_language);
+        SetDlgItemText(hwnd, IDC_FULLWIN,          l10n->general_fullwin);
+        SetDlgItemText(hwnd, IDC_USEZONES,         l10n->general_usezones);
+        SetDlgItemText(hwnd, IDC_RESIZEALL,        l10n->general_resizeall);
+        SetDlgItemText(hwnd, IDC_RESIZECENTER,     l10n->general_resizecenter);
+        SetDlgItemText(hwnd, IDC_RZCENTER_NORM,    l10n->general_resizecenter_norm);
+        SetDlgItemText(hwnd, IDC_RZCENTER_BR,      l10n->general_resizecenter_br);
+        SetDlgItemText(hwnd, IDC_RZCENTER_MOVE,    l10n->general_resizecenter_move);
+        SetDlgItemText(hwnd, IDC_AUTOSTART_BOX,    l10n->general_autostart_box);
+        SetDlgItemText(hwnd, IDC_AUTOSTART,        l10n->general_autostart);
+        SetDlgItemText(hwnd, IDC_AUTOSTART_HIDE,   l10n->general_autostart_hide);
+        SetDlgItemText(hwnd, IDC_AUTOSTART_ELEVATE,l10n->general_autostart_elevate);
+        SetDlgItemText(hwnd, IDC_ELEVATE, elevated?l10n->general_elevated: l10n->general_elevate);
 
         // AutoSnap
         HWND control = GetDlgItem(hwnd, IDC_AUTOSNAP);

@@ -1,5 +1,10 @@
-// Snapping informations set with Set/GetPropA
-// Window database is used as fallback.
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * (C) Raymond GILLIBERT                                                 *
+ * Functions to handle Snap/restore informations AltSnap                 *
+ * Snapping informations set with Set/GetPropA.                          *
+ * Window database is used as fallback.                                  *
+ * General Public License Version 3 or later (Free Software Foundation)  *
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #define SNAPPED  1
 #define ROLLED   2

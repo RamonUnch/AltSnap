@@ -1,6 +1,6 @@
 1 VERSIONINFO
-  FILEVERSION 1,4,8,0
-  PRODUCTVERSION 1,4,8,0
+  FILEVERSION 1,4,9,0
+  PRODUCTVERSION 1,4,9,0
   FILEFLAGSMASK 0x3fL
   FILEFLAGS 0x0L
   FILEOS 0x40004L
@@ -14,7 +14,7 @@ BEGIN
       VALUE "FileDescription", "Hooks for AltSnap"
       VALUE "InternalName", "hooks"
       VALUE "OriginalFilename", "hooks.dll"
-      VALUE "FileVersion", "1.48"
+      VALUE "FileVersion", "1.49"
       VALUE "CompanyName", "Gillibert Software"
       VALUE "LegalCopyright", "Stefan Sundin"
     END

@@ -18,22 +18,23 @@
 // App
 #define APP_NAME       L"AltSnap"
 #define APP_NAMEA      "AltSnap"
-#define APP_VERSION    "1.48"
+#define APP_VERSION    "1.49"
 #define APP_PROPPT     APP_NAMEA"-RestoreDimentions"
 #define APP_PROPFL     APP_NAMEA"-RestoreFlag"
 #define FZ_PROPPT      "FancyZones_RestoreSize"
 #define FZ_PROPZONES   "FancyZones_zones"
 
 // User Messages
-#define WM_TRAY           (WM_USER+1)
-#define WM_SCLICK         (WM_USER+2)
-#define WM_UPDCFRACTION   (WM_USER+3)
-#define WM_UPDATETRAY     (WM_USER+4)
-#define WM_UPDATESETTINGS (WM_USER+5)
+#define WM_TRAY           (WM_USER+2)
+#define WM_SCLICK         (WM_USER+3)
+#define WM_UPDCFRACTION   (WM_USER+4)
+#define WM_UPDATETRAY     (WM_USER+5)
 #define WM_OPENCONFIG     (WM_USER+6)
 #define WM_CLOSECONFIG    (WM_USER+7)
-#define WM_ADDTRAY        (WM_USER+8)
-#define WM_HIDETRAY       (WM_USER+9)
+#define WM_UPDATESETTINGS (WM_USER+8)
+#define WM_ADDTRAY        (WM_USER+9)
+#define WM_HIDETRAY       (WM_USER+10)
+
 
 // List of possible actions
 enum action { AC_NONE=0, AC_MOVE, AC_RESIZE, AC_MENU, AC_MINIMIZE, AC_MAXIMIZE, AC_CENTER

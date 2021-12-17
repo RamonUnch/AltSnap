@@ -1,8 +1,8 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # define the name of the installer
-!define APP_NAME "AltSnap"
-!define APP_VERSION "1.48"
 
+!define APP_NAME "AltSnap"
+!define APP_VERSION "1.49"
 # define the name of the installer
 OutFile "${APP_NAME}${APP_VERSION}-inst.exe"
 Name "${APP_NAME} ${APP_VERSION}"
@@ -16,6 +16,7 @@ SetCompressor /SOLID lzma
 
 ;!include "LogicLib.nsh"
 ;!include "FileFunc.nsh"
+;!include "x64.nsh"
 
 ; The text to prompt the user to enter a directory
 DirText "This will install AltSnap on your computer. Choose a directory"
@@ -78,7 +79,7 @@ Section
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayName" "${APP_NAME}"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayIcon" '"$INSTDIR\${APP_NAME}.exe"'
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayVersion" "${APP_VERSION}"
-    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "HelpLink" "https://github.com/RamonUnch/AltSnap"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "HelpLink" "https://github.com/RamonUnch/AltSnap/wiki"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "Publisher" "Raymond Gillibert"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "InstallLocation" "$INSTDIR\"
     WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "NoModify" 1
@@ -87,7 +88,7 @@ Section
     ; Compute size for uninstall information
     ;${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
     ;IntFmt $0 "0x%08X" $0
-    WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "EstimatedSize" "398"
+    WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "EstimatedSize" "400"
 
 SectionEnd
 

@@ -139,18 +139,17 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
     POINT pt;
     GetCursorPos(&pt);
     HMENU menu = CreatePopupMenu();
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_ALWAYSONTOP, l10n->input_actions_alwaysontop);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_ALWAYSONTOP,l10n->input_actions_alwaysontop);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_BORDERLESS, l10n->input_actions_borderless);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_CENTER, l10n->input_actions_center);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_ROLL, l10n->input_actions_roll);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_LOWER, l10n->input_actions_lower);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MAXHV, l10n->input_actions_maximizehv);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MINALL, l10n->input_actions_minallother);
-
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_CENTER,     l10n->input_actions_center);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_ROLL,       l10n->input_actions_roll);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_LOWER,      l10n->input_actions_lower);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MAXHV,      l10n->input_actions_maximizehv);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MINALL,     l10n->input_actions_minallother);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MAXIMIZE, l10n->input_actions_maximize);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MINIMIZE, l10n->input_actions_minimize);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_CLOSE, l10n->input_actions_close);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MAXIMIZE,   l10n->input_actions_maximize);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MINIMIZE,   l10n->input_actions_minimize);
+    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_CLOSE,      l10n->input_actions_close);
     if (param&1) {
         InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
         InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_KILL, l10n->input_actions_kill);
@@ -241,20 +240,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         // Hide cursorwnd if clicked on, this might happen if
         // it wasn't hidden by hooks.c for some reason
         ShowWindow(hwnd, SW_HIDE);
-//    } else if (msg == WM_POWERBROADCAST && WIN10) {
-//        if (wParam == PBT_APMSUSPEND) {
-//            // The system is going to suspend.
-//            // We disable AltSnap on Win10+
-//            if(!UnhookSystem())
-//                keyhook = HOOK_TORESUME; // system was hooked.
-//        }
-//        if (wParam == PBT_APMRESUMEAUTOMATIC) {
-//            if (keyhook == HOOK_TORESUME) {
-//                keyhook = NULL;
-//                HookSystem();
-//            }
-//        }
-//        return TRUE;
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }

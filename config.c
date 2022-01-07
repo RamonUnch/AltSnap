@@ -628,6 +628,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     if (msg == WM_INITDIALOG) {
         ReadOptionInt(IDC_LOWERWITHMMB, L"Input", L"LowerWithMMB", 0, 1);
         ReadOptionInt(IDC_ROLLWITHTBSCROLL, L"Input",  L"RollWithTBScroll", 0, -1);
+        ReadOptionInt(IDC_LONGCLICKMOVE, L"Input",  L"LongClickMove", 0, -1);
         CheckRadioButton(hwnd, IDC_MBA1, IDC_MBA2, IDC_MBA1); // Check the primary action
 
         // Hotclicks buttons
@@ -685,6 +686,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             SetDlgItemText(hwnd, IDC_MMB_HC,          l10n->input_mouse_mmb_hc);
             SetDlgItemText(hwnd, IDC_MB4_HC,          l10n->input_mouse_mb4_hc);
             SetDlgItemText(hwnd, IDC_MB5_HC,          l10n->input_mouse_mb5_hc);
+            SetDlgItemText(hwnd, IDC_LONGCLICKMOVE,   l10n->input_mouse_longclickmove);
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Mouse actions, for all mouse buttons...
             unsigned i;
@@ -707,6 +709,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             // Checkboxes...
             WriteOptionBoolB(IDC_LOWERWITHMMB,    L"Input", L"LowerWithMMB", 0);
             WriteOptionBool(IDC_ROLLWITHTBSCROLL, L"Input", L"RollWithTBScroll");
+            WriteOptionBool(IDC_LONGCLICKMOVE,    L"Input", L"LongClickMove");
             // Hotclicks
             SaveHotKeys(hotclicks, hwnd, L"Hotclicks");
             UpdateSettings();

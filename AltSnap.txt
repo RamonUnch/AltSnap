@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTSNAP for NT4 to Win10                         *
 *  Modified by Raymond Gillibert from original AltDrag by Stefan Sundin   *
-*                     release 1.48 (October XX, 2021)                     *
+*                      release 1.49 (January 8, 2022)                     *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltSnap/releases/         *
@@ -184,31 +184,65 @@ Note that this version has some more feature.
 ===========================================================================
 == CHANGELOG ==
 
+== AltSnap 1.49 ==
+
+ * New: New way of arranging your windows: Grid mode. It replaces the snap
+   layout with a simple grid than can be configured in the ini file. You can
+
+ * New: AltSnap can now be activated with a long mouse click, check the
+   corresponding option at the bottom of the Mouse tab. Default long click
+   delay is the system doubleclick delay, it can also be manually set via the
+   `LongClickMove` option in the ini file. Onmy the left click for movement
+   is supported, it was suggested by @actforjason.
+
+ * GUI: `Smarter Aero Snap dimentions` and `Never restore AltSnapped windows`
+   options were added to the GUI so they can be configured easily.
+
+ * Fix: The Close Action now behaves correctly on Excel.
+
+ * Fix: Maximum number of zones in the snap layout was raised to 2048.
+
+ * Updated german and chinese translations.
+
 == AltSnap 1.48 ==
 
-* New action: Minimize all other windows, similar to aeroshake, but available
+* New action: Minimize all other windows, similar to aero-shake, but available
   as a mouse action, and in the action menu.
 
 * New: Now when using the **Lower windows by middle-clicking on title bars**
   option Ctrl+Middle-click in the title bar will toggle the Always on top
-  state and so will Ctrl+Middle-click on the Min/Max/Close buttons.
+  state and so will Middle-click on the Min/Max/Close buttons.
 
 * New: `SnapGap` value can be set into the `[Advanced]` section of the ini
   file and will set an additional gap between snapped windows/monitor sides.
   You can put a negative value if you want an overlap. Default is 0
 
-* Fixed AntSnap would block Alt+Space if no drag occured, this was a problem
+* New: `Shiftkeys` keys list was added in the [input section of the ini file,
+  to setup another key instead of the Shift key. The default is `A0 A1`,
+  for left and right shift but this is now a customizable key list.
+
+* New: `ShiftSnaps` option was added in the `[Advanced]` section of the ini
+  in order to enable/disable the border-border snapping activation with the
+  shift key (default is 1).
+
+* Fixed: Now when resizing several windows at the same time the DeferPos
+  windows functions are used to minimize flicker.
+
+* Fixed: Now when disabling window to window snapping with space while
+  dragging, the smart window snapping will also be disabled.
+
+* Fixed AltSnap would block Alt+Space if no drag occurred, this was a problem
   when using **Action without click**.
 
-* Fixed: smart aerosnapping only taking into account windows snapped on the
+* Fixed: smart aero-snapping only taking into account windows snapped on the
   other side of the monitor.
 
-* Fixed: non-resizeable windows will longer be maximized with right click
+* Fixed: non-resizable windows will longer be maximized with right click
   while moving.
 
 * Fixed Maximize Vertically action that would erase the old restore state.
 
-* Fixed some crash when launching again AltSanp with a previous instance.
+* Fixed some crash when launching again AltSnap with a previous instance.
 
 * Fixed Tray icon handling under Win10.
 

@@ -126,6 +126,7 @@ static void ClearRestoreData(HWND hwnd)
 {
     RemovePropA(hwnd, APP_PROPPT);
     RemovePropA(hwnd, APP_PROPFL);
+    RemovePropA(hwnd, APP_PROPOFFSET);
   # ifdef WIN64
     if(conf.FancyZone) {
         RemovePropA(hwnd, FZ_PROPPT);
@@ -142,6 +143,7 @@ static void SetRestoreData(HWND hwnd, int width, int height, unsigned restore)
     ret &= SetPropA(hwnd, APP_PROPPT, (HANDLE)MAKELONGPTR(width, height));
     if (!ret) AddWindowToDB(hwnd, width, height, restore);
 }
+
 static unsigned GetRestoreFlag(HWND hwnd)
 {
     unsigned flag = (DorQWORD)GetPropA(hwnd, APP_PROPFL);

@@ -21,6 +21,7 @@
 #define APP_VERSION    "1.49"
 #define APP_PROPPT     APP_NAMEA"-RestoreDimentions"
 #define APP_PROPFL     APP_NAMEA"-RestoreFlag"
+#define APP_PROPOFFSET APP_NAMEA"-RestoreOffset"
 #define FZ_PROPPT      "FancyZones_RestoreSize"
 #define FZ_PROPZONES   "FancyZones_zones"
 

@@ -60,6 +60,7 @@ struct strings {
   wchar_t *general_usezones;
   wchar_t *general_resizeall;
   wchar_t *general_resizecenter;
+
   wchar_t *general_resizecenter_norm;
   wchar_t *general_resizecenter_br;
   wchar_t *general_resizecenter_move;
@@ -91,6 +92,7 @@ struct strings {
   wchar_t *input_mouse_mmb_hc;
   wchar_t *input_mouse_mb4_hc;
   wchar_t *input_mouse_mb5_hc;
+  wchar_t *input_mouse_longclickmove;
 
   wchar_t *input_aggressive_pause;
   wchar_t *input_aggressive_kill;
@@ -252,6 +254,7 @@ struct {
   { &l10n_ini.input_mouse_mmb_hc,              L"InputMouseMMBHC" },
   { &l10n_ini.input_mouse_mb4_hc,              L"InputMouseMB4HC" },
   { &l10n_ini.input_mouse_mb5_hc,              L"InputMouseMB5HC" },
+  { &l10n_ini.input_mouse_longclickmove,       L"InputMouseLongClickMove" },
 
   { &l10n_ini.input_aggressive_pause,          L"InputAggressivePause" },
   { &l10n_ini.input_aggressive_kill,           L"InputAggressiveKill" },
@@ -411,6 +414,7 @@ struct strings en_US = {
  /* mmb_hr             */ L"M&iddle mouse button",
  /* mb4_hc             */ L"M&ouse button 4",
  /* mb5_hc             */ L"Mo&use button 5",
+ /* longclickmove      */ L"Mo&ve windows with a long left-click",
 
  /* Aggressive Pause   */ L"&Pause process on Alt+Shift+Pause (Alt+Pause to resume)",
  /* Aggressive Kill    */ L"&Kill process on Ctrl+Alt+F4\nAlso adds the kill option to the action menu",

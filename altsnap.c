@@ -239,7 +239,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     } else if (msg == WM_LBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_RBUTTONDOWN) {
         // Hide cursorwnd if clicked on, this might happen if
         // it wasn't hidden by hooks.c for some reason
-        ShowWindow(hwnd, SW_HIDE);
+      ShowWindow(hwnd, SW_HIDE);
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }

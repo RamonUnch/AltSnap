@@ -152,3 +152,4 @@
 #define IDC_GWLEXSTYLE                  2074
 #define IDC_SMARTERAERO                 2075
 #define IDC_NORESTORE                   2076
+#define IDC_LONGCLICKMOVE               2077

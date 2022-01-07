@@ -7,7 +7,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "hooks.h"
-
+#define LONG_CLICK_MOVE
 #define COBJMACROS
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
@@ -17,6 +17,7 @@ BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
 // Boring stuff
 #define REHOOK_TIMER    WM_APP+1
 #define SPEED_TIMER     WM_APP+2
+#define GRAB_TIMER      WM_APP+3
 
 #define CURSOR_ONLY 66
 #define NOT_MOVED 33
@@ -60,6 +61,7 @@ static struct {
     HWND sclickhwnd;
     HWND mdiclient;
     DWORD clicktime;
+//    DWORD alttime;
     unsigned Speed;
 
     UCHAR alt;
@@ -170,6 +172,7 @@ static struct {
     char SnapGap;
 
     UCHAR ShiftSnaps;
+    USHORT LongClickMove;
 
     UCHAR Hotkeys[MAXKEYS+1];
     UCHAR Shiftkeys[MAXKEYS+1];
@@ -497,8 +500,8 @@ BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
         // touching the currently resized window
         RECT statewnd;
         GetWindowRectL(state.hwnd, &statewnd);
-        unsigned flag;
-        if((flag = AreRectsTouchingT(&statewnd, &wnd, conf.SnapThreshold/2))) {
+        unsigned flag = AreRectsTouchingT(&statewnd, &wnd, conf.SnapThreshold/2);
+        if(flag) {
             OffsetRectMDI(&wnd);
 
             // Return if this window is overlapped by another window
@@ -535,7 +538,7 @@ static int ShouldResizeTouching()
 {
     return state.action == AC_RESIZE
         && ( (conf.StickyResize&1 && state.shift)
-          || (conf.StickyResize==2 && !state.shift)
+          || ((conf.StickyResize&3)==2 && !state.shift)
         );
 }
 static void EnumOnce(RECT **bd);
@@ -1766,6 +1769,11 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
     if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
         if (!state.alt && (!conf.KeyCombo || (state.alt1 && state.alt1 != vkey)) && IsHotkey(vkey)) {
             // Update state && (GetKeyState(VK_SCROLL)&1)
+//            if(((PKBDLLHOOKSTRUCT)lParam)->time-state.alttime <= GetDoubleClickTime()) {
+//                state.alttime = ((PKBDLLHOOKSTRUCT)lParam)->time;
+//                return CallNextHookEx(NULL, nCode, wParam, lParam);
+//            }
+//            state.alttime = ((PKBDLLHOOKSTRUCT)lParam)->time;
             state.alt = vkey;
             state.blockaltup = 0;
             state.blockmouseup = 0;
@@ -2945,10 +2953,25 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     }
 
     // Do some Actions without Alt Norm Restore and Lower with MMB
+
+
     int ret = ActionNoAlt(pt, wParam);
     if (ret == 0) return CallNextHookEx(NULL, nCode, wParam, lParam);
     else if (ret == 1) return 1;
 
+    // Long click grab timer
+    if(conf.LongClickMove
+    && !state.action
+    && !state.alt) {
+        if (wParam == WM_LBUTTONDOWN) {
+            state.clickpt = pt;
+            SetTimer(g_timerhwnd, GRAB_TIMER
+                , conf.LongClickMove==1
+                  ?GetDoubleClickTime():conf.LongClickMove, NULL); // Start Grab timer
+        } else if (wParam == WM_LBUTTONUP) {
+           KillTimer(g_timerhwnd, GRAB_TIMER);
+        }
+    }
     // Get Button state
     enum button button =
         (wParam==WM_LBUTTONDOWN||wParam==WM_LBUTTONUP)?BT_LMB:
@@ -3101,10 +3124,22 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 MouseMove(state.prevpt);
             }
             if (state.Speed) has_moved_to_fixed_pt = 0;
+        } else if (wParam == GRAB_TIMER) {
+            // Grad the action after a certain amount of time of click down
+            POINT pt;
+            GetCursorPos(&pt);
+            if (IsSamePTT(&pt, &state.clickpt)) {
+                state.alt = 1;
+                mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
+                init_movement_and_actions(pt, AC_MOVE, 2);
+                state.alt = 0;
+            }
+            KillTimer(g_timerhwnd, GRAB_TIMER);
         }
     } else if (msg == WM_DESTROY) {
         KillTimer(g_timerhwnd, REHOOK_TIMER);
         KillTimer(g_timerhwnd, SPEED_TIMER);
+        KillTimer(g_timerhwnd, GRAB_TIMER);
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
@@ -3299,6 +3334,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     if (conf.TitlebarMove) conf.NormRestore = 0; // in this case disable NormRestore
     conf.SnapGap       = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"SnapGap", 0, inipath), 127);
     conf.ShiftSnaps    = GetPrivateProfileInt(L"Advanced", L"ShiftSnaps", 1, inipath);
+    conf.LongClickMove = GetPrivateProfileInt(L"Input", L"LongClickMove", 0, inipath);
     // [Performance]
     conf.MoveRate  = GetPrivateProfileInt(L"Performance", L"MoveRate", 1, inipath);
     conf.ResizeRate= GetPrivateProfileInt(L"Performance", L"ResizeRate", 2, inipath);
@@ -3397,7 +3433,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
   # endif
 
     conf.keepMousehook = ((conf.LowerWithMMB&1) || conf.NormRestore || conf.TitlebarMove
-                         || conf.InactiveScroll || conf.Hotclick[0]);
+                         || conf.InactiveScroll || conf.Hotclick[0] || conf.LongClickMove);
         // Capture main hwnd from caller. This is also the cursor wnd
     g_mainhwnd = mainhwnd;
 

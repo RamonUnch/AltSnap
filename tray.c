@@ -21,9 +21,9 @@ int hide = 0;
 int UseZones = 0;
 
 char *iconstr[] = {
-    "tray_off",
-    "tray_on",
-    "tray_sus"
+    "TRAY_OFF",
+    "TRAY_ON",
+    "TRAY_SUS"
 };
 char *traystr[] = {
     APP_NAMEA" (Off)",

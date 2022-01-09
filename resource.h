@@ -153,3 +153,4 @@
 #define IDC_SMARTERAERO                 2075
 #define IDC_NORESTORE                   2076
 #define IDC_LONGCLICKMOVE               2077
+#define IDC_BLMAXIMIZED                 2078

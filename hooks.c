@@ -172,6 +172,7 @@ static struct {
     char SnapGap;
 
     UCHAR ShiftSnaps;
+    UCHAR BLMaximized;
     USHORT LongClickMove;
 
     UCHAR Hotkeys[MAXKEYS+1];
@@ -2477,10 +2478,9 @@ static int IsFullscreen(HWND hwnd, const RECT *wnd, const RECT *fmon)
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
 
     // no caption and fullscreen window => LSB to 1
-    int fs = ((style&WS_CAPTION) != WS_CAPTION) && EqualRect(wnd, fmon);
-    fs |= ((style&WS_SYSMENU) != WS_SYSMENU)<<1 ; // &2 for sysmenu.
-
-    return fs; // = 1 for fulscreen, 2 for SYSMENU and 3 for both.
+    return ((style&WS_CAPTION) != WS_CAPTION) 
+//        && ((style&WS_SYSMENU) != WS_SYSMENU)
+        && EqualRect(wnd, fmon);
 }
 /////////////////////////////////////////////////////////////////////////////
 static void CenterWindow(HWND hwnd)
@@ -2673,7 +2673,8 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     || blacklisted(state.hwnd, &BlkLst.Windows)
     || GetWindowPlacement(state.hwnd, &wndpl) == 0
     || GetWindowRect(state.hwnd, &wnd) == 0
-    || ( (state.origin.fullscreen = IsFullscreen(state.hwnd, &wnd, &fmon)&conf.FullScreen) == conf.FullScreen )
+    || ((state.origin.maximized = IsZoomed(state.hwnd)) && conf.BLMaximized)
+    || ((state.origin.fullscreen = IsFullscreen(state.hwnd, &wnd, &fmon)) && !conf.FullScreen)
     ){
         return 0;
     }
@@ -2689,7 +2690,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     }
 
     // Set origin width/height by default from current state/wndpl.
-    state.origin.maximized = IsZoomed(state.hwnd);
     state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
     state.origin.width  = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
     state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
@@ -2835,10 +2835,10 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     RECT wnd;
     if (blacklistedP(hwnd, &BlkLst.Processes) || blacklisted(hwnd, &BlkLst.Scroll)) {
         return 0;
-    } else if (conf.FullScreen == 1 && GetWindowRect(hwnd, &wnd)) {
+    } else if (!conf.FullScreen && GetWindowRect(hwnd, &wnd)) {
         RECT mon;
         GetMonitorRect(&pt, 1, &mon);
-        if ((IsFullscreen(hwnd, &wnd, &mon)&conf.FullScreen) == conf.FullScreen)
+        if ((IsFullscreen(hwnd, &wnd, &mon)&conf.FullScreen) && !conf.FullScreen)
             return 0;
     }
     int ret=1;
@@ -3319,7 +3319,8 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     // [Advanced]
     conf.ResizeAll     = GetPrivateProfileInt(L"Advanced", L"ResizeAll",       1, inipath);
-    conf.FullScreen    = 1 + 2 * !!GetPrivateProfileInt(L"Advanced", L"FullScreen", 1, inipath);
+    conf.FullScreen    = GetPrivateProfileInt(L"Advanced", L"FullScreen",      1, inipath);
+    conf.BLMaximized   = GetPrivateProfileInt(L"Advanced", L"BLMaximized",     0, inipath);
     conf.AutoRemaximize= GetPrivateProfileInt(L"Advanced", L"AutoRemaximize",  0, inipath);
     conf.SnapThreshold = GetPrivateProfileInt(L"Advanced", L"SnapThreshold",  20, inipath);
     conf.AeroThreshold = GetPrivateProfileInt(L"Advanced", L"AeroThreshold",   5, inipath);

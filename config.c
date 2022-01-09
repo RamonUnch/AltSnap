@@ -1092,6 +1092,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         ReadOptionInt(IDC_MULTIPLEINSTANCES,L"Advanced", L"MultipleInstances",0, -1);
         ReadOptionInt(IDC_NORMRESTORE,      L"General",  L"NormRestore", 0, -1);
         ReadOptionInt(IDC_FULLSCREEN,       L"Advanced", L"FullScreen", 1, -1);
+        ReadOptionInt(IDC_BLMAXIMIZED,      L"Advanced", L"BLMaximized", 1, -1);
         ReadOptionInt(IDC_TITLEBARMOVE,     L"Advanced", L"TitlebarMove", 0, -1);
         ReadOptionInt(IDC_FANCYZONE,        L"Zones",    L"FancyZone", 0, -1);
         ReadOptionInt(IDC_NORESTORE,        L"General",  L"SmartAero", 0, 4);
@@ -1149,6 +1150,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_MAXWITHLCLICK,    l10n->advanced_maxwithlclick);
             SetDlgItemText(hwnd, IDC_RESTOREONCLICK,   l10n->advanced_restoreonclick);
             SetDlgItemText(hwnd, IDC_FULLSCREEN,       l10n->advanced_fullscreen);
+            SetDlgItemText(hwnd, IDC_BLMAXIMIZED,      l10n->advanced_blmaximized);
             SetDlgItemText(hwnd, IDC_TITLEBARMOVE,     l10n->advanced_titlebarmove);
             SetDlgItemText(hwnd, IDC_FANCYZONE,        l10n->advanced_fancyzone);
 			SetDlgItemText(hwnd, IDC_NORESTORE,        l10n->advanced_norestore);
@@ -1162,6 +1164,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             WriteOptionBool(IDC_AUTOREMAXIMIZE,    L"Advanced", L"AutoRemaximize");
             WriteOptionBool(IDC_NORMRESTORE,       L"General",  L"NormRestore");
             WriteOptionBool(IDC_FULLSCREEN,        L"Advanced", L"FullScreen");
+            WriteOptionBool(IDC_BLMAXIMIZED,       L"Advanced", L"BLMaximized");
             WriteOptionBool(IDC_TITLEBARMOVE,      L"Advanced", L"TitlebarMove");
             WriteOptionBool(IDC_FANCYZONE,         L"Zones",    L"FancyZone");
             WriteOptionBoolB(IDC_NORESTORE,        L"General",  L"SmartAero", 2);

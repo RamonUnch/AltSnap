@@ -166,6 +166,7 @@ struct strings {
   wchar_t *advanced_maxwithlclick;
   wchar_t *advanced_restoreonclick;
   wchar_t *advanced_fullscreen;
+  wchar_t *advanced_blmaximized;
   wchar_t *advanced_titlebarmove;
   wchar_t *advanced_fancyzone;
   wchar_t *advanced_norestore;
@@ -324,6 +325,7 @@ struct {
   { &l10n_ini.advanced_maxwithlclick,          L"AdvancedMaxWithLClick"},
   { &l10n_ini.advanced_restoreonclick,         L"AdvancedRestoreOnClick"},
   { &l10n_ini.advanced_fullscreen,             L"AdvancedFullScreen"},
+  { &l10n_ini.advanced_blmaximized,            L"AdvancedBLMaximized"},
   { &l10n_ini.advanced_titlebarmove,           L"AdvancedTitlebarMove"},
   { &l10n_ini.advanced_fancyzone,              L"AdvancedFancyZone"},
   { &l10n_ini.advanced_norestore,              L"AdvancedNoRestore"},
@@ -490,6 +492,7 @@ struct strings en_US = {
  /* maxwithlclick    */   L"&Toggle maximize state with right-click while moving",
  /* restoreonclick   */   L"Rest&ore window with single click like original AltDrag",
  /* fullscreen       */   L"Enable on &full screen windows",
+ /* blmaximized      */   L"&Disable AltSnap on Maximized windows",
  /* titlebarmove     */   L"&Use AltSnap for normal titlebar movement",
  /* fancyzone        */   L"Restore Fancy&Zones snapped windows",
  /* norestore        */   L"Never restore AltSna&pped windows",

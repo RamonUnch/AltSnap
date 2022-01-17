@@ -1261,7 +1261,12 @@ static int pure IsHotkeyy(unsigned char key, const UCHAR *HKlist)
 }
 #define IsHotkey(a)   IsHotkeyy(a, conf.Hotkeys)
 #define IsHotclick(a) IsHotkeyy(a, conf.Hotclick)
-#define IsKillkey(a)  IsHotkeyy(a, conf.Killkey)
+static int pure IsKillkey(unsigned char a)
+{
+    return
+        (0x41 <= a && a <= 0x5A) // A-Z vkeys
+        || IsHotkeyy(a, conf.Killkey) ;
+}
 
 static int IsHotClickPt(const enum button button, const POINT pt, const enum buttonstate bstate)
 {
@@ -2478,7 +2483,7 @@ static int IsFullscreen(HWND hwnd, const RECT *wnd, const RECT *fmon)
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
 
     // no caption and fullscreen window => LSB to 1
-    return ((style&WS_CAPTION) != WS_CAPTION) 
+    return ((style&WS_CAPTION) != WS_CAPTION)
 //        && ((style&WS_SYSMENU) != WS_SYSMENU)
         && EqualRect(wnd, fmon);
 }
@@ -3402,7 +3407,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     readhotkeys(inipath, L"Hotkeys",  L"A4 A5",   conf.Hotkeys);
     readhotkeys(inipath, L"Shiftkeys",L"A0 A1",   conf.Shiftkeys);
     readhotkeys(inipath, L"Hotclicks",L"",        conf.Hotclick);
-    readhotkeys(inipath, L"Killkeys", L"09 4C 2E",conf.Killkey);
+    readhotkeys(inipath, L"Killkeys", L"09 2E",   conf.Killkey);
 
     conf.ModKey     = readsinglekey(inipath, L"ModKey", L"");
     conf.HScrollKey = readsinglekey(inipath, L"HScrollKey", L"10"); // VK_SHIFT

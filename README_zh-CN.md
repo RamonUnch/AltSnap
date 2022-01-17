@@ -27,7 +27,7 @@
 
 最后，它修复了原始AltDrag中的大量不良行为和错误。
 
-新东西
+新东西：
 
 在选项对话框中可以看到许多新功能，但其中一些功能只能通过编辑AltSnap.ini文件才能使用（用鼠标中键单击该文件的托盘图标）。
 
@@ -37,4 +37,4 @@ AltSnap使用gcc构建，我使用Mingw-w64（对于i686）。
 `> make` 用于i386 Win32的构建
 `> make -fMakefileX64` 用于x86_64构建。
 `> make -fMakefileX64db` 用于构建x86_64的调试版本。
-您也可以使用 mk.bart 和 mk64.bat 文件。
+您也可以使用mk.bart和mk64.bat文件。

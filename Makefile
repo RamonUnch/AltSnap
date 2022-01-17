@@ -6,16 +6,16 @@ INCLUDE=-IC:\msys64\mingw32\i686-w64-mingw32\include -ID:\Straw\M81\mingw32\i686
 WARNINGS=-Wall -Wformat-security -Wstrict-overflow -Wsign-compare -Wclobbered \
     -Wempty-body -Wignored-qualifiers -Wuninitialized -Wtype-limits -Woverride-init \
     -Wlogical-op -Wno-multichar -Wno-attributes -Wduplicated-cond -Wduplicated-branches \
-    -Wnull-dereference -Wno-unused-function -Wshadow -Wstack-usage=4096
+    -Wnull-dereference -Wno-unused-function -Wshadow -Warray-bounds=2 -Wstack-usage=4096 -Werror=vla
 
 # -Wunused-parameter
 # -Wtraditional-conversion
-#-fira-region=one/mixed
+# -fira-region=one/mixed
 # -Wstack-usage=2048
 
 OPTI=-O2 -fira-region=mixed -fno-align-functions -fno-align-jumps -fno-align-labels -fno-align-loops -freorder-blocks-algorithm=simple -fno-tree-ch
 #  -fshort-enums
-CFLAGS=-Os -fno-stack-check -fno-stack-protector -fno-ident -fomit-frame-pointer \
+CFLAGS=-Os -std=c99 -fno-stack-check -fno-stack-protector -fno-ident -fomit-frame-pointer \
     -mno-stack-arg-probe -m32 -march=i386 -mtune=i686 -mpreferred-stack-boundary=2 -momit-leaf-frame-pointer \
     -nostdlib -lmsvcrt -lkernel32 -luser32 -lgdi32 -s -fgcse-sm -fgcse-las -fno-plt \
     -Wl,-s,-dynamicbase,-nxcompat,--no-seh,--relax,--disable-runtime-pseudo-reloc,--enable-auto-import,--disable-stdcall-fixup \

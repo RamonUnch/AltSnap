@@ -19,6 +19,7 @@
 
 #define QWORD unsigned long long
 #ifdef WIN64
+    #define CopyRect(x, y) (*(x) = *(y));
     #define DorQWORD QWORD
     #define HIWORDPTR(ll)   ((DWORD) (((QWORD) (ll) >> 32) & 0xFFFFFFFF))
     #define LOWORDPTR(ll)   ((DWORD) (ll))
@@ -29,7 +30,6 @@
     #define LOWORDPTR(l)   ((WORD) (l))
     #define MAKELONGPTR(lo, hi) ((DWORD) (((WORD) (lo)) | ((DWORD) ((WORD) (hi))) << 16))
 #endif
-
 #ifndef LOBYTE
 #define LOBYTE(w) ((BYTE)(w))
 #endif
@@ -291,6 +291,7 @@ static void InflateRectBorder(RECT *__restrict__ rc, const RECT *bd)
     rc->right  += bd->right;
     rc->bottom += bd->bottom;
 }
+
 static void DeflateRectBorder(RECT *__restrict__ rc, const RECT *bd)
 {
     rc->left   += bd->left;

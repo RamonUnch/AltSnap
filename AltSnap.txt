@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTSNAP for NT4 to Win10                         *
 *  Modified by Raymond Gillibert from original AltDrag by Stefan Sundin   *
-*                      release 1.49 (January 8, 2022)                     *
+*                     release 1.49 (January 19, 2022)                     *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltSnap/releases/         *
@@ -188,21 +188,40 @@ Note that this version has some more feature.
 
  * New: New way of arranging your windows: Grid mode. It replaces the snap
    layout with a simple grid than can be configured in the ini file. You can
+   Set `UseZones=3` in the [Zones] section of the .ini file to enable grid mode
+   then you can set the number of grid lines/columns using the `GridNx/GridNy`
+   options. Gor Grid mode I suggest to set UseZones=7 (3+4) so that the window
+   get extended without having to press Ctrl.
+
+ * New option to disable AltSnap on Maximized windows (advanced tab)
+   You can also use the `BLMaximized` option in the .ini file.
 
  * New: AltSnap can now be activated with a long mouse click, check the
    corresponding option at the bottom of the Mouse tab. Default long click
-   delay is the system doubleclick delay, it can also be manually set via the
-   `LongClickMove` option in the ini file. Onmy the left click for movement
-   is supported, it was suggested by @actforjason.
+   delay is the system double-click delay, it can also be manually set via
+   the `LongClickMove` option in the ini file. Only the left click for
+   movement is supported, it was suggested by @actforjason.
 
- * GUI: `Smarter Aero Snap dimentions` and `Never restore AltSnapped windows`
+ * GUI: `Smarter Aero Snap dimensions` and `Never restore AltSnapped windows`
    options were added to the GUI so they can be configured easily.
+
+ * Fix: When using the Kill Action on a suspended window, AltSnap will send
+   the WM_CLOSE message and the terminate confirmation should appear. For now
+   it is impossible to really kill the process via AltSnap because its
+   window is Ghosted as soon as windows detects the process is hung.
+
+ * Fix: Never restore AltSnapped windows option can be combined with Smart
+   aero snap dimensions, and perform properly (#133)
+
+ * Fix: Now all keys from A-Z are in the Killkeys list to avoid interaction
+   with system shortcuts that might put AltSnap in an inconsistent state
+   ie: Win+L, Win+V...
 
  * Fix: The Close Action now behaves correctly on Excel.
 
  * Fix: Maximum number of zones in the snap layout was raised to 2048.
 
- * Updated german and chinese translations.
+ * Updated German and Chinese translations.
 
 == AltSnap 1.48 ==
 

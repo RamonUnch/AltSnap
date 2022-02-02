@@ -154,3 +154,4 @@
 #define IDC_NORESTORE                   2076
 #define IDC_LONGCLICKMOVE               2077
 #define IDC_BLMAXIMIZED                 2078
+#define IDC_PIERCINGCLICK               2079

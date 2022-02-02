@@ -18,7 +18,7 @@
 // App
 #define APP_NAME       L"AltSnap"
 #define APP_NAMEA      "AltSnap"
-#define APP_VERSION    "1.49"
+#define APP_VERSION    "1.50"
 #define APP_PROPPT     APP_NAMEA"-RestoreDimentions"
 #define APP_PROPFL     APP_NAMEA"-RestoreFlag"
 #define APP_PROPOFFSET APP_NAMEA"-RestoreOffset"
@@ -35,11 +35,13 @@
 #define WM_UPDATESETTINGS (WM_USER+8)
 #define WM_ADDTRAY        (WM_USER+9)
 #define WM_HIDETRAY       (WM_USER+10)
+#define WM_REHOOKKEYBOARD (WM_USER+11)
 
 
 // List of possible actions
 enum action { AC_NONE=0, AC_MOVE, AC_RESIZE, AC_MENU, AC_MINIMIZE, AC_MAXIMIZE, AC_CENTER
-            , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_BORDERLESS, AC_KILL, AC_MAXHV, AC_MINALL
+            , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_BORDERLESS, AC_KILL
+            , AC_MAXHV, AC_MINALL, AC_MUTE
             , AC_ROLL, AC_ALTTAB, AC_VOLUME, AC_TRANSPARENCY, AC_HSCROLL, AC_SIZEPS };
 
 #define MOUVEMENT(action) (action <= AC_RESIZE)

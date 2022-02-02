@@ -135,7 +135,7 @@ static void OpenConfig(int startpage)
 
     // Define the property sheet
     PROPSHEETHEADER psh = { sizeof(PROPSHEETHEADER) };
-    psh.dwFlags = PSH_PROPSHEETPAGE|PSH_USECALLBACK|PSH_USEHICON ;
+    psh.dwFlags = PSH_PROPSHEETPAGE|PSH_USECALLBACK|PSH_USEHICON;
     psh.hwndParent = NULL;
     psh.hInstance = g_hinst;
     psh.hIcon = LoadIconA(g_hinst, iconstr[1]);
@@ -146,6 +146,7 @@ static void OpenConfig(int startpage)
     psh.nStartPage = startpage;
 
     // Open the property sheet
+    InitCommonControls();
     PropertySheet(&psh);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -212,6 +213,26 @@ static void UpdateStrings()
         }
     }
 }
+#if 0
+DWORD WINAPI MoveToCursorInThread(LPVOID v)
+{
+    Sleep(1);
+    POINT pt;
+    WINDOWPLACEMENT wndpl;
+    GetCursorPos(&pt);
+    GetWindowPlacement(g_cfgwnd, &wndpl);
+    long h = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
+    long w = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
+    wndpl.rcNormalPosition.left  = pt.x;
+    wndpl.rcNormalPosition.top   = pt.y;
+    wndpl.rcNormalPosition.right = pt.x+w;
+    wndpl.rcNormalPosition.bottom= pt.y+h;
+    wndpl.showCmd = SW_SHOW;
+    SetWindowPlacement(g_cfgwnd, &wndpl);
+
+    return 0;
+}
+#endif
 /////////////////////////////////////////////////////////////////////////////
 BOOL CALLBACK PropSheetProc(HWND hwnd, UINT msg, LPARAM lParam)
 {
@@ -222,6 +243,8 @@ BOOL CALLBACK PropSheetProc(HWND hwnd, UINT msg, LPARAM lParam)
         // Set new icon specifically for the taskbar and Alt+Tab, without changing window icon
         HICON taskbar_icon = LoadImageA(g_hinst, "APP_ICON", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
         SendMessage(g_cfgwnd, WM_SETICON, ICON_BIG, (LPARAM) taskbar_icon);
+//        DWORD id;
+//        CreateThread(NULL, 0, MoveToCursorInThread, NULL, 0, &id);
     }
     return TRUE;
 }
@@ -304,9 +327,9 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         ReadOptionInt(IDC_STICKYRESIZE,  L"General",    L"StickyResize", 1, 1);
         ReadOptionInt(IDC_INACTIVESCROLL,L"General",    L"InactiveScroll", 0, -1);
         ReadOptionInt(IDC_MDI,           L"General",    L"MDI", 1, -1);
-        ReadOptionInt(IDC_FULLWIN,       L"Performance",L"FullWin", 1, -1);
         ReadOptionInt(IDC_RESIZEALL,     L"Advanced",   L"ResizeAll", 1, -1);
         ReadOptionInt(IDC_USEZONES,      L"Zones",      L"UseZones", 0, 1);
+        ReadOptionInt(IDC_PIERCINGCLICK, L"Advanced",   L"PiercingClick", 0, -1);
 
         ret = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
         ret = ret==1? IDC_RZCENTER_NORM: ret==2? IDC_RZCENTER_MOVE: IDC_RZCENTER_BR;
@@ -367,7 +390,6 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE), autostart);
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), autostart && VISTA);
             if(WIN10) Button_Enable(GetDlgItem(hwnd, IDC_INACTIVESCROLL), IsChecked(IDC_INACTIVESCROLL));
-            if(HaveDWM()) Button_Enable(GetDlgItem(hwnd, IDC_FULLWIN), !IsChecked(IDC_FULLWIN));
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             wchar_t txt[8];
             WriteOptionBool(IDC_AUTOFOCUS,     L"General",    L"AutoFocus");
@@ -377,9 +399,9 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             WriteOptionBoolB(IDC_STICKYRESIZE, L"General",    L"StickyResize", 0);
             WriteOptionBool(IDC_INACTIVESCROLL,L"General",    L"InactiveScroll");
             WriteOptionBool(IDC_MDI,           L"General",    L"MDI");
-            WriteOptionBool(IDC_FULLWIN,       L"Performance",L"FullWin");
             WriteOptionBool(IDC_RESIZEALL,     L"Advanced",   L"ResizeAll");
             WriteOptionBoolB(IDC_USEZONES,     L"Zones",      L"UseZones", 0);
+            WriteOptionBool(IDC_PIERCINGCLICK, L"Advanced",   L"PiercingClick");
 
             int val = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_AUTOSNAP));
             WritePrivateProfileString(L"General",    L"AutoSnap", _itow(val, txt, 10), inipath);
@@ -401,6 +423,11 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             UpdateSettings();
             have_to_apply = 0;
         }
+//    } else if (msg == WM_HELP) {
+//        LPHELPINFO hli = (LPHELPINFO)lParam;
+//        switch(hli->iCtrlId){
+//        case IDC_AUTOFOCUS: MessageBoxA(NULL, NULL, NULL, 0);
+//        }
     }
     if (updatestrings) {
         // Update text
@@ -414,8 +441,8 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         SetDlgItemText(hwnd, IDC_MDI,              l10n->general_mdi);
         SetDlgItemText(hwnd, IDC_AUTOSNAP_HEADER,  l10n->general_autosnap);
         SetDlgItemText(hwnd, IDC_LANGUAGE_HEADER,  l10n->general_language);
-        SetDlgItemText(hwnd, IDC_FULLWIN,          l10n->general_fullwin);
         SetDlgItemText(hwnd, IDC_USEZONES,         l10n->general_usezones);
+        SetDlgItemText(hwnd, IDC_PIERCINGCLICK,    l10n->general_piercingclick);
         SetDlgItemText(hwnd, IDC_RESIZEALL,        l10n->general_resizeall);
         SetDlgItemText(hwnd, IDC_RESIZECENTER,     l10n->general_resizecenter);
         SetDlgItemText(hwnd, IDC_RZCENTER_NORM,    l10n->general_resizecenter_norm);
@@ -599,6 +626,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"Center",      l10n->input_actions_center},
         {L"MaximizeHV",  l10n->input_actions_maximizehv},
         {L"MinAllOther", l10n->input_actions_minallother},
+        {L"mute",        l10n->input_actions_mute},
         {L"Menu",        l10n->input_actions_menu},
         {L"Nothing",     l10n->input_actions_nothing},
         {NULL, NULL}
@@ -952,7 +980,11 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             }
             SetDlgItemText(page, IDC_GWLSTYLE, _itow(GetWindowLongPtr(window, GWL_STYLE), txt, 16));
             SetDlgItemText(page, IDC_GWLEXSTYLE, _itow(GetWindowLongPtr(window, GWL_EXSTYLE), txt, 16));
-            SetDlgItemText(page, IDC_NCHITTEST, _itow(HitTestTimeout(nwindow, pt.x, pt.y), txt, 10));
+            _itow(HitTestTimeout(nwindow, pt.x, pt.y), txt, 10);
+            wchar_t tt[8];
+            _itow(HitTestTimeout(window, pt.x, pt.y), tt, 10);
+            wcscat(txt, L"/");wcscat(txt, tt);
+            SetDlgItemText(page, IDC_NCHITTEST, txt);
             RECT rc;
             if (GetWindowRectL(window, &rc)) {
                 SetDlgItemText(page, IDC_RECT, RectToStr(&rc, txt));
@@ -1059,7 +1091,7 @@ static HWND NewTestWindow()
     HWND testwnd;
     WNDCLASSEX wnd = {
         sizeof(WNDCLASSEX)
-      , CS_HREDRAW|CS_VREDRAW
+      , CS_HREDRAW|CS_VREDRAW|CS_BYTEALIGNCLIENT
       , TestWindowProc
       , 0, 0, g_hinst, LoadIconA(g_hinst, iconstr[1])
       , LoadCursor(NULL, IDC_ARROW)

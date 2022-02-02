@@ -310,6 +310,7 @@ static void FixDWMRectLL(HWND hwnd, RECT *bbb, const int SnapGap)
         CopyRect(bbb, &frame);
     } else {
         SetRectEmpty(bbb);
+        //SetRect(bbb, 10, 10, 10, 10);
     }
     if (SnapGap) OffsetRect(bbb, -SnapGap, -SnapGap);
 }

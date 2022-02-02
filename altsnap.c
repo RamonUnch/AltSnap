@@ -154,6 +154,9 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
         InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
         InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_KILL, l10n->input_actions_kill);
     }
+//    InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
+//    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MUTE, l10n->input_actions_mute);
+
     InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
     InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_NONE, l10n->input_actions_nothing);
     SetForegroundWindow(hwnd);
@@ -177,8 +180,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             ShellExecute(NULL, L"open", inipath, NULL, NULL, SW_SHOWNORMAL);
         } else if (lParam == WM_RBUTTONUP) {
             ShowContextMenu(hwnd);
-        } else if (lParam == NIN_BALLOONTIMEOUT && hide) {
-            RemoveTray();
+//        } else if (lParam == NIN_BALLOONTIMEOUT && hide) {
+//            RemoveTray();
         }
     } else if (msg == WM_SCLICK && wParam) {
         ShowSClickMenu((HWND)wParam, lParam);
@@ -188,6 +191,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             UnhookSystem();
             HookSystem();
         }
+//    } else if (WM_REHOOKKEYBOARD) {
+//        showerror = 0;
+//        UnhookSystem();
+//        HookSystem();
+//        showerror = 1;
     } else if (msg == WM_ADDTRAY) {
         hide = 0;
         UpdateTray();
@@ -324,7 +332,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
 
     // Create window
     WNDCLASSEX wnd =
-        { sizeof(WNDCLASSEX), 0, WindowProc, 0, 0, hInst, NULL, NULL
+        { sizeof(WNDCLASSEX), CS_BYTEALIGNCLIENT|CS_BYTEALIGNWINDOW|CS_CLASSDC
+        , WindowProc, 0, 0, hInst, NULL, NULL
         , (HBRUSH) (COLOR_WINDOW + 1), NULL, APP_NAME, NULL };
     BOOL regg = RegisterClassEx(&wnd);
     LOG("Register main APP Window: %s", regg? "Sucess": "Failed");

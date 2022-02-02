@@ -92,7 +92,7 @@ static void DelWindowFromDB(HWND hwnd)
 }
 /////////////////////////////////////////////////////////////////////////////
 // Windows restore data are saved in properties
-// In 32b mode width and height are shrinked to 16b WORDS
+// In 32b mode width and height are shrunk to 16b WORDS
 // In 64b mode width and height are stored on 32b DWORDS
 // I 64b mode we also check for FancyZone info that are stored the same way!
 // There is a lot of cast because of annoying warnings...

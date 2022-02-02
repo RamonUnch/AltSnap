@@ -2258,7 +2258,96 @@ static int ActionMove(POINT pt, int button)
     }
     return 0;
 }
+static void SnapToCorner()
+{
+    SetOriginFromRestoreData(state.hwnd, AC_MOVE);
+    state.action = AC_NONE; // Stop resize action
+    state.clicktime = 0;    // Reset double-click time
+    state.blockmouseup = 1; // Block the mouseup
 
+    // Get and set new position
+    int posx, posy; // wndwidth and wndheight are defined above
+    int restore = 1;
+    RECT *mon = &state.origin.mon;
+    RECT bd, wnd;
+    GetWindowRect(state.hwnd, &wnd);
+    FixDWMRect(state.hwnd, &bd);
+    int wndwidth  = wnd.right  - wnd.left;
+    int wndheight = wnd.bottom - wnd.top;
+
+    if (!state.shift ^ !(conf.AeroTopMaximizes&2)) {
+    /* Extend window's borders to monitor */
+        posx = wnd.left - mdiclientpt.x;
+        posy = wnd.top - mdiclientpt.y;
+
+        if (state.resize.y == RZ_TOP) {
+            posy = mon->top - bd.top;
+            wndheight = CLAMPH(wnd.bottom-mdiclientpt.y - mon->top + bd.top);
+        } else if (state.resize.y == RZ_BOTTOM) {
+            wndheight = CLAMPH(mon->bottom - wnd.top+mdiclientpt.y + bd.bottom);
+        }
+        if (state.resize.x == RZ_RIGHT) {
+            wndwidth =  CLAMPW(mon->right - wnd.left+mdiclientpt.x + bd.right);
+        } else if (state.resize.x == RZ_LEFT) {
+            posx = mon->left - bd.left;
+            wndwidth =  CLAMPW(wnd.right-mdiclientpt.x - mon->left + bd.left);
+        } else if (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER) {
+            wndwidth = CLAMPW(mon->right - mon->left + bd.left + bd.right);
+            posx = mon->left - bd.left;
+            posy = wnd.top - mdiclientpt.y + bd.top ;
+            restore |= SNMAXW;
+        }
+    } else { /* Aero Snap to corresponding side/corner */
+        int leftWidth, rightWidth, topHeight, bottomHeight;
+        EnumSnapped();
+        GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, mon);
+        wndwidth =  leftWidth;
+        wndheight = topHeight;
+        posx = mon->left;
+        posy = mon->top;
+        restore = SNTOPLEFT;
+
+        if (state.resize.y == RZ_CENTER) {
+            wndheight = CLAMPH(mon->bottom - mon->top); // Max Height
+            posy += (mon->bottom - mon->top)/2 - wndheight/2;
+            restore &= ~SNTOP;
+        } else if (state.resize.y == RZ_BOTTOM) {
+            wndheight = bottomHeight;
+            posy = mon->bottom - wndheight;
+            restore &= ~SNTOP;
+            restore |= SNBOTTOM;
+        }
+
+        if (state.resize.x == RZ_CENTER && state.resize.y != RZ_CENTER) {
+            wndwidth = CLAMPW( (mon->right-mon->left) ); // Max width
+            posx += (mon->right - mon->left)/2 - wndwidth/2;
+            restore &= ~SNLEFT;
+        } else if (state.resize.x == RZ_CENTER) {
+            restore &= ~SNLEFT;
+            if(state.resize.y == RZ_CENTER) {
+                restore |= SNMAXH;
+                if(state.ctrl) {
+                    ToggleMaxRestore(state.hwnd);
+                    return;
+                }
+            }
+            wndwidth = wnd.right - wnd.left - bd.left - bd.right;
+            posx = wnd.left - mdiclientpt.x + bd.left;
+        } else if (state.resize.x == RZ_RIGHT) {
+            wndwidth = rightWidth;
+            posx = mon->right - wndwidth;
+            restore |= SNRIGHT;
+            restore &= ~SNLEFT;
+        }
+        // FixDWMRect
+        posx -= bd.left; posy -= bd.top;
+        wndwidth += bd.left+bd.right; wndheight += bd.top+bd.bottom;
+    }
+
+    MoveWindowAsync(state.hwnd, posx, posy, wndwidth, wndheight);
+    // Save data to the window...
+    SetRestoreData(state.hwnd, state.origin.width, state.origin.height, SNAPPED|restore);
+}
 /////////////////////////////////////////////////////////////////////////////
 static int ActionResize(POINT pt, const RECT *wnd, int button)
 {
@@ -2302,91 +2391,7 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
 
     // Aero-move this window if this is a double-click
     if (IsDoubleClick(button)) {
-        SetOriginFromRestoreData(state.hwnd, AC_MOVE);
-        state.action = AC_NONE; // Stop resize action
-        state.clicktime = 0;    // Reset double-click time
-        state.blockmouseup = 1; // Block the mouseup
-
-        // Get and set new position
-        int posx, posy; // wndwidth and wndheight are defined above
-        int restore = 1;
-        RECT *mon = &state.origin.mon;
-        RECT bd;
-        FixDWMRect(state.hwnd, &bd);
-
-        if (!state.shift ^ !(conf.AeroTopMaximizes&2)) {
-        /* Extend window's borders to monitor */
-            posx = wnd->left - mdiclientpt.x;
-            posy = wnd->top - mdiclientpt.y;
-
-            if (state.resize.y == RZ_TOP) {
-                posy = mon->top - bd.top;
-                wndheight = CLAMPH(wnd->bottom-mdiclientpt.y - mon->top + bd.top);
-            } else if (state.resize.y == RZ_BOTTOM) {
-                wndheight = CLAMPH(mon->bottom - wnd->top+mdiclientpt.y + bd.bottom);
-            }
-            if (state.resize.x == RZ_RIGHT) {
-                wndwidth =  CLAMPW(mon->right - wnd->left+mdiclientpt.x + bd.right);
-            } else if (state.resize.x == RZ_LEFT) {
-                posx = mon->left - bd.left;
-                wndwidth =  CLAMPW(wnd->right-mdiclientpt.x - mon->left + bd.left);
-            } else if (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER) {
-                wndwidth = CLAMPW(mon->right - mon->left + bd.left + bd.right);
-                posx = mon->left - bd.left;
-                posy = wnd->top - mdiclientpt.y + bd.top ;
-                restore |= SNMAXW;
-            }
-        } else { /* Aero Snap to corresponding side/corner */
-            int leftWidth, rightWidth, topHeight, bottomHeight;
-            EnumSnapped();
-            GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, mon);
-            wndwidth =  leftWidth;
-            wndheight = topHeight;
-            posx = mon->left;
-            posy = mon->top;
-            restore = SNTOPLEFT;
-
-            if (state.resize.y == RZ_CENTER) {
-                wndheight = CLAMPH(mon->bottom - mon->top); // Max Height
-                posy += (mon->bottom - mon->top)/2 - wndheight/2;
-                restore &= ~SNTOP;
-            } else if (state.resize.y == RZ_BOTTOM) {
-                wndheight = bottomHeight;
-                posy = mon->bottom - wndheight;
-                restore &= ~SNTOP;
-                restore |= SNBOTTOM;
-            }
-
-            if (state.resize.x == RZ_CENTER && state.resize.y != RZ_CENTER) {
-                wndwidth = CLAMPW( (mon->right-mon->left) ); // Max width
-                posx += (mon->right - mon->left)/2 - wndwidth/2;
-                restore &= ~SNLEFT;
-            } else if (state.resize.x == RZ_CENTER) {
-                restore &= ~SNLEFT;
-                if(state.resize.y == RZ_CENTER) {
-                    restore |= SNMAXH;
-                    if(state.ctrl) {
-                        ToggleMaxRestore(state.hwnd);
-                        return 1;
-                    }
-                }
-                wndwidth = wnd->right - wnd->left - bd.left - bd.right;
-                posx = wnd->left - mdiclientpt.x + bd.left;
-            } else if (state.resize.x == RZ_RIGHT) {
-                wndwidth = rightWidth;
-                posx = mon->right - wndwidth;
-                restore |= SNRIGHT;
-                restore &= ~SNLEFT;
-            }
-            // FixDWMRect
-            posx -= bd.left; posy -= bd.top;
-            wndwidth += bd.left+bd.right; wndheight += bd.top+bd.bottom;
-        }
-
-        MoveWindowAsync(state.hwnd, posx, posy, wndwidth, wndheight);
-        // Save data to the window...
-        SetRestoreData(state.hwnd, state.origin.width, state.origin.height, SNAPPED|restore);
-
+        SnapToCorner();
         // Prevent mousedown from propagating
         return 1;
     }
@@ -2870,7 +2875,28 @@ static void FinishMovement()
         HideCursor();
     }
 }
-
+/////////////////////////////////////////////////////////////////////////////
+// state.action is the current action
+static void ClickComboActions(enum action action)
+{
+    // Maximize/Restore the window if pressing Move, Resize mouse buttons.
+    if(state.action == AC_MOVE && action == AC_RESIZE) {
+        if (LastWin.hwnd) Sleep(10);
+        if (IsZoomed(state.hwnd)) {
+            state.moving = 0;
+            MouseMove(state.prevpt);
+        } else if (state.resizable) {
+            state.moving = CURSOR_ONLY; // So that MouseMove will only move g_mainhwnd
+            HideTransWin();
+            Maximize_Restore_atpt(state.hwnd, &state.prevpt, SW_MAXIMIZE, NULL);
+        }
+    } else if (state.action == AC_RESIZE && action == AC_MOVE) {
+        HideTransWin();
+        SnapToCorner();
+    }
+    LastWin.hwnd = NULL;
+    state.blockmouseup = 1;
+}
 /////////////////////////////////////////////////////////////////////////////
 // This is somewhat the main function, it is active only when the ALT key is
 // pressed, or is always on when conf.keepMousehook is enabled.
@@ -2957,20 +2983,8 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 
     // Handle another click if we are already busy with an action
     if (buttonstate == STATE_DOWN && state.action && state.action != conf.GrabWithAlt[ModKey()]) {
-        // Maximize/Restore the window if pressing Move, Resize mouse buttons.
-        if ((conf.MMMaximize&1) && state.action == AC_MOVE && action == AC_RESIZE) {
-            if (LastWin.hwnd) Sleep(10);
-            if (IsZoomed(state.hwnd)) {
-                state.moving = 0;
-                MouseMove(pt);
-            } else if (state.resizable) {
-                state.moving = CURSOR_ONLY; // So that MouseMove will only move g_mainhwnd
-                HideTransWin(); //ShowWindow(g_transhwnd, SW_HIDE);
-                Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
-                LastWin.hwnd = NULL;
-            }
-            state.blockmouseup = 1;
-        }
+        if ((conf.MMMaximize&1))
+            ClickComboActions(action); // Handle click combo!
         return 1; // Block mousedown so AltDrag.exe does not remove g_mainhwnd
 
     // INIT ACTIONS on mouse down if Alt is down...

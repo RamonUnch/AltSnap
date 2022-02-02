@@ -9,10 +9,6 @@
 #include "hooks.h"
 #define LONG_CLICK_MOVE
 #define COBJMACROS
-#ifdef OLD_VOLUME
-#include <mmdeviceapi.h>
-#include <endpointvolume.h>
-#endif
 BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
 
 // Boring stuff
@@ -24,9 +20,9 @@ BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
 #define NOT_MOVED 33
 #define STACK 0x1000
 
-HWND g_transhwnd[4];
-HWND g_timerhwnd;
-HWND g_mchwnd;
+HWND g_transhwnd[4]; // 4 windows to make a hollow window
+HWND g_timerhwnd;    // For various timers
+HWND g_mchwnd;       // For the Action menu messages
 static void UnhookMouse();
 static void HookMouse();
 
@@ -37,6 +33,7 @@ enum buttonstate {STATE_NONE, STATE_DOWN, STATE_UP};
 
 static int init_movement_and_actions(POINT pt, enum action action, int button);
 static void FinishMovement();
+static void MoveTransWin(int x, int y, int w, int h);
 
 static struct windowRR {
     HWND hwnd;
@@ -50,6 +47,10 @@ static struct windowRR {
 
 // State
 static struct {
+    struct {
+        POINT Min;
+        POINT Max;
+    } mmi;
     POINT clickpt;
     POINT prevpt;
     POINT ctrlpt;
@@ -90,11 +91,6 @@ static struct {
     struct {
         enum resize x, y;
     } resize;
-
-    struct {
-        POINT Min;
-        POINT Max;
-    } mmi;
 } state;
 // mdiclientpt is global!
 // initialized by init_movement_and_actions
@@ -954,7 +950,6 @@ static void Maximize_Restore_atpt(HWND hwnd, const POINT *pt, UINT sw_cmd, HMONI
         MoveWindowAsync(hwnd, fmon.left, fmon.top, fmon.right-fmon.left, fmon.bottom-fmon.top);
     }
 }
-static void MoveTransWin(int x, int y, int w, int h);
 
 /////////////////////////////////////////////////////////////////////////////
 // Move the windows in a thread in case it is very slow to resize
@@ -1444,14 +1439,13 @@ static void MoveTransWin(int x, int y, int w, int h)
 {
       #define f SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER
       HDWP hwndSS = BeginDeferWindowPos(4);
-      if(hwndSS) hwndSS = DeferWindowPos(hwndSS,g_transhwnd[0],NULL,  x    , y    , w  , 4, f);
-      if(hwndSS) hwndSS = DeferWindowPos(hwndSS,g_transhwnd[1],NULL,  x    , y    , 4  , h, f);
-      if(hwndSS) hwndSS = DeferWindowPos(hwndSS,g_transhwnd[2],NULL,  x    , y+h-4, w  , 4, f);
-      if(hwndSS) hwndSS = DeferWindowPos(hwndSS,g_transhwnd[3],NULL,  x+w-4, y    , 4  , h, f);
-
+      if(hwndSS) hwndSS = DeferWindowPos(hwndSS,g_transhwnd[0],NULL,  x    , y    , w, 4, f);
+      if(hwndSS) hwndSS = DeferWindowPos(hwndSS,g_transhwnd[1],NULL,  x    , y    , 4, h, f);
+      if(hwndSS) hwndSS = DeferWindowPos(hwndSS,g_transhwnd[2],NULL,  x    , y+h-4, w, 4, f);
+      if(hwndSS) hwndSS = DeferWindowPos(hwndSS,g_transhwnd[3],NULL,  x+w-4, y    , 4, h, f);
+      #undef f
       if(hwndSS) EndDeferWindowPos(hwndSS);
 }
-#undef f
 ///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
 {
@@ -1660,6 +1654,8 @@ static void Send_KEY(unsigned char vkey)
 }
 #define Send_CTRL() Send_KEY(VK_CONTROL)
 
+/////////////////////////////////////////////////////////////////////////////
+// Sends the click down/click up sequence to the system
 static void Send_Click(enum button button)
 {
 // enum button { BT_NONE=0, BT_LMB=0x02, BT_RMB=0x03, BT_MMB=0x04, BT_MB4=0x05, BT_MB5=0x06 };
@@ -1670,11 +1666,13 @@ static void Send_Click(enum button button)
         , MOUSEEVENTF_XDOWN, MOUSEEVENTF_XDOWN
         };
     if (!button) return;
+
     state.ignorekey = 1;
     DWORD MouseEvent = bmapping[button];
     DWORD mdata = 0;
     if(MouseEvent==MOUSEEVENTF_XDOWN) // XBUTTON
-        mdata = button - 0x04; //1 for X1 and 2 for X2
+        mdata = button - 0x04; // mdata = 1 for X1 and 2 for X2
+    // MouseEvent<<1 corresponds to MOUSEEVENTF_*UP
     MOUSEINPUT click[2] = { {0, 0, mdata, MouseEvent, 0, 0}
                           , {0, 0, mdata, MouseEvent<<1, 0, 0} };
     click[0].dwExtraInfo = click[1].dwExtraInfo = GetMessageExtraInfo();
@@ -1683,6 +1681,7 @@ static void Send_Click(enum button button)
     SendInput(2, input, sizeof(INPUT));
     state.ignorekey = 0;
 }
+
 ///////////////////////////////////////////////////////////////////////////
 static void RestrictToCurentMonitor()
 {
@@ -1715,27 +1714,7 @@ static void HotkeyUp()
         UnhookMouse();
     }
 }
-///////////////////////////////////////////////////////////////////////////
-//
-/*BOOL CALLBACK FindHungWindowProc(HWND hwnd, LPARAM lp)
-{
-	if(IsHungAppWindow(hwnd)) {
-		// We found the windows!
-		state.hwnd=hwnd;
-		return FALSE;
-	}
-	return TRUE;
-}
-static HWND FindHungWindow(HWND ghost)
-{
-//	title[MAX_PATH];
-//	GetWindowText(ghost, &title, ARR_SZ(title));
-//	title[]
-	if(EnumWindows(FindHungWindowProc, 0))
-		return state.hwnd;
 
-	return NULL;
-}*/
 ///////////////////////////////////////////////////////////////////////////
 static int ActionPause(HWND hwnd, char pause)
 {
@@ -1778,7 +1757,7 @@ static int ActionKill(HWND hwnd)
     wchar_t classn[256];
     if(GetClassName(hwnd, classn, ARR_SZ(classn))
 	&& !wcscmp(classn, L"Ghost")) {
-        PostMessage(hwnd, WM_CLOSE, 0, 0);
+        PostMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0);
 		return 1;
 	}
 
@@ -2091,88 +2070,6 @@ static void ActionVolume(int delta)
         Send_KEY(delta>0? VK_VOLUME_UP: VK_VOLUME_DOWN);
 
     return;
-
-#ifdef OLD_VOLUME
-// Old code with Ole interface for Vista+ and WINMM api for NT4-XP
-    static char HaveV=-1;
-    if (!HaveV) return;
-    if (HaveV == -1) {
-        myCoInitialize = (void *)LoadDLLProc("OLE32.DLL", "CoInitialize");
-        myCoUninitialize= (void *)LoadDLLProc("OLE32.DLL", "CoUninitialize");
-        myCoCreateInstance= (void *)LoadDLLProc("OLE32.DLL", "CoCreateInstance");
-        if (!myCoCreateInstance || !myCoUninitialize || !myCoInitialize) {
-            FreeDLLByName("OLE32.DLL");
-            HaveV = 2; // Fallback to WINMM
-        } else {
-            HaveV = 1;
-        }
-    }
-    if (HaveV == 1) {
-        HRESULT hr;
-        IMMDeviceEnumerator *pDevEnumerator = NULL;
-        IMMDevice *pDev = NULL;
-        IAudioEndpointVolume *pAudioEndpoint = NULL;
-
-        // Get audio endpoint
-        myCoInitialize(NULL); // Needed for IAudioEndpointVolume
-        hr = myCoCreateInstance(&my_CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL
-                              , &my_IID_IMMDeviceEnumerator, (void**)&pDevEnumerator);
-        if (hr != S_OK) {
-            myCoUninitialize();
-            FreeDLLByName("OLE32.DLL");
-            HaveV = 2; // Fallback to WINMM for next call
-            return;
-        }
-
-        hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(pDevEnumerator, eRender, eMultimedia, &pDev);
-        IMMDeviceEnumerator_Release(pDevEnumerator);
-        if (hr != S_OK) return;
-
-        hr = IMMDevice_Activate(pDev, &my_IID_IAudioEndpointVolume, CLSCTX_ALL
-                                    , NULL, (void**)&pAudioEndpoint);
-        IMMDevice_Release(pDev);
-        if (hr != S_OK) return;
-
-        // Function pointer so we only need one for-loop
-        typedef HRESULT WINAPI (*_VolumeStep)(IAudioEndpointVolume*, LPCGUID pguidEventContext);
-        _VolumeStep VolumeStep = (_VolumeStep)(pAudioEndpoint->lpVtbl->VolumeStepDown);
-        if (delta > 0)
-            VolumeStep = (_VolumeStep)(pAudioEndpoint->lpVtbl->VolumeStepUp);
-
-        // Hold shift to make 5 steps
-        UCHAR num = (state.shift)?5:1;
-        while (num--) {
-            hr = VolumeStep(pAudioEndpoint, NULL);
-        }
-
-        IAudioEndpointVolume_Release(pAudioEndpoint);
-        myCoUninitialize();
-    } else {
-        if (HaveV == 2) {
-            mywaveOutGetVolume = LoadDLLProc("WINMM.DLL", "waveOutGetVolume");
-            mywaveOutSetVolume = LoadDLLProc("WINMM.DLL", "waveOutSetVolume");
-            if (!mywaveOutSetVolume  || !mywaveOutGetVolume) {
-                HaveV = 0; // Disable volume change
-                FreeDLLByName("WINMM.DLL");
-                return;
-            }
-            HaveV = 3; // WINMM API found!
-        }
-        DWORD Volume;
-        mywaveOutGetVolume(NULL, &Volume);
-
-        DWORD tmp = Volume&0xFFFF0000 >> 16;
-        int leftV = (int)tmp;
-        tmp = (Volume&0x0000FFFF);
-        int rightV = (int)tmp;
-        rightV += (delta>0? 0x0800: -0x0800) * (state.shift? 4: 1);
-        leftV  += (delta>0? 0x0800: -0x0800) * (state.shift? 4: 1);
-        rightV = CLAMP(0x0000, rightV, 0xFFFF);
-        leftV  = CLAMP(0x0000, leftV, 0xFFFF);
-        Volume = ( ((DWORD)leftV) << 16 ) | ( (DWORD)rightV );
-        mywaveOutSetVolume(NULL, Volume);
-    }
-#endif
 }
 /////////////////////////////////////////////////////////////////////////////
 // Windows 2000+ Only
@@ -3501,6 +3398,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
   # ifdef WIN64
     conf.FancyZone = GetPrivateProfileInt(L"Zones", L"FancyZone", 0, inipath);
   # endif
+
     if (!conf.FullWin) {
         int color[2];
         // Read the color for the TransWin from ini file

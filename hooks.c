@@ -66,7 +66,7 @@ static struct {
     UCHAR alt;
     UCHAR alt1;
     UCHAR blockaltup;
-    UCHAR blockmouseup;
+    char  blockmouseup;
 
     UCHAR ignorekey;
     UCHAR ctrl;
@@ -176,10 +176,12 @@ static struct {
     UCHAR Hotclick[MAXKEYS+1];
     UCHAR Killkey[MAXKEYS+1];
 
-    enum action GrabWithAlt[2];
     struct {
         enum action LMB[2], RMB[2], MMB[2], MB4[2], MB5[2], Scroll[2], HScroll[2];
     } Mouse;
+    enum action GrabWithAlt[2]; // Actions without click
+    enum action MoveUp[2];      // Actions on (long) Move Up w/o drag
+    enum action ResizeUp[2];    // Actions on (long) Resize Up w/o drag
 } conf;
 
 // Blacklist (dynamically allocated)
@@ -1615,9 +1617,9 @@ static void MouseMove(POINT pt)
 
     static struct windowRR TransWin;
     if (!conf.FullWin && !TransWin.hwnd) {
-        RECT bd;
-        FixDWMRectLL(state.hwnd, &bd, 0);
-        TransWin.hwnd = (HWND)!!conf.RefreshRate;
+        static RECT bd;
+        if(!state.moving) FixDWMRectLL(state.hwnd, &bd, 0);
+        TransWin.hwnd = (HWND)(DorQWORD)!!conf.RefreshRate;
         TransWin.x      = posx + mdiclientpt.x + bd.left;
         TransWin.y      = posy + mdiclientpt.y + bd.top;
         TransWin.width  = wndwidth - bd.left - bd.right;
@@ -2239,7 +2241,8 @@ static int ActionMove(POINT pt, int button)
 {
     // If this is a double-click
     if (IsDoubleClick(button)) {
-    	SetOriginFromRestoreData(state.hwnd, AC_MOVE);
+        SetOriginFromRestoreData(state.hwnd, AC_MOVE);
+        LastWin.hwnd = NULL;
         if (state.shift) {
             RollWindow(state.hwnd, 0); // Roll/Unroll Window...
         } else if (state.ctrl) {
@@ -2258,9 +2261,44 @@ static int ActionMove(POINT pt, int button)
     }
     return 0;
 }
-static void SnapToCorner()
+static void SetEdgeAndOffset(const RECT *wnd, POINT pt)
 {
-    SetOriginFromRestoreData(state.hwnd, AC_MOVE);
+    // Set edge and offset
+    // Think of the window as nine boxes (corner regions get 38%, middle only 24%)
+    // Does not use state.origin.width/height since that is based on wndpl.rcNormalPosition
+    // which is not what you see when resizing a window that Windows Aero resized
+    int wndwidth  = wnd->right  - wnd->left;
+    int wndheight = wnd->bottom - wnd->top;
+    int SideS = (100-conf.CenterFraction)/2;
+    int CenteR = 100-SideS;
+
+    if (pt.x-wnd->left < (wndwidth*SideS)/100) {
+        state.resize.x = RZ_LEFT;
+        state.offset.x = pt.x-wnd->left;
+    } else if (pt.x-wnd->left < (wndwidth*CenteR)/100) {
+        state.resize.x = RZ_CENTER;
+        state.offset.x = pt.x-mdiclientpt.x; // Used only if both x and y are CENTER
+    } else {
+        state.resize.x = RZ_RIGHT;
+        state.offset.x = wnd->right-pt.x;
+    }
+    if (pt.y-wnd->top < (wndheight*SideS)/100) {
+        state.resize.y = RZ_TOP;
+        state.offset.y = pt.y-wnd->top;
+    } else if (pt.y-wnd->top < (wndheight*CenteR)/100) {
+        state.resize.y = RZ_CENTER;
+        state.offset.y = pt.y-mdiclientpt.y;
+    } else {
+        state.resize.y = RZ_BOTTOM;
+        state.offset.y = wnd->bottom-pt.y;
+    }
+    // Set window right/bottom origin
+    state.origin.right = wnd->right-mdiclientpt.x;
+    state.origin.bottom = wnd->bottom-mdiclientpt.y;
+}
+static void SnapToCorner(HWND hwnd)
+{
+    SetOriginFromRestoreData(hwnd, AC_MOVE);
     state.action = AC_NONE; // Stop resize action
     state.clicktime = 0;    // Reset double-click time
     state.blockmouseup = 1; // Block the mouseup
@@ -2270,8 +2308,9 @@ static void SnapToCorner()
     int restore = 1;
     RECT *mon = &state.origin.mon;
     RECT bd, wnd;
-    GetWindowRect(state.hwnd, &wnd);
-    FixDWMRect(state.hwnd, &bd);
+    GetWindowRect(hwnd, &wnd);
+    SetEdgeAndOffset(&wnd, state.prevpt); //
+    FixDWMRect(hwnd, &bd);
     int wndwidth  = wnd.right  - wnd.left;
     int wndheight = wnd.bottom - wnd.top;
 
@@ -2327,7 +2366,8 @@ static void SnapToCorner()
             if(state.resize.y == RZ_CENTER) {
                 restore |= SNMAXH;
                 if(state.ctrl) {
-                    ToggleMaxRestore(state.hwnd);
+                    LastWin.hwnd = NULL;
+                    ToggleMaxRestore(hwnd);
                     return;
                 }
             }
@@ -2344,9 +2384,9 @@ static void SnapToCorner()
         wndwidth += bd.left+bd.right; wndheight += bd.top+bd.bottom;
     }
 
-    MoveWindowAsync(state.hwnd, posx, posy, wndwidth, wndheight);
+    MoveWindowAsync(hwnd, posx, posy, wndwidth, wndheight);
     // Save data to the window...
-    SetRestoreData(state.hwnd, state.origin.width, state.origin.height, SNAPPED|restore);
+    SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED|restore);
 }
 /////////////////////////////////////////////////////////////////////////////
 static int ActionResize(POINT pt, const RECT *wnd, int button)
@@ -2356,45 +2396,13 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
         state.action = AC_NONE;
         return 1;
     }
-    // Set edge and offset
-    // Think of the window as nine boxes (corner regions get 38%, middle only 24%)
-    // Does not use state.origin.width/height since that is based on wndpl.rcNormalPosition
-    // which is not what you see when resizing a window that Windows Aero resized
-    int wndwidth  = wnd->right  - wnd->left;
-    int wndheight = wnd->bottom - wnd->top;
-    int SideS = (100-conf.CenterFraction)/2;
-    int CenteR = 100-SideS;
-
-    if (pt.x-wnd->left < (wndwidth*SideS)/100) {
-        state.resize.x = RZ_LEFT;
-        state.offset.x = pt.x-wnd->left;
-    } else if (pt.x-wnd->left < (wndwidth*CenteR)/100) {
-        state.resize.x = RZ_CENTER;
-        state.offset.x = pt.x-mdiclientpt.x; // Used only if both x and y are CENTER
-    } else {
-        state.resize.x = RZ_RIGHT;
-        state.offset.x = wnd->right-pt.x;
-    }
-    if (pt.y-wnd->top < (wndheight*SideS)/100) {
-        state.resize.y = RZ_TOP;
-        state.offset.y = pt.y-wnd->top;
-    } else if (pt.y-wnd->top < (wndheight*CenteR)/100) {
-        state.resize.y = RZ_CENTER;
-        state.offset.y = pt.y-mdiclientpt.y;
-    } else {
-        state.resize.y = RZ_BOTTOM;
-        state.offset.y = wnd->bottom-pt.y;
-    }
-    // Set window right/bottom origin
-    state.origin.right = wnd->right-mdiclientpt.x;
-    state.origin.bottom = wnd->bottom-mdiclientpt.y;
-
     // Aero-move this window if this is a double-click
     if (IsDoubleClick(button)) {
-        SnapToCorner();
+        SnapToCorner(state.hwnd);
         // Prevent mousedown from propagating
         return 1;
     }
+    SetEdgeAndOffset(wnd, pt);
     if (state.resize.y == RZ_CENTER && state.resize.x == RZ_CENTER) {
         if (conf.ResizeCenter == 0) {
             state.resize.x = RZ_RIGHT;
@@ -2405,7 +2413,6 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
             state.action = AC_MOVE;
         }
     }
-
     return 0;
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -2465,6 +2472,7 @@ static void TogglesAlwaysOnTop(HWND hwnd)
 /////////////////////////////////////////////////////////////////////////////
 static void ActionMaximize(HWND hwnd)
 {
+    LastWin.hwnd = NULL;
     if (state.shift) {
         MinimizeWindow(hwnd);
     } else if (IsResizable(hwnd)) {
@@ -2642,8 +2650,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // An action will be performed...
     // Set state
     state.blockaltup = 1;
-    // state.blockkeyup = 1;
-    // return if window as to be moved/resized and does not respond in 1/4 s.
+    // return if window has to be moved/resized and does not respond in 1/4 s.
     if (MOUVEMENT(action)
     && !SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 255, &lpdwResult)) {
         state.blockmouseup = 1;
@@ -2890,12 +2897,14 @@ static void ClickComboActions(enum action action)
             HideTransWin();
             Maximize_Restore_atpt(state.hwnd, &state.prevpt, SW_MAXIMIZE, NULL);
         }
+        state.blockmouseup = 1;
     } else if (state.action == AC_RESIZE && action == AC_MOVE) {
         HideTransWin();
-        SnapToCorner();
+        HideCursor();
+        SnapToCorner(state.hwnd);
+        state.blockmouseup = 2; // block two mouse up events!
     }
     LastWin.hwnd = NULL;
-    state.blockmouseup = 1;
 }
 /////////////////////////////////////////////////////////////////////////////
 // This is somewhat the main function, it is active only when the ALT key is
@@ -3003,18 +3012,28 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     // BUTTON UP
     } else if (buttonstate == STATE_UP) {
         SetWindowTrans(NULL); // Reset window transparency
+
         if (state.blockmouseup) {
-            state.blockmouseup = 0;
+            // block mouse up and decrement counter.
+            state.blockmouseup--;
+            state.blockmouseup = max(0, state.blockmouseup);
             return 1;
+
         } else if (action && MOUVEMENT(action) && state.action == action
         && IsSamePTT(&pt, &state.clickpt)
         && !IsDoubleClick(button)) {
             FinishMovement();
-            // TODO: Add On mouse_UP actions here...
-            // ...
-            // Send the mouse down/up event if the cursor did not move.
-            Send_Click(button);
-            return 1;
+            // Mouse UP actions here only in case of MOVEMENT!:
+            // Perform an action on mouse up without drag on move/resize
+            if (action == AC_MOVE)   action = conf.MoveUp[ModKey()];
+            if (action == AC_RESIZE) action = conf.ResizeUp[ModKey()];
+            if (action > AC_RESIZE) {
+                SClickActions(state.hwnd, action);
+            } else {
+                // Forward the click if no action was Mapped
+                Send_Click(button);
+            }
+            return 1; // block mousedown
 
         } else if (state.action || is_hotclick) {
             FinishMovement();
@@ -3334,6 +3353,8 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {L"Scroll",     L"Nothing", &conf.Mouse.Scroll[0]},
         {L"HScroll",    L"Nothing", &conf.Mouse.HScroll[0]},
         {L"GrabWithAlt",L"Nothing", &conf.GrabWithAlt[0]},
+        {L"MoveUp"     ,L"Nothing", &conf.MoveUp[0]},
+        {L"ResizeUp"   ,L"Nothing", &conf.ResizeUp[0]},
 
         {L"LMBB",       L"Resize",  &conf.Mouse.LMB[1]},
         {L"MMBB",       L"Maximize",&conf.Mouse.MMB[1]},
@@ -3343,6 +3364,8 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {L"ScrollB",    L"Volume",  &conf.Mouse.Scroll[1]},
         {L"HScrollB",   L"Nothing", &conf.Mouse.HScroll[1]},
         {L"GrabWithAltB",L"Nothing", &conf.GrabWithAlt[1]},
+        {L"MoveUpB"    ,L"Nothing", &conf.MoveUp[1]},
+        {L"ResizeUpB"  ,L"Nothing", &conf.ResizeUp[1]},
         {NULL}
     };
     unsigned i;

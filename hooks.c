@@ -66,7 +66,7 @@ static struct {
     UCHAR alt;
     UCHAR alt1;
     UCHAR blockaltup;
-    char  blockmouseup;
+    UCHAR blockmouseup;
 
     UCHAR ignorekey;
     UCHAR ctrl;
@@ -1422,7 +1422,7 @@ static void SetOriginFromRestoreData(HWND hnwd, enum action action)
         ClearRestoreData(state.hwnd);
         rdata_flag=0;
     }
-	// Replace origin width/height if available in the restore Data.
+    // Replace origin width/height if available in the restore Data.
     if (rdata_flag && !state.origin.maximized) {
         state.origin.width = rwidth;
         state.origin.height = rheight;
@@ -1740,11 +1740,11 @@ DWORD WINAPI ActionKillThread(LPVOID hwnd)
 {
     DWORD pid;
     GetWindowThreadProcessId(hwnd, &pid);
-	//LOG("pid=%lu", pid);
+    //LOG("pid=%lu", pid);
 
     // Open the process
     HANDLE proc = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
-	//LOG("proc=%lx", (DWORD)proc);
+    //LOG("proc=%lx", (DWORD)proc);
     if (proc) {
         TerminateProcess(proc, 1);
         CloseHandle(proc);
@@ -1758,10 +1758,10 @@ static int ActionKill(HWND hwnd)
 
     wchar_t classn[256];
     if(GetClassName(hwnd, classn, ARR_SZ(classn))
-	&& !wcscmp(classn, L"Ghost")) {
+    && !wcscmp(classn, L"Ghost")) {
         PostMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0);
-		return 1;
-	}
+        return 1;
+    }
 
     if(blacklistedP(hwnd, &BlkLst.Pause))
        return 0;
@@ -2454,7 +2454,7 @@ static void CenterWindow(HWND hwnd)
     RECT mon;
     POINT pt;
     if (IsZoomed(hwnd)) return;
-	SetOriginFromRestoreData(hwnd, AC_MOVE);
+    SetOriginFromRestoreData(hwnd, AC_MOVE);
     GetCursorPos(&pt);
     GetMonitorRect(&pt, 0, &mon);
     MoveWindowAsync(hwnd
@@ -2887,8 +2887,8 @@ static void FinishMovement()
 static void ClickComboActions(enum action action)
 {
     // Maximize/Restore the window if pressing Move, Resize mouse buttons.
+    if (LastWin.hwnd) Sleep(10);
     if(state.action == AC_MOVE && action == AC_RESIZE) {
-        if (LastWin.hwnd) Sleep(10);
         if (IsZoomed(state.hwnd)) {
             state.moving = 0;
             MouseMove(state.prevpt);
@@ -3016,12 +3016,12 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         if (state.blockmouseup) {
             // block mouse up and decrement counter.
             state.blockmouseup--;
-            state.blockmouseup = max(0, state.blockmouseup);
             return 1;
 
         } else if (action && MOUVEMENT(action) && state.action == action
-        && IsSamePTT(&pt, &state.clickpt)
-        && !IsDoubleClick(button)) {
+        && !state.moving // No drag occured
+        && IsSamePTT(&pt, &state.clickpt) // same point
+        && !IsDoubleClick(button)) { // Long click unless PiercingClick=1
             FinishMovement();
             // Mouse UP actions here only in case of MOVEMENT!:
             // Perform an action on mouse up without drag on move/resize

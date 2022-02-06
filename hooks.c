@@ -1367,7 +1367,7 @@ static void ClipCursorOnce(const RECT *clip)
 static void RestrictCursorToMon()
 {
     // Restrict pt within origin monitor if Ctrl is being pressed
-    if (state.ctrl && !state.ignorekey) {
+    if (state.ctrl) {
         static HMONITOR origMonitor;
         static RECT fmon;
         if (origMonitor != state.origin.monitor || !state.origin.monitor) {
@@ -2107,10 +2107,6 @@ static int xpure IsAeraCapbutton(int area);
 static void ActionLower(HWND hwnd, int delta, UCHAR shift)
 {
     // turn lower in Always on top if Ctrl or [_][O][X]
-    if (state.ctrl || IsAeraCapbutton(state.hittest)) {
-        TogglesAlwaysOnTop(hwnd);
-        return;
-    }
     if (delta > 0) {
         if (shift) {
             ToggleMaxRestore(hwnd);
@@ -2119,6 +2115,8 @@ static void ActionLower(HWND hwnd, int delta, UCHAR shift)
             SetWindowLevel(hwnd, HWND_TOPMOST);
             SetWindowLevel(hwnd, HWND_NOTOPMOST);
         }
+    } else if (delta == 0 && (state.ctrl || IsAeraCapbutton(state.hittest))) {
+        TogglesAlwaysOnTop(hwnd);
     } else {
         if (shift) {
             MinimizeWindow(hwnd);
@@ -2701,7 +2699,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 
     // We have to send the ctrl keys here too because of
     // IE (and maybe some other program?)
-    Send_CTRL();
+    Send_CTRL(); // Do we????
 
     // Remember time, position and button of this click
     // so we can check for double-click
@@ -2764,23 +2762,23 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     int delta = GET_WHEEL_DELTA_WPARAM(msg->mouseData);
     // Button is wheel or hwheel!
     enum button button = wParam == WM_MOUSEWHEEL? BT_WHEEL: BT_HWHEEL;
-    enum action action = AC_NONE;
-
-    // 1st Scroll inactive windows.. If enabled
-    if (!state.alt && !state.action && conf.InactiveScroll) {
-        // Scroll inactive window
-        return ScrollPointedWindow(pt, delta, wParam);
-    } else if ( (action=GetActionT(button))
-           && InTitlebar(pt, action, button )) {
+    enum action action;
+    if ((action=GetActionT(button))
+    && InTitlebar(pt, action, button )) {
         ; // Action w/o click to be done...
-    } else if (!state.alt
-           ||!(action = GetAction(button))
-           || state.action != conf.GrabWithAlt[ModKey()]
-           || (conf.GrabWithAlt[ModKey()] && !IsSamePTT(&pt, &state.clickpt))
-           ||!IsHotkeyDown() ) {
-        return 0; // continue if no actions to be made
+    } else {
+	    // 2nd Scroll inactive windows.. If enabled
+	    if (!state.alt && !state.action && conf.InactiveScroll) {
+	        // Scroll inactive window
+	        return ScrollPointedWindow(pt, delta, wParam);
+	    } else if (!state.alt
+	           ||!(action = GetAction(button))
+	           || state.action != conf.GrabWithAlt[ModKey()]
+	           || (conf.GrabWithAlt[ModKey()] && !IsSamePTT(&pt, &state.clickpt))
+	           ||!IsHotkeyDown() ) {
+	        return 0; // Continue if no actions to be made
+	    }
     }
-
     if (!action) return 0; // Next hook
 
     HWND nhwnd = WindowFromPoint(pt);

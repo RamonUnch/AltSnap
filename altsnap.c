@@ -180,8 +180,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             ShellExecute(NULL, L"open", inipath, NULL, NULL, SW_SHOWNORMAL);
         } else if (lParam == WM_RBUTTONUP) {
             ShowContextMenu(hwnd);
-//        } else if (lParam == NIN_BALLOONTIMEOUT && hide) {
-//            RemoveTray();
         }
     } else if (msg == WM_SCLICK && wParam) {
         ShowSClickMenu((HWND)wParam, lParam);
@@ -237,6 +235,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         } else if (wmId == SWM_TESTWIN) {
             NewTestWindow();
         }
+        return 0;
     } else if (msg == WM_QUERYENDSESSION) {
         showerror = 0;
         UnhookSystem();

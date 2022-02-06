@@ -18,7 +18,6 @@ BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
 
 #define CURSOR_ONLY 66
 #define NOT_MOVED 33
-#define MOVE_ONCE 22
 
 #define STACK 0x1000
 
@@ -140,15 +139,11 @@ static struct {
     UCHAR RefreshRate;
     UCHAR MMMaximize;
     UCHAR MinAlpha;
+    UCHAR MoveTrans;
 
     char AlphaDelta;
     char AlphaDeltaShift;
     unsigned short AeroMaxSpeed;
-
-    UCHAR MoveTrans;
-//    UCHAR NormRestore;
-    UCHAR AeroSpeedTau;
-    UCHAR ModKey;
 
     UCHAR keepMousehook;
     UCHAR KeyCombo;
@@ -160,6 +155,10 @@ static struct {
     UCHAR HScrollKey;
     UCHAR ScrollLockState;
 
+    UCHAR ShiftSnaps;
+    UCHAR BLMaximized;
+    USHORT LongClickMove;
+
   # ifdef WIN64
     UCHAR FancyZone;
   #endif
@@ -167,11 +166,9 @@ static struct {
     char InterZone;
     char SnapGap;
 
-    UCHAR ShiftSnaps;
-    UCHAR BLMaximized;
-    USHORT LongClickMove;
-
     UCHAR PiercingClick;
+    UCHAR AeroSpeedTau;
+    UCHAR ModKey;
 
     UCHAR Hotkeys[MAXKEYS+1];
     UCHAR Shiftkeys[MAXKEYS+1];
@@ -2816,33 +2813,6 @@ static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
     state.blockaltup = ret && state.alt; // block or not;
     return ret; // block or next hook
 }
-static int WheelActions2(POINT pt, HWND hwnd, enum action action, char delta)
-{
-    // Return if blacklisted or fullscreen.
-    RECT wnd;
-    if (blacklisted(hwnd, &BlkLst.Scroll)) {
-        return 0;
-    } else if (!conf.FullScreen && GetWindowRect(hwnd, &wnd)) {
-        RECT mon;
-        GetMonitorRect(&pt, 1, &mon);
-        if (!conf.FullScreen && IsFullscreen(hwnd, &wnd, &mon))
-            return 0; // Next hook
-    }
-    int ret=1;
-
-    if      (action == AC_ALTTAB)       ret = ActionAltTab(pt, delta);
-    else if (action == AC_VOLUME)       ActionVolume(delta);
-    else if (action == AC_TRANSPARENCY) ret = ActionTransparency(hwnd, delta);
-    else if (action == AC_LOWER)        ActionLower(hwnd, delta, state.shift);
-    else if (action == AC_MAXIMIZE)     ActionMaxRestMin(hwnd, delta);
-    else if (action == AC_ROLL)         RollWindow(hwnd, delta);
-    else if (action == AC_HSCROLL)      ret = ScrollPointedWindow(pt, -delta, WM_MOUSEHWHEEL);
-    else                                ret = 0; // No action
-
-    // ret is 0: next hook or 1: block mousedown and AltUp.
-    state.blockaltup = ret && state.alt; // block or not;
-    return ret; // block or next hook
-}
 
 static void WaitMovementEnd()
 {
@@ -3111,8 +3081,6 @@ static void UnhookMouse()
     SetWindowTrans(NULL);
     StopSpeedMes();
 
-//    if (conf.NormRestore) conf.NormRestore = 1;
-
     HideCursor();
 
     // Release cursor trapping in case...
@@ -3339,7 +3307,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.SmartAero =    GetPrivateProfileInt(L"General", L"SmartAero", 1, inipath);
     conf.StickyResize  =GetPrivateProfileInt(L"General", L"StickyResize", 0, inipath);
     conf.InactiveScroll=GetPrivateProfileInt(L"General", L"InactiveScroll", 0, inipath);
-//    conf.NormRestore   =GetPrivateProfileInt(L"General", L"NormRestore", 0, inipath);
     conf.MDI =          GetPrivateProfileInt(L"General", L"MDI", 0, inipath);
     conf.ResizeCenter = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
     conf.CenterFraction=CLAMP(0, GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath), 100);
@@ -3505,7 +3472,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
                              , 0, 0, 0 , 0, g_mainhwnd, NULL, hinstDLL, NULL);
     }
 
-    conf.keepMousehook = ((conf.TTBActions&1) /* || conf.NormRestore */
+    conf.keepMousehook = ((conf.TTBActions&1)
                          || conf.InactiveScroll || conf.Hotclick[0] || conf.LongClickMove);
     // Capture main hwnd from caller. This is also the cursor wnd
     g_mainhwnd = mainhwnd;

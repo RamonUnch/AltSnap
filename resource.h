@@ -16,7 +16,7 @@
 #define IDC_FINDWINDOW                  1000
 #define IDC_CHECKNOW                    1001
 #define IDC_LANGUAGE_HEADER             1001
-#define IDC_LOWERWITHMMB                1001
+#define IDC_TTBACTIONSNA                1001
 #define IDC_TRANSLATIONS_BOX            1001
 #define IDC_INI                         1002
 #define IDC_NEWRULE                     1002
@@ -111,7 +111,7 @@
 #define IDC_NORMRESTORE                 2034
 #define IDC_MAXWITHLCLICK               2035
 #define IDC_RESTOREONCLICK              2036
-#define IDC_ROLLWITHTBSCROLL            2037
+#define IDC_TTBACTIONSWA                2037
 #define IDC_MMB_HC                      2038
 #define IDC_MB4_HC                      2039
 #define IDC_MB5_HC                      2040
@@ -144,9 +144,8 @@
 #define IDC_GRABWITHALTB                2067
 #define IDC_GRABWITHALTB_H              2068
 #define IDC_RECT                        2069
+#define IDC_TTBACTIONS_BOX              2070
 
-#define IDC_MBA1                        2070
-#define IDC_MBA2                        2071
 #define IDC_USEZONES                    2072
 #define IDC_FANCYZONE                   2073
 #define IDC_GWLEXSTYLE                  2074
@@ -155,3 +154,9 @@
 #define IDC_LONGCLICKMOVE               2077
 #define IDC_BLMAXIMIZED                 2078
 #define IDC_PIERCINGCLICK               2079
+
+#define IDC_MBA1                        2080
+#define IDC_MBA2                        2081
+#define IDC_INTTB                       2082
+
+#define IDC_OUTTB                       2083

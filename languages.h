@@ -89,6 +89,7 @@ struct strings {
   wchar_t *input_mouse_mb5;
   wchar_t *input_mouse_scroll;
   wchar_t *input_mouse_hscroll;
+  wchar_t *input_mouse_ttbactions_box;
   wchar_t *input_mouse_ttbactionsna;
   wchar_t *input_mouse_ttbactionswa;
   wchar_t *input_mouse_mmb_hc;
@@ -253,6 +254,7 @@ struct {
   { &l10n_ini.input_mouse_mb5,                 L"InputMouseMB5" },
   { &l10n_ini.input_mouse_scroll,              L"InputMouseScroll" },
   { &l10n_ini.input_mouse_hscroll,             L"InputMouseHScroll" },
+  { &l10n_ini.input_mouse_ttbactions_box,      L"InputMouseTTBActionBox" },
   { &l10n_ini.input_mouse_ttbactionsna,        L"InputMouseTTBActionNA" },
   { &l10n_ini.input_mouse_ttbactionswa,        L"InputMouseTTBActionWA" },
   { &l10n_ini.input_mouse_mmb_hc,              L"InputMouseMMBHC" },
@@ -415,8 +417,9 @@ struct strings en_US = {
  /* mb5                */ L"Mouse button &5:",
  /* scroll             */ L"&Scroll wheel:",
  /* hscroll            */ L"Scroll wheel (&horizontal):",
- /* ttbaction noalt    */ L"Tit&lebars actions apply when not pressing the hoykey",
- /* ttbaction noalt    */ L"Titleba&rs actions apply when pressing the hoykey",
+ /* ttbactions box     */ L"Use specific actions when clicking the Title bar",
+ /* ttbaction noalt    */ L"Without hot&key",
+ /* ttbaction walt     */ L"&With hotkey",
  /* mmb_hr             */ L"M&iddle mouse button",
  /* mb4_hc             */ L"M&ouse button 4",
  /* mb5_hc             */ L"Mo&use button 5",

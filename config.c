@@ -704,7 +704,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             SetDlgItemText(hwnd, IDC_MB5_HEADER,      l10n->input_mouse_mb5);
             SetDlgItemText(hwnd, IDC_SCROLL_HEADER,   l10n->input_mouse_scroll);
             SetDlgItemText(hwnd, IDC_HSCROLL_HEADER,  l10n->input_mouse_hscroll);
-
+            SetDlgItemText(hwnd, IDC_TTBACTIONS_BOX,  l10n->input_mouse_ttbactions_box);
             SetDlgItemText(hwnd, IDC_TTBACTIONSNA,    l10n->input_mouse_ttbactionsna);
             SetDlgItemText(hwnd, IDC_TTBACTIONSWA,    l10n->input_mouse_ttbactionswa);
 
@@ -994,10 +994,8 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return 0;
     } else if (wParam && (msg == WM_PAINT || msg == WM_ERASEBKGND)) {
         return 0;
-    } else {
-        return DefWindowProc(hwnd, msg, wParam, lParam);
     }
-    return 0;
+    return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)

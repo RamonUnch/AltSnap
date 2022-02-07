@@ -63,8 +63,9 @@ static struct {
     HWND sclickhwnd;
     HWND mdiclient;
     DWORD clicktime;
+    short hittest;
+    short delta;
     unsigned Speed;
-    int hittest;
 
     UCHAR alt;
     UCHAR alt1;
@@ -2074,7 +2075,7 @@ static int ActionTransparency(HWND hwnd, int delta)
 {
     static int alpha=255;
 
-    if (blacklisted(hwnd, &BlkLst.Windows)) return 0;
+    if (blacklisted(hwnd, &BlkLst.Windows)) return 0; // Spetial
     if (MOUVEMENT(state.action)) SetWindowTrans((HWND)-1);
 
     int alpha_delta = (state.shift)? conf.AlphaDeltaShift: conf.AlphaDelta;
@@ -2581,6 +2582,30 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_MUTE)        Send_KEY(VK_VOLUME_MUTE);
 }
 /////////////////////////////////////////////////////////////////////////////
+//
+static int DoWheelActions(POINT pt, HWND hwnd, enum action action)
+{
+    // Return if in the scroll blacklist.
+    if (blacklisted(hwnd, &BlkLst.Scroll)) {
+        return 0; // Next hook!
+    }
+    int ret=1;
+
+    if      (action == AC_ALTTAB)       ret = ActionAltTab(pt, state.delta);
+    else if (action == AC_VOLUME)       ActionVolume(state.delta);
+    else if (action == AC_TRANSPARENCY) ret = ActionTransparency(hwnd, state.delta);
+    else if (action == AC_LOWER)        ActionLower(hwnd, state.delta, state.shift);
+    else if (action == AC_MAXIMIZE)     ActionMaxRestMin(hwnd, state.delta);
+    else if (action == AC_ROLL)         RollWindow(hwnd, state.delta);
+    else if (action == AC_HSCROLL)      ret = ScrollPointedWindow(pt, -state.delta, WM_MOUSEHWHEEL);
+    else                                ret = 0; // No action
+
+    // ret is 0: next hook or 1: block mousedown and AltUp.
+    state.blockaltup = ret && state.alt; // block or not;
+    return ret; // block or next hook
+}
+
+/////////////////////////////////////////////////////////////////////////////
 static void StartSpeedMes()
 {
     if (conf.AeroMaxSpeed < 65535)
@@ -2636,7 +2661,9 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // or if the window is fullscreen.
     if (!state.hwnd
     || blacklistedP(state.hwnd, &BlkLst.Processes)
-    || blacklisted(state.hwnd, &BlkLst.Windows)
+    ||(blacklisted(state.hwnd, &BlkLst.Windows)
+       && !state.hittest && button != BT_WHEEL && button != BT_HWHEEL
+      )// does not apply in titlebar, nor for the wheel action...
     || GetWindowPlacement(state.hwnd, &wndpl) == 0
     || GetWindowRect(state.hwnd, &wnd) == 0
     || ((state.origin.maximized = IsZoomed(state.hwnd)) && conf.BLMaximized)
@@ -2692,10 +2719,15 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         state.sclickhwnd = state.hwnd;
         PostMessage(g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd, conf.AggressiveKill);
         return 1; // block mouse down
+    } else if(button == BT_WHEEL || button == BT_HWHEEL) {
+        // Wheel actions, directly return here
+        // because maybe the action will not be done
+        return DoWheelActions(state.prevpt, state.hwnd, action);
     } else {
         SClickActions(state.hwnd, action);
-        state.blockmouseup = 1;
+        state.blockmouseup = 1; // because the action will be done
     }
+    // AN ACTION HAS BEEN DONE!!!
 
     // We have to send the ctrl keys here too because of
     // IE (and maybe some other program?)
@@ -2733,8 +2765,8 @@ static int InTitlebar(POINT pt, enum action action,  enum button button)
     if (willtest && action) {
         HWND nhwnd = WindowFromPoint(pt);
         if (!nhwnd) return 0; // Next hook!
-        HWND hwnd = MDIorNOT(nhwnd, &state.mdiclient);
-        if (blacklisted(hwnd, &BlkLst.Windows)) return 0; // Next hook
+        // HWND hwnd = MDIorNOT(nhwnd, &state.mdiclient);
+        // if (blacklisted(hwnd, &BlkLst.Windows)) return 0; // Next hook
 
         // Hittest to see if we are in a caption!
         int area = HitTestTimeoutbl(nhwnd, pt.x, pt.y);
@@ -2748,68 +2780,12 @@ static int InTitlebar(POINT pt, enum action action,  enum button button)
 // Actions to be performed in the Titlebar...
 static int TitleBarActions(POINT pt, enum action action, enum button button)
 {
-    state.hittest = 0;
-    if (!conf.TTBActions) return -1;
+    state.hittest = 0; // Cursor in titlebar?
+    if (!conf.TTBActions) return -1; // fall through
     if((state.hittest = InTitlebar(pt, action, button ))) {
         return init_movement_and_actions(pt, action, button);
     }
     return -1; // Fall through
-}
-
-/////////////////////////////////////////////////////////////////////////////
-static int WheelActions(POINT pt, PMSLLHOOKSTRUCT msg, WPARAM wParam)
-{
-    int delta = GET_WHEEL_DELTA_WPARAM(msg->mouseData);
-    // Button is wheel or hwheel!
-    enum button button = wParam == WM_MOUSEWHEEL? BT_WHEEL: BT_HWHEEL;
-    enum action action;
-    if ((action=GetActionT(button))
-    && InTitlebar(pt, action, button )) {
-        ; // Action w/o click to be done...
-    } else {
-	    // 2nd Scroll inactive windows.. If enabled
-	    if (!state.alt && !state.action && conf.InactiveScroll) {
-	        // Scroll inactive window
-	        return ScrollPointedWindow(pt, delta, wParam);
-	    } else if (!state.alt
-	           ||!(action = GetAction(button))
-	           || state.action != conf.GrabWithAlt[ModKey()]
-	           || (conf.GrabWithAlt[ModKey()] && !IsSamePTT(&pt, &state.clickpt))
-	           ||!IsHotkeyDown() ) {
-	        return 0; // Continue if no actions to be made
-	    }
-    }
-    if (!action) return 0; // Next hook
-
-    HWND nhwnd = WindowFromPoint(pt);
-    if (!nhwnd) return 0; // Next hook!
-    HWND hwnd = MDIorNOT(nhwnd, &state.mdiclient);
-    if (blacklisted(hwnd, &BlkLst.Windows)) return 0; // Next hook
-
-    // Return if blacklisted or fullscreen.
-    RECT wnd;
-    if (blacklistedP(hwnd, &BlkLst.Processes) || blacklisted(hwnd, &BlkLst.Scroll)) {
-        return 0;
-    } else if (!conf.FullScreen && GetWindowRect(hwnd, &wnd)) {
-        RECT mon;
-        GetMonitorRect(&pt, 1, &mon);
-        if (!conf.FullScreen && IsFullscreen(hwnd, &wnd, &mon))
-            return 0;
-    }
-    int ret=1;
-
-    if      (action == AC_ALTTAB)       ret = ActionAltTab(pt, delta);
-    else if (action == AC_VOLUME)       ActionVolume(delta);
-    else if (action == AC_TRANSPARENCY) ret = ActionTransparency(hwnd, delta);
-    else if (action == AC_LOWER)        ActionLower(hwnd, delta, state.shift);
-    else if (action == AC_MAXIMIZE)     ActionMaxRestMin(hwnd, delta);
-    else if (action == AC_ROLL)         RollWindow(hwnd, delta);
-    else if (action == AC_HSCROLL)      ret = ScrollPointedWindow(pt, -delta, WM_MOUSEHWHEEL);
-    else                                ret = 0; // No action
-
-    // ret is 0: next hook or 1: block mousedown and AltUp.
-    state.blockaltup = ret && state.alt; // block or not;
-    return ret; // block or next hook
 }
 
 static void WaitMovementEnd()
@@ -2932,20 +2908,13 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         }
     }
 
-    // Handle Wheel actions...
-    if (wParam==WM_MOUSEWHEEL || wParam==WM_MOUSEHWHEEL) {
-        int ret = WheelActions(pt, msg, wParam);
-        if (ret == 1) return 1;
-
-        return CallNextHookEx(NULL, nCode, wParam, lParam);
-    }
-
+    // Get button
     enum button button =
         (wParam==WM_LBUTTONDOWN||wParam==WM_LBUTTONUP)?BT_LMB:
         (wParam==WM_MBUTTONDOWN||wParam==WM_MBUTTONUP)?BT_MMB:
         (wParam==WM_RBUTTONDOWN||wParam==WM_RBUTTONUP)?BT_RMB:
-//        (wParam==WM_MOUSEWHEEL)?BT_WHEEL:
-//        (wParam==WM_MOUSEHWHEEL)?BT_HWHEEL:
+        (wParam==WM_MOUSEWHEEL)?BT_WHEEL:
+        (wParam==WM_MOUSEHWHEEL)?BT_HWHEEL:
         (HIWORD(msg->mouseData)==XBUTTON1)?BT_MB4:
         (HIWORD(msg->mouseData)==XBUTTON2)?BT_MB5:BT_NONE;
 
@@ -2955,8 +2924,10 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         || wParam==WM_RBUTTONDOWN||wParam==WM_XBUTTONDOWN)? STATE_DOWN
         : (wParam==WM_LBUTTONUP  ||wParam==WM_MBUTTONUP
         || wParam==WM_RBUTTONUP  ||wParam==WM_XBUTTONUP)? STATE_UP
-//        : (wParam==WM_MOUSEWHEEL ||wParam==WM_MOUSEHWHEEL)? GET_WHEEL_DELTA_WPARAM(msg->mouseData)
+        : (wParam==WM_MOUSEWHEEL ||wParam==WM_MOUSEHWHEEL)? STATE_DOWN
         : STATE_NONE;
+     // Get wheel delta
+     state.delta = GET_WHEEL_DELTA_WPARAM(msg->mouseData);
 
     // Get actions!
     enum action action = GetAction(button); // Normal action
@@ -2977,6 +2948,12 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     // Handle Titlebars actions
     if (buttonstate == STATE_DOWN) {
         int ret = TitleBarActions(pt, ttbact, button);
+        // If we have nothing to do in the titlebar
+        if (ret < 0 && conf.InactiveScroll && !state.alt && !state.action
+        && (wParam == WM_MOUSEWHEEL || wParam == WM_MOUSEHWHEEL)) {
+            // Scroll inactive window with wheel action...
+            ret = ScrollPointedWindow(pt, state.delta, wParam);
+        }
         if (ret == 0) return CallNextHookEx(NULL, nCode, wParam, lParam);
         else if (ret == 1) return 1;
     }

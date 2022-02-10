@@ -952,7 +952,20 @@ static void Maximize_Restore_atpt(HWND hwnd, const POINT *pt, UINT sw_cmd, HMONI
         MoveWindowAsync(hwnd, fmon.left, fmon.top, fmon.right-fmon.left, fmon.bottom-fmon.top);
     }
 }
+// Accurate Sleep, needs WINMM.DLL
+// Might be useful
+static void ASleep(DWORD duration_ms)
+{   // This absurd code makes Sleep() more accurate
+	// - without it, Sleep() is not even +-10ms accurate
+	// - with it, Sleep is around +-1.5 ms accurate
+	TIMECAPS tc;
+	timeGetDevCaps(&tc, sizeof(tc));
+	timeBeginPeriod(tc.wPeriodMin); // begin accurate Sleep() !
 
+	Sleep(duration_ms); // perform The SLEEP
+
+	timeEndPeriod(tc.wPeriodMin);
+}
 /////////////////////////////////////////////////////////////////////////////
 // Move the windows in a thread in case it is very slow to resize
 static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
@@ -968,29 +981,22 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
         SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
         // Send WM_SYNCPAINT in case to wait for the end of movement
         // And to avoid windows to "slide through" the whole WM_MOVE queue
-        // if(flag|SWP_ASYNCWINDOWPOS)
-        SendMessage(hwnd, WM_SYNCPAINT, 0, 0);
+        if(flag&SWP_ASYNCWINDOWPOS) SendMessage(hwnd, WM_SYNCPAINT, 0, 0);
     }
-    if (lw->end&1 && !conf.FullWin && state.origin.maximized) {
-        InvalidateRect(hwnd, NULL, FALSE);
-        lw->hwnd = NULL;
-        return;
-    }
-
-    if (conf.RefreshRate) Sleep(conf.RefreshRate);
+    if (conf.RefreshRate) Sleep(conf.RefreshRate); //ASleep(conf.RefreshRate);
 
     lw->hwnd = NULL;
 }
 static DWORD WINAPI ResizeWindowThread(LPVOID LastWinV)
 {
     MoveResizeWindowThread(LastWinV
-        , SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_ASYNCWINDOWPOS);
+        , SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE);
     return 0;
 }
 static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
     MoveResizeWindowThread(LastWinV
-        , SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS);
+        , SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS|SWP_DEFERERASE);
     return 0;
 }
 static void MoveWindowInThread(struct windowRR *lw)

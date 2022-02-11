@@ -149,6 +149,49 @@ static void *LoadDLLProc(char *DLLname, char *PROCname)
     }
     return ret;
 }
+
+/////////////////////////////////////////////////////////////////////////////
+// Accurate Sleep, needs WINMM.DLL
+// Might be useful
+static MMRESULT (WINAPI *mtimeGetDevCaps)(LPTIMECAPS ptc, UINT cbtc) = IPTR;
+static MMRESULT (WINAPI *mtimeBeginPeriod)(UINT uPeriod) = IPTR;
+static MMRESULT (WINAPI *mtimeEndPeriod)(UINT uPeriod) = IPTR;
+static void ASleep(DWORD duration_ms)
+{
+    if (duration_ms > 15) {
+        // No need for accurate sleep...
+        Sleep(duration_ms);
+        return;
+    }
+    if (mtimeGetDevCaps == IPTR) {
+        HANDLE h=LoadLibraryA("WINMM.DLL");
+        if (h) {
+	        mtimeGetDevCaps =(void *)GetProcAddress(h, "timeGetDevCaps");
+	        mtimeBeginPeriod=(void *)GetProcAddress(h, "timeBeginPeriod");
+	        mtimeEndPeriod  =(void *)GetProcAddress(h, "timeEndPeriod");
+	        if(!mtimeGetDevCaps || !mtimeBeginPeriod || !mtimeEndPeriod) {
+		        mtimeGetDevCaps=NULL;
+		        FreeLibrary(h);
+		    }
+		}
+	}
+	/* We have winmm functions */
+    // This absurd code makes Sleep() more accurate
+    // - without it, Sleep() is not even +-10ms accurate
+    // - with it, Sleep is around +-1.5 ms accurate
+	if(mtimeGetDevCaps) {
+	    TIMECAPS tc;
+	    mtimeGetDevCaps(&tc, sizeof(tc));
+	    mtimeBeginPeriod(tc.wPeriodMin); // begin accurate Sleep() !
+
+	    Sleep(duration_ms); // perform The SLEEP
+
+	    mtimeEndPeriod(tc.wPeriodMin);
+    } else {
+        Sleep(duration_ms);
+   	}
+}
+
 static BOOL FreeDLLByName(char *DLLname)
 {
     HINSTANCE hdll;

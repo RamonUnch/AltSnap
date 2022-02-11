@@ -170,6 +170,7 @@ static struct {
     UCHAR PiercingClick;
     UCHAR AeroSpeedTau;
     UCHAR ModKey;
+    UCHAR RezTimer;
 
     UCHAR Hotkeys[MAXKEYS+1];
     UCHAR Shiftkeys[MAXKEYS+1];
@@ -952,20 +953,6 @@ static void Maximize_Restore_atpt(HWND hwnd, const POINT *pt, UINT sw_cmd, HMONI
         MoveWindowAsync(hwnd, fmon.left, fmon.top, fmon.right-fmon.left, fmon.bottom-fmon.top);
     }
 }
-// Accurate Sleep, needs WINMM.DLL
-// Might be useful
-static void ASleep(DWORD duration_ms)
-{   // This absurd code makes Sleep() more accurate
-	// - without it, Sleep() is not even +-10ms accurate
-	// - with it, Sleep is around +-1.5 ms accurate
-	TIMECAPS tc;
-	timeGetDevCaps(&tc, sizeof(tc));
-	timeBeginPeriod(tc.wPeriodMin); // begin accurate Sleep() !
-
-	Sleep(duration_ms); // perform The SLEEP
-
-	timeEndPeriod(tc.wPeriodMin);
-}
 /////////////////////////////////////////////////////////////////////////////
 // Move the windows in a thread in case it is very slow to resize
 static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
@@ -973,17 +960,13 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
     HWND hwnd;
     hwnd = lw->hwnd;
 
-    if (lw->end&1 && conf.FullWin) Sleep(conf.RefreshRate+5); // at least 5ms...
+    if (lw->end&1 && conf.FullWin) Sleep(16); // At the End of movement...
 
-    if (hwnd == (HWND)1) {
-        MoveTransWin(lw->x, lw->y, lw->width, lw->height);
-    } else {
-        SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
-        // Send WM_SYNCPAINT in case to wait for the end of movement
-        // And to avoid windows to "slide through" the whole WM_MOVE queue
-        if(flag&SWP_ASYNCWINDOWPOS) SendMessage(hwnd, WM_SYNCPAINT, 0, 0);
-    }
-    if (conf.RefreshRate) Sleep(conf.RefreshRate); //ASleep(conf.RefreshRate);
+    SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
+    // Send WM_SYNCPAINT in case to wait for the end of movement
+    // And to avoid windows to "slide through" the whole WM_MOVE queue
+    if(flag&SWP_ASYNCWINDOWPOS) SendMessage(hwnd, WM_SYNCPAINT, 0, 0);
+    if (conf.RefreshRate) ASleep(conf.RefreshRate); // Accurate!!!
 
     lw->hwnd = NULL;
 }
@@ -1615,20 +1598,16 @@ static void MouseMove(POINT pt)
     wnd.right  = posx + mdiclientpt.x + wndwidth;
     wnd.bottom = posy + mdiclientpt.y + wndheight;
 
-    static struct windowRR TransWin;
-    if (!conf.FullWin && !TransWin.hwnd) {
+    if (!conf.FullWin) {
         static RECT bd;
         if(!state.moving) FixDWMRectLL(state.hwnd, &bd, 0);
-        TransWin.hwnd = (HWND)(DorQWORD)!!conf.RefreshRate;
-        TransWin.x      = posx + mdiclientpt.x + bd.left;
-        TransWin.y      = posy + mdiclientpt.y + bd.top;
-        TransWin.width  = wndwidth - bd.left - bd.right;
-        TransWin.height = wndheight - bd.top - bd.bottom;
-        if(!state.moving || !conf.RefreshRate)
-            MoveTransWin(TransWin.x, TransWin.y, TransWin.width, TransWin.height);
+        int tx      = posx + mdiclientpt.x + bd.left;
+        int ty      = posy + mdiclientpt.y + bd.top;
+        int twidth  = wndwidth - bd.left - bd.right;
+        int theight = wndheight - bd.top - bd.bottom;
+        MoveTransWin(tx, ty, twidth, theight);
         if(!state.moving)
             ShowTransWin(SW_SHOWNA);
-        if (conf.RefreshRate) MoveWindowInThread(&TransWin);
         state.moving=1;
         ResizeTouchingWindows(&LastWin);
 
@@ -2731,6 +2710,17 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         // Wheel actions, directly return here
         // because maybe the action will not be done
         return DoWheelActions(state.prevpt, state.hwnd, action);
+//    } else if (action == AC_ASRESTORE) {
+//        int w=200, h=100;
+//        unsigned rf=GetRestoreData(state.hwnd, &w, &h);
+//        if (rf&1) {
+//            if(IsZoomed(state.hwnd) || IsWindowSnapped(state.hwnd))
+//                RestoreWindow(state.hwnd);
+//            ClearRestoreData(state.hwnd);
+//            SetWindowPos(state.hwnd, NULL, 0, 0, w, h, SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOMOVE|SWP_ASYNCWINDOWPOS);
+//        }
+//        state.blockmouseup=0;
+//        return 0;
     } else {
         SClickActions(state.hwnd, action);
         state.blockmouseup = 1; // because the action will be done
@@ -2907,10 +2897,17 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         // Move the window
         if (state.action) { // resize or move...
             // Move the window every few frames.
-            static char updaterate;
-            updaterate = (updaterate+1)%(state.action==AC_MOVE? conf.MoveRate: conf.ResizeRate);
-            if (updaterate == 0) {
-                MouseMove(pt);
+            if (conf.RezTimer) {
+                // Only move window if the EVENT TIME is different.
+                static DWORD oldtime;
+                if (msg->time != oldtime) {
+                    MouseMove(pt);
+                    oldtime = msg->time;
+                }
+            } else {
+                static char updaterate;
+                updaterate = (updaterate+1)%(state.action==AC_MOVE? conf.MoveRate: conf.ResizeRate);
+                if(!updaterate) MouseMove(pt);
             }
             return CallNextHookEx(NULL, nCode, wParam, lParam);
         }
@@ -3317,6 +3314,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.PiercingClick = GetPrivateProfileInt(L"Advanced", L"PiercingClick", 0, inipath);
     // [Performance]
     conf.RefreshRate=GetPrivateProfileInt(L"Performance", L"RefreshRate", 0, inipath);
+    conf.RezTimer  = GetPrivateProfileInt(L"Performance", L"RezTimer", 0, inipath);
     conf.MoveRate  = GetPrivateProfileInt(L"Performance", L"MoveRate", 2, inipath);
     conf.ResizeRate= GetPrivateProfileInt(L"Performance", L"ResizeRate", 4, inipath);
     conf.FullWin   = GetPrivateProfileInt(L"Performance", L"FullWin", 2, inipath);
@@ -3395,6 +3393,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         else if (!wcsicmp(txt,L"MinAllOther"))  *buttons[i].ptr = AC_MINALL;
         else if (!wcsicmp(txt,L"Mute"))         *buttons[i].ptr = AC_MUTE;
         else if (!wcsicmp(txt,L"SideSnap"))     *buttons[i].ptr = AC_SIDESNAP;
+//        else if (!wcsicmp(txt,L"ASRestore"))    *buttons[i].ptr = AC_ASRESTORE;
         else                                    *buttons[i].ptr = AC_NONE;
     }
 

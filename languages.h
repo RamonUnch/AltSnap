@@ -58,6 +58,7 @@ struct strings {
   wchar_t *general_language;
   wchar_t *general_fullwin;
   wchar_t *general_usezones;
+  wchar_t *general_piercingclick;
   wchar_t *general_resizeall;
   wchar_t *general_resizecenter;
 
@@ -80,6 +81,7 @@ struct strings {
   wchar_t *input_mouse_box;
   wchar_t *input_mouse_btac1;
   wchar_t *input_mouse_btac2;
+  wchar_t *input_mouse_inttb;
   wchar_t *input_mouse_lmb;
   wchar_t *input_mouse_mmb;
   wchar_t *input_mouse_rmb;
@@ -87,8 +89,9 @@ struct strings {
   wchar_t *input_mouse_mb5;
   wchar_t *input_mouse_scroll;
   wchar_t *input_mouse_hscroll;
-  wchar_t *input_mouse_lowerwithmmb;
-  wchar_t *input_mouse_rollwithtbscroll;
+  wchar_t *input_mouse_ttbactions_box;
+  wchar_t *input_mouse_ttbactionsna;
+  wchar_t *input_mouse_ttbactionswa;
   wchar_t *input_mouse_mmb_hc;
   wchar_t *input_mouse_mb4_hc;
   wchar_t *input_mouse_mb5_hc;
@@ -116,8 +119,10 @@ struct strings {
   wchar_t *input_actions_nothing;
   wchar_t *input_actions_alttab;
   wchar_t *input_actions_volume;
+  wchar_t *input_actions_mute;
   wchar_t *input_actions_menu;
   wchar_t *input_actions_maximizehv;
+  wchar_t *input_actions_sidesnap;
   wchar_t *input_actions_minallother;
   wchar_t *input_actions_transparency;
   wchar_t *input_actions_hscroll;
@@ -160,14 +165,12 @@ struct strings {
   wchar_t *advanced_behavior_box;
   wchar_t *advanced_multipleinstances;
   wchar_t *advanced_autoremaximize;
-  wchar_t *advanced_normrestore;
   wchar_t *advanced_aerotopmaximizes;
   wchar_t *advanced_aerodbclickshift;
   wchar_t *advanced_maxwithlclick;
   wchar_t *advanced_restoreonclick;
   wchar_t *advanced_fullscreen;
   wchar_t *advanced_blmaximized;
-  wchar_t *advanced_titlebarmove;
   wchar_t *advanced_fancyzone;
   wchar_t *advanced_norestore;
   // about
@@ -225,6 +228,7 @@ struct {
   { &l10n_ini.general_language,                L"GeneralLanguage" },
   { &l10n_ini.general_fullwin,                 L"GeneralFullWin" },
   { &l10n_ini.general_usezones,                L"GeneralUseZones" },
+  { &l10n_ini.general_piercingclick,           L"GeneralPiercingClick" },
   { &l10n_ini.general_resizeall,               L"GeneralResizeAll" },
   { &l10n_ini.general_resizecenter,            L"GeneralResizeCenter" },
   { &l10n_ini.general_resizecenter_norm,       L"GeneralResizeCenterNorm" },
@@ -243,6 +247,7 @@ struct {
   { &l10n_ini.input_mouse_box,                 L"InputMouseBox" },
   { &l10n_ini.input_mouse_btac1,               L"InputMouseBtAc1" },
   { &l10n_ini.input_mouse_btac2,               L"InputMouseBtAc2" },
+  { &l10n_ini.input_mouse_inttb,               L"InputMouseINTTB" },
   { &l10n_ini.input_mouse_lmb,                 L"InputMouseLMB" },
   { &l10n_ini.input_mouse_mmb,                 L"InputMouseMMB" },
   { &l10n_ini.input_mouse_rmb,                 L"InputMouseRMB" },
@@ -250,8 +255,9 @@ struct {
   { &l10n_ini.input_mouse_mb5,                 L"InputMouseMB5" },
   { &l10n_ini.input_mouse_scroll,              L"InputMouseScroll" },
   { &l10n_ini.input_mouse_hscroll,             L"InputMouseHScroll" },
-  { &l10n_ini.input_mouse_lowerwithmmb,        L"InputMouseLowerWithMMB" },
-  { &l10n_ini.input_mouse_rollwithtbscroll,    L"InputMouseRollWithTBScroll" },
+  { &l10n_ini.input_mouse_ttbactions_box,      L"InputMouseTTBActionBox" },
+  { &l10n_ini.input_mouse_ttbactionsna,        L"InputMouseTTBActionNA" },
+  { &l10n_ini.input_mouse_ttbactionswa,        L"InputMouseTTBActionWA" },
   { &l10n_ini.input_mouse_mmb_hc,              L"InputMouseMMBHC" },
   { &l10n_ini.input_mouse_mb4_hc,              L"InputMouseMB4HC" },
   { &l10n_ini.input_mouse_mb5_hc,              L"InputMouseMB5HC" },
@@ -278,8 +284,10 @@ struct {
   { &l10n_ini.input_actions_nothing,           L"InputActionNothing" },
   { &l10n_ini.input_actions_alttab,            L"InputActionAltTab" },
   { &l10n_ini.input_actions_volume,            L"InputActionVolume" },
+  { &l10n_ini.input_actions_mute,              L"InputActionMute" },
   { &l10n_ini.input_actions_menu,              L"InputActionMenu" },
   { &l10n_ini.input_actions_maximizehv,        L"InputActionMaximizeHV" },
+  { &l10n_ini.input_actions_sidesnap,          L"InputActionSideSnap" },
   { &l10n_ini.input_actions_minallother,       L"InputActionMinAllOther" },
   { &l10n_ini.input_actions_transparency,      L"InputActionTransparency" },
   { &l10n_ini.input_actions_hscroll,           L"InputActionHScroll" },
@@ -319,14 +327,12 @@ struct {
   { &l10n_ini.advanced_behavior_box,           L"AdvancedBehaviorBox"},
   { &l10n_ini.advanced_multipleinstances,      L"AdvancedMultipleInstances"},
   { &l10n_ini.advanced_autoremaximize,         L"AdvancedAutoRemaximize"},
-  { &l10n_ini.advanced_normrestore,            L"AdvancedNormRestore"},
   { &l10n_ini.advanced_aerotopmaximizes,       L"AdvancedAeroTopMaximizes"},
   { &l10n_ini.advanced_aerodbclickshift,       L"AdvancedAeroDBClickShift"},
   { &l10n_ini.advanced_maxwithlclick,          L"AdvancedMaxWithLClick"},
   { &l10n_ini.advanced_restoreonclick,         L"AdvancedRestoreOnClick"},
   { &l10n_ini.advanced_fullscreen,             L"AdvancedFullScreen"},
   { &l10n_ini.advanced_blmaximized,            L"AdvancedBLMaximized"},
-  { &l10n_ini.advanced_titlebarmove,           L"AdvancedTitlebarMove"},
   { &l10n_ini.advanced_fancyzone,              L"AdvancedFancyZone"},
   { &l10n_ini.advanced_norestore,              L"AdvancedNoRestore"},
 
@@ -384,6 +390,7 @@ struct strings en_US = {
  /* language           */ L"&Language:",
  /* FullWin            */ L"&Drag full windows",
  /* UseZones           */ L"Snap to Layo&ut with Shift (configure with tray menu)",
+ /* PiercingClick      */ L"Avoi&d blocking Alt+Click (disables AltSnap double-clicks)",
  /* ResizeAll          */ L"&Resize all windows",
  /* ResizeCenter       */ L"Center resize mode",
  /* ResizeCenterNorm   */ L"All d&irections",
@@ -404,6 +411,7 @@ struct strings en_US = {
  /* box                */ L"Mouse actions",
  /* btac1              */ L"&1. Primary",
  /* btac2              */ L"&2. Alternate",
+ /* inttb              */ L"&Title bar",
  /* lmb                */ L"Left mouse &button:",
  /* mmb                */ L"&Middle mouse button:",
  /* rmb                */ L"Ri&ght mouse button:",
@@ -411,8 +419,9 @@ struct strings en_US = {
  /* mb5                */ L"Mouse button &5:",
  /* scroll             */ L"&Scroll wheel:",
  /* hscroll            */ L"Scroll wheel (&horizontal):",
- /* lowerwithmmb       */ L"&Lower windows by middle clicking on title bars",
- /* rollwithtbscroll   */ L"&Roll/Unroll windows with Alt+Scroll on title bars",
+ /* ttbactions box     */ L"Use specific actions when clicking the Title bar",
+ /* ttbaction noalt    */ L"Without hot&key",
+ /* ttbaction walt     */ L"&With hotkey",
  /* mmb_hr             */ L"M&iddle mouse button",
  /* mb4_hc             */ L"M&ouse button 4",
  /* mb5_hc             */ L"Mo&use button 5",
@@ -440,8 +449,10 @@ struct strings en_US = {
  /* nothing            */ L"Nothing",
  /* alttab             */ L"Alt+Tab",
  /* volume             */ L"Volume",
+ /* mute               */ L"Mute &sounds",
  /* menu               */ L"Action menu",
  /* maximizehv         */ L"Maximize &Vertically",
+ /* sidesnap           */ L"&Snap to side/corner",
  /* minallother        */ L"Minimize &other windows",
  /* transparency       */ L"Transparency",
  /* hscroll            */ L"Horizontal scroll",
@@ -486,14 +497,12 @@ struct strings en_US = {
  /* behavior_box     */   L"Behavior",
  /* multipleinstances*/   L"Allow multiple &instances of AltSnap",
  /* autoremaximize   */   L"Automatically &remaximize windows when changing monitor",
- /* normrestore      */   L"Restore AltSnapped windows with &normal move",
  /* aerotopmaximizes */   L"&Maximize windows snapped at top",
  /* aerodbclickshift */   L"Invert shift &behavior for double-click aero snapping",
  /* maxwithlclick    */   L"&Toggle maximize state with right-click while moving",
  /* restoreonclick   */   L"Rest&ore window with single click like original AltDrag",
  /* fullscreen       */   L"Enable on &full screen windows",
  /* blmaximized      */   L"&Disable AltSnap on Maximized windows",
- /* titlebarmove     */   L"&Use AltSnap for normal titlebar movement",
  /* fancyzone        */   L"Restore Fancy&Zones snapped windows",
  /* norestore        */   L"Never restore AltSna&pped windows",
  /* about tab */

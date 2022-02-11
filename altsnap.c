@@ -168,7 +168,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (!msg) {
         // In case some messages are not registered.
-    } else if (wParam && (msg == WM_PAINT || msg == WM_ERASEBKGND || msg == WM_NCPAINT)) {
+    } else if(wParam && msg == WM_ERASEBKGND) {
+        return 1;
+    } else if (wParam && (msg == WM_PAINT || msg == WM_NCPAINT)) {
         return 0;
     } else if (msg == WM_TRAY) {
         if (lParam == WM_LBUTTONDOWN || lParam == WM_LBUTTONDBLCLK) {
@@ -331,12 +333,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
 
     // Create window
     WNDCLASSEX wnd =
-        { sizeof(WNDCLASSEX), CS_BYTEALIGNCLIENT|CS_BYTEALIGNWINDOW|CS_CLASSDC
+        { sizeof(WNDCLASSEX), 0
         , WindowProc, 0, 0, hInst, NULL, NULL
-        , (HBRUSH) (COLOR_WINDOW + 1), NULL, APP_NAME, NULL };
+        , NULL, NULL, APP_NAME, NULL };
     BOOL regg = RegisterClassEx(&wnd);
     LOG("Register main APP Window: %s", regg? "Sucess": "Failed");
-    g_hwnd = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST| WS_EX_TRANSPARENT, wnd.lpszClassName,
+    g_hwnd = CreateWindowEx(WS_EX_TOOLWINDOW|WS_EX_TOPMOST| WS_EX_TRANSPARENT, wnd.lpszClassName,
                             NULL, WS_POPUP, 0, 0, 0, 0, NULL, NULL, hInst, NULL);
     LOG("Create main APP Window: %s", g_hwnd? "Sucess": "Failed");
     // Tray icon

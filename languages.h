@@ -122,6 +122,7 @@ struct strings {
   wchar_t *input_actions_mute;
   wchar_t *input_actions_menu;
   wchar_t *input_actions_maximizehv;
+  wchar_t *input_actions_sidesnap;
   wchar_t *input_actions_minallother;
   wchar_t *input_actions_transparency;
   wchar_t *input_actions_hscroll;
@@ -286,6 +287,7 @@ struct {
   { &l10n_ini.input_actions_mute,              L"InputActionMute" },
   { &l10n_ini.input_actions_menu,              L"InputActionMenu" },
   { &l10n_ini.input_actions_maximizehv,        L"InputActionMaximizeHV" },
+  { &l10n_ini.input_actions_sidesnap,          L"InputActionSideSnap" },
   { &l10n_ini.input_actions_minallother,       L"InputActionMinAllOther" },
   { &l10n_ini.input_actions_transparency,      L"InputActionTransparency" },
   { &l10n_ini.input_actions_hscroll,           L"InputActionHScroll" },
@@ -388,7 +390,7 @@ struct strings en_US = {
  /* language           */ L"&Language:",
  /* FullWin            */ L"&Drag full windows",
  /* UseZones           */ L"Snap to Layo&ut with Shift (configure with tray menu)",
- /* PiercingClick      */ L"Avoi&d blocking Alt+Click",
+ /* PiercingClick      */ L"Avoi&d blocking Alt+Click (disables AltSnap double-clicks)",
  /* ResizeAll          */ L"&Resize all windows",
  /* ResizeCenter       */ L"Center resize mode",
  /* ResizeCenterNorm   */ L"All d&irections",
@@ -450,6 +452,7 @@ struct strings en_US = {
  /* mute               */ L"Mute &sounds",
  /* menu               */ L"Action menu",
  /* maximizehv         */ L"Maximize &Vertically",
+ /* sidesnap           */ L"&Snap to side/corner",
  /* minallother        */ L"Minimize &other windows",
  /* transparency       */ L"Transparency",
  /* hscroll            */ L"Horizontal scroll",

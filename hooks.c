@@ -2306,6 +2306,7 @@ static void SetEdgeAndOffset(const RECT *wnd, POINT pt)
 static void SnapToCorner(HWND hwnd)
 {
     SetOriginFromRestoreData(hwnd, AC_MOVE);
+    GetMinMaxInfo(hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
     state.action = AC_NONE; // Stop resize action
     state.blockmouseup = 1; // Block the mouseup
 
@@ -2586,6 +2587,7 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_MAXHV)       MaximizeHV(hwnd, state.shift);
     else if (action==AC_MINALL)      MinimizeAllOtherWindows(hwnd, state.shift);
     else if (action==AC_MUTE)        Send_KEY(VK_VOLUME_MUTE);
+    else if (action==AC_SIDESNAP)    SnapToCorner(hwnd);
 }
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -3392,6 +3394,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         else if (!wcsicmp(txt,L"MaximizeHV"))   *buttons[i].ptr = AC_MAXHV;
         else if (!wcsicmp(txt,L"MinAllOther"))  *buttons[i].ptr = AC_MINALL;
         else if (!wcsicmp(txt,L"Mute"))         *buttons[i].ptr = AC_MUTE;
+        else if (!wcsicmp(txt,L"SideSnap"))     *buttons[i].ptr = AC_SIDESNAP;
         else                                    *buttons[i].ptr = AC_NONE;
     }
 

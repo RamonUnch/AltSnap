@@ -615,6 +615,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"Borderless",  l10n->input_actions_borderless},
         {L"Center",      l10n->input_actions_center},
         {L"MaximizeHV",  l10n->input_actions_maximizehv},
+        {L"SideSnap",    l10n->input_actions_sidesnap},
         {L"MinAllOther", l10n->input_actions_minallother},
         {L"mute",        l10n->input_actions_mute},
         {L"Menu",        l10n->input_actions_menu},
@@ -992,7 +993,9 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         DestroyWindow(hwnd);
         UnregisterClass(APP_NAME"-find", g_hinst);
         return 0;
-    } else if (wParam && (msg == WM_PAINT || msg == WM_ERASEBKGND)) {
+    } else if (wParam && msg ==  WM_ERASEBKGND) {
+        return 1;
+    } else if (wParam && msg == WM_PAINT) {
         return 0;
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);

@@ -191,11 +191,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             UnhookSystem();
             HookSystem();
         }
-//    } else if (WM_REHOOKKEYBOARD) {
-//        showerror = 0;
-//        UnhookSystem();
-//        HookSystem();
-//        showerror = 1;
     } else if (msg == WM_ADDTRAY) {
         hide = 0;
         UpdateTray();
@@ -208,22 +203,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         OpenConfig(wParam);
     } else if (msg == WM_CLOSECONFIG) {
         CloseConfig();
-//    } else if (msg == WM_CREATETRANSWIN) {
-//        WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0
-//                     , DefWindowProc, 0, 0, g_hinst
-//                     , NULL, NULL
-//                     , CreateSolidBrush(wParam)
-//                     , NULL, APP_NAME"-Trans", NULL };
-//        int ret = RegisterClassEx(&wnd);
-//        LOGA("RegisterClassEx = %d", ret);
-//        HWND *transw = (HWND *)lParam;
-//        int i;
-//        for (i=0; i<4; i++) { // the transparent window is made with 4 thin windows
-//            transw[i] = CreateWindowEx(WS_EX_TOOLWINDOW|WS_EX_TOPMOST|WS_EX_NOACTIVATE
-//                             , wnd.lpszClassName, NULL, WS_POPUP
-//                             , 0, 0, 0, 0, g_hwnd, NULL, g_hinst, NULL);
-//            LOGA("CreateWindowEx[i] = %lX", (DWORD)transw[i]);
-//        }
     } else if (msg == WM_TASKBARCREATED) {
         // Try to add the tray icon because explorer started.
         tray_added = 0;

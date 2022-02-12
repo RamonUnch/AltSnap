@@ -3315,6 +3315,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     // [Performance]
     conf.RefreshRate=GetPrivateProfileInt(L"Performance", L"RefreshRate", 0, inipath);
     conf.RezTimer  = GetPrivateProfileInt(L"Performance", L"RezTimer", 0, inipath);
+    if (conf.RezTimer) conf.RefreshRate=0; // Ignore the refresh rate in RezTimer mode.
     conf.MoveRate  = GetPrivateProfileInt(L"Performance", L"MoveRate", 2, inipath);
     conf.ResizeRate= GetPrivateProfileInt(L"Performance", L"ResizeRate", 4, inipath);
     conf.FullWin   = GetPrivateProfileInt(L"Performance", L"FullWin", 2, inipath);

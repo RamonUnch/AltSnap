@@ -16,7 +16,7 @@ BEGIN
       VALUE "OriginalFilename", "hooks.dll"
       VALUE "FileVersion", "1.50"
       VALUE "CompanyName", "Gillibert Software"
-      VALUE "LegalCopyright", "Stefan Sundin"
+      VALUE "LegalCopyright", "Gillibert"
     END
   END
   BLOCK "VarFileInfo"

@@ -1038,7 +1038,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     switch (msg) {
     case WM_PAINT:;
         RECT wRect;
-        HPEN pen = (HPEN) CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+        HPEN pen = (HPEN) CreatePen(PS_SOLID, 2, GetSysColor(COLOR_BTNTEXT));
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
 
@@ -1048,11 +1048,11 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
         SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
         SelectObject(hdc, pen);
-        SetROP2(hdc, R2_BLACK);
+        SetROP2(hdc, R2_COPYPEN);
         int width = wRect.right - wRect.left;
         int height = wRect.bottom - wRect.top;
 
-        FillRect(hdc, &ps.rcPaint, GetStockObject(WHITE_BRUSH));
+        FillRect(hdc, &ps.rcPaint, (HBRUSH)(COLOR_BTNFACE+1));
         Rectangle(hdc
             , Offset.x+(width-width*centerfrac/100)/2
             , Offset.y
@@ -1071,7 +1071,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         break;
 
     case WM_ERASEBKGND:
-        return 0;
+        return 1;
         break;
 
     case WM_UPDCFRACTION:
@@ -1081,7 +1081,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_CLOSE:
         DestroyWindow(hwnd);
         UnregisterClass(APP_NAME"-Test", g_hinst);
-        break;
+        /* Fall through */
     default:
         return DefWindowProc(hwnd, msg, wParam, lParam);
     }

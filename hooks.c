@@ -960,7 +960,7 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
     HWND hwnd;
     hwnd = lw->hwnd;
 
-    if (lw->end&1 && conf.FullWin) Sleep(16); // At the End of movement...
+    if (lw->end&1 && conf.FullWin) Sleep(8); // At the End of movement...
 
     SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
     // Send WM_SYNCPAINT in case to wait for the end of movement
@@ -3308,7 +3308,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AlphaDeltaShift=CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDeltaShift", 8, inipath), 127);
     conf.AlphaDelta    = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDelta", 64, inipath), 127);
     conf.AeroMaxSpeed  = CLAMP(0, GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath), 65535);
-    conf.AeroSpeedTau  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedTau", 32, inipath), 255);
+    conf.AeroSpeedTau  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedTau", 64, inipath), 255);
     conf.SnapGap       = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"SnapGap", 0, inipath), 127);
     conf.ShiftSnaps    = GetPrivateProfileInt(L"Advanced", L"ShiftSnaps", 1, inipath);
     conf.PiercingClick = GetPrivateProfileInt(L"Advanced", L"PiercingClick", 0, inipath);
@@ -3330,6 +3330,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         wchar_t *def;
         enum action *ptr;
     } buttons[] = {
+        // Primary Actions (performed with Alt+Click)
         {L"LMB",        L"Move",    &conf.Mouse.LMB[0]},
         {L"MMB",        L"Maximize",&conf.Mouse.MMB[0]},
         {L"RMB",        L"Resize",  &conf.Mouse.RMB[0]},
@@ -3341,6 +3342,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {L"MoveUp"     ,L"Nothing", &conf.MoveUp[0]},
         {L"ResizeUp"   ,L"Nothing", &conf.ResizeUp[0]},
 
+        // Secondary Actions (performed with Alt+ModKey+Click)
         {L"LMBB",       L"Resize",  &conf.Mouse.LMB[1]},
         {L"MMBB",       L"Maximize",&conf.Mouse.MMB[1]},
         {L"RMBB",       L"Move",    &conf.Mouse.RMB[1]},
@@ -3352,6 +3354,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {L"MoveUpB"    ,L"Nothing", &conf.MoveUp[1]},
         {L"ResizeUpB"  ,L"Nothing", &conf.ResizeUp[1]},
 
+        // Titlenar Actions
         {L"LMBT",       L"Nothing", &conf.Mouse.LMB[2]},
         {L"MMBT",       L"Lower",   &conf.Mouse.MMB[2]},
         {L"RMBT",       L"Nothing", &conf.Mouse.RMB[2]},
@@ -3360,6 +3363,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {L"ScrollT",    L"Nothing", &conf.Mouse.Scroll[2]},
         {L"HScrollT",   L"Nothing", &conf.Mouse.HScroll[2]},
 
+        // Secondart Titlenar Actions
         {L"LMBTB",      L"Nothing", &conf.Mouse.LMB[3]},
         {L"MMBTB",      L"Nothing", &conf.Mouse.MMB[3]},
         {L"RMBTB",      L"Nothing", &conf.Mouse.RMB[3]},
@@ -3442,21 +3446,23 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         int color[2];
         // Read the color for the TransWin from ini file
         readhotkeys(inipath, L"FrameColor",  L"80 00 80", (UCHAR *)&color[0]);
-        WNDCLASSEX wnd = { sizeof(WNDCLASSEX), CS_CLASSDC
+        WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0
                      , DefWindowProc, 0, 0, hinstDLL
                      , NULL, NULL
                      , CreateSolidBrush(color[0])
                      , NULL, APP_NAME"-Trans", NULL };
-        RegisterClassEx(&wnd);
-        for (i=0; i<4; i++) // the transparent window is made with 4 thin windows
-            g_transhwnd[i] = CreateWindowEx(WS_EX_TOPMOST|WS_EX_NOACTIVATE
-                             , wnd.lpszClassName, NULL
-                             , WS_POPUP
-                             , 0, 0, 0 , 0, g_mainhwnd, NULL, hinstDLL, NULL);
+        ATOM transc = RegisterClassEx(&wnd);
+        LOG("RegisterClassEx = %lX", (DWORD)transc);
+        for (i=0; i<4; i++) { // the transparent window is made with 4 thin windows
+            g_transhwnd[i] = CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW  //|WS_EX_NOACTIVATE|
+                             , APP_NAME"-Trans", NULL, WS_POPUP
+                             , 0, 0, 0, 0, NULL, NULL, hinstDLL, NULL);
+            LOG("CreateWindowEx[i] = %lX", (DWORD)g_transhwnd[i]);
+        }
     }
 
-    conf.keepMousehook = ((conf.TTBActions&1)
-                         || conf.InactiveScroll || conf.Hotclick[0] || conf.LongClickMove);
+    conf.keepMousehook = ((conf.TTBActions&1) || conf.InactiveScroll
+                       || conf.Hotclick[0] || conf.LongClickMove);
     // Capture main hwnd from caller. This is also the cursor wnd
     g_mainhwnd = mainhwnd;
 

@@ -919,7 +919,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 /////////////////////////////////////////////////////////////////////////////
 // Call with SW_MAXIMIZE or SW_RESTORE or below.
 #define SW_FULLSCREEN 28
-static void Maximize_Restore_atpt(HWND hwnd, const POINT *pt, UINT sw_cmd, HMONITOR monitor)
+static void MaximizeRestore_atpt(HWND hwnd, UINT sw_cmd, HMONITOR monitor)
 {
     WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
     GetWindowPlacement(hwnd, &wndpl);
@@ -930,7 +930,7 @@ static void Maximize_Restore_atpt(HWND hwnd, const POINT *pt, UINT sw_cmd, HMONI
     if(sw_cmd == SW_MAXIMIZE || sw_cmd == SW_FULLSCREEN) {
         HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         if (!monitor) {
-            monitor = MonitorFromPoint(pt? *pt: state.prevpt, MONITOR_DEFAULTTONEAREST);
+            monitor = MonitorFromPoint(state.prevpt, MONITOR_DEFAULTTONEAREST);
         }
         MONITORINFO mi = { sizeof(MONITORINFO) };
         GetMonitorInfo(monitor, &mi);
@@ -1110,7 +1110,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         if (!state.shift ^ !(conf.AeroTopMaximizes&1)
          &&(state.Speed < conf.AeroMaxSpeed)) {
              if (conf.FullWin) {
-                Maximize_Restore_atpt(state.hwnd, &pt, SW_MAXIMIZE, NULL);
+                MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE, NULL);
                 LastWin.hwnd = NULL;
                 state.moving = 2;
                 return 1;
@@ -1180,7 +1180,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         // If we go too fast then donot move the window
         if (state.Speed > conf.AeroMaxSpeed) return 1;
         if (conf.FullWin) {
-            if (IsZoomed(state.hwnd)) Maximize_Restore_atpt(state.hwnd, &pt, SW_RESTORE, NULL);
+            if (IsZoomed(state.hwnd)) MaximizeRestore_atpt(state.hwnd, SW_RESTORE, NULL);
             int mmthreadend = !LastWin.hwnd;
             LastWin.hwnd = state.hwnd;
             LastWin.x = *posx;
@@ -2411,7 +2411,7 @@ static void SnapToCorner(HWND hwnd)
         posx -= bd.left; posy -= bd.top;
         wndwidth += bd.left+bd.right; wndheight += bd.top+bd.bottom;
     }
-    if (IsZoomed(state.hwnd)) Maximize_Restore_atpt(state.hwnd, &state.clickpt, SW_RESTORE, NULL);
+    if (IsZoomed(state.hwnd)) MaximizeRestore_atpt(state.hwnd, SW_RESTORE, NULL);
     MoveWindowAsync(hwnd, posx, posy, wndwidth, wndheight);
     // Save data to the window...
     SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED|restore);
@@ -2839,7 +2839,7 @@ static void FinishMovement()
         }
         if (IsWindow(LastWin.hwnd) && !LastWin.snap){
             if (LastWin.maximize) {
-                Maximize_Restore_atpt(LastWin.hwnd, NULL, SW_MAXIMIZE, NULL);
+                MaximizeRestore_atpt(LastWin.hwnd, SW_MAXIMIZE, NULL);
                 LastWin.hwnd = NULL;
             } else {
                 LastWin.end = 1;
@@ -2858,10 +2858,10 @@ static void FinishMovement()
             WaitMovementEnd(); // extra waiting in case...
 
             if (state.origin.maximized) {
-                Maximize_Restore_atpt(state.hwnd, NULL, SW_MAXIMIZE, monitor);
+                MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE, monitor);
             }
             if (state.origin.fullscreen) {
-                Maximize_Restore_atpt(state.hwnd, NULL, SW_FULLSCREEN, monitor);
+                MaximizeRestore_atpt(state.hwnd, SW_FULLSCREEN, monitor);
             }
         }
     }
@@ -2896,7 +2896,7 @@ static void ClickComboActions(enum action action)
         } else if (state.resizable) {
             state.moving = CURSOR_ONLY; // So that MouseMove will only move g_mainhwnd
             HideTransWin();
-            Maximize_Restore_atpt(state.hwnd, &state.prevpt, SW_MAXIMIZE, NULL);
+            MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE, NULL);
         }
         state.blockmouseup = 1;
     } else if (state.action == AC_RESIZE && action == AC_MOVE && !state.moving) {

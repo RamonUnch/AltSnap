@@ -571,7 +571,9 @@ static int IsWindowSnapped(HWND hwnd)
 /* If pt and ptt are it is the same points with 4px tolerence */
 static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
 {
-    return !( pt->x > ptt->x+2 || pt->y > ptt->y+2 ||pt->x < ptt->x-2 || pt->y < ptt->y-2 );
+    #define T 4
+    return !( pt->x > ptt->x+T || pt->y > ptt->y+T || pt->x < ptt->x-T || pt->y < ptt->y-T );
+    #undef T
 }
 /* Limit x between l and h */
 static xpure int CLAMP(int l, int x, int h)

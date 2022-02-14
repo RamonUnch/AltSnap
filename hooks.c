@@ -45,6 +45,8 @@ static struct windowRR {
     int height;
     UCHAR end;
     UCHAR maximize;
+    UCHAR moveonly;
+    UCHAR snap;
 } LastWin;
 
 // State
@@ -916,27 +918,19 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 }
 /////////////////////////////////////////////////////////////////////////////
 // Call with SW_MAXIMIZE or SW_RESTORE or below.
-#define SW_TOGGLE_MAX_RESTORE 27
 #define SW_FULLSCREEN 28
 static void Maximize_Restore_atpt(HWND hwnd, const POINT *pt, UINT sw_cmd, HMONITOR monitor)
 {
     WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
     GetWindowPlacement(hwnd, &wndpl);
-    RECT fmon;
-    if(sw_cmd == SW_TOGGLE_MAX_RESTORE)
-        wndpl.showCmd = (wndpl.showCmd==SW_MAXIMIZE)? SW_RESTORE: SW_MAXIMIZE;
-    else if (sw_cmd == SW_FULLSCREEN)
-        ;// nothing;
-    else
+    if (sw_cmd != SW_FULLSCREEN)
         wndpl.showCmd = sw_cmd;
 
-    if(wndpl.showCmd == SW_MAXIMIZE || sw_cmd == SW_FULLSCREEN) {
+    RECT fmon;
+    if(sw_cmd == SW_MAXIMIZE || sw_cmd == SW_FULLSCREEN) {
         HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         if (!monitor) {
-            POINT ptt;
-            if (pt) ptt = *pt;
-            else GetCursorPos(&ptt);
-            monitor = MonitorFromPoint(ptt, MONITOR_DEFAULTTONEAREST);
+            monitor = MonitorFromPoint(pt? *pt: state.prevpt, MONITOR_DEFAULTTONEAREST);
         }
         MONITORINFO mi = { sizeof(MONITORINFO) };
         GetMonitorInfo(monitor, &mi);
@@ -960,7 +954,7 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
     HWND hwnd;
     hwnd = lw->hwnd;
 
-    if (lw->end&1 && conf.FullWin) Sleep(8); // At the End of movement...
+    if (lw->end && conf.FullWin) Sleep(8); // At the End of movement...
 
     SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
     // Send WM_SYNCPAINT in case to wait for the end of movement
@@ -969,6 +963,7 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
     if (conf.RefreshRate) ASleep(conf.RefreshRate); // Accurate!!!
 
     lw->hwnd = NULL;
+    lw->end = 0;
 }
 static DWORD WINAPI ResizeWindowThread(LPVOID LastWinV)
 {
@@ -987,7 +982,7 @@ static void MoveWindowInThread(struct windowRR *lw)
     DWORD lpThreadId;
     CloseHandle(
         CreateThread( NULL, STACK
-            , (lw->end&2)? MoveWindowThread: ResizeWindowThread
+            , (lw->moveonly)? MoveWindowThread: ResizeWindowThread
             , lw, 0, &lpThreadId)
     );
 }
@@ -1041,14 +1036,21 @@ static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
 
     CopyRect(_mon, full? &mi.rcMonitor : &mi.rcWork);
 }
+static void WaitMovementEnd()
+{ // Only wait 240ms maximum
+    int i=0;
+    while (LastWin.hwnd && i++ < 15) Sleep(16);
+    LastWin.hwnd = NULL; // Zero out in case.
+}
 ///////////////////////////////////////////////////////////////////////////
 #define AERO_TH conf.AeroThreshold
 #define MM_THREAD_ON (LastWin.hwnd && conf.FullWin)
 static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight)
 {
     // return if last resizing is not finished or no Aero or not resizable.
-    if(!conf.Aero || MM_THREAD_ON || !state.resizable) return 0;
+    if(!conf.Aero ||!state.resizable) return 0;
     LastWin.maximize = 0;
+    LastWin.snap = 0;
 
     if (!state.moving) {
         EnumSnapped();
@@ -1072,7 +1074,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     int Right = pRight  - AERO_TH ;
     int Top   = pTop    + AERO_TH ;
     int Bottom= pBottom - AERO_TH ;
-    LastWin.end = 0; // We are resizing the window.
+    LastWin.moveonly = 0; // We are resizing the window.
 
     // Move window
     if (pt.y < Top && pt.x < Left) {
@@ -1151,13 +1153,13 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         *posy = mon.top + (mon.bottom-mon.top)/2 - *wndheight/2; // Center
     } else {
         restore:
-        if (restore&SNAPPED) {
+        if (restore&SNAPPED && !MM_THREAD_ON) {
             // Restore original window size
             if (restore) ClearRestoreData(state.hwnd);
             restore = 0;
             *wndwidth = state.origin.width;
             *wndheight = state.origin.height;
-            LastWin.end = 0; // Restored => resize
+            LastWin.moveonly = 0; // Restored => resize
         }
     }
 
@@ -1179,9 +1181,21 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         if (state.Speed > conf.AeroMaxSpeed) return 1;
         if (conf.FullWin) {
             if (IsZoomed(state.hwnd)) Maximize_Restore_atpt(state.hwnd, &pt, SW_RESTORE, NULL);
-            MoveWindowAsync(state.hwnd, *posx, *posy, *wndwidth, *wndheight);
-            SendMessage(state.hwnd, WM_SYNCPAINT, 0, 0);
-            return 1;
+            int mmthreadend = !LastWin.hwnd;
+            LastWin.hwnd = state.hwnd;
+            LastWin.x = *posx;
+            LastWin.y = *posy;
+            LastWin.width = *wndwidth;
+            LastWin.height = *wndheight;
+            LastWin.moveonly = 0; // Snap => resize
+            LastWin.snap = 1;
+            if (mmthreadend) {
+                MoveWindowInThread(&LastWin);
+                return 1;
+            }
+//            state.moving = 1; // We are moving...
+//            if(!LastWin.hwnd) MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
+//            return 1;
         }
     }
     return 0;
@@ -1430,6 +1444,18 @@ static void MoveTransWin(int x, int y, int w, int h)
       #undef f
       if(hwndSS) EndDeferWindowPos(hwndSS);
 }
+static DWORD CALLBACK WinPlacmntTrgead(LPVOID wndplptr)
+{
+    SetWindowPlacement(LastWin.hwnd, (WINDOWPLACEMENT *)wndplptr);
+    LastWin.hwnd = NULL;
+    return 0;
+}
+static void SetWindowPlacementThread(HWND hwnd, WINDOWPLACEMENT *wndplptr)
+{
+    LastWin.hwnd = hwnd;
+    DWORD lpThreadId;
+    CloseHandle(CreateThread(NULL, STACK, WinPlacmntTrgead, wndplptr, 0, &lpThreadId));
+}
 ///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
 {
@@ -1465,9 +1491,10 @@ static void MouseMove(POINT pt)
 
     // Get new position for window
     LastWin.end = 0;
+    LastWin.moveonly = 0;
     if (state.action == AC_MOVE) {
         // Set end to 2 to add the SWP_NOSIZE to SetWindowPos
-        LastWin.end = 2;
+        LastWin.moveonly = 1;
 
         posx = pt.x-state.offset.x;
         posy = pt.y-state.offset.y;
@@ -1482,7 +1509,7 @@ static void MouseMove(POINT pt)
 
         // Restore window if maximized when starting
         if (was_snapped || IsZoomed(state.hwnd)) {
-            LastWin.end = 0;
+            LastWin.moveonly = 0;
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(state.hwnd, &wndpl);
             // Restore original width and height in case we are restoring
@@ -1494,11 +1521,13 @@ static void MouseMove(POINT pt)
                 wndpl.rcNormalPosition.bottom= wndpl.rcNormalPosition.top +  state.origin.height;
             }
             if (restore&SNTHENROLLED) ClearRestoreData(state.hwnd);// Only Flag?
-            SetWindowPlacement(state.hwnd, &wndpl);
             // Update wndwidth and wndheight
             wndwidth  = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
             wndheight = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
+            SetWindowPlacement(state.hwnd, &wndpl);
+//            SetWindowPlacementThread(state.hwnd, &wndpl);
         }
+
     } else if (state.action == AC_RESIZE) {
         // Restore the window (to monitor size) if it's maximized
         if (!state.moving && IsZoomed(state.hwnd)) {
@@ -1768,6 +1797,18 @@ static int ScrollLockState()
     return (conf.ScrollLockState&1) &&
         !( !(GetKeyState(VK_SCROLL)&1) ^ !(conf.ScrollLockState&2) );
 }
+static void LogState()
+{
+    FILE *f=fopen("ad.log", "a");
+
+    fprintf(f, "action=%d\nmoving=%d\nctrl=%d\nshift=%d\nalt=%d\nalt1=%d\n"
+    ,(int)state.action, (int)state.moving, (int)state.ctrl, (int)state.shift, (int)state.alt, (int)state.alt1);
+    fprintf(f, "clickbutton=%d\nhwnd=%lx\nlwhwnd=%lx\nlwend=%d\nblockaltup=%d\nblockmouseup=%d\nignorekey=%d\n\n\n"
+    , (int)state.clickbutton, (DWORD)state.hwnd, (DWORD)LastWin.hwnd, (int)LastWin.end
+    , (int)state.blockaltup, (int)state.blockmouseup, (int)state.ignorekey );
+
+    fclose(f);
+}
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -1822,6 +1863,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             HotkeyUp();
         } else if (vkey == VK_ESCAPE) { // USER PRESSED ESCAPE!
             // Alsays disable shift and ctrl, in case of Ctrl+Shift+ESC.
+//            LogState();
             state.ctrl = 0;
             state.shift = 0;
             LastWin.hwnd = NULL;
@@ -2295,7 +2337,7 @@ static void SnapToCorner(HWND hwnd)
     RECT *mon = &state.origin.mon;
     RECT bd, wnd;
     GetWindowRect(hwnd, &wnd);
-    SetEdgeAndOffset(&wnd, state.prevpt); //
+    SetEdgeAndOffset(&wnd, state.prevpt); // state.resize.x/y & state.offset.x/y
     FixDWMRect(hwnd, &bd);
     int wndwidth  = wnd.right  - wnd.left;
     int wndheight = wnd.bottom - wnd.top;
@@ -2369,7 +2411,7 @@ static void SnapToCorner(HWND hwnd)
         posx -= bd.left; posy -= bd.top;
         wndwidth += bd.left+bd.right; wndheight += bd.top+bd.bottom;
     }
-
+    if (IsZoomed(state.hwnd)) Maximize_Restore_atpt(state.hwnd, &state.clickpt, SW_RESTORE, NULL);
     MoveWindowAsync(hwnd, posx, posy, wndwidth, wndheight);
     // Save data to the window...
     SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED|restore);
@@ -2726,7 +2768,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         state.blockmouseup = 1; // because the action will be done
     }
     // AN ACTION HAS BEEN DONE!!!
-
     // We have to send the ctrl keys here too because of
     // IE (and maybe some other program?)
     Send_CTRL(); // Do we????
@@ -2774,7 +2815,7 @@ static int InTitlebar(POINT pt, enum action action,  enum button button)
     }
     return 0;
 }
-//
+/////////////////////////////////////////////////////////////////////////////
 // Actions to be performed in the Titlebar...
 static int TitleBarActions(POINT pt, enum action action, enum button button)
 {
@@ -2786,11 +2827,6 @@ static int TitleBarActions(POINT pt, enum action action, enum button button)
     return -1; // Fall through
 }
 
-static void WaitMovementEnd()
-{
-    if (LastWin.hwnd) Sleep(10);
-    if (LastWin.hwnd) Sleep(100);
-}
 /////////////////////////////////////////////////////////////////////////////
 // Called on MouseUp and on AltUp when using GrabWithAlt
 static void FinishMovement()
@@ -2801,12 +2837,12 @@ static void FinishMovement()
         if (!conf.FullWin && state.action == AC_RESIZE) {
             ResizeAllSnappedWindowsAsync();
         }
-        if (IsWindow(LastWin.hwnd)){
+        if (IsWindow(LastWin.hwnd) && !LastWin.snap){
             if (LastWin.maximize) {
                 Maximize_Restore_atpt(LastWin.hwnd, NULL, SW_MAXIMIZE, NULL);
                 LastWin.hwnd = NULL;
             } else {
-                LastWin.end |= 1;
+                LastWin.end = 1;
                 MoveWindowInThread(&LastWin);
             }
         }
@@ -2816,11 +2852,9 @@ static void FinishMovement()
     && (state.origin.maximized || state.origin.fullscreen)
     && !state.shift && !state.mdiclient && state.action == AC_MOVE) {
         state.action = AC_NONE;
-        POINT pt;
-        GetCursorPos(&pt);
-        HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+        HMONITOR monitor = MonitorFromPoint(state.prevpt, MONITOR_DEFAULTTONEAREST);
         if (monitor != state.origin.monitor) {
-            Sleep(10);  // Wait a little for moveThread.
+            Sleep(8);  // Wait a little for moveThread.
             WaitMovementEnd(); // extra waiting in case...
 
             if (state.origin.maximized) {
@@ -2854,8 +2888,8 @@ static void FinishMovement()
 static void ClickComboActions(enum action action)
 {
     // Maximize/Restore the window if pressing Move, Resize mouse buttons.
-    WaitMovementEnd();
     if(state.action == AC_MOVE && action == AC_RESIZE) {
+        WaitMovementEnd();
         if (IsZoomed(state.hwnd)) {
             state.moving = 0;
             MouseMove(state.prevpt);
@@ -2871,8 +2905,9 @@ static void ClickComboActions(enum action action)
         HideCursor();
         state.blockmouseup = 2; // block two mouse up events!
     }
-    LastWin.hwnd = NULL;
+
 }
+#define SamePt(a, b) (a.x == b.x && a.y ==b.y)
 /////////////////////////////////////////////////////////////////////////////
 // This is somewhat the main function, it is active only when the ALT key is
 // pressed, or is always on when conf.keepMousehook is enabled.
@@ -2885,8 +2920,9 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     PMSLLHOOKSTRUCT msg = (PMSLLHOOKSTRUCT)lParam;
     POINT pt = msg->pt;
 
-    // Handle mouse move and scroll
+    // Mouse move, only if it is not exactly the same point than before
     if (wParam == WM_MOUSEMOVE) {
+        if (SamePt(pt, state.prevpt)) return CallNextHookEx(NULL, nCode, wParam, lParam);
         // Store prevpt so we can check if the hook goes stale
         state.prevpt = pt;
 
@@ -2894,8 +2930,8 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         if (!IsSamePTT(&pt, &state.clickpt)) {
             state.clicktime = 0;
         }
-        // Move the window
-        if (state.action) { // resize or move...
+        // Move the window  && (state.moving || !IsSamePTT(&pt, &state.clickpt))
+        if (state.action && !state.blockmouseup) { // resize or move...
             // Move the window every few frames.
             if (conf.RezTimer) {
                 // Only move window if the EVENT TIME is different.
@@ -2909,8 +2945,8 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
                 updaterate = (updaterate+1)%(state.action==AC_MOVE? conf.MoveRate: conf.ResizeRate);
                 if(!updaterate) MouseMove(pt);
             }
-            return CallNextHookEx(NULL, nCode, wParam, lParam);
         }
+        return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
 
     // Get button
@@ -2992,6 +3028,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             UnhookMouse();
             return CallNextHookEx(NULL, nCode, wParam, lParam);
         }
+        // Start an action (alt is down)
         int ret = init_movement_and_actions(pt, action, button);
         if (!ret) return CallNextHookEx(NULL, nCode, wParam, lParam);
         else      return 1; // block mousedown
@@ -2999,13 +3036,13 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     // BUTTON UP
     } else if (buttonstate == STATE_UP) {
         SetWindowTrans(NULL); // Reset window transparency
-
         if (state.blockmouseup) {
             // block mouse up and decrement counter.
             state.blockmouseup--;
             return 1;
+        }
 
-        } else if (action && MOUVEMENT(action) && state.action == action
+        if (state.action == action
         && !state.moving // No drag occured
         && !state.ctrl // Ctrl is not down (because of focusing)
         && IsSamePTT(&pt, &state.clickpt) // same point
@@ -3015,6 +3052,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             // Perform an action on mouse up without drag on move/resize
             if (action == AC_MOVE)   action = conf.MoveUp[ModKey()];
             if (action == AC_RESIZE) action = conf.ResizeUp[ModKey()];
+
             if (action > AC_RESIZE) {
                 SClickActions(state.hwnd, action);
             } else {
@@ -3159,7 +3197,7 @@ __declspec(dllexport) void Unload()
     int i; for (i=0; i<4; i++) DestroyWindow(g_transhwnd[i]);
     UnregisterClass(APP_NAME"-Timers", hinstDLL);
     UnregisterClass(APP_NAME"-SClick", hinstDLL);
-    UnregisterClass(APP_NAME"-Trans", hinstDLL);
+    UnregisterClass(APP_NAME"-Trans",  hinstDLL);
 
     freeblacklists();
 

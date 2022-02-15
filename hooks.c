@@ -1797,14 +1797,16 @@ static int ScrollLockState()
     return (conf.ScrollLockState&1) &&
         !( !(GetKeyState(VK_SCROLL)&1) ^ !(conf.ScrollLockState&2) );
 }
-static void LogState()
+static void LogState(const char *Title)
 {
-    FILE *f=fopen("ad.log", "a");
-
+    FILE *f=fopen("ad.log", "a"); // append data...
+    fputs(Title, f);
     fprintf(f, "action=%d\nmoving=%d\nctrl=%d\nshift=%d\nalt=%d\nalt1=%d\n"
     ,(int)state.action, (int)state.moving, (int)state.ctrl, (int)state.shift, (int)state.alt, (int)state.alt1);
-    fprintf(f, "clickbutton=%d\nhwnd=%lx\nlwhwnd=%lx\nlwend=%d\nblockaltup=%d\nblockmouseup=%d\nignorekey=%d\n\n\n"
-    , (int)state.clickbutton, (DWORD)state.hwnd, (DWORD)LastWin.hwnd, (int)LastWin.end
+    fprintf(f, "clickbutton=%d\nhwnd=%lx\nlwhwnd=%lx\nlwend=%d\nlwmaximize=%d\nlwmoveonly=%d\nlwsnap=%d\n"
+    "blockaltup=%d\nblockmouseup=%d\nignorekey=%d\n\n\n"
+    , (int)state.clickbutton, (DWORD)(DorQWORD)state.hwnd, (DWORD)(DorQWORD)LastWin.hwnd
+    , (int)LastWin.end, (int)LastWin.maximize, (int)LastWin.moveonly, (int)LastWin.snap
     , (int)state.blockaltup, (int)state.blockmouseup, (int)state.ignorekey );
 
     fclose(f);
@@ -1863,7 +1865,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             HotkeyUp();
         } else if (vkey == VK_ESCAPE) { // USER PRESSED ESCAPE!
             // Alsays disable shift and ctrl, in case of Ctrl+Shift+ESC.
-//            LogState();
+            //LogState("ESCAPE KEY WAS PRESSED:\n"); // Debug stuff....
             state.ctrl = 0;
             state.shift = 0;
             LastWin.hwnd = NULL;
@@ -2907,6 +2909,28 @@ static void ClickComboActions(enum action action)
     }
 
 }
+static xpure enum button GetButton(WPARAM wParam, LPARAM lParam)
+{
+    PMSLLHOOKSTRUCT msg = (PMSLLHOOKSTRUCT)lParam;
+    return
+        (wParam==WM_LBUTTONDOWN||wParam==WM_LBUTTONUP)?BT_LMB:
+        (wParam==WM_MBUTTONDOWN||wParam==WM_MBUTTONUP)?BT_MMB:
+        (wParam==WM_RBUTTONDOWN||wParam==WM_RBUTTONUP)?BT_RMB:
+        (wParam==WM_MOUSEWHEEL)?BT_WHEEL:
+        (wParam==WM_MOUSEHWHEEL)?BT_HWHEEL:
+        (HIWORD(msg->mouseData)==XBUTTON1)?BT_MB4:
+        (HIWORD(msg->mouseData)==XBUTTON2)?BT_MB5:BT_NONE;
+}
+static xpure enum buttonstate GetButtonState(WPARAM wParam)
+{
+    return
+        (wParam==WM_LBUTTONDOWN||wParam==WM_MBUTTONDOWN
+        || wParam==WM_RBUTTONDOWN||wParam==WM_XBUTTONDOWN)? STATE_DOWN
+        : (wParam==WM_LBUTTONUP  ||wParam==WM_MBUTTONUP
+        || wParam==WM_RBUTTONUP  ||wParam==WM_XBUTTONUP)? STATE_UP
+        : (wParam==WM_MOUSEWHEEL ||wParam==WM_MOUSEHWHEEL)? STATE_DOWN
+        : STATE_NONE;
+}
 #define SamePt(a, b) (a.x == b.x && a.y ==b.y)
 /////////////////////////////////////////////////////////////////////////////
 // This is somewhat the main function, it is active only when the ALT key is
@@ -2949,26 +2973,11 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
 
-    // Get button
-    enum button button =
-        (wParam==WM_LBUTTONDOWN||wParam==WM_LBUTTONUP)?BT_LMB:
-        (wParam==WM_MBUTTONDOWN||wParam==WM_MBUTTONUP)?BT_MMB:
-        (wParam==WM_RBUTTONDOWN||wParam==WM_RBUTTONUP)?BT_RMB:
-        (wParam==WM_MOUSEWHEEL)?BT_WHEEL:
-        (wParam==WM_MOUSEHWHEEL)?BT_HWHEEL:
-        (HIWORD(msg->mouseData)==XBUTTON1)?BT_MB4:
-        (HIWORD(msg->mouseData)==XBUTTON2)?BT_MB5:BT_NONE;
-
-   // Get Button state
-    enum buttonstate buttonstate =
-          (wParam==WM_LBUTTONDOWN||wParam==WM_MBUTTONDOWN
-        || wParam==WM_RBUTTONDOWN||wParam==WM_XBUTTONDOWN)? STATE_DOWN
-        : (wParam==WM_LBUTTONUP  ||wParam==WM_MBUTTONUP
-        || wParam==WM_RBUTTONUP  ||wParam==WM_XBUTTONUP)? STATE_UP
-        : (wParam==WM_MOUSEWHEEL ||wParam==WM_MOUSEHWHEEL)? STATE_DOWN
-        : STATE_NONE;
-     // Get wheel delta
-     state.delta = GET_WHEEL_DELTA_WPARAM(msg->mouseData);
+    // Get button/wheel info and buttonstate+wheel info.
+    enum button button = GetButton(wParam, lParam);
+    enum buttonstate buttonstate = GetButtonState(wParam);
+    // Get wheel delta
+    state.delta = GET_WHEEL_DELTA_WPARAM(msg->mouseData);
 
     // Get actions!
     enum action action = GetAction(button); // Normal action
@@ -3021,6 +3030,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 
     // INIT ACTIONS on mouse down if Alt is down...
     } else if (buttonstate == STATE_DOWN && state.alt) {
+        //LogState("BUTTON DOWN:\n");
         // Double ckeck some hotkey is pressed.
         if (!state.action
         && !IsHotclick(state.alt)
@@ -3035,6 +3045,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 
     // BUTTON UP
     } else if (buttonstate == STATE_UP) {
+//        LogState("BUTTON UP:\n");
         SetWindowTrans(NULL); // Reset window transparency
         if (state.blockmouseup) {
             // block mouse up and decrement counter.
@@ -3496,7 +3507,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
             g_transhwnd[i] = CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW  //|WS_EX_NOACTIVATE|
                              , APP_NAME"-Trans", NULL, WS_POPUP
                              , 0, 0, 0, 0, NULL, NULL, hinstDLL, NULL);
-            LOG("CreateWindowEx[i] = %lX", (DWORD)g_transhwnd[i]);
+            LOG("CreateWindowEx[i] = %lX", (DWORD)(DorQWORD)g_transhwnd[i]);
         }
     }
 

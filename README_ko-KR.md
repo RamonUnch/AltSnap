@@ -1,4 +1,4 @@
-English(./README.md) | [中文文档](./README_zh-CN.md) | 한국어
+[English](./README.md) | [中文文档](./README_zh-CN.md) | 한국어
 # AltSnap
 Stefan Sundin의 AltDrag에서 포크되었습니다.
 

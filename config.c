@@ -213,26 +213,36 @@ static void UpdateStrings()
         }
     }
 }
-#if 0
-DWORD WINAPI MoveToCursorInThread(LPVOID v)
+static void MoveToCorner(HWND hwnd)
 {
-    Sleep(1);
-    POINT pt;
-    WINDOWPLACEMENT wndpl;
-    GetCursorPos(&pt);
-    GetWindowPlacement(g_cfgwnd, &wndpl);
-    long h = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
-    long w = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
-    wndpl.rcNormalPosition.left  = pt.x;
-    wndpl.rcNormalPosition.top   = pt.y;
-    wndpl.rcNormalPosition.right = pt.x+w;
-    wndpl.rcNormalPosition.bottom= pt.y+h;
-    wndpl.showCmd = SW_SHOW;
-    SetWindowPlacement(g_cfgwnd, &wndpl);
+    static HWND ohwnd;
+    if(hwnd == ohwnd) return;
+    ohwnd = hwnd;
 
-    return 0;
+    RECT rc;
+    MONITORINFO mi = { sizeof(MONITORINFO) };
+    POINT pt;
+    GetCursorPos(&pt);
+    GetMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi);
+
+    GetWindowRect(hwnd, &rc);
+    int x, y;
+    long h = rc.bottom - rc.top;
+    long w = rc.right - rc.left;
+    if (pt.x < (mi.rcWork.right - mi.rcWork.left)/2) {
+        x = mi.rcWork.left;
+    } else {
+        x = mi.rcWork.right - w;
+    }
+    if (pt.y < (mi.rcWork.bottom - mi.rcWork.top)/2) {
+        y = mi.rcWork.top;
+    } else {
+        y = mi.rcWork.bottom - h;
+    }
+    SetWindowPos(hwnd, NULL, x, y, w, h
+        , SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS);
 }
-#endif
+
 /////////////////////////////////////////////////////////////////////////////
 BOOL CALLBACK PropSheetProc(HWND hwnd, UINT msg, LPARAM lParam)
 {
@@ -243,8 +253,6 @@ BOOL CALLBACK PropSheetProc(HWND hwnd, UINT msg, LPARAM lParam)
         // Set new icon specifically for the taskbar and Alt+Tab, without changing window icon
         HICON taskbar_icon = LoadImageA(g_hinst, "APP_ICON", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
         SendMessage(g_cfgwnd, WM_SETICON, ICON_BIG, (LPARAM) taskbar_icon);
-//        DWORD id;
-//        CreateThread(NULL, 0, MoveToCursorInThread, NULL, 0, &id);
     }
     return TRUE;
 }
@@ -319,6 +327,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     int updatestrings = 0;
     static int have_to_apply = 0;
     if (msg == WM_INITDIALOG) {
+        MoveToCorner(g_cfgwnd);
         int ret;
         ReadOptionInt(IDC_AUTOFOCUS,     L"General",    L"AutoFocus", 0, -1);
         ReadOptionInt(IDC_AERO,          L"General",    L"Aero", 1, -1);
@@ -1003,7 +1012,9 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    if (msg == WM_NOTIFY) {
+    if (msg == WM_INITDIALOG) {
+        MoveToCorner(g_cfgwnd);
+    } else if (msg == WM_NOTIFY) {
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // Update text
@@ -1049,6 +1060,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
         SelectObject(hdc, pen);
         SetROP2(hdc, R2_COPYPEN);
+
         int width = wRect.right - wRect.left;
         int height = wRect.bottom - wRect.top;
 
@@ -1065,6 +1077,11 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             , (height+height*centerfrac/100)/2 + Offset.y);
 
         DeleteObject(pen);
+
+        // Draw textual info....
+//        SetBkMode(hdc, TRANSPARENT);
+//        wchar_t *str = L"huhu:\t12\nsdtui.hd\t33\naaa\tT";
+//        DrawTextW(hdc, str, wcslen(str), &(RECT){5, 5, 100, 100}, DT_NOCLIP|DT_TABSTOP);
 
         EndPaint(hwnd, &ps);
         return 0;

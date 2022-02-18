@@ -18,6 +18,7 @@
 #define TORESIZE  (1<<9)
 #define SNTHENROLLED (1<<10)
 #define SNZONE    (1<<11)
+#define SNMIN     (1<<12)
 #define SNTOPLEFT     (SNTOP|SNLEFT)
 #define SNTOPRIGHT    (SNTOP|SNRIGHT)
 #define SNBOTTOMLEFT  (SNBOTTOM|SNLEFT)
@@ -167,3 +168,24 @@ static void SetRestoreFlag(HWND hwnd, unsigned flag)
         wnddb[idx].restore = flag;
     }
 }
+static void SetBorderlessFlag(HWND hwnd, LONG_PTR flag)
+{
+    SetPropA(hwnd, APP_PRBDLESS,(HANDLE)flag);
+}
+static LONG_PTR GetBorderlessFlag(HWND hwnd)
+{
+    return (LONG_PTR)GetPropA(hwnd, APP_PRBDLESS);
+}
+static LONG_PTR ClearBorderlessFlag(HWND hwnd)
+{
+    return (LONG_PTR)RemovePropA(hwnd, APP_PRBDLESS);
+}
+//static void AddToFlag(HWND hwnd, unsigned flag)
+//{
+//    SetRestoreFlag(hwnd, flag|GetRestoreFlag(hwnd));
+//}
+//
+//static void RemoveToFlag(HWND hwnd, unsigned flag)
+//{
+//    SetRestoreFlag(hwnd, flag & (~GetRestoreFlag(hwnd)));
+//}

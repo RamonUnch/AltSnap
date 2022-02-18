@@ -2460,9 +2460,12 @@ static void ActionBorderless(HWND hwnd)
         style = ostyle;
     } else if ((style=GetWindowLongPtr(hwnd, GWL_STYLE))) {
         SetBorderlessFlag(hwnd, style); // Save style
-        if(style&WS_BORDER) style &= state.shift? ~WS_CAPTION: ~(WS_CAPTION|WS_THICKFRAME);
+        if((style&WS_CAPTION) == WS_CAPTION || style&WS_THICKFRAME) {
+            style &= state.shift? ~WS_CAPTION: ~(WS_CAPTION|WS_THICKFRAME);
+        } else {
+            style |= WS_OVERLAPPEDWINDOW;
+        }
     }
-
     SetWindowLongPtr(hwnd, GWL_STYLE, style);
 
     // Under Windows 10, with DWM we HAVE to resize the windows twice
@@ -2642,7 +2645,7 @@ static int DoWheelActions(POINT pt, HWND hwnd, enum action action)
     else                                ret = 0; // No action
 
     // ret is 0: next hook or 1: block whel and AltUp.
-    state.blockaltup = ret && state.alt; // block or not;
+    state.blockaltup = ret && state.alt > 8; // block or not;
     return ret; // block or next hook
 }
 
@@ -3164,7 +3167,7 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             }
             if (state.Speed) has_moved_to_fixed_pt = 0;
         } else if (wParam == GRAB_TIMER) {
-            // Grad the action after a certain amount of time of click down
+            // Grab the action after a certain amount of time of click down
             POINT pt;
             GetCursorPos(&pt);
             if (IsSamePTT(&pt, &state.clickpt)) {

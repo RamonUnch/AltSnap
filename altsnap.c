@@ -362,7 +362,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
         if (ret == -1) {
             break;
         } else {
-            TranslateMessage(&msg);
+         // TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
     }

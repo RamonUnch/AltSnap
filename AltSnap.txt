@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTSNAP for NT4 to Win10                         *
 *  Modified by Raymond Gillibert from original AltDrag by Stefan Sundin   *
-*                     release 1.49 (January 19, 2022)                     *
+*                     release 1.50 (February 18, 2022)                    *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltSnap/releases/         *
@@ -184,14 +184,84 @@ Note that this version has some more feature.
 ===========================================================================
 == CHANGELOG ==
 
+== AltSnap 1.50 ==
+
+ * New: Major changes in the title bar handling. A set of specific actions
+   can be configured for each mouse button to apply when clicking on the
+   title bar. Those actions can be configured to be used without pressing
+   the hotkey if you want. This replaces all special title bars options:
+   `LowerWithMMB`, `RollWithTBScroll`, `NormRestore`, `TitlebarMove`,
+   now removed. **CHECK YOUR CONFIG** when you install this update...
+
+ * New: Now, if you perform a long Alt+Click, the click will be forwarded
+   to the pointed program, simulating a normal Alt+Click. You can also check
+   the **Avoid blocking Alt+Click** option (General tab) and the Click will
+   always be redirected, this will also disable all double-click actions.
+
+ * New: A specific action can be configured when the Move or Resize action
+   is release without performing a drag, so for example you can set
+   `MoveUp=Minimize` in the `[Input]` section of the ini file and then
+   Alt+Move+drag will just move the window as normal, but Alt+Move+Release
+   will minimize the window. By default it needs to be a long click but if
+   you check the avoid blocking Alt+Click option then any click will work.
+   Same for the resize action using `ResizeUp` option. You also have the
+   Alternate versions for each one with the B sufix. Also if you Hold Ctrl
+   while releasing the click the action will not be performed.
+
+ * New: Now the Resize+Move click combo will snap the window to the
+   corresponding corner (similar to Move+Resize => Maximize).
+
+ * New: Mute sounds action to toggle mute state on Win2k+.
+
+ * New: Snap to side/corner action is available, and is equivalent to the
+   double-right-click aero-snapping.
+
+ * New: The `RezTimer` option was added to the `[Performance]` section of
+   the ini file and permits to move the cursor only at the default event
+   time resolution (every 16ms). It can be combined with FullWin=0 and is
+   very low on resources consumption. It is an advised mode if your monitor
+   refresh rate is only 60Hz. If the option is used then all the other
+   rates are ignored.
+
+ * French, Italian, translations are up to date and thanks to @1kko for
+   Korean Translation and thanks to @Ichisich for German translation
+
+ * Fixed: now the config dialog will show up in the corner your cursor is
+   when you click on the tray icon.
+
+ * Fixed: now the borderless action will save the old window style.
+   Also Windows that have been set borderless by AltSnap will still be
+   considered resizable.
+
+ * Fixed: Colors of the *Test Window* now depends on system colors.
+
+ * Fixed: Now the `RefreshRate` delay is almost millisecond accurate, it used
+   to be 16 ms accurate, rendering it useless on high-spec computers.
+
+ * Fixed: the show window content while dragging will no longer be ignored
+   on newer Windows versions. The `FullWin` option in the `[Performance]`
+   section of the .ini file can be set to 1: force on, 0: Force hollow,
+   and 2: Autodetect based on Windows setting.
+   The color of the hollow rectangle can be set in hex RGB via the
+   `FrameColor` option in the [Input] section, default is 80 00 80.
+
+ * Fixed: Alt+Shift will be blocked, by sending Ctrl, if an action occurred.
+   This avoids unwanted keymap changes.
+
+ * Fixed: Volume action now simply sends the multimedia key events.
+   It should work on Win2k+, and will show a visual indicator on Win10.
+
+ * Fixed: Sometime a maximized window could become impossible to restore
+   with AltSnap.
+
 == AltSnap 1.49 ==
 
  * New: New way of arranging your windows: Grid mode. It replaces the snap
    layout with a simple grid than can be configured in the ini file. You can
-   Set `UseZones=3` in the [Zones] section of the .ini file to enable grid mode
-   then you can set the number of grid lines/columns using the `GridNx/GridNy`
-   options. Gor Grid mode I suggest to set UseZones=7 (3+4) so that the window
-   get extended without having to press Ctrl.
+   Set `UseZones=3` in the [Zones] section of the .ini file to enable grid
+   mode then you can set the number of grid lines/columns using the
+   `GridNx/GridNy` options. Gor Grid mode I suggest to set UseZones=7 (3+4)
+   so that the window get extended without having to press Ctrl.
 
  * New option to disable AltSnap on Maximized windows (advanced tab)
    You can also use the `BLMaximized` option in the .ini file.

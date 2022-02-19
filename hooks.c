@@ -2788,13 +2788,12 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 static int xpure IsAeraCapbutton(int area)
 {
     return area == HTMINBUTTON || area == HTMAXBUTTON
-        || area == HTCLOSE || area == HTHELP;
+        || area == HTCLOSE || area == HTHELP || area == HTSYSMENU;
 }
 static int xpure IsAreaCaption(int area)
 {
     return area == HTCAPTION
-       || (area >= HTTOP && area <= HTTOPRIGHT)
-       || area == HTSYSMENU ;
+       || (area >= HTTOP && area <= HTTOPRIGHT) ;
 }
 static int IsAreaAnyCap(int area)
 {
@@ -3155,14 +3154,16 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             if (state.Speed) has_moved_to_fixed_pt = 0;
         } else if (wParam == GRAB_TIMER) {
             // Grab the action after a certain amount of time of click down
-            POINT pt;
-            GetCursorPos(&pt);
-            if (IsSamePTT(&pt, &state.clickpt)) {
+            HWND ptwnd;
+            if (IsSamePTT(&state.prevpt, &state.clickpt)
+            && (ptwnd = WindowFromPoint(state.prevpt))
+            &&!IsAeraCapbutton(HitTestTimeoutbl(ptwnd, state.prevpt.x, state.prevpt.y)))
+            {
                 state.ignoreclick=1;
                 mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
                 state.ignoreclick=0;
                 state.alt = 1;
-                init_movement_and_actions(pt, AC_MOVE, 2);
+                init_movement_and_actions(state.prevpt, AC_MOVE, 2);
                 state.alt = 0;
             }
             KillTimer(g_timerhwnd, GRAB_TIMER);

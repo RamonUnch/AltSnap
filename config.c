@@ -608,7 +608,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         { IDC_MMB, {L"MMB", L"MMBB", L"MMBT"} },
         { IDC_RMB, {L"RMB", L"RMBB", L"RMBT"} },
         { IDC_MB4, {L"MB4", L"MB4B", L"MB4T"} },
-        { IDC_MB5, {L"MB5", L"MB4B", L"MB5T"} }
+        { IDC_MB5, {L"MB5", L"MB5B", L"MB5T"} }
     };
 
     struct actiondl mouse_actions[] = {

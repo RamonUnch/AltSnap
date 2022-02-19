@@ -245,7 +245,6 @@ static pure int blacklisted(HWND hwnd, struct blacklist *list)
     GetWindowText(hwnd, title, ARR_SZ(title));
     GetClassName(hwnd, classname, ARR_SZ(classname));
     for ( ; i < list->length; i++) {
-        // LOGA("%S|%S, %d/%d\n", list->items[i].title, list->items[i].classname, i+1, list->length);
         if (!wcscmp_star(classname, list->items[i].classname)
         &&  !wcscmp_rstar(title, list->items[i].title)) {
               return mode;
@@ -271,7 +270,6 @@ static pure int blacklistedP(HWND hwnd, struct blacklist *list)
 
     // ProcessBlacklist is case-insensitive
     for ( ; i < list->length; i++) {
-        // LOGA("%S, %d/%d\n", list->items[i].title, i+1, list->length);
         if (list->items[i].title && !wcsicmp(title, list->items[i].title))
             return mode;
     }
@@ -1802,8 +1800,11 @@ static void LogState(const char *Title)
     FILE *f=fopen("ad.log", "a"); // append data...
     fputs(Title, f);
     fprintf(f, "action=%d\nmoving=%d\nctrl=%d\nshift=%d\nalt=%d\nalt1=%d\n"
-    ,(int)state.action, (int)state.moving, (int)state.ctrl, (int)state.shift, (int)state.alt, (int)state.alt1);
-    fprintf(f, "clickbutton=%d\nhwnd=%lx\nlwhwnd=%lx\nlwend=%d\nlwmaximize=%d\nlwmoveonly=%d\nlwsnap=%d\n"
+    , (int)state.action, (int)state.moving, (int)state.ctrl
+    , (int)state.shift, (int)state.alt, (int)state.alt1);
+
+    fprintf(f, "clickbutton=%d\nhwnd=%lx\nlwhwnd=%lx\nlwend=%d\n"
+    "lwmaximize=%d\nlwmoveonly=%d\nlwsnap=%d\n"
     "blockaltup=%d\nblockmouseup=%d\nignorekey=%d\n\n\n"
     , (int)state.clickbutton, (DWORD)(DorQWORD)state.hwnd, (DWORD)(DorQWORD)LastWin.hwnd
     , (int)LastWin.end, (int)LastWin.maximize, (int)LastWin.moveonly, (int)LastWin.snap
@@ -1862,8 +1863,8 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.snap = state.snap? 0: 3;
             return 1; // Block to avoid sys menu.
         } else if (state.alt && state.action == conf.GrabWithAlt[ModKey()] && IsKillkey(vkey)) {
-           // Release Hook on Alt+Tab in case there is DisplayFusion which creates an
-           // elevated Att+Tab windows that captures the AltUp key.
+           // Release Hook on Alt+KillKey
+           // eg: DisplayFusion Alt+Tab elevated windows captures AltUp
             HotkeyUp();
         } else if (vkey == VK_ESCAPE) { // USER PRESSED ESCAPE!
             // Alsays disable shift and ctrl, in case of Ctrl+Shift+ESC.
@@ -2769,25 +2770,11 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         // Wheel actions, directly return here
         // because maybe the action will not be done
         return DoWheelActions(state.prevpt, state.hwnd, action);
-//    } else if (action == AC_ASRESTORE) {
-//        int w=200, h=100;
-//        unsigned rf=GetRestoreData(state.hwnd, &w, &h);
-//        if (rf&1) {
-//            if(IsZoomed(state.hwnd) || IsWindowSnapped(state.hwnd))
-//                RestoreWindow(state.hwnd);
-//            ClearRestoreData(state.hwnd);
-//            SetWindowPos(state.hwnd, NULL, 0, 0, w, h, SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOMOVE|SWP_ASYNCWINDOWPOS);
-//        }
-//        state.blockmouseup=0;
-//        return 0;
     } else {
         SClickActions(state.hwnd, action);
-        state.blockmouseup = 1; // because the action will be done
+        state.blockmouseup = 1; // because the is done
     }
     // AN ACTION HAS BEEN DONE!!!
-    // We have to send the ctrl keys here too because of
-    // IE (and maybe some other program?)
-    // if (state.alt) Send_CTRL(); // Do we????
 
     // Remember time, position and button of this click
     // so we can check for double-click
@@ -3472,7 +3459,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         else                                    *buttons[i].ptr = AC_NONE;
     }
 
-    conf.TTBActions    = GetPrivateProfileInt(L"Input", L"TTBActions",    0, inipath);
+    conf.TTBActions      = GetPrivateProfileInt(L"Input", L"TTBActions",      0, inipath);
     conf.AggressivePause = GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath);
     conf.AggressiveKill  = GetPrivateProfileInt(L"Input", L"AggressiveKill",  0, inipath);
     conf.KeyCombo        = GetPrivateProfileInt(L"Input", L"KeyCombo",        0, inipath);

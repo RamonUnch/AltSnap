@@ -3167,14 +3167,13 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             }
             KillTimer(g_timerhwnd, GRAB_TIMER);
         }
+        return 0;
     } else if (msg == WM_DESTROY) {
         KillTimer(g_timerhwnd, REHOOK_TIMER);
         KillTimer(g_timerhwnd, SPEED_TIMER);
         KillTimer(g_timerhwnd, GRAB_TIMER);
-    } else {
-        return DefWindowProc(hwnd, msg, wParam, lParam);
     }
-    return 0;
+    return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 /////////////////////////////////////////////////////////////////////////////
 // Window for single click commands
@@ -3189,7 +3188,7 @@ LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 
         return 0;
     } else if(msg == WM_KILLFOCUS) {
-        // Menu gets hiden
+        // Menu gets hiden, be sure to zero-out the clickhwnd
         state.sclickhwnd = NULL;
     }
     // LOGA("msg=%X, wParam=%X, lParam=%lX", msg, wParam, lParam);
@@ -3455,7 +3454,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         else if (!wcsicmp(txt,L"MinAllOther"))  *buttons[i].ptr = AC_MINALL;
         else if (!wcsicmp(txt,L"Mute"))         *buttons[i].ptr = AC_MUTE;
         else if (!wcsicmp(txt,L"SideSnap"))     *buttons[i].ptr = AC_SIDESNAP;
-//        else if (!wcsicmp(txt,L"ASRestore"))    *buttons[i].ptr = AC_ASRESTORE;
         else                                    *buttons[i].ptr = AC_NONE;
     }
 

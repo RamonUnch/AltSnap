@@ -21,7 +21,6 @@ LRESULT CALLBACK FindWindowProc(HWND, UINT, WPARAM, LPARAM);
 
 HWND g_cfgwnd = NULL;
 
-
 /////////////////////////////////////////////////////////////////////////////
 // No error reporting since we don't want the user to be interrupted
 static void CheckAutostart(int *_on, int *_hidden, int *_elevated)
@@ -72,8 +71,8 @@ static void SetAutostart(int on, int hhide, int eelevate)
         unsigned ll = wcslen(value);
         value[ll] = '\"'; value[++ll]='\0';
         // Add -hide or -elevate flags
-        if (hhide)    wcscat(value, L" -hide");
-        if (eelevate) wcscat(value, L" -elevate");
+        if(hhide)    wcscat(value, L" -hide");
+        if(eelevate) wcscat(value, L" -elevate");
         // Set autostart
         RegSetValueEx(key, APP_NAME, 0, REG_SZ, (LPBYTE)value, (wcslen(value)+1)*sizeof(value[0]));
     } else {
@@ -86,12 +85,12 @@ static void SetAutostart(int on, int hhide, int eelevate)
 
 /////////////////////////////////////////////////////////////////////////////
 // Only used in the case of Vista+
-static BOOL ElevateNow(int showconfig)
+BOOL ElevateNow(int showconfig)
 {
         wchar_t path[MAX_PATH];
         GetModuleFileName(NULL, path, ARR_SZ(path));
         INT_PTR ret;
-        if (showconfig)
+        if(showconfig)
             ret = (INT_PTR)ShellExecute(NULL, L"runas", path, L"-config -multi", NULL, SW_SHOWNORMAL);
         else
             ret = (INT_PTR)ShellExecute(NULL, L"runas", path, L"-multi", NULL, SW_SHOWNORMAL);
@@ -105,7 +104,7 @@ static BOOL ElevateNow(int showconfig)
 }
 /////////////////////////////////////////////////////////////////////////////
 // Entry point
-static void OpenConfig(int startpage)
+void OpenConfig(int startpage)
 {
     if (IsWindow(g_cfgwnd)) {
         PropSheet_SetCurSel(g_cfgwnd, 0, startpage);
@@ -135,7 +134,7 @@ static void OpenConfig(int startpage)
 
     // Define the property sheet
     PROPSHEETHEADER psh = { sizeof(PROPSHEETHEADER) };
-    psh.dwFlags = PSH_PROPSHEETPAGE|PSH_USECALLBACK|PSH_USEHICON;
+    psh.dwFlags = PSH_PROPSHEETPAGE|PSH_USECALLBACK|PSH_USEHICON ;
     psh.hwndParent = NULL;
     psh.hInstance = g_hinst;
     psh.hIcon = LoadIconA(g_hinst, iconstr[1]);
@@ -146,17 +145,16 @@ static void OpenConfig(int startpage)
     psh.nStartPage = startpage;
 
     // Open the property sheet
-    InitCommonControls();
     PropertySheet(&psh);
 }
 /////////////////////////////////////////////////////////////////////////////
-static void CloseConfig()
+void CloseConfig()
 {
     PostMessage(g_cfgwnd, WM_CLOSE, 0, 0);
 }
-static void UpdateSettings()
+void UpdateSettings()
 {
-    PostMessage(g_hwnd, WM_UPDATESETTINGS, 0, 0);
+    PostMessage(g_hwnd, WM_UPDATESETTINGS, 1, 0);
 }
 static void MoveButtonUporDown(WORD id, WINDOWPLACEMENT *wndpl, int diffrows)
 {
@@ -213,36 +211,6 @@ static void UpdateStrings()
         }
     }
 }
-static void MoveToCorner(HWND hwnd)
-{
-    static HWND ohwnd;
-    if(hwnd == ohwnd) return;
-    ohwnd = hwnd;
-
-    RECT rc;
-    MONITORINFO mi = { sizeof(MONITORINFO) };
-    POINT pt;
-    GetCursorPos(&pt);
-    GetMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi);
-
-    GetWindowRect(hwnd, &rc);
-    int x, y;
-    long h = rc.bottom - rc.top;
-    long w = rc.right - rc.left;
-    if (pt.x < (mi.rcWork.right - mi.rcWork.left)/2) {
-        x = mi.rcWork.left;
-    } else {
-        x = mi.rcWork.right - w;
-    }
-    if (pt.y < (mi.rcWork.bottom - mi.rcWork.top)/2) {
-        y = mi.rcWork.top;
-    } else {
-        y = mi.rcWork.bottom - h;
-    }
-    SetWindowPos(hwnd, NULL, x, y, w, h
-        , SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS);
-}
-
 /////////////////////////////////////////////////////////////////////////////
 BOOL CALLBACK PropSheetProc(HWND hwnd, UINT msg, LPARAM lParam)
 {
@@ -251,7 +219,7 @@ BOOL CALLBACK PropSheetProc(HWND hwnd, UINT msg, LPARAM lParam)
         UpdateStrings();
 
         // Set new icon specifically for the taskbar and Alt+Tab, without changing window icon
-        HICON taskbar_icon = LoadImageA(g_hinst, "APP_ICON", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
+        HICON taskbar_icon = LoadImage(g_hinst, L"app_icon", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
         SendMessage(g_cfgwnd, WM_SETICON, ICON_BIG, (LPARAM) taskbar_icon);
     }
     return TRUE;
@@ -287,7 +255,7 @@ static int WriteOptionBoolBW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name
 {
     wchar_t txt[8];
     int val = GetPrivateProfileInt(section, name, 0, inipath);
-    if (Button_GetCheck(GetDlgItem(hwnd, id)))
+    if(Button_GetCheck(GetDlgItem(hwnd, id)))
         val = setBit(val, bit);
     else
         val = clearBit(val, bit);
@@ -327,20 +295,17 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     int updatestrings = 0;
     static int have_to_apply = 0;
     if (msg == WM_INITDIALOG) {
-        MoveToCorner(g_cfgwnd);
         int ret;
-        ReadOptionInt(IDC_AUTOFOCUS,     L"General",    L"AutoFocus", 0, -1);
-        ReadOptionInt(IDC_AERO,          L"General",    L"Aero", 1, -1);
-        ReadOptionInt(IDC_SMARTAERO,     L"General",    L"SmartAero", 1, 1);
-        ReadOptionInt(IDC_SMARTERAERO,   L"General",    L"SmartAero", 0, 2);
-        ReadOptionInt(IDC_STICKYRESIZE,  L"General",    L"StickyResize", 1, 1);
-        ReadOptionInt(IDC_INACTIVESCROLL,L"General",    L"InactiveScroll", 0, -1);
-        ReadOptionInt(IDC_MDI,           L"General",    L"MDI", 1, -1);
-        ReadOptionInt(IDC_RESIZEALL,     L"Advanced",   L"ResizeAll", 1, -1);
-        ReadOptionInt(IDC_USEZONES,      L"Zones",      L"UseZones", 0, 1);
-        ReadOptionInt(IDC_PIERCINGCLICK, L"Advanced",   L"PiercingClick", 0, -1);
+        ReadOptionInt(IDC_AUTOFOCUS,      L"General", L"AutoFocus", 0, -1);
+        ReadOptionInt(IDC_AERO,           L"General", L"Aero", 1, -1);
+        ReadOptionInt(IDC_SMARTAERO,      L"General",    L"SmartAero", 1, -1);
+        ReadOptionInt(IDC_STICKYRESIZE,   L"General",    L"StickyResize", 1, 1);
+        ReadOptionInt(IDC_INACTIVESCROLL, L"General", L"InactiveScroll", 0, -1);
+        ReadOptionInt(IDC_MDI,            L"General", L"MDI", 1, -1);
+        ReadOptionInt(IDC_FULLWIN,        L"Performance", L"FullWin", 1, -1);
+        ReadOptionInt(IDC_RESIZEALL,      L"Advanced", L"ResizeAll", 1, -1);
 
-        ret = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
+        ret=GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
         ret = ret==1? IDC_RZCENTER_NORM: ret==2? IDC_RZCENTER_MOVE: IDC_RZCENTER_BR;
         CheckRadioButton(hwnd, IDC_RZCENTER_NORM, IDC_RZCENTER_MOVE, ret);
 
@@ -361,9 +326,6 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         int event = HIWORD(wParam);
         HWND control = GetDlgItem(hwnd, id);
         int val = Button_GetCheck(control);
-        if (id == IDC_SMARTAERO) {
-            Button_Enable(GetDlgItem(hwnd, IDC_SMARTERAERO), IsChecked(IDC_SMARTAERO));
-        }
 
         if (id != IDC_ELEVATE && (event == 0 ||  event == CBN_SELCHANGE)) {
             PropSheet_Changed(g_cfgwnd, hwnd);
@@ -399,18 +361,17 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE), autostart);
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), autostart && VISTA);
             if(WIN10) Button_Enable(GetDlgItem(hwnd, IDC_INACTIVESCROLL), IsChecked(IDC_INACTIVESCROLL));
+            if(HaveDWM()) Button_Enable(GetDlgItem(hwnd, IDC_FULLWIN), !IsChecked(IDC_FULLWIN));
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             wchar_t txt[8];
             WriteOptionBool(IDC_AUTOFOCUS,     L"General",    L"AutoFocus");
             WriteOptionBool(IDC_AERO,          L"General",    L"Aero");
-            WriteOptionBoolB(IDC_SMARTAERO,    L"General",    L"SmartAero", 0);
-            WriteOptionBoolB(IDC_SMARTERAERO,  L"General",    L"SmartAero", 1);
+            WriteOptionBool(IDC_SMARTAERO,     L"General",    L"SmartAero");
             WriteOptionBoolB(IDC_STICKYRESIZE, L"General",    L"StickyResize", 0);
             WriteOptionBool(IDC_INACTIVESCROLL,L"General",    L"InactiveScroll");
             WriteOptionBool(IDC_MDI,           L"General",    L"MDI");
+            WriteOptionBool(IDC_FULLWIN,       L"Performance",L"FullWin");
             WriteOptionBool(IDC_RESIZEALL,     L"Advanced",   L"ResizeAll");
-            WriteOptionBoolB(IDC_USEZONES,     L"Zones",      L"UseZones", 0);
-            WriteOptionBool(IDC_PIERCINGCLICK, L"Advanced",   L"PiercingClick");
 
             int val = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_AUTOSNAP));
             WritePrivateProfileString(L"General",    L"AutoSnap", _itow(val, txt, 10), inipath);
@@ -432,36 +393,29 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             UpdateSettings();
             have_to_apply = 0;
         }
-//    } else if (msg == WM_HELP) {
-//        LPHELPINFO hli = (LPHELPINFO)lParam;
-//        switch(hli->iCtrlId){
-//        case IDC_AUTOFOCUS: MessageBoxA(NULL, NULL, NULL, 0);
-//        }
     }
     if (updatestrings) {
         // Update text
-        SetDlgItemText(hwnd, IDC_GENERAL_BOX,      l10n->general_box);
-        SetDlgItemText(hwnd, IDC_AUTOFOCUS,        l10n->general_autofocus);
-        SetDlgItemText(hwnd, IDC_AERO,             l10n->general_aero);
-        SetDlgItemText(hwnd, IDC_SMARTAERO,        l10n->general_smartaero);
-        SetDlgItemText(hwnd, IDC_SMARTERAERO,      l10n->general_smarteraero);
-        SetDlgItemText(hwnd, IDC_STICKYRESIZE,     l10n->general_stickyresize);
-        SetDlgItemText(hwnd, IDC_INACTIVESCROLL,   l10n->general_inactivescroll);
-        SetDlgItemText(hwnd, IDC_MDI,              l10n->general_mdi);
-        SetDlgItemText(hwnd, IDC_AUTOSNAP_HEADER,  l10n->general_autosnap);
-        SetDlgItemText(hwnd, IDC_LANGUAGE_HEADER,  l10n->general_language);
-        SetDlgItemText(hwnd, IDC_USEZONES,         l10n->general_usezones);
-        SetDlgItemText(hwnd, IDC_PIERCINGCLICK,    l10n->general_piercingclick);
-        SetDlgItemText(hwnd, IDC_RESIZEALL,        l10n->general_resizeall);
-        SetDlgItemText(hwnd, IDC_RESIZECENTER,     l10n->general_resizecenter);
-        SetDlgItemText(hwnd, IDC_RZCENTER_NORM,    l10n->general_resizecenter_norm);
-        SetDlgItemText(hwnd, IDC_RZCENTER_BR,      l10n->general_resizecenter_br);
-        SetDlgItemText(hwnd, IDC_RZCENTER_MOVE,    l10n->general_resizecenter_move);
-        SetDlgItemText(hwnd, IDC_AUTOSTART_BOX,    l10n->general_autostart_box);
-        SetDlgItemText(hwnd, IDC_AUTOSTART,        l10n->general_autostart);
-        SetDlgItemText(hwnd, IDC_AUTOSTART_HIDE,   l10n->general_autostart_hide);
-        SetDlgItemText(hwnd, IDC_AUTOSTART_ELEVATE,l10n->general_autostart_elevate);
-        SetDlgItemText(hwnd, IDC_ELEVATE, elevated?l10n->general_elevated: l10n->general_elevate);
+        SetDlgItemText(hwnd, IDC_GENERAL_BOX,       l10n->general_box);
+        SetDlgItemText(hwnd, IDC_AUTOFOCUS,         l10n->general_autofocus);
+        SetDlgItemText(hwnd, IDC_AERO,              l10n->general_aero);
+        SetDlgItemText(hwnd, IDC_SMARTAERO,         l10n->general_smartaero);
+        SetDlgItemText(hwnd, IDC_STICKYRESIZE,      l10n->general_stickyresize);
+        SetDlgItemText(hwnd, IDC_INACTIVESCROLL,    l10n->general_inactivescroll);
+        SetDlgItemText(hwnd, IDC_MDI,               l10n->general_mdi);
+        SetDlgItemText(hwnd, IDC_AUTOSNAP_HEADER,   l10n->general_autosnap);
+        SetDlgItemText(hwnd, IDC_LANGUAGE_HEADER,   l10n->general_language);
+        SetDlgItemText(hwnd, IDC_FULLWIN,           l10n->general_fullwin);
+        SetDlgItemText(hwnd, IDC_RESIZEALL,         l10n->general_resizeall);
+        SetDlgItemText(hwnd, IDC_RESIZECENTER,      l10n->general_resizecenter);
+        SetDlgItemText(hwnd, IDC_RZCENTER_NORM,     l10n->general_resizecenter_norm);
+        SetDlgItemText(hwnd, IDC_RZCENTER_BR,       l10n->general_resizecenter_br);
+        SetDlgItemText(hwnd, IDC_RZCENTER_MOVE,     l10n->general_resizecenter_move);
+        SetDlgItemText(hwnd, IDC_AUTOSTART_BOX,     l10n->general_autostart_box);
+        SetDlgItemText(hwnd, IDC_AUTOSTART,         l10n->general_autostart);
+        SetDlgItemText(hwnd, IDC_AUTOSTART_HIDE,    l10n->general_autostart_hide);
+        SetDlgItemText(hwnd, IDC_AUTOSTART_ELEVATE, l10n->general_autostart_elevate);
+        SetDlgItemText(hwnd, IDC_ELEVATE, (elevated? l10n->general_elevated: l10n->general_elevate));
 
         // AutoSnap
         HWND control = GetDlgItem(hwnd, IDC_AUTOSNAP);
@@ -488,8 +442,8 @@ static int IsKeyInList(wchar_t *keys, unsigned vkey)
     while (*pos != '\0') {
         numread = 0;
         temp = whex2u(pos);
-        while (pos[numread] && pos[numread] != ' ') numread++;
-        while (pos[numread] == ' ') numread++;
+        while(pos[numread] && pos[numread] != ' ') numread++;
+        while(pos[numread] == ' ') numread++;
         if (temp == vkey) {
             return 1;
         }
@@ -500,7 +454,7 @@ static int IsKeyInList(wchar_t *keys, unsigned vkey)
 static void AddvKeytoList(wchar_t *keys, unsigned vkey)
 {
     // Check if it is already in the list.
-    if (IsKeyInList(keys, vkey))
+    if(IsKeyInList(keys, vkey))
         return;
     // Add a key to the hotkeys list
     if (*keys != '\0') {
@@ -528,28 +482,12 @@ static void RemoveKeyFromList(wchar_t *keys, unsigned vkey)
     }
     // Strip eventual remaining spaces
     unsigned ll = wcslen(keys);
-    while (ll > 0 && keys[--ll] == ' ') keys[ll]='\0';
+    while(ll > 0 && keys[--ll] == ' ') keys[ll]='\0';
 }
-/////////////////////////////////////////////////////////////////////////////
 struct hk_struct {
     unsigned control;
     unsigned vkey;
 };
-static void SaveHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *name)
-{
-    wchar_t keys[32];
-    // Get the current config in case there are some user added keys.
-    GetPrivateProfileString(L"Input", name, L"", keys, ARR_SZ(keys), inipath);
-    unsigned i;
-    for (i = 0; hotkeys[i].control; i++) {
-         if (IsChecked(hotkeys[i].control)) {
-             AddvKeytoList(keys, hotkeys[i].vkey);
-         } else {
-             RemoveKeyFromList(keys, hotkeys[i].vkey);
-         }
-    }
-    WritePrivateProfileString(L"Input", name, keys, inipath);
-}
 /////////////////////////////////////////////////////////////////////////////
 static void CheckConfigHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *hotkeystr, wchar_t* def)
 {
@@ -573,7 +511,22 @@ static void CheckConfigHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *ho
         }
     }
 }
-
+/////////////////////////////////////////////////////////////////////////////
+static void SaveHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *name)
+{
+    wchar_t keys[32];
+    // Get the current config in case there are some user added keys.
+    GetPrivateProfileString(L"Input", name, L"", keys, ARR_SZ(keys), inipath);
+    unsigned i;
+    for (i = 0; hotkeys[i].control; i++) {
+         if(IsChecked(hotkeys[i].control)) {
+             AddvKeytoList(keys, hotkeys[i].vkey);
+         } else {
+             RemoveKeyFromList(keys, hotkeys[i].vkey);
+         }
+    }
+    WritePrivateProfileString(L"Input", name, keys, inipath);
+}
 struct actiondl {
     wchar_t *action;
     wchar_t *l10n;
@@ -601,14 +554,14 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     static int have_to_apply = 0;
     // Mouse actions
     struct {
-        int control; // Same control
-        wchar_t *option[3]; // Prim/alt/TTB
+        int control;
+        wchar_t *option;
     } mouse_buttons[] = {
-        { IDC_LMB, {L"LMB", L"LMBB", L"LMBT"} },
-        { IDC_MMB, {L"MMB", L"MMBB", L"MMBT"} },
-        { IDC_RMB, {L"RMB", L"RMBB", L"RMBT"} },
-        { IDC_MB4, {L"MB4", L"MB4B", L"MB4T"} },
-        { IDC_MB5, {L"MB5", L"MB4B", L"MB5T"} }
+        { IDC_LMB, L"LMB" },
+        { IDC_MMB, L"MMB" },
+        { IDC_RMB, L"RMB" },
+        { IDC_MB4, L"MB4" },
+        { IDC_MB5, L"MB5" }
     };
 
     struct actiondl mouse_actions[] = {
@@ -623,24 +576,12 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
         {L"Borderless",  l10n->input_actions_borderless},
         {L"Center",      l10n->input_actions_center},
-        {L"MaximizeHV",  l10n->input_actions_maximizehv},
-        {L"SideSnap",    l10n->input_actions_sidesnap},
-        {L"MinAllOther", l10n->input_actions_minallother},
-        {L"mute",        l10n->input_actions_mute},
         {L"Menu",        l10n->input_actions_menu},
         {L"Nothing",     l10n->input_actions_nothing},
         {NULL, NULL}
     };
 
     // Scroll
-    struct {
-        int control; // Same control
-        wchar_t *option[3]; // Prim/alt/TTB
-    } mouse_wheels[] = {
-        { IDC_SCROLL,  {L"Scroll",  L"ScrollB",  L"ScrollT"}  },
-        { IDC_HSCROLL, {L"HScroll", L"HScrollB", L"HScrollT"} }
-    };
-
     struct actiondl scroll_actions[] = {
         {L"AltTab",       l10n->input_actions_alttab},
         {L"Volume",       l10n->input_actions_volume},
@@ -662,20 +603,13 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     };
 
     if (msg == WM_INITDIALOG) {
-        ReadOptionInt(IDC_TTBACTIONSNA,    L"Input", L"TTBActions", 0, 1);
-        ReadOptionInt(IDC_TTBACTIONSWA,    L"Input", L"TTBActions", 0, 2);
-        ReadOptionInt(IDC_LONGCLICKMOVE,   L"Input", L"LongClickMove", 0, -1);
-        CheckRadioButton(hwnd, IDC_MBA1, IDC_INTTB, IDC_MBA1); // Check the primary action
+        ReadOptionInt(IDC_LOWERWITHMMB, L"Input", L"LowerWithMMB", 0, 1);
+        ReadOptionInt(IDC_ROLLWITHTBSCROLL, L"Input",  L"RollWithTBScroll", 0, -1);
+
         // Hotclicks buttons
         CheckConfigHotKeys(hotclicks, hwnd, L"Hotclicks", L"");
     } else if (msg == WM_COMMAND) {
         int event = HIWORD(wParam);
-        int id = LOWORD(wParam);
-        if (id >= IDC_MBA1 && id <= IDC_INTTB) {
-            CheckRadioButton(hwnd, IDC_MBA1, IDC_INTTB, id); // Check the selected action
-            goto FILLACTIONS;
-        }
-
         if (event == 0 || event == CBN_SELCHANGE){
             PropSheet_Changed(g_cfgwnd, hwnd);
             have_to_apply = 1;
@@ -683,29 +617,16 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     } else if (msg == WM_NOTIFY) {
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
-            wchar_t txt[8];
-            GetPrivateProfileString(L"Input", L"ModKey", L"", txt, ARR_SZ(txt), inipath);
-            Button_Enable(GetDlgItem(hwnd, IDC_MBA2), txt[0]);
-            // Disable inside ttb
-            Button_Enable(GetDlgItem(hwnd, IDC_INTTB), IsChecked(IDC_TTBACTIONSNA)||IsChecked(IDC_TTBACTIONSWA));
-
-            FILLACTIONS:;
-            unsigned i;
             // Mouse actions
-            int optoff = IsChecked(IDC_MBA2)? 1:IsChecked(IDC_INTTB)? 2: 0;
+            unsigned i;
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {
-                FillActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option[optoff], mouse_actions);
+                FillActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option, mouse_actions);
             }
             // Scroll actions
-            for (i = 0; i < ARR_SZ(mouse_wheels); i++) {
-                FillActionDropListS(hwnd, mouse_wheels[i].control, mouse_wheels[i].option[optoff], scroll_actions);
-            }
+            FillActionDropListS(hwnd, IDC_SCROLL,  L"Scroll",  scroll_actions);
+            FillActionDropListS(hwnd, IDC_HSCROLL, L"HScroll", scroll_actions);
 
             // Update text
-            SetDlgItemText(hwnd, IDC_MBA1,            l10n->input_mouse_btac1);
-            SetDlgItemText(hwnd, IDC_MBA2,            l10n->input_mouse_btac2);
-            SetDlgItemText(hwnd, IDC_INTTB,           l10n->input_mouse_inttb);
-
             SetDlgItemText(hwnd, IDC_MOUSE_BOX,       l10n->input_mouse_box);
             SetDlgItemText(hwnd, IDC_LMB_HEADER,      l10n->input_mouse_lmb);
             SetDlgItemText(hwnd, IDC_MMB_HEADER,      l10n->input_mouse_mmb);
@@ -714,35 +635,31 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             SetDlgItemText(hwnd, IDC_MB5_HEADER,      l10n->input_mouse_mb5);
             SetDlgItemText(hwnd, IDC_SCROLL_HEADER,   l10n->input_mouse_scroll);
             SetDlgItemText(hwnd, IDC_HSCROLL_HEADER,  l10n->input_mouse_hscroll);
-            SetDlgItemText(hwnd, IDC_TTBACTIONS_BOX,  l10n->input_mouse_ttbactions_box);
-            SetDlgItemText(hwnd, IDC_TTBACTIONSNA,    l10n->input_mouse_ttbactionsna);
-            SetDlgItemText(hwnd, IDC_TTBACTIONSWA,    l10n->input_mouse_ttbactionswa);
+
+            SetDlgItemText(hwnd, IDC_LOWERWITHMMB,    l10n->input_mouse_lowerwithmmb);
+            SetDlgItemText(hwnd, IDC_ROLLWITHTBSCROLL,l10n->input_mouse_rollwithtbscroll);
 
             SetDlgItemText(hwnd, IDC_HOTCLICKS_BOX,   l10n->input_hotclicks_box);
             SetDlgItemText(hwnd, IDC_HOTCLICKS_MORE,  l10n->input_hotclicks_more);
             SetDlgItemText(hwnd, IDC_MMB_HC,          l10n->input_mouse_mmb_hc);
             SetDlgItemText(hwnd, IDC_MB4_HC,          l10n->input_mouse_mb4_hc);
             SetDlgItemText(hwnd, IDC_MB5_HC,          l10n->input_mouse_mb5_hc);
-            SetDlgItemText(hwnd, IDC_LONGCLICKMOVE,   l10n->input_mouse_longclickmove);
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Mouse actions, for all mouse buttons...
             unsigned i;
-            // Add 2 if in titlear add one for secondary action.
-            int optoff = IsChecked(IDC_MBA2)? 1:IsChecked(IDC_INTTB)? 2: 0;
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {
                 int j = ComboBox_GetCurSel(GetDlgItem(hwnd, mouse_buttons[i].control));
-                WritePrivateProfileString(L"Input", mouse_buttons[i].option[optoff], mouse_actions[j].action, inipath);
+                WritePrivateProfileString(L"Input", mouse_buttons[i].option, mouse_actions[j].action, inipath);
             }
             // Scroll
-            for (i = 0; i < ARR_SZ(mouse_wheels); i++) {
-                int j = ComboBox_GetCurSel(GetDlgItem(hwnd, mouse_wheels[i].control));
-                WritePrivateProfileString(L"Input", mouse_wheels[i].option[optoff], scroll_actions[j].action, inipath);
-            }
+            i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_SCROLL));
+            WritePrivateProfileString(L"Input", L"Scroll", scroll_actions[i].action, inipath);
+            i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_HSCROLL));
+            WritePrivateProfileString(L"Input", L"HScroll", scroll_actions[i].action, inipath);
 
             // Checkboxes...
-            WriteOptionBoolB(IDC_TTBACTIONSNA, L"Input", L"TTBActions", 0);
-            WriteOptionBoolB(IDC_TTBACTIONSWA, L"Input", L"TTBActions", 1);
-            WriteOptionBool(IDC_LONGCLICKMOVE, L"Input", L"LongClickMove");
+            WriteOptionBoolB(IDC_LOWERWITHMMB,     L"Input", L"LowerWithMMB", 0);
+            WriteOptionBool(IDC_ROLLWITHTBSCROLL, L"Input", L"RollWithTBScroll");
             // Hotclicks
             SaveHotKeys(hotclicks, hwnd, L"Hotclicks");
             UpdateSettings();
@@ -777,8 +694,6 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
         {L"Borderless",  l10n->input_actions_borderless},
         {L"Center",      l10n->input_actions_center},
-        {L"MaximizeHV",  l10n->input_actions_maximizehv},
-        {L"MinAllOther", l10n->input_actions_minallother},
         {L"Menu",        l10n->input_actions_menu},
         {L"Nothing",     l10n->input_actions_nothing},
         {NULL, NULL}
@@ -817,17 +732,13 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // GrabWithAlt
-            wchar_t txt[64];
-            GetPrivateProfileString(L"Input", L"ModKey", L"", txt, ARR_SZ(txt), inipath);
-            Static_Enable(GetDlgItem(hwnd, IDC_GRABWITHALTB_H), txt[0]);
-            ListBox_Enable(GetDlgItem(hwnd, IDC_GRABWITHALTB), txt[0]);
-
             FillActionDropListS(hwnd, IDC_GRABWITHALT, L"GrabWithAlt", kb_actions);
-            FillActionDropListS(hwnd, IDC_GRABWITHALTB, L"GrabWithAltB", kb_actions);
-            // ModKey init
-            HWND control = GetDlgItem(hwnd, IDC_MODKEY);
+
+            // ToggleRzMvKey init
+            wchar_t txt[64];
+            HWND control = GetDlgItem(hwnd, IDC_TOGGLERZMVKEY);
             ComboBox_ResetContent(control);
-            GetPrivateProfileString(L"Input", L"ModKey", L"", txt, ARR_SZ(txt), inipath);
+            GetPrivateProfileString(L"Input", L"ToggleRzMvKey", L"", txt, ARR_SZ(txt), inipath);
             unsigned j, sel = ARR_SZ(togglekeys) - 1;
             for (j = 0; j < ARR_SZ(togglekeys); j++) {
                 wchar_t key_name[256];
@@ -844,7 +755,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_AGGRESSIVEKILL,  l10n->input_aggressive_kill);
             SetDlgItemText(hwnd, IDC_SCROLLLOCKSTATE, l10n->input_scrolllockstate);
             SetDlgItemText(hwnd, IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box);
-            SetDlgItemText(hwnd, IDC_MODKEY_H,        l10n->input_hotkeys_modkey);
+            SetDlgItemText(hwnd, IDC_TOGGLERZMVKEY_H, l10n->input_hotkeys_togglerzmvkey);
             SetDlgItemText(hwnd, IDC_LEFTALT,         l10n->input_hotkeys_leftalt);
             SetDlgItemText(hwnd, IDC_RIGHTALT,        l10n->input_hotkeys_rightalt);
             SetDlgItemText(hwnd, IDC_LEFTWINKEY,      l10n->input_hotkeys_leftwinkey);
@@ -854,22 +765,17 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_HOTKEYS_MORE,    l10n->input_hotkeys_more);
             SetDlgItemText(hwnd, IDC_KEYCOMBO,        l10n->input_keycombo);
             SetDlgItemText(hwnd, IDC_GRABWITHALT_H,   l10n->input_grabwithalt);
-            SetDlgItemText(hwnd, IDC_GRABWITHALTB_H,  l10n->input_grabwithaltb);
-
         } else if (pnmh->code == PSN_APPLY && have_to_apply ) {
             int i;
             // Action without click
             i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_GRABWITHALT));
             WritePrivateProfileString(L"Input", L"GrabWithAlt", kb_actions[i].action, inipath);
-            i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_GRABWITHALTB));
-            WritePrivateProfileString(L"Input", L"GrabWithAltB", kb_actions[i].action, inipath);
-
             WriteOptionBool(IDC_AGGRESSIVEPAUSE, L"Input", L"AggressivePause");
             WriteOptionBool(IDC_AGGRESSIVEKILL,  L"Input", L"AggressiveKill");
             ScrollLockState=WriteOptionBoolB(IDC_SCROLLLOCKSTATE,   L"Input", L"ScrollLockState", 0);
             // Invert move/resize key.
-            i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_MODKEY));
-            WritePrivateProfileString(L"Input", L"ModKey", togglekeys[i].action, inipath);
+            i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_TOGGLERZMVKEY));
+            WritePrivateProfileString(L"Input", L"ToggleRzMvKey", togglekeys[i].action, inipath);
             // Hotkeys
             SaveHotKeys(hotkeys, hwnd, L"Hotkeys");
             WriteOptionBool(IDC_KEYCOMBO,  L"Input", L"KeyCombo");
@@ -898,7 +804,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         int event = HIWORD(wParam);
         if (event == EN_UPDATE
         && id != IDC_NEWRULE && id != IDC_NEWPROGNAME
-        && id != IDC_NCHITTEST && id != IDC_GWLSTYLE && id != IDC_RECT) {
+        && id != IDC_NCHITTEST && id != IDC_GWLSTYLE) {
             PropSheet_Changed(g_cfgwnd, hwnd); // Enable the Apply Button
             have_to_apply = 1;
         } else if (event == STN_CLICKED && id == IDC_FINDWINDOW) {
@@ -943,7 +849,6 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
             Button_Enable(GetDlgItem(hwnd, IDC_PAUSEBL)
                        , GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath)
                        | GetPrivateProfileInt(L"Input", L"AggressiveKill", 0, inipath));
-                        // Grayout useless
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Save to the config
             WriteOptionStr(IDC_PROCESSBLACKLIST, L"Blacklist", L"Processes");
@@ -980,31 +885,18 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             wcscat(txt, title); wcscat(txt, L"|"); wcscat(txt, classname);
             SetDlgItemText(page, IDC_NEWRULE, txt);
 
-            if (GetWindowProgName(window, txt, ARR_SZ(txt))) {
+            if(GetWindowProgName(window, txt, ARR_SZ(txt))) {
                 SetDlgItemText(page, IDC_NEWPROGNAME, txt);
             }
+            SetDlgItemText(page, IDC_NCHITTEST, _itow(HitTestTimeout(nwindow, pt.x, pt.y), txt, 10));
             SetDlgItemText(page, IDC_GWLSTYLE, _itow(GetWindowLongPtr(window, GWL_STYLE), txt, 16));
-            SetDlgItemText(page, IDC_GWLEXSTYLE, _itow(GetWindowLongPtr(window, GWL_EXSTYLE), txt, 16));
-            _itow(HitTestTimeout(nwindow, pt.x, pt.y), txt, 10);
-            wchar_t tt[8];
-            _itow(HitTestTimeout(window, pt.x, pt.y), tt, 10);
-            wcscat(txt, L"/");wcscat(txt, tt);
-            SetDlgItemText(page, IDC_NCHITTEST, txt);
-            RECT rc;
-            if (GetWindowRectL(window, &rc)) {
-                SetDlgItemText(page, IDC_RECT, RectToStr(&rc, txt));
-            }
-
         }
         // Show icon again
         ShowWindowAsync(GetDlgItem(page, IDC_FINDWINDOW), SW_SHOW);
 
         DestroyWindow(hwnd);
         UnregisterClass(APP_NAME"-find", g_hinst);
-        return 0;
-    } else if (wParam && msg ==  WM_ERASEBKGND) {
-        return 1;
-    } else if (wParam && msg == WM_PAINT) {
+    } else if (wParam && (msg == WM_PAINT || msg == WM_ERASEBKGND)){
         return 0;
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -1012,9 +904,7 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    if (msg == WM_INITDIALOG) {
-        MoveToCorner(g_cfgwnd);
-    } else if (msg == WM_NOTIFY) {
+    if (msg == WM_NOTIFY) {
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // Update text
@@ -1049,7 +939,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     switch (msg) {
     case WM_PAINT:;
         RECT wRect;
-        HPEN pen = (HPEN) CreatePen(PS_SOLID, 2, GetSysColor(COLOR_BTNTEXT));
+        HPEN pen = (HPEN) CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
 
@@ -1059,12 +949,11 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
         SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
         SelectObject(hdc, pen);
-        SetROP2(hdc, R2_COPYPEN);
-
+        SetROP2(hdc, R2_BLACK);
         int width = wRect.right - wRect.left;
         int height = wRect.bottom - wRect.top;
 
-        FillRect(hdc, &ps.rcPaint, (HBRUSH)(COLOR_BTNFACE+1));
+        FillRect(hdc, &ps.rcPaint, GetStockObject(WHITE_BRUSH));
         Rectangle(hdc
             , Offset.x+(width-width*centerfrac/100)/2
             , Offset.y
@@ -1078,17 +967,12 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
         DeleteObject(pen);
 
-        // Draw textual info....
-//        SetBkMode(hdc, TRANSPARENT);
-//        wchar_t *str = L"huhu:\t12\nsdtui.hd\t33\naaa\tT";
-//        DrawTextW(hdc, str, wcslen(str), &(RECT){5, 5, 100, 100}, DT_NOCLIP|DT_TABSTOP);
-
         EndPaint(hwnd, &ps);
         return 0;
         break;
 
     case WM_ERASEBKGND:
-        return 1;
+        return 0;
         break;
 
     case WM_UPDCFRACTION:
@@ -1098,37 +982,9 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_CLOSE:
         DestroyWindow(hwnd);
         UnregisterClass(APP_NAME"-Test", g_hinst);
-        /* Fall through */
-    default:
-        return DefWindowProc(hwnd, msg, wParam, lParam);
+        break;
     }
-    return 0;
-}
-static HWND NewTestWindow()
-{
-    HWND testwnd;
-    WNDCLASSEX wnd = {
-        sizeof(WNDCLASSEX)
-      , CS_HREDRAW|CS_VREDRAW|CS_BYTEALIGNCLIENT
-      , TestWindowProc
-      , 0, 0, g_hinst, LoadIconA(g_hinst, iconstr[1])
-      , LoadCursor(NULL, IDC_ARROW)
-      , (HBRUSH)(COLOR_BACKGROUND+1)
-      , NULL, APP_NAME"-Test", NULL
-    };
-    RegisterClassEx(&wnd);
-    wchar_t wintitle[256];
-    wcscpy_noaccel(wintitle, l10n->advanced_testwindow, ARR_SZ(wintitle));
-    testwnd = CreateWindowEx(0
-         , wnd.lpszClassName
-         , wintitle, WS_CAPTION|WS_OVERLAPPEDWINDOW
-         , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT
-         , NULL, NULL, g_hinst, NULL);
-    PostMessage(testwnd, WM_UPDCFRACTION, 0
-         , GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath));
-    ShowWindow(testwnd, SW_SHOW);
-
-    return testwnd;
+    return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -1140,10 +996,8 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         ReadOptionInt(IDC_AEROTOPMAXIMIZES, L"Advanced", L"AeroTopMaximizes", 1, 1);// bit 1
         ReadOptionInt(IDC_AERODBCLICKSHIFT, L"Advanced", L"AeroTopMaximizes", 1, 2);// bit 2
         ReadOptionInt(IDC_MULTIPLEINSTANCES,L"Advanced", L"MultipleInstances",0, -1);
+        ReadOptionInt(IDC_NORMRESTORE,      L"General",  L"NormRestore", 0, -1);
         ReadOptionInt(IDC_FULLSCREEN,       L"Advanced", L"FullScreen", 1, -1);
-        ReadOptionInt(IDC_BLMAXIMIZED,      L"Advanced", L"BLMaximized", 1, -1);
-        ReadOptionInt(IDC_FANCYZONE,        L"Zones",    L"FancyZone", 0, -1);
-        ReadOptionInt(IDC_NORESTORE,        L"General",  L"SmartAero", 0, 4);
 
         ReadOptionInt(IDC_MAXWITHLCLICK,    L"General", L"MMMaximize", 1, 1); // bit 1
         ReadOptionInt(IDC_RESTOREONCLICK,   L"General", L"MMMaximize", 1, 2); // bit 2
@@ -1157,10 +1011,6 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         ReadOptionStr(IDC_AEROSPEEDTAU,  L"Advanced", L"AeroSpeedTau",  L"32");
         ReadOptionStr(IDC_MOVETRANS,     L"General",  L"MoveTrans",     L"");
 
-      # ifndef WIN64
-        Button_Enable(GetDlgItem(hwnd, IDC_FANCYZONE), 0);
-      # endif
-
     } else if (msg == WM_COMMAND) {
         int id = LOWORD(wParam);
         int event = HIWORD(wParam);
@@ -1170,7 +1020,29 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             have_to_apply = 1;
         }
         if (id == IDC_TESTWINDOW) { // Click on the Test Window button
-            testwnd = NewTestWindow();
+            if (testwnd && IsWindow(testwnd)) {
+                return FALSE;
+            }
+            WNDCLASSEX wnd = {
+                sizeof(WNDCLASSEX)
+              , CS_HREDRAW|CS_VREDRAW
+              , TestWindowProc
+              , 0, 0, g_hinst, LoadIconA(g_hinst, iconstr[1])
+              , LoadCursor(NULL, IDC_ARROW)
+              , (HBRUSH)(COLOR_BACKGROUND+1)
+              , NULL, APP_NAME"-Test", NULL
+            };
+            RegisterClassEx(&wnd);
+            wchar_t wintitle[256];
+            wcscpy_noaccel(wintitle, l10n->advanced_testwindow, ARR_SZ(wintitle));
+            testwnd = CreateWindowEx(0
+                 , wnd.lpszClassName
+                 , wintitle, WS_CAPTION|WS_OVERLAPPEDWINDOW
+                 , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT
+                 , NULL, NULL, g_hinst, NULL);
+            PostMessage(testwnd, WM_UPDCFRACTION, 0
+                 , GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath));
+            ShowWindow(testwnd, SW_SHOW);
         }
     } else if (msg == WM_NOTIFY) {
         LPNMHDR pnmh = (LPNMHDR) lParam;
@@ -1189,14 +1061,12 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_BEHAVIOR_BOX,     l10n->advanced_behavior_box);
             SetDlgItemText(hwnd, IDC_MULTIPLEINSTANCES,l10n->advanced_multipleinstances);
             SetDlgItemText(hwnd, IDC_AUTOREMAXIMIZE,   l10n->advanced_autoremaximize);
+            SetDlgItemText(hwnd, IDC_NORMRESTORE,      l10n->advanced_normrestore);
             SetDlgItemText(hwnd, IDC_AEROTOPMAXIMIZES, l10n->advanced_aerotopmaximizes);
             SetDlgItemText(hwnd, IDC_AERODBCLICKSHIFT, l10n->advanced_aerodbclickshift);
             SetDlgItemText(hwnd, IDC_MAXWITHLCLICK,    l10n->advanced_maxwithlclick);
             SetDlgItemText(hwnd, IDC_RESTOREONCLICK,   l10n->advanced_restoreonclick);
             SetDlgItemText(hwnd, IDC_FULLSCREEN,       l10n->advanced_fullscreen);
-            SetDlgItemText(hwnd, IDC_BLMAXIMIZED,      l10n->advanced_blmaximized);
-            SetDlgItemText(hwnd, IDC_FANCYZONE,        l10n->advanced_fancyzone);
-			SetDlgItemText(hwnd, IDC_NORESTORE,        l10n->advanced_norestore);
 
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Apply or OK button was pressed.
@@ -1205,10 +1075,8 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             int val;
             WriteOptionBool(IDC_MULTIPLEINSTANCES, L"Advanced", L"MultipleInstances");
             WriteOptionBool(IDC_AUTOREMAXIMIZE,    L"Advanced", L"AutoRemaximize");
+            WriteOptionBool(IDC_NORMRESTORE,       L"General",  L"NormRestore");
             WriteOptionBool(IDC_FULLSCREEN,        L"Advanced", L"FullScreen");
-            WriteOptionBool(IDC_BLMAXIMIZED,       L"Advanced", L"BLMaximized");
-            WriteOptionBool(IDC_FANCYZONE,         L"Zones",    L"FancyZone");
-            WriteOptionBoolB(IDC_NORESTORE,        L"General",  L"SmartAero", 2);
 
             val = IsChecked(IDC_AEROTOPMAXIMIZES) + 2 * IsChecked(IDC_AERODBCLICKSHIFT);
             WritePrivateProfileString(L"Advanced",L"AeroTopMaximizes", _itow(val, txt, 10), inipath);

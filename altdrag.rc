@@ -1,4 +1,13 @@
-1 VERSIONINFO
+app_icon ICON "media/icon.ico"
+tray_off ICON "media/tray-disabled.ico"
+tray_on  ICON "media/tray-enabled.ico"
+tray_sus ICON "media/tray-suspended.ico"
+#include "window.rc"
+
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "AltDrag.exe.manifest"
+
+#define VS_VERSION_INFO 1
+VS_VERSION_INFO VERSIONINFO
   FILEVERSION 1,4,6,1
   PRODUCTVERSION 1,4,6,1
   FILEFLAGSMASK 0x3fL
@@ -11,10 +20,10 @@ BEGIN
   BEGIN
     BLOCK "040904b0"
     BEGIN
-      VALUE "FileDescription", "Hooks for AltSnap"
-      VALUE "InternalName", "hooks"
-      VALUE "OriginalFilename", "hooks.dll"
+      VALUE "FileDescription", "AltDrag"
       VALUE "FileVersion", "1.461"
+      VALUE "InternalName", "altdrag"
+      VALUE "OriginalFilename", "AltDrag.exe"
       VALUE "CompanyName", "Gillibert Software"
       VALUE "LegalCopyright", "Stefan Sundin"
     END

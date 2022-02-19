@@ -58,24 +58,6 @@ void *memsetL(void *dst, int s, size_t count)
 }
 /* #define memset memsetL */
 
-static wchar_t *wcsuprL(wchar_t *s)
-{
-    while (*s) {
-        wchar_t  x = *s - 'a';
-        *s -= (x < 26u) << 5;
-        s++;
-    }
-    return s;
-}
-static wchar_t *wcslwrL(wchar_t *s)
-{
-    while (*s) {
-        wchar_t  x = *s - 'A';
-        *s += (x < 26u) << 5;
-        s++;
-    }
-    return s;
-}
 
 static wchar_t *wcschrL(wchar_t *__restrict__ str, const wchar_t c)
 {
@@ -258,7 +240,7 @@ static int wcsicmpL(const wchar_t* s1, const wchar_t* s2)
 }
 #define wcsicmp wcsicmpL
 
-wchar_t *wcscat(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
+wchar_t* wcscat(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
 {
     wchar_t *orig=dest;
     for (; *dest; ++dest) ;	/* go to end of dest */

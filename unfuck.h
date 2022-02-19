@@ -19,7 +19,6 @@
 
 #define QWORD unsigned long long
 #ifdef WIN64
-    #define CopyRect(x, y) (*(x) = *(y));
     #define DorQWORD QWORD
     #define HIWORDPTR(ll)   ((DWORD) (((QWORD) (ll) >> 32) & 0xFFFFFFFF))
     #define LOWORDPTR(ll)   ((DWORD) (ll))
@@ -30,6 +29,7 @@
     #define LOWORDPTR(l)   ((WORD) (l))
     #define MAKELONGPTR(lo, hi) ((DWORD) (((WORD) (lo)) | ((DWORD) ((WORD) (hi))) << 16))
 #endif
+
 #ifndef LOBYTE
 #define LOBYTE(w) ((BYTE)(w))
 #endif
@@ -61,13 +61,9 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
 #ifndef WM_MOUSEHWHEEL
 #define WM_MOUSEHWHEEL 0x020E
 #endif
-const CLSID my_CLSID_MMDeviceEnumerator= {0xBCDE0395,0xE52F,0x467C,{0x8E,0x3D,0xC4,0x57,0x92,0x91,0x69,0x2E}};
-const GUID  my_IID_IMMDeviceEnumerator = {0xA95664D2,0x9614,0x4F35,{0xA7,0x46,0xDE,0x8D,0xB6,0x36,0x17,0xE6}};
-const GUID  my_IID_IAudioEndpointVolume= {0x5CDF2C82,0x841E,0x4546,{0x97,0x22,0x0C,0xF7,0x40,0x78,0x22,0x9A}};
-const GUID  myIID_IActiveIMMMessagePumpOwner = {0xb5cf2cfa,0x8aeb,0x11d1,{0x93,0x64,0x00,0x60,0xb0,0x67,0xb8,0x6e}};
-const GUID  myIID_IActiveIMMApp = {0x08c0e040,0x62d1,0x11d1,{0x93,0x26,0x00,0x60,0xb0,0x67,0xb8,0x6e}};
-const CLSID myCLSID_CActiveIMM = {0x4955dd33,0xb159,0x11d0,{0x8f,0xcf,0x00,0xaa,0x00,0x6b,0xcc,0x59}};
-const IID myIID_IMultiLanguage2 = {0xDCCFC164, 0x2B38, 0x11d2, {0xB7, 0xEC, 0x00, 0xC0, 0x4F, 0x8F, 0x5D, 0x9A}};
+CLSID my_CLSID_MMDeviceEnumerator= {0xBCDE0395,0xE52F,0x467C,{0x8E,0x3D,0xC4,0x57,0x92,0x91,0x69,0x2E}};
+GUID  my_IID_IMMDeviceEnumerator = {0xA95664D2,0x9614,0x4F35,{0xA7,0x46,0xDE,0x8D,0xB6,0x36,0x17,0xE6}};
+GUID  my_IID_IAudioEndpointVolume= {0x5CDF2C82,0x841E,0x4546,{0x97,0x22,0x0C,0xF7,0x40,0x78,0x22,0x9A}};
 
 /* USER32.DLL */
 static BOOL (WINAPI *mySetLayeredWindowAttributes)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags) = IPTR;
@@ -90,10 +86,6 @@ static LONG (NTAPI *myNtResumeProcess )(HANDLE ProcessHandle) = IPTR;
 HRESULT (WINAPI *myCoInitialize)(LPVOID pvReserved) = IPTR;
 VOID (WINAPI *myCoUninitialize)( ) = IPTR;
 HRESULT (WINAPI *myCoCreateInstance)(REFCLSID rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, REFIID riid, LPVOID * ppv) = IPTR;
-
-/* WINMM.DLL */
-MMRESULT (WINAPI *mywaveOutGetVolume)(HWAVEOUT hwo, LPDWORD pdwVolume) = IPTR;
-MMRESULT (WINAPI *mywaveOutSetVolume)(HWAVEOUT hwo, DWORD dwVolume) = IPTR;
 
 /* Removes the trailing file name from a path */
 static BOOL PathRemoveFileSpecL(LPTSTR p)
@@ -149,49 +141,6 @@ static void *LoadDLLProc(char *DLLname, char *PROCname)
     }
     return ret;
 }
-
-/////////////////////////////////////////////////////////////////////////////
-// Accurate Sleep, needs WINMM.DLL
-// Might be useful
-static MMRESULT (WINAPI *mtimeGetDevCaps)(LPTIMECAPS ptc, UINT cbtc) = IPTR;
-static MMRESULT (WINAPI *mtimeBeginPeriod)(UINT uPeriod) = IPTR;
-static MMRESULT (WINAPI *mtimeEndPeriod)(UINT uPeriod) = IPTR;
-static void ASleep(DWORD duration_ms)
-{
-    if (duration_ms > 15) {
-        // No need for accurate sleep...
-        Sleep(duration_ms);
-        return;
-    }
-    if (mtimeGetDevCaps == IPTR) {
-        HANDLE h=LoadLibraryA("WINMM.DLL");
-        if (h) {
-	        mtimeGetDevCaps =(void *)GetProcAddress(h, "timeGetDevCaps");
-	        mtimeBeginPeriod=(void *)GetProcAddress(h, "timeBeginPeriod");
-	        mtimeEndPeriod  =(void *)GetProcAddress(h, "timeEndPeriod");
-	        if(!mtimeGetDevCaps || !mtimeBeginPeriod || !mtimeEndPeriod) {
-		        mtimeGetDevCaps=NULL;
-		        FreeLibrary(h);
-		    }
-		}
-	}
-	/* We have winmm functions */
-    // This absurd code makes Sleep() more accurate
-    // - without it, Sleep() is not even +-10ms accurate
-    // - with it, Sleep is around +-1.5 ms accurate
-	if(mtimeGetDevCaps) {
-	    TIMECAPS tc;
-	    mtimeGetDevCaps(&tc, sizeof(tc));
-	    mtimeBeginPeriod(tc.wPeriodMin); // begin accurate Sleep() !
-
-	    Sleep(duration_ms); // perform The SLEEP
-
-	    mtimeEndPeriod(tc.wPeriodMin);
-    } else {
-        Sleep(duration_ms);
-   	}
-}
-
 static BOOL FreeDLLByName(char *DLLname)
 {
     HINSTANCE hdll;
@@ -334,7 +283,6 @@ static void InflateRectBorder(RECT *__restrict__ rc, const RECT *bd)
     rc->right  += bd->right;
     rc->bottom += bd->bottom;
 }
-
 static void DeflateRectBorder(RECT *__restrict__ rc, const RECT *bd)
 {
     rc->left   += bd->left;
@@ -343,7 +291,7 @@ static void DeflateRectBorder(RECT *__restrict__ rc, const RECT *bd)
     rc->bottom -= bd->bottom;
 }
 
-static void FixDWMRectLL(HWND hwnd, RECT *bbb, const int SnapGap)
+static void FixDWMRect(HWND hwnd, RECT *bbb)
 {
     RECT rect, frame;
 
@@ -353,9 +301,7 @@ static void FixDWMRectLL(HWND hwnd, RECT *bbb, const int SnapGap)
         CopyRect(bbb, &frame);
     } else {
         SetRectEmpty(bbb);
-        //SetRect(bbb, 10, 10, 10, 10);
     }
-    if (SnapGap) OffsetRect(bbb, -SnapGap, -SnapGap);
 }
 
 /* This function is here because under Windows 10, the GetWindowRect function
@@ -363,7 +309,7 @@ static void FixDWMRectLL(HWND hwnd, RECT *bbb, const int SnapGap)
  * sense, this is the case on Windows 7 and 8.x for example
  * We use DWM api when available in order to get the REAL client area
  */
-static BOOL GetWindowRectLL(HWND hwnd, RECT *rect, const int SnapGap)
+static BOOL GetWindowRectL(HWND hwnd, RECT *rect)
 {
     HRESULT ret = DwmGetWindowAttributeL(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, rect, sizeof(RECT));
     if( ret == S_OK) {
@@ -371,7 +317,6 @@ static BOOL GetWindowRectLL(HWND hwnd, RECT *rect, const int SnapGap)
     } else {
         ret = GetWindowRect(hwnd, rect); /* Fallback to normal */
     }
-    if (SnapGap) InflateRect(rect, SnapGap, SnapGap);
     return ret;
 }
 /* Under Win8 and later a window can be cloaked
@@ -571,9 +516,7 @@ static int IsWindowSnapped(HWND hwnd)
 /* If pt and ptt are it is the same points with 4px tolerence */
 static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
 {
-    #define T 4
-    return !( pt->x > ptt->x+T || pt->y > ptt->y+T || pt->x < ptt->x-T || pt->y < ptt->y-T );
-    #undef T
+    return !( pt->x > ptt->x+4 || pt->y > ptt->y+4 ||pt->x < ptt->x-4 || pt->y < ptt->y-4 );
 }
 /* Limit x between l and h */
 static xpure int CLAMP(int l, int x, int h)
@@ -608,7 +551,7 @@ static int IsInRangeT(int x, int a, int b, int T)
     return (a-T <= x) & (x <= b+T);
 }
 
-static pure unsigned AreRectsAlignedT(const RECT *a, const RECT *b, const int tol)
+static pure unsigned AreRectsAligned(const RECT *a, const RECT *b, const int tol)
 {
     return IsEqualT(a->left, b->right, tol) << 2
          | IsEqualT(a->top, b->bottom, tol) << 4

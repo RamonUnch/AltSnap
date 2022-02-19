@@ -110,7 +110,7 @@ void ListAllTranslations()
     end += wcslen(fpath)-5;
     hFind = FindFirstFile(szDir, &ffd);
 
-    if (hFind != INVALID_HANDLE_VALUE) {
+    if ( hFind != INVALID_HANDLE_VALUE ) {
         int n=1;
         do {
             nlanguages++;

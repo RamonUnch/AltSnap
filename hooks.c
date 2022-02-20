@@ -2788,12 +2788,13 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 static int xpure IsAeraCapbutton(int area)
 {
     return area == HTMINBUTTON || area == HTMAXBUTTON
-        || area == HTCLOSE || area == HTHELP || area == HTSYSMENU;
+        || area == HTCLOSE || area == HTHELP;
 }
 static int xpure IsAreaCaption(int area)
 {
     return area == HTCAPTION
-       || (area >= HTTOP && area <= HTTOPRIGHT) ;
+       || (area >= HTTOP && area <= HTTOPRIGHT)
+       || area == HTSYSMENU;
 }
 static int IsAreaAnyCap(int area)
 {
@@ -3127,6 +3128,13 @@ static void UnhookMouse()
     UnhookWindowsHookEx(mousehook);
     mousehook = NULL;
 }
+static xpure int IsAreaLongClikcable(int area)
+{
+    return IsAeraCapbutton(area)
+        || area == HTHSCROLL
+        || area == HTVSCROLL
+        || area == HTSYSMENU;
+}
 /////////////////////////////////////////////////////////////////////////////
 // Window for timers only...
 LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -3157,8 +3165,7 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             HWND ptwnd;
             if (IsSamePTT(&state.prevpt, &state.clickpt)
             && (ptwnd = WindowFromPoint(state.prevpt))
-            &&!IsAeraCapbutton(HitTestTimeoutbl(ptwnd, state.prevpt.x, state.prevpt.y)))
-            {
+            &&!IsAreaLongClikcable(HitTestTimeoutbl(ptwnd, state.prevpt.x, state.prevpt.y))) {
                 state.ignoreclick=1;
                 mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
                 state.ignoreclick=0;

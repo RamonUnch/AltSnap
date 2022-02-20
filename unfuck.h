@@ -568,6 +568,11 @@ static int IsWindowSnapped(HWND hwnd)
     return (W != nW || H != nH);
 }
 
+static xpure int SamePt(const POINT a, const POINT b)
+{
+    return (a.x == b.x && a.y ==b.y);
+}
+
 /* If pt and ptt are it is the same points with 4px tolerence */
 static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
 {

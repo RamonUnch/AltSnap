@@ -120,9 +120,6 @@ static wchar_t *RectToStr(RECT *rc, wchar_t *rectstr)
 static void SaveZone(RECT *rc, unsigned num)
 {
     wchar_t txt[128], name[32];
-//    LOG("Saving %d", num);
-//    LOG("%S", ZidxToZonestr(num, name))
-//    LOG("%S", RectToStr(rc, txt))
     WritePrivateProfileString(L"Zones", ZidxToZonestr(num, name), RectToStr(rc, txt), inipath);
 }
 static void ClearAllZones()

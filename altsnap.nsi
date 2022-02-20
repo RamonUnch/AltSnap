@@ -2,7 +2,7 @@
 # define the name of the installer
 
 !define APP_NAME "AltSnap"
-!define APP_VERSION "1.50"
+!define APP_VERSION "1.51"
 # define the name of the installer
 OutFile "${APP_NAME}${APP_VERSION}-inst.exe"
 Name "${APP_NAME} ${APP_VERSION}"
@@ -34,12 +34,6 @@ Section
         File AltSnap.ini
     ifFileExists "hooks_x64.dll" 0 +2
         File AltSnap.ini
-
-    ; Delete files that existed in earlier versions
-    Delete /REBOOTOK "$INSTDIR\info.txt" ; existed in <= 0.9
-    Delete /REBOOTOK "$INSTDIR\Config.exe" ; existed in 1.0b1
-    Delete /REBOOTOK "$INSTDIR\HookWindows_x64.exe" ; existed in 1.1
-    Delete /REBOOTOK "$INSTDIR\hooks_x64.dll" ; existed in 1.1
 
     # define what to install and place it in the output path
     File AltSnap.exe

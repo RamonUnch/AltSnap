@@ -2933,7 +2933,6 @@ static xpure enum buttonstate GetButtonState(WPARAM wParam)
         : (wParam==WM_MOUSEWHEEL ||wParam==WM_MOUSEHWHEEL)? STATE_DOWN
         : STATE_NONE;
 }
-#define SamePt(a, b) (a.x == b.x && a.y ==b.y)
 /////////////////////////////////////////////////////////////////////////////
 // This is somewhat the main function, it is active only when the ALT key is
 // pressed, or is always on when conf.keepMousehook is enabled.
@@ -3145,7 +3144,7 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             // This can often happen if locking or sleeping the computer a lot
             POINT pt;
             GetCursorPos(&pt);
-            if (mousehook && (pt.x != state.prevpt.x || pt.y != state.prevpt.y)) {
+            if (mousehook && !SamePt(state.prevpt, pt)) {
                 UnhookWindowsHookEx(mousehook);
                 mousehook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, hinstDLL, 0);
             }

@@ -1,7 +1,7 @@
 *=========================================================================*
 *                        ALTSNAP for NT4 to Win10                         *
 *  Modified by Raymond Gillibert from original AltDrag by Stefan Sundin   *
-*                     release 1.50 (February 18, 2022)                    *
+*                     release 1.51 (February 21, 2022)                    *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltSnap/releases/         *
@@ -183,6 +183,14 @@ Note that this version has some more feature.
 
 ===========================================================================
 == CHANGELOG ==
+== AltSnap 1.51 ==
+
+ * Fixed regression that would make it impossible to select alternate action
+   for mouse button 4 and 5.
+
+ * Fixed: Now the LongClick Move will no longer trigger if the cursor is
+   pointing toward a system menu or a scroll bar or any of the caption
+   buttons [?][_][O][X], in the titlebar.
 
 == AltSnap 1.50 ==
 

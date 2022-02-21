@@ -113,7 +113,7 @@ static void OpenConfig(int startpage)
         return;
     }
     // Define the pages
-    struct {
+    static const struct {
         int pszTemplate;
         DLGPROC pfnDlgProc;
     } pages[] = {
@@ -535,7 +535,7 @@ struct hk_struct {
     unsigned control;
     unsigned vkey;
 };
-static void SaveHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *name)
+static void SaveHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const wchar_t *name)
 {
     wchar_t keys[32];
     // Get the current config in case there are some user added keys.
@@ -551,7 +551,7 @@ static void SaveHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *name)
     WritePrivateProfileString(L"Input", name, keys, inipath);
 }
 /////////////////////////////////////////////////////////////////////////////
-static void CheckConfigHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *hotkeystr, wchar_t* def)
+static void CheckConfigHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const wchar_t *hotkeystr, const wchar_t* def)
 {
     // Hotkeys
     size_t i;
@@ -600,7 +600,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 {
     static int have_to_apply = 0;
     // Mouse actions
-    struct {
+    static const struct {
         int control; // Same control
         wchar_t *option[3]; // Prim/alt/TTB
     } mouse_buttons[] = {
@@ -633,7 +633,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     };
 
     // Scroll
-    struct {
+    static const struct {
         int control; // Same control
         wchar_t *option[3]; // Prim/alt/TTB
     } mouse_wheels[] = {
@@ -654,7 +654,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     };
 
     // Hotkeys
-    struct hk_struct hotclicks [] = {
+    static const struct hk_struct hotclicks [] = {
         { IDC_MMB_HC, 0x04 },
         { IDC_MB4_HC, 0x05 },
         { IDC_MB5_HC, 0X06 },
@@ -757,7 +757,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 {
     static int have_to_apply = 0;
     // Hotkeys
-    struct hk_struct hotkeys[] = {
+    static const struct hk_struct hotkeys[] = {
         { IDC_LEFTALT,     VK_LMENU    },
         { IDC_RIGHTALT,    VK_RMENU    },
         { IDC_LEFTWINKEY,  VK_LWIN     },

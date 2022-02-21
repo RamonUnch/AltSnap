@@ -185,9 +185,9 @@ struct strings {
   wchar_t *zone_confirmation;
 };
 
-struct strings l10n_ini;
+static struct strings l10n_ini;
 
-struct {
+static const struct {
   wchar_t **str;
   wchar_t *name;
 } l10n_mapping[] = {
@@ -346,7 +346,7 @@ struct {
   { &l10n_ini.zone_confirmation,               L"MiscZoneConfirmation" },
 };
 
-struct strings en_US = {
+static const struct strings en_US = {
  /* === translation info === */
  /* code               */ L"en-US",
  /* lang_english       */ L"English",

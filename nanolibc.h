@@ -48,6 +48,11 @@ static int toggleBit(int n, int k)
     return (n ^ (1 << (k)));
 }
 
+static void str2wide(wchar_t *w, const char *s)
+{
+    while((*w++ = *s++));
+}
+
 void *memsetL(void *dst, int s, size_t count)
 {
     register char * a = dst;
@@ -238,6 +243,27 @@ static char *strcpyL(char *__restrict__ dest, const char *__restrict__ in)
 #define strcpy strcpyL
 
 static int wcsicmpL(const wchar_t* s1, const wchar_t* s2)
+{
+    unsigned x1, x2;
+
+    while (1) {
+        x2 = *s2 - 'A';
+        x2 |= (x2 < 26u) << 5; /* Add 32 if UPPERCASE. */
+
+        x1 = *s1 - 'A';
+        x1 |= (x1 < 26u) << 5;
+
+        s1++; s2++;
+        if (x2 != x1)
+            break;
+        if (x1 == (unsigned)-'A')
+            break;
+    }
+    return x1 - x2;
+}
+#define wcsicmp wcsicmpL
+
+static int wscsicmp(const wchar_t* s1, const char* s2)
 {
     unsigned x1, x2;
 

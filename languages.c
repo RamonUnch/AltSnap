@@ -7,7 +7,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "languages.h"
-struct strings *l10n = &en_US;
+static struct strings *l10n = (struct strings *)&en_US;
 
 /////////////////////////////////////////////////////////////////////////////
 // Copies and remove the accelerators & sign. and txt between ( ).
@@ -65,7 +65,7 @@ static void LoadTranslation(const wchar_t *__restrict__ ini)
     wchar_t txt[txt_len];
     size_t i;
     if (!ini) {
-        l10n = &en_US;
+        l10n = (struct strings *)&en_US;
         return;
     } else if( INVALID_FILE_ATTRIBUTES == GetFileAttributes(ini) ) {
         return;

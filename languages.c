@@ -70,16 +70,21 @@ static void LoadTranslation(const wchar_t *__restrict__ ini)
     } else if( INVALID_FILE_ATTRIBUTES == GetFileAttributes(ini) ) {
         return;
     }
-    for (i=0; i < ARR_SZ(l10n_mapping); i++) {
+    for (i=0; i < ARR_SZ(l10n_inimapping); i++) {
         // Get pointer to default English string to be used if ini entry doesn't exist
-        wchar_t *def = *(wchar_t**) ((void*)&en_US + ((void*)l10n_mapping[i].str - (void*)&l10n_ini));
-        GetPrivateProfileString(L"Translation", l10n_mapping[i].name, def, txt, txt_len, ini);
-        if (l10n_mapping[i].str == &l10n_ini.about_version) {
+        //wchar_t *def = *(wchar_t**) ((void*)&en_US + ((void*)l10n_mapping[i].str - (void*)&l10n_ini));
+        wchar_t *def = ((wchar_t **)&en_US)[i];
+        wchar_t inimap[64];
+        str2wide(inimap, l10n_inimapping[i]);
+        GetPrivateProfileString(L"Translation", inimap, def, txt, txt_len, ini);
+        wchar_t **deststr = &((wchar_t **)&l10n_ini)[i];
+        if (deststr == &l10n_ini.about_version) {
+            // Append version number to version....
             wcscat(txt, L" ");
             wcscat(txt, TEXT(APP_VERSION));
         }
-        *l10n_mapping[i].str = realloc( *l10n_mapping[i].str, (wcslen_resolved(txt)+1)*sizeof(wchar_t) );
-        wcscpy_resolve(*l10n_mapping[i].str, txt);
+        *deststr = realloc( *deststr, (wcslen_resolved(txt)+1)*sizeof(wchar_t) );
+        wcscpy_resolve(*deststr, txt);
     }
     l10n = &l10n_ini;
 }

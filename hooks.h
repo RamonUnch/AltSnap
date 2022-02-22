@@ -36,9 +36,6 @@
 #define WM_UPDATESETTINGS (WM_USER+8)
 #define WM_ADDTRAY        (WM_USER+9)
 #define WM_HIDETRAY       (WM_USER+10)
-#define WM_REHOOKKEYBOARD (WM_USER+11)
-#define WM_CREATETRANSWIN (WM_USER+12)
-
 
 // List of possible actions
 enum action {
@@ -49,10 +46,10 @@ enum action {
 };
 // List of actions strings, keep the SAME ORDER than above
 #define ACTION_MAP { \
-     "Nothing", "Move", "Resize", "Menu", "Minimize", "Maximize"    \
-   , "Center", "AlwaysOnTop", "Close", "Lower", "Borderless"        \
-   , "Kill" , "MaximizeHV", "MinAllOther", "Mute", "SideSnap"       \
-   , "Roll", "AltTab", "Volume", "Transparency", "HScroll"          \
+    "Nothing", "Move", "Resize", "Menu", "Minimize", "Maximize"    \
+  , "Center", "AlwaysOnTop", "Close", "Lower", "Borderless"        \
+  , "Kill" , "MaximizeHV", "MinAllOther", "Mute", "SideSnap"       \
+  , "Roll", "AltTab", "Volume", "Transparency", "HScroll"          \
 }
 
 #define MOUVEMENT(action) (action <= AC_RESIZE)

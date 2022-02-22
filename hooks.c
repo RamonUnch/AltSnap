@@ -3445,7 +3445,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {&conf.AutoFocus,       L"General", "AutoFocus", 0 },
         {&conf.AutoSnap,        L"General", "AutoSnap", 0 },
         {&conf.Aero,            L"General", "Aero", 1 },
-        {&conf.SmartAero        L"General", "SmartAero", 1 },
+        {&conf.SmartAero,       L"General", "SmartAero", 1 },
         {&conf.StickyResize,    L"General", "StickyResize", 0 },
         {&conf.InactiveScroll,  L"General", "InactiveScroll", 0 },
         {&conf.MDI,             L"General", "MDI", 0 },

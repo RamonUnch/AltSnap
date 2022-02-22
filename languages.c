@@ -7,6 +7,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "languages.h"
+static struct strings *l10n_ini = NULL;
 static struct strings *l10n = (struct strings *)&en_US;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -70,15 +71,17 @@ static void LoadTranslation(const wchar_t *__restrict__ ini)
     } else if( INVALID_FILE_ATTRIBUTES == GetFileAttributes(ini) ) {
         return;
     }
+    // if english is not seleced then we have to allocate l10_ini strings struct
+    // and we have to read the ini file...
+    if(!l10n_ini) l10n_ini = calloc(1, sizeof(struct strings));
     for (i=0; i < ARR_SZ(l10n_inimapping); i++) {
         // Get pointer to default English string to be used if ini entry doesn't exist
-        //wchar_t *def = *(wchar_t**) ((void*)&en_US + ((void*)l10n_mapping[i].str - (void*)&l10n_ini));
         wchar_t *def = ((wchar_t **)&en_US)[i];
         wchar_t inimap[64];
         str2wide(inimap, l10n_inimapping[i]);
         GetPrivateProfileString(L"Translation", inimap, def, txt, txt_len, ini);
-        wchar_t **deststr = &((wchar_t **)&l10n_ini)[i];
-        if (deststr == &l10n_ini.about_version) {
+        wchar_t **deststr = &((wchar_t **)l10n_ini)[i];
+        if (deststr == &l10n_ini->about_version) {
             // Append version number to version....
             wcscat(txt, L" ");
             wcscat(txt, TEXT(APP_VERSION));
@@ -86,7 +89,7 @@ static void LoadTranslation(const wchar_t *__restrict__ ini)
         *deststr = realloc( *deststr, (wcslen_resolved(txt)+1)*sizeof(wchar_t) );
         wcscpy_resolve(*deststr, txt);
     }
-    l10n = &l10n_ini;
+    l10n = l10n_ini;
 }
 struct langinfoitem *langinfo;
 int nlanguages;

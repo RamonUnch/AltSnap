@@ -113,7 +113,7 @@ static void OpenConfig(int startpage)
         return;
     }
     // Define the pages
-    struct {
+    static const struct {
         int pszTemplate;
         DLGPROC pfnDlgProc;
     } pages[] = {
@@ -277,13 +277,13 @@ static DWORD IsUACEnabled()
 // Helper functions and Macro
 #define IsChecked(idc) Button_GetCheck(GetDlgItem(hwnd, idc))
 #define IsCheckedW(idc) _itow(Button_GetCheck(GetDlgItem(hwnd, idc)), txt, 10)
-static void WriteOptionBoolW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name)
+static void WriteOptionBoolW(HWND hwnd, WORD id, const wchar_t *section, const wchar_t *name)
 {
     wchar_t txt[8];
     WritePrivateProfileString(section, name,_itow(Button_GetCheck(GetDlgItem(hwnd, id)), txt, 10), inipath);
 }
 #define WriteOptionBool(id, section, name) WriteOptionBoolW(hwnd, id, section, name)
-static int WriteOptionBoolBW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, int bit)
+static int WriteOptionBoolBW(HWND hwnd, WORD id, const wchar_t *section, const wchar_t *name, int bit)
 {
     wchar_t txt[8];
     int val = GetPrivateProfileInt(section, name, 0, inipath);
@@ -297,7 +297,7 @@ static int WriteOptionBoolBW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name
 }
 #define WriteOptionBoolB(id, section, name, bit) WriteOptionBoolBW(hwnd, id, section, name, bit)
 
-static void WriteOptionStrW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name)
+static void WriteOptionStrW(HWND hwnd, WORD id, const wchar_t *section, const wchar_t *name)
 {
     wchar_t txt[1024];
     Edit_GetText(GetDlgItem(hwnd, id), txt, ARR_SZ(txt));
@@ -305,7 +305,7 @@ static void WriteOptionStrW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name)
 }
 #define WriteOptionStr(id, section, name)  WriteOptionStrW(hwnd, id, section, name)
 
-static void ReadOptionStrW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, wchar_t *def)
+static void ReadOptionStrW(HWND hwnd, WORD id, const wchar_t *section, const wchar_t *name, const wchar_t *def)
 {
     wchar_t txt[1024];
     GetPrivateProfileString(section, name, def, txt, ARR_SZ(txt), inipath);
@@ -313,7 +313,7 @@ static void ReadOptionStrW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, 
 }
 #define ReadOptionStr(id, section, name, def) ReadOptionStrW(hwnd, id, section, name, def)
 
-static int ReadOptionIntW(HWND hwnd, WORD id, wchar_t *section, wchar_t *name, int def, int mask)
+static int ReadOptionIntW(HWND hwnd, WORD id, const wchar_t *section, const wchar_t *name, int def, int mask)
 {
     int ret = GetPrivateProfileInt(section, name, def, inipath);
     Button_SetCheck(GetDlgItem(hwnd, id), (ret&mask)? BST_CHECKED: BST_UNCHECKED);
@@ -440,27 +440,36 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     }
     if (updatestrings) {
         // Update text
-        SetDlgItemText(hwnd, IDC_GENERAL_BOX,      l10n->general_box);
-        SetDlgItemText(hwnd, IDC_AUTOFOCUS,        l10n->general_autofocus);
-        SetDlgItemText(hwnd, IDC_AERO,             l10n->general_aero);
-        SetDlgItemText(hwnd, IDC_SMARTAERO,        l10n->general_smartaero);
-        SetDlgItemText(hwnd, IDC_SMARTERAERO,      l10n->general_smarteraero);
-        SetDlgItemText(hwnd, IDC_STICKYRESIZE,     l10n->general_stickyresize);
-        SetDlgItemText(hwnd, IDC_INACTIVESCROLL,   l10n->general_inactivescroll);
-        SetDlgItemText(hwnd, IDC_MDI,              l10n->general_mdi);
-        SetDlgItemText(hwnd, IDC_AUTOSNAP_HEADER,  l10n->general_autosnap);
-        SetDlgItemText(hwnd, IDC_LANGUAGE_HEADER,  l10n->general_language);
-        SetDlgItemText(hwnd, IDC_USEZONES,         l10n->general_usezones);
-        SetDlgItemText(hwnd, IDC_PIERCINGCLICK,    l10n->general_piercingclick);
-        SetDlgItemText(hwnd, IDC_RESIZEALL,        l10n->general_resizeall);
-        SetDlgItemText(hwnd, IDC_RESIZECENTER,     l10n->general_resizecenter);
-        SetDlgItemText(hwnd, IDC_RZCENTER_NORM,    l10n->general_resizecenter_norm);
-        SetDlgItemText(hwnd, IDC_RZCENTER_BR,      l10n->general_resizecenter_br);
-        SetDlgItemText(hwnd, IDC_RZCENTER_MOVE,    l10n->general_resizecenter_move);
-        SetDlgItemText(hwnd, IDC_AUTOSTART_BOX,    l10n->general_autostart_box);
-        SetDlgItemText(hwnd, IDC_AUTOSTART,        l10n->general_autostart);
-        SetDlgItemText(hwnd, IDC_AUTOSTART_HIDE,   l10n->general_autostart_hide);
-        SetDlgItemText(hwnd, IDC_AUTOSTART_ELEVATE,l10n->general_autostart_elevate);
+        struct updatestringlst {
+            int idc; wchar_t *string;
+        } strlst[] = {
+            { IDC_GENERAL_BOX,      l10n->general_box },
+            { IDC_AUTOFOCUS,        l10n->general_autofocus },
+            { IDC_AERO,             l10n->general_aero },
+            { IDC_SMARTAERO,        l10n->general_smartaero },
+            { IDC_SMARTERAERO,      l10n->general_smarteraero },
+            { IDC_STICKYRESIZE,     l10n->general_stickyresize },
+            { IDC_INACTIVESCROLL,   l10n->general_inactivescroll },
+            { IDC_MDI,              l10n->general_mdi },
+            { IDC_AUTOSNAP_HEADER,  l10n->general_autosnap },
+            { IDC_LANGUAGE_HEADER,  l10n->general_language },
+            { IDC_USEZONES,         l10n->general_usezones },
+            { IDC_PIERCINGCLICK,    l10n->general_piercingclick },
+            { IDC_RESIZEALL,        l10n->general_resizeall },
+            { IDC_RESIZECENTER,     l10n->general_resizecenter },
+            { IDC_RZCENTER_NORM,    l10n->general_resizecenter_norm },
+            { IDC_RZCENTER_BR,      l10n->general_resizecenter_br },
+            { IDC_RZCENTER_MOVE,    l10n->general_resizecenter_move },
+            { IDC_AUTOSTART_BOX,    l10n->general_autostart_box },
+            { IDC_AUTOSTART,        l10n->general_autostart },
+            { IDC_AUTOSTART_HIDE,   l10n->general_autostart_hide },
+            { IDC_AUTOSTART_ELEVATE,l10n->general_autostart_elevate }
+        };
+        unsigned i;
+        for (i=0; i < ARR_SZ(strlst); i++) {
+            SetDlgItemText(hwnd, strlst[i].idc, strlst[i].string);
+        }
+        // spetial case...
         SetDlgItemText(hwnd, IDC_ELEVATE, elevated?l10n->general_elevated: l10n->general_elevate);
 
         // AutoSnap
@@ -535,7 +544,7 @@ struct hk_struct {
     unsigned control;
     unsigned vkey;
 };
-static void SaveHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *name)
+static void SaveHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const wchar_t *name)
 {
     wchar_t keys[32];
     // Get the current config in case there are some user added keys.
@@ -551,7 +560,7 @@ static void SaveHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *name)
     WritePrivateProfileString(L"Input", name, keys, inipath);
 }
 /////////////////////////////////////////////////////////////////////////////
-static void CheckConfigHotKeys(struct hk_struct *hotkeys, HWND hwnd, wchar_t *hotkeystr, wchar_t* def)
+static void CheckConfigHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const wchar_t *hotkeystr, const wchar_t* def)
 {
     // Hotkeys
     size_t i;
@@ -600,7 +609,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 {
     static int have_to_apply = 0;
     // Mouse actions
-    struct {
+    static const struct {
         int control; // Same control
         wchar_t *option[3]; // Prim/alt/TTB
     } mouse_buttons[] = {
@@ -633,7 +642,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     };
 
     // Scroll
-    struct {
+    static const struct {
         int control; // Same control
         wchar_t *option[3]; // Prim/alt/TTB
     } mouse_wheels[] = {
@@ -654,7 +663,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     };
 
     // Hotkeys
-    struct hk_struct hotclicks [] = {
+    static const struct hk_struct hotclicks [] = {
         { IDC_MMB_HC, 0x04 },
         { IDC_MB4_HC, 0x05 },
         { IDC_MB5_HC, 0X06 },
@@ -702,28 +711,36 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             }
 
             // Update text
-            SetDlgItemText(hwnd, IDC_MBA1,            l10n->input_mouse_btac1);
-            SetDlgItemText(hwnd, IDC_MBA2,            l10n->input_mouse_btac2);
-            SetDlgItemText(hwnd, IDC_INTTB,           l10n->input_mouse_inttb);
+	        struct updatestringlst {
+	            int idc; wchar_t *string;
+	        } strlst[] = {
+	            { IDC_MBA1,            l10n->input_mouse_btac1 },
+	            { IDC_MBA2,            l10n->input_mouse_btac2 },
+	            { IDC_INTTB,           l10n->input_mouse_inttb },
 
-            SetDlgItemText(hwnd, IDC_MOUSE_BOX,       l10n->input_mouse_box);
-            SetDlgItemText(hwnd, IDC_LMB_HEADER,      l10n->input_mouse_lmb);
-            SetDlgItemText(hwnd, IDC_MMB_HEADER,      l10n->input_mouse_mmb);
-            SetDlgItemText(hwnd, IDC_RMB_HEADER,      l10n->input_mouse_rmb);
-            SetDlgItemText(hwnd, IDC_MB4_HEADER,      l10n->input_mouse_mb4);
-            SetDlgItemText(hwnd, IDC_MB5_HEADER,      l10n->input_mouse_mb5);
-            SetDlgItemText(hwnd, IDC_SCROLL_HEADER,   l10n->input_mouse_scroll);
-            SetDlgItemText(hwnd, IDC_HSCROLL_HEADER,  l10n->input_mouse_hscroll);
-            SetDlgItemText(hwnd, IDC_TTBACTIONS_BOX,  l10n->input_mouse_ttbactions_box);
-            SetDlgItemText(hwnd, IDC_TTBACTIONSNA,    l10n->input_mouse_ttbactionsna);
-            SetDlgItemText(hwnd, IDC_TTBACTIONSWA,    l10n->input_mouse_ttbactionswa);
+	            { IDC_MOUSE_BOX,       l10n->input_mouse_box },
+	            { IDC_LMB_HEADER,      l10n->input_mouse_lmb },
+	            { IDC_MMB_HEADER,      l10n->input_mouse_mmb },
+	            { IDC_RMB_HEADER,      l10n->input_mouse_rmb },
+	            { IDC_MB4_HEADER,      l10n->input_mouse_mb4 },
+	            { IDC_MB5_HEADER,      l10n->input_mouse_mb5 },
+	            { IDC_SCROLL_HEADER,   l10n->input_mouse_scroll },
+	            { IDC_HSCROLL_HEADER,  l10n->input_mouse_hscroll },
+	            { IDC_TTBACTIONS_BOX,  l10n->input_mouse_ttbactions_box },
+	            { IDC_TTBACTIONSNA,    l10n->input_mouse_ttbactionsna },
+	            { IDC_TTBACTIONSWA,    l10n->input_mouse_ttbactionswa },
 
-            SetDlgItemText(hwnd, IDC_HOTCLICKS_BOX,   l10n->input_hotclicks_box);
-            SetDlgItemText(hwnd, IDC_HOTCLICKS_MORE,  l10n->input_hotclicks_more);
-            SetDlgItemText(hwnd, IDC_MMB_HC,          l10n->input_mouse_mmb_hc);
-            SetDlgItemText(hwnd, IDC_MB4_HC,          l10n->input_mouse_mb4_hc);
-            SetDlgItemText(hwnd, IDC_MB5_HC,          l10n->input_mouse_mb5_hc);
-            SetDlgItemText(hwnd, IDC_LONGCLICKMOVE,   l10n->input_mouse_longclickmove);
+	            { IDC_HOTCLICKS_BOX,   l10n->input_hotclicks_box },
+	            { IDC_HOTCLICKS_MORE,  l10n->input_hotclicks_more },
+	            { IDC_MMB_HC,          l10n->input_mouse_mmb_hc },
+	            { IDC_MB4_HC,          l10n->input_mouse_mb4_hc },
+	            { IDC_MB5_HC,          l10n->input_mouse_mb5_hc },
+	            { IDC_LONGCLICKMOVE,   l10n->input_mouse_longclickmove },
+            };
+	        for (i=0; i < ARR_SZ(strlst); i++) {
+	            SetDlgItemText(hwnd, strlst[i].idc, strlst[i].string);
+	        }
+
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Mouse actions, for all mouse buttons...
             unsigned i;
@@ -757,7 +774,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 {
     static int have_to_apply = 0;
     // Hotkeys
-    struct hk_struct hotkeys[] = {
+    static const struct hk_struct hotkeys[] = {
         { IDC_LEFTALT,     VK_LMENU    },
         { IDC_RIGHTALT,    VK_RMENU    },
         { IDC_LEFTWINKEY,  VK_LWIN     },
@@ -839,22 +856,30 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             }
             ComboBox_SetCurSel(control, sel);
             // Update text
-            SetDlgItemText(hwnd, IDC_KEYBOARD_BOX,    l10n->tab_keyboard);
-            SetDlgItemText(hwnd, IDC_AGGRESSIVEPAUSE, l10n->input_aggressive_pause);
-            SetDlgItemText(hwnd, IDC_AGGRESSIVEKILL,  l10n->input_aggressive_kill);
-            SetDlgItemText(hwnd, IDC_SCROLLLOCKSTATE, l10n->input_scrolllockstate);
-            SetDlgItemText(hwnd, IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box);
-            SetDlgItemText(hwnd, IDC_MODKEY_H,        l10n->input_hotkeys_modkey);
-            SetDlgItemText(hwnd, IDC_LEFTALT,         l10n->input_hotkeys_leftalt);
-            SetDlgItemText(hwnd, IDC_RIGHTALT,        l10n->input_hotkeys_rightalt);
-            SetDlgItemText(hwnd, IDC_LEFTWINKEY,      l10n->input_hotkeys_leftwinkey);
-            SetDlgItemText(hwnd, IDC_RIGHTWINKEY,     l10n->input_hotkeys_rightwinkey);
-            SetDlgItemText(hwnd, IDC_LEFTCTRL,        l10n->input_hotkeys_leftctrl);
-            SetDlgItemText(hwnd, IDC_RIGHTCTRL,       l10n->input_hotkeys_rightctrl);
-            SetDlgItemText(hwnd, IDC_HOTKEYS_MORE,    l10n->input_hotkeys_more);
-            SetDlgItemText(hwnd, IDC_KEYCOMBO,        l10n->input_keycombo);
-            SetDlgItemText(hwnd, IDC_GRABWITHALT_H,   l10n->input_grabwithalt);
-            SetDlgItemText(hwnd, IDC_GRABWITHALTB_H,  l10n->input_grabwithaltb);
+	        struct updatestringlst {
+	            int idc; wchar_t *string;
+	        } strlst[] = {
+	            { IDC_KEYBOARD_BOX,    l10n->tab_keyboard},
+	            { IDC_AGGRESSIVEPAUSE, l10n->input_aggressive_pause},
+	            { IDC_AGGRESSIVEKILL,  l10n->input_aggressive_kill},
+	            { IDC_SCROLLLOCKSTATE, l10n->input_scrolllockstate},
+	            { IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box},
+	            { IDC_MODKEY_H,        l10n->input_hotkeys_modkey},
+	            { IDC_LEFTALT,         l10n->input_hotkeys_leftalt},
+	            { IDC_RIGHTALT,        l10n->input_hotkeys_rightalt},
+	            { IDC_LEFTWINKEY,      l10n->input_hotkeys_leftwinkey},
+	            { IDC_RIGHTWINKEY,     l10n->input_hotkeys_rightwinkey},
+	            { IDC_LEFTCTRL,        l10n->input_hotkeys_leftctrl},
+	            { IDC_RIGHTCTRL,       l10n->input_hotkeys_rightctrl},
+	            { IDC_HOTKEYS_MORE,    l10n->input_hotkeys_more},
+	            { IDC_KEYCOMBO,        l10n->input_keycombo},
+	            { IDC_GRABWITHALT_H,   l10n->input_grabwithalt},
+	            { IDC_GRABWITHALTB_H,  l10n->input_grabwithaltb}
+            };
+            unsigned i;
+	        for (i=0; i < ARR_SZ(strlst); i++) {
+	            SetDlgItemText(hwnd, strlst[i].idc, strlst[i].string);
+	        }
 
         } else if (pnmh->code == PSN_APPLY && have_to_apply ) {
             int i;
@@ -932,13 +957,22 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // Update text
-            SetDlgItemText(hwnd, IDC_BLACKLIST_BOX          , l10n->blacklist_box);
-            SetDlgItemText(hwnd, IDC_PROCESSBLACKLIST_HEADER, l10n->blacklist_processblacklist);
-            SetDlgItemText(hwnd, IDC_BLACKLIST_HEADER       , l10n->blacklist_blacklist);
-            SetDlgItemText(hwnd, IDC_SCROLLLIST_HEADER      , l10n->blacklist_scrolllist);
-            SetDlgItemText(hwnd, IDC_MDISBL_HEADER          , l10n->blacklist_mdis);
-            SetDlgItemText(hwnd, IDC_PAUSEBL_HEADER         , l10n->blacklist_pause);
-            SetDlgItemText(hwnd, IDC_FINDWINDOW_BOX         , l10n->blacklist_findwindow_box);
+	        struct updatestringlst {
+	            const int idc; wchar_t *string;
+	        } strlst[] = {
+                { IDC_BLACKLIST_BOX          , l10n->blacklist_box },
+                { IDC_PROCESSBLACKLIST_HEADER, l10n->blacklist_processblacklist },
+                { IDC_BLACKLIST_HEADER       , l10n->blacklist_blacklist },
+                { IDC_SCROLLLIST_HEADER      , l10n->blacklist_scrolllist },
+                { IDC_MDISBL_HEADER          , l10n->blacklist_mdis },
+                { IDC_PAUSEBL_HEADER         , l10n->blacklist_pause },
+                { IDC_FINDWINDOW_BOX         , l10n->blacklist_findwindow_box }
+            };
+            unsigned i;
+	        for (i=0; i < ARR_SZ(strlst); i++) {
+	            SetDlgItemText(hwnd, strlst[i].idc, strlst[i].string);
+	        }
+	        // Enable or disable buttons if needed
             Button_Enable(GetDlgItem(hwnd, IDC_MDIS), GetPrivateProfileInt(L"General", L"MDI", 1, inipath));
             Button_Enable(GetDlgItem(hwnd, IDC_PAUSEBL)
                        , GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath)
@@ -1018,11 +1052,11 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // Update text
-            SetDlgItemText(hwnd, IDC_ABOUT_BOX, l10n->about_box);
-            SetDlgItemText(hwnd, IDC_VERSION, l10n->about_version);
-            SetDlgItemText(hwnd, IDC_URL, L"https://github.com/RamonUnch/AltSnap");
-            SetDlgItemText(hwnd, IDC_AUTHOR, l10n->about_author);
-            SetDlgItemText(hwnd, IDC_LICENSE, l10n->about_license);
+            SetDlgItemText(hwnd, IDC_ABOUT_BOX,        l10n->about_box);
+            SetDlgItemText(hwnd, IDC_VERSION,          l10n->about_version);
+            SetDlgItemText(hwnd, IDC_URL,              L"https://github.com/RamonUnch/AltSnap");
+            SetDlgItemText(hwnd, IDC_AUTHOR,           l10n->about_author);
+            SetDlgItemText(hwnd, IDC_LICENSE,          l10n->about_license);
             SetDlgItemText(hwnd, IDC_TRANSLATIONS_BOX, l10n->about_translation_credit);
 
             wchar_t txt[1024] = L"";
@@ -1196,7 +1230,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_FULLSCREEN,       l10n->advanced_fullscreen);
             SetDlgItemText(hwnd, IDC_BLMAXIMIZED,      l10n->advanced_blmaximized);
             SetDlgItemText(hwnd, IDC_FANCYZONE,        l10n->advanced_fancyzone);
-			SetDlgItemText(hwnd, IDC_NORESTORE,        l10n->advanced_norestore);
+            SetDlgItemText(hwnd, IDC_NORESTORE,        l10n->advanced_norestore);
 
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Apply or OK button was pressed.

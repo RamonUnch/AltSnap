@@ -11,7 +11,7 @@
 #define COBJMACROS
 BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
 
-// Boring stuff
+// Timer messages
 #define REHOOK_TIMER    WM_APP+1
 #define SPEED_TIMER     WM_APP+2
 #define GRAB_TIMER      WM_APP+3
@@ -198,7 +198,7 @@ struct blacklist {
     unsigned length;
     wchar_t *data;
 };
-static struct {
+static const struct {
     struct blacklist Processes;
     struct blacklist Windows;
     struct blacklist Snaplist;
@@ -210,7 +210,19 @@ static struct {
     struct blacklist SSizeMove;
     struct blacklist NCHittest;
 } BlkLst;
-
+// MUST MATCH THE ABOVE!!!
+static const char *BlackListStrings[] = {
+    "Processes",
+    "Windows",
+    "Snaplist",
+    "MDIs",
+    "Pause",
+    "MMBLower",
+    "Scroll",
+    "AResize",
+    "SSizeMove",
+    "NCHittest"
+};
 // Cursor data
 HWND g_mainhwnd = NULL;
 
@@ -228,7 +240,7 @@ HHOOK mousehook = NULL;
 
 /////////////////////////////////////////////////////////////////////////////
 // wether a window is present or not in a blacklist
-static pure int blacklisted(HWND hwnd, struct blacklist *list)
+static pure int blacklisted(HWND hwnd, const struct blacklist *list)
 {
     wchar_t title[256]=L"", classname[256]=L"";
     DorQWORD mode ;
@@ -252,7 +264,7 @@ static pure int blacklisted(HWND hwnd, struct blacklist *list)
     }
     return !mode;
 }
-static pure int blacklistedP(HWND hwnd, struct blacklist *list)
+static pure int blacklistedP(HWND hwnd, const struct blacklist *list)
 {
     wchar_t title[MAX_PATH]=L"";
     DorQWORD mode ;
@@ -764,7 +776,7 @@ void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight)
 
         // Check if posy snaps
         if (IsInRangeT(posx, snapwnd.left, snapwnd.right, thresholdy)
-         || IsInRangeT(snapwnd.left, posx, posx+wndwidth, thresholdy)) {
+        ||  IsInRangeT(snapwnd.left, posx, posx+wndwidth, thresholdy)) {
             UCHAR snapinside_cond = (snapinside || posx + wndwidth - thresholdy < snapwnd.left
                                   || snapwnd.right < posx+thresholdy);
             if (IsEqualT(snapwnd.bottom, posy, thresholdy)) {
@@ -3234,16 +3246,17 @@ __declspec(dllexport) void Unload()
 }
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated and title and class are | separated.
-static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist
-                        , const wchar_t *blacklist_str)
+static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist, const char *bl_str)
 {
-    wchar_t txt[2000];
+    wchar_t txt[1968];
+    wchar_t bl_W[32];
+    str2wide(bl_W, bl_str);
 
     blacklist->data = NULL;
     blacklist->length = 0;
     blacklist->items = NULL;
 
-    DWORD ret = GetPrivateProfileString(L"Blacklist", blacklist_str, L"", txt, ARR_SZ(txt), inipath);
+    DWORD ret = GetPrivateProfileString(L"Blacklist", bl_W, L"", txt, ARR_SZ(txt), inipath);
     if (!ret || txt[0] == '\0') {
         return;
     }
@@ -3289,6 +3302,15 @@ static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist
         }
     } // end while
 }
+// Read all the blacklitsts
+void readallblacklists(wchar_t *inipath)
+{
+    struct blacklist *list = (void *)&BlkLst;
+    unsigned i;
+    for (i=0; i< sizeof(BlkLst)/sizeof(struct blacklist); i++) {
+        readblacklist(inipath, list+i, BlackListStrings[i]);
+    }
+}
 ///////////////////////////////////////////////////////////////////////////
 // Used to read Hotkeys and Hotclicks
 static void readhotkeys(const wchar_t *inipath, const wchar_t *name, const wchar_t *def, UCHAR *keys)
@@ -3317,6 +3339,78 @@ static unsigned char readsinglekey(const wchar_t *inipath, const wchar_t *name, 
     }
     return 0;
 }
+// Map action string to actual action enum
+static enum action selectaction(const wchar_t *txt)
+{
+    static const char *action_map[] = ACTION_MAP;
+    enum action ac;
+    for (ac=0; ac < ARR_SZ(action_map); ac++) {
+        if(!wscsicmp(txt, action_map[ac])) return ac;
+    }
+    return AC_NONE;
+}
+// Read all buttons actions from inipath
+static UCHAR readbuttonactions(const wchar_t *inipath)
+{
+    wchar_t txt[32];
+    static const struct {
+        char *key;
+        char *def;
+        enum action *ptr;
+    } buttons[] = {
+        // Primary Actions (performed with Alt+Click)
+        {"LMB",        "Move",    &conf.Mouse.LMB[0]},
+        {"MMB",        "Maximize",&conf.Mouse.MMB[0]},
+        {"RMB",        "Resize",  &conf.Mouse.RMB[0]},
+        {"MB4",        "Nothing", &conf.Mouse.MB4[0]},
+        {"MB5",        "Nothing", &conf.Mouse.MB5[0]},
+        {"Scroll",     "Nothing", &conf.Mouse.Scroll[0]},
+        {"HScroll",    "Nothing", &conf.Mouse.HScroll[0]},
+        {"GrabWithAlt","Nothing", &conf.GrabWithAlt[0]},
+        {"MoveUp"     ,"Nothing", &conf.MoveUp[0]},
+        {"ResizeUp"   ,"Nothing", &conf.ResizeUp[0]},
+        // Secondary Actions (performed with Alt+ModKey+Click)
+        {"LMBB",       "Resize",  &conf.Mouse.LMB[1]},
+        {"MMBB",       "Maximize",&conf.Mouse.MMB[1]},
+        {"RMBB",       "Move",    &conf.Mouse.RMB[1]},
+        {"MB4B",       "Nothing", &conf.Mouse.MB4[1]},
+        {"MB5B",       "Nothing", &conf.Mouse.MB5[1]},
+        {"ScrollB",    "Volume",  &conf.Mouse.Scroll[1]},
+        {"HScrollB",   "Nothing", &conf.Mouse.HScroll[1]},
+        {"GrabWithAltB","Nothing", &conf.GrabWithAlt[1]},
+        {"MoveUpB"    ,"Nothing", &conf.MoveUp[1]},
+        {"ResizeUpB"  ,"Nothing", &conf.ResizeUp[1]},
+        // Titlenar Actions
+        {"LMBT",       "Nothing", &conf.Mouse.LMB[2]},
+        {"MMBT",       "Lower",   &conf.Mouse.MMB[2]},
+        {"RMBT",       "Nothing", &conf.Mouse.RMB[2]},
+        {"MB4T",       "Nothing", &conf.Mouse.MB4[2]},
+        {"MB5T",       "Nothing", &conf.Mouse.MB5[2]},
+        {"ScrollT",    "Nothing", &conf.Mouse.Scroll[2]},
+        {"HScrollT",   "Nothing", &conf.Mouse.HScroll[2]},
+        // Secondary Titlenar Actions
+        {"LMBTB",      "Nothing", &conf.Mouse.LMB[3]},
+        {"MMBTB",      "Nothing", &conf.Mouse.MMB[3]},
+        {"RMBTB",      "Nothing", &conf.Mouse.RMB[3]},
+        {"MB4TB",      "Nothing", &conf.Mouse.MB4[3]},
+        {"MB5TB",      "Nothing", &conf.Mouse.MB5[3]},
+        {"ScrollTB",   "Nothing", &conf.Mouse.Scroll[3]},
+        {"HScrollTB",  "Nothing", &conf.Mouse.HScroll[3]},
+        {NULL} // NULL terminate the list!!!!
+    };
+    unsigned i;
+    UCHAR action_menu_load = 0;
+    for (i=0; buttons[i].key != NULL; i++) {
+        wchar_t key[32];
+        wchar_t def[32];
+        str2wide(key, buttons[i].key);
+        str2wide(def, buttons[i].def);
+        GetPrivateProfileString(L"Input", key, def, txt, ARR_SZ(txt), inipath);
+        *buttons[i].ptr = selectaction(txt);
+        if (*buttons[i].ptr == AC_MENU) action_menu_load = 1;
+    }
+    return action_menu_load;
+}
 ///////////////////////////////////////////////////////////////////////////
 // Create a window for msessages handeling.
 static HWND KreateMsgWin(WNDPROC proc, wchar_t *name)
@@ -3332,8 +3426,8 @@ static HWND KreateMsgWin(WNDPROC proc, wchar_t *name)
 __declspec(dllexport) void Load(HWND mainhwnd)
 {
     // Load settings
-    wchar_t txt[32];
     wchar_t inipath[MAX_PATH];
+    unsigned i;
     state.action = AC_NONE;
     state.shift = 0;
     state.moving = 0;
@@ -3343,133 +3437,84 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
     wcscpy(&inipath[wcslen(inipath)-3], L"ini");
 
-    // [General]
-    conf.AutoFocus =    GetPrivateProfileInt(L"General", L"AutoFocus", 0, inipath);
-    conf.AutoSnap=state.snap=GetPrivateProfileInt(L"General", L"AutoSnap", 0, inipath);
-    conf.Aero =         GetPrivateProfileInt(L"General", L"Aero", 1, inipath);
-    conf.SmartAero =    GetPrivateProfileInt(L"General", L"SmartAero", 1, inipath);
-    conf.StickyResize  =GetPrivateProfileInt(L"General", L"StickyResize", 0, inipath);
-    conf.InactiveScroll=GetPrivateProfileInt(L"General", L"InactiveScroll", 0, inipath);
-    conf.MDI =          GetPrivateProfileInt(L"General", L"MDI", 0, inipath);
-    conf.ResizeCenter = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
-    conf.CenterFraction=CLAMP(0, GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath), 100);
-    conf.AHoff        = CLAMP(0, GetPrivateProfileInt(L"General", L"AeroHoffset", 50, inipath),    100);
-    conf.AVoff        = CLAMP(0, GetPrivateProfileInt(L"General", L"AeroVoffset", 50, inipath),    100);
-    conf.MoveTrans    = CLAMP(0, GetPrivateProfileInt(L"General", L"MoveTrans", 0, inipath), 255);
-    conf.MMMaximize   = GetPrivateProfileInt(L"General", L"MMMaximize", 1, inipath);
+    #pragma GCC diagnostic ignored "-Wpointer-sign"
+    static const struct OptionListItem {
+        UCHAR *dest; wchar_t *section; char *name; int def;
+    } optlist[] = {
+        // [General]
+        {&conf.AutoFocus,       L"General", "AutoFocus", 0 },
+        {&conf.AutoSnap,        L"General", "AutoSnap", 0 },
+        {&conf.Aero,            L"General", "Aero", 1 },
+        {&conf.SmartAero,       L"General", "SmartAero", 1 },
+        {&conf.StickyResize,    L"General", "StickyResize", 0 },
+        {&conf.InactiveScroll,  L"General", "InactiveScroll", 0 },
+        {&conf.MDI,             L"General", "MDI", 0 },
+        {&conf.ResizeCenter,    L"General", "ResizeCenter", 1 },
+        {&conf.CenterFraction,  L"General", "CenterFraction", 24 },
+        {&conf.AHoff,           L"General", "AeroHoffset", 50 },
+        {&conf.AVoff,           L"General", "AeroVoffset", 50 },
+        {&conf.MoveTrans,       L"General", "MoveTrans", 255 },
+        {&conf.MMMaximize,      L"General", "MMMaximize", 1 },
 
-    // [Advanced]
-    conf.ResizeAll     = GetPrivateProfileInt(L"Advanced", L"ResizeAll",       1, inipath);
-    conf.FullScreen    = GetPrivateProfileInt(L"Advanced", L"FullScreen",      1, inipath);
-    conf.BLMaximized   = GetPrivateProfileInt(L"Advanced", L"BLMaximized",     0, inipath);
-    conf.AutoRemaximize= GetPrivateProfileInt(L"Advanced", L"AutoRemaximize",  0, inipath);
-    conf.SnapThreshold = GetPrivateProfileInt(L"Advanced", L"SnapThreshold",  20, inipath);
-    conf.AeroThreshold = GetPrivateProfileInt(L"Advanced", L"AeroThreshold",   5, inipath);
-    conf.AeroTopMaximizes=GetPrivateProfileInt(L"Advanced",L"AeroTopMaximizes",1, inipath);
-    conf.UseCursor     = GetPrivateProfileInt(L"Advanced", L"UseCursor",       1, inipath);
-    conf.MinAlpha      = CLAMP(1,    GetPrivateProfileInt(L"Advanced", L"MinAlpha", 8, inipath), 255);
-    conf.AlphaDeltaShift=CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDeltaShift", 8, inipath), 127);
-    conf.AlphaDelta    = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"AlphaDelta", 64, inipath), 127);
-    conf.AeroMaxSpeed  = CLAMP(0, GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath), 65535);
-    conf.AeroSpeedTau  = CLAMP(1, GetPrivateProfileInt(L"Advanced", L"AeroSpeedTau", 64, inipath), 255);
-    conf.SnapGap       = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"SnapGap", 0, inipath), 127);
-    conf.ShiftSnaps    = GetPrivateProfileInt(L"Advanced", L"ShiftSnaps", 1, inipath);
-    conf.PiercingClick = GetPrivateProfileInt(L"Advanced", L"PiercingClick", 0, inipath);
-    // [Performance]
-    conf.RefreshRate=GetPrivateProfileInt(L"Performance", L"RefreshRate", 0, inipath);
-    conf.RezTimer  = GetPrivateProfileInt(L"Performance", L"RezTimer", 0, inipath);
-    if (conf.RezTimer) conf.RefreshRate=0; // Ignore the refresh rate in RezTimer mode.
-    conf.MoveRate  = GetPrivateProfileInt(L"Performance", L"MoveRate", 2, inipath);
-    conf.ResizeRate= GetPrivateProfileInt(L"Performance", L"ResizeRate", 4, inipath);
-    conf.FullWin   = GetPrivateProfileInt(L"Performance", L"FullWin", 2, inipath);
-    if (conf.FullWin == 2) { // Use current config to determine if we use FullWin.
-        BOOL drag_full_win=1;  // Default to ON if unable to detect
-        SystemParametersInfo(SPI_GETDRAGFULLWINDOWS, 0, &drag_full_win, 0);
-        conf.FullWin = drag_full_win;
+        // [Advanced]
+        {&conf.ResizeAll,       L"Advanced", "ResizeAll", 1 },
+        {&conf.FullScreen,      L"Advanced", "FullScreen", 1 },
+        {&conf.BLMaximized,     L"Advanced", "BLMaximized", 0 },
+        {&conf.AutoRemaximize,  L"Advanced", "AutoRemaximize", 0 },
+        {&conf.SnapThreshold,   L"Advanced", "SnapThreshold", 20 },
+        {&conf.AeroThreshold,   L"Advanced", "AeroThreshold", 5 },
+        {&conf.AeroTopMaximizes,L"Advanced", "AeroTopMaximizes", 1 },
+        {&conf.UseCursor,       L"Advanced", "UseCursor", 1 },
+        {&conf.MinAlpha,        L"Advanced", "MinAlpha", 20 },
+        {&conf.AlphaDeltaShift, L"Advanced", "AlphaDeltaShift", 8 },
+        {&conf.AlphaDelta,      L"Advanced", "AlphaDelta", 64 },
+        // AeroMaxSpeed not here...
+        {&conf.AeroSpeedTau,    L"Advanced", "AeroSpeedTau", 64 },
+        {&conf.SnapGap,         L"Advanced", "SnapGap", 0 },
+        {&conf.ShiftSnaps,      L"Advanced", "ShiftSnaps", 1 },
+        {&conf.PiercingClick,   L"Advanced", "PiercingClick", 0 },
+
+        // [Performance]
+        {&conf.FullWin,         L"Performance", "FullWin", 2 },
+        {&conf.RefreshRate,     L"Performance", "RefreshRate", 0 },
+        {&conf.RezTimer,        L"Performance", "RezTimer", 0 },
+        {&conf.MoveRate,        L"Performance", "MoveRate", 2 },
+        {&conf.ResizeRate,      L"Performance", "ResizeRate", 4 },
+
+        // [Input]
+        {&conf.TTBActions,      L"Input", "TTBActions", 0 },
+        {&conf.AggressivePause, L"Input", "AggressivePause", 0 },
+        {&conf.AggressiveKill,  L"Input", "AggressiveKill", 0 },
+        {&conf.KeyCombo,        L"Input", "KeyCombo", 0 },
+        {&conf.ScrollLockState, L"Input", "ScrollLockState", 0 },
+        {&conf.LongClickMove,   L"Input", "LongClickMove", 0 },
+
+        // [Zones]
+        {&conf.UseZones,        L"Zones", "UseZones", 0 },
+        {&conf.InterZone,       L"Zones", "InterZone", 0 },
+      # ifdef WIN64
+        {&conf.FancyZone,       L"Zones", "FancyZone", 0 },
+      # endif
+    };
+    #pragma GCC diagnostic pop
+
+    // Read all char options
+    for (i=0; i < ARR_SZ(optlist); i++) {
+        wchar_t name[128];
+        str2wide(name, optlist[i].name);
+        *optlist[i].dest = GetPrivateProfileInt(optlist[i].section, name, optlist[i].def, inipath);
     }
+
+    // [General] consistency checks
+    conf.CenterFraction=CLAMP(0, conf.CenterFraction, 100);
+    conf.AHoff        = CLAMP(0, conf.AHoff,          100);
+    conf.AVoff        = CLAMP(0, conf.AVoff,          100);
+
+    // [Advanced] Max Speed
+    conf.AeroMaxSpeed  = GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath);
 
     // [Input]
-    struct {
-        wchar_t *key;
-        wchar_t *def;
-        enum action *ptr;
-    } buttons[] = {
-        // Primary Actions (performed with Alt+Click)
-        {L"LMB",        L"Move",    &conf.Mouse.LMB[0]},
-        {L"MMB",        L"Maximize",&conf.Mouse.MMB[0]},
-        {L"RMB",        L"Resize",  &conf.Mouse.RMB[0]},
-        {L"MB4",        L"Nothing", &conf.Mouse.MB4[0]},
-        {L"MB5",        L"Nothing", &conf.Mouse.MB5[0]},
-        {L"Scroll",     L"Nothing", &conf.Mouse.Scroll[0]},
-        {L"HScroll",    L"Nothing", &conf.Mouse.HScroll[0]},
-        {L"GrabWithAlt",L"Nothing", &conf.GrabWithAlt[0]},
-        {L"MoveUp"     ,L"Nothing", &conf.MoveUp[0]},
-        {L"ResizeUp"   ,L"Nothing", &conf.ResizeUp[0]},
-
-        // Secondary Actions (performed with Alt+ModKey+Click)
-        {L"LMBB",       L"Resize",  &conf.Mouse.LMB[1]},
-        {L"MMBB",       L"Maximize",&conf.Mouse.MMB[1]},
-        {L"RMBB",       L"Move",    &conf.Mouse.RMB[1]},
-        {L"MB4B",       L"Nothing", &conf.Mouse.MB4[1]},
-        {L"MB5B",       L"Nothing", &conf.Mouse.MB5[1]},
-        {L"ScrollB",    L"Volume",  &conf.Mouse.Scroll[1]},
-        {L"HScrollB",   L"Nothing", &conf.Mouse.HScroll[1]},
-        {L"GrabWithAltB",L"Nothing", &conf.GrabWithAlt[1]},
-        {L"MoveUpB"    ,L"Nothing", &conf.MoveUp[1]},
-        {L"ResizeUpB"  ,L"Nothing", &conf.ResizeUp[1]},
-
-        // Titlenar Actions
-        {L"LMBT",       L"Nothing", &conf.Mouse.LMB[2]},
-        {L"MMBT",       L"Lower",   &conf.Mouse.MMB[2]},
-        {L"RMBT",       L"Nothing", &conf.Mouse.RMB[2]},
-        {L"MB4T",       L"Nothing", &conf.Mouse.MB4[2]},
-        {L"MB5T",       L"Nothing", &conf.Mouse.MB5[2]},
-        {L"ScrollT",    L"Nothing", &conf.Mouse.Scroll[2]},
-        {L"HScrollT",   L"Nothing", &conf.Mouse.HScroll[2]},
-
-        // Secondart Titlenar Actions
-        {L"LMBTB",      L"Nothing", &conf.Mouse.LMB[3]},
-        {L"MMBTB",      L"Nothing", &conf.Mouse.MMB[3]},
-        {L"RMBTB",      L"Nothing", &conf.Mouse.RMB[3]},
-        {L"MB4TB",      L"Nothing", &conf.Mouse.MB4[3]},
-        {L"MB5TB",      L"Nothing", &conf.Mouse.MB5[3]},
-        {L"ScrollTB",   L"Nothing", &conf.Mouse.Scroll[3]},
-        {L"HScrollTB",  L"Nothing", &conf.Mouse.HScroll[3]},
-        {NULL}
-    };
-    unsigned i;
-    UCHAR action_menu_load = 0;
-    for (i=0; buttons[i].key != NULL; i++) {
-        GetPrivateProfileString(L"Input", buttons[i].key, buttons[i].def, txt, ARR_SZ(txt), inipath);
-        if      (!wcsicmp(txt,L"Move"))         *buttons[i].ptr = AC_MOVE;
-        else if (!wcsicmp(txt,L"Resize"))       *buttons[i].ptr = AC_RESIZE;
-        else if (!wcsicmp(txt,L"Minimize"))     *buttons[i].ptr = AC_MINIMIZE;
-        else if (!wcsicmp(txt,L"Maximize"))     *buttons[i].ptr = AC_MAXIMIZE;
-        else if (!wcsicmp(txt,L"Center"))       *buttons[i].ptr = AC_CENTER;
-        else if (!wcsicmp(txt,L"AlwaysOnTop"))  *buttons[i].ptr = AC_ALWAYSONTOP;
-        else if (!wcsicmp(txt,L"Borderless"))   *buttons[i].ptr = AC_BORDERLESS;
-        else if (!wcsicmp(txt,L"Close"))        *buttons[i].ptr = AC_CLOSE;
-        else if (!wcsicmp(txt,L"Lower"))        *buttons[i].ptr = AC_LOWER;
-        else if (!wcsicmp(txt,L"AltTab"))       *buttons[i].ptr = AC_ALTTAB;
-        else if (!wcsicmp(txt,L"Volume"))       *buttons[i].ptr = AC_VOLUME;
-        else if (!wcsicmp(txt,L"Transparency")) *buttons[i].ptr = AC_TRANSPARENCY;
-        else if (!wcsicmp(txt,L"Roll"))         *buttons[i].ptr = AC_ROLL;
-        else if (!wcsicmp(txt,L"HScroll"))      *buttons[i].ptr = AC_HSCROLL;
-        else if (!wcsicmp(txt,L"Menu"))       { *buttons[i].ptr = AC_MENU ; action_menu_load=1; }
-        else if (!wcsicmp(txt,L"Kill"))         *buttons[i].ptr = AC_KILL;
-        else if (!wcsicmp(txt,L"MaximizeHV"))   *buttons[i].ptr = AC_MAXHV;
-        else if (!wcsicmp(txt,L"MinAllOther"))  *buttons[i].ptr = AC_MINALL;
-        else if (!wcsicmp(txt,L"Mute"))         *buttons[i].ptr = AC_MUTE;
-        else if (!wcsicmp(txt,L"SideSnap"))     *buttons[i].ptr = AC_SIDESNAP;
-        else                                    *buttons[i].ptr = AC_NONE;
-    }
-
-    conf.TTBActions      = GetPrivateProfileInt(L"Input", L"TTBActions",      0, inipath);
-    conf.AggressivePause = GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath);
-    conf.AggressiveKill  = GetPrivateProfileInt(L"Input", L"AggressiveKill",  0, inipath);
-    conf.KeyCombo        = GetPrivateProfileInt(L"Input", L"KeyCombo",        0, inipath);
-    conf.ScrollLockState = GetPrivateProfileInt(L"Input", L"ScrollLockState", 0, inipath);
-    conf.LongClickMove   = GetPrivateProfileInt(L"Input", L"LongClickMove",   0, inipath);
+    UCHAR action_menu_load = readbuttonactions(inipath);
 
     readhotkeys(inipath, L"Hotkeys",  L"A4 A5",   conf.Hotkeys);
     readhotkeys(inipath, L"Shiftkeys",L"A0 A1",   conf.Shiftkeys);
@@ -3479,32 +3524,32 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.ModKey     = readsinglekey(inipath, L"ModKey", L"");
     conf.HScrollKey = readsinglekey(inipath, L"HScrollKey", L"10"); // VK_SHIFT
 
-    readblacklist(inipath, &BlkLst.Processes, L"Processes");
-    readblacklist(inipath, &BlkLst.Windows,   L"Windows");
-    readblacklist(inipath, &BlkLst.Snaplist,  L"Snaplist");
-    readblacklist(inipath, &BlkLst.MDIs,      L"MDIs");
-    readblacklist(inipath, &BlkLst.Pause,     L"Pause");
-    readblacklist(inipath, &BlkLst.MMBLower,  L"MMBLower");
-    readblacklist(inipath, &BlkLst.Scroll,    L"Scroll");
-    readblacklist(inipath, &BlkLst.AResize,   L"AResize");
-    readblacklist(inipath, &BlkLst.SSizeMove, L"SSizeMove");
-    readblacklist(inipath, &BlkLst.NCHittest, L"NCHittest");
+    // Read all the BLACKLITSTS
+    readallblacklists(inipath);
+
     ResetDB(); // Zero database of restore info (snap.c)
 
-    // Zones
-    conf.UseZones   = GetPrivateProfileInt(L"Zones", L"UseZones", 0, inipath);
-    unsigned GridNx = GetPrivateProfileInt(L"Zones", L"GridNx", 0, inipath);
-    unsigned GridNy = GetPrivateProfileInt(L"Zones", L"GridNy", 0, inipath);
-    if (conf.UseZones&1) {
-        if(conf.UseZones&2 && GridNx && GridNy) GenerateGridZones(GridNx, GridNy);
-        else ReadZones(inipath);
+    // [Zones] Configuration
+    if (conf.UseZones&1) { // We are using Zones
+        if(conf.UseZones&2) { // Grid Mode
+            unsigned GridNx = GetPrivateProfileInt(L"Zones", L"GridNx", 0, inipath);
+            unsigned GridNy = GetPrivateProfileInt(L"Zones", L"GridNy", 0, inipath);
+            if (GridNx && GridNy)
+                GenerateGridZones(GridNx, GridNy);
+        } else {
+            ReadZones(inipath);
+        }
     }
-    conf.InterZone = GetPrivateProfileInt(L"Zones", L"InterZone", 0, inipath);
 
-  # ifdef WIN64
-    conf.FancyZone = GetPrivateProfileInt(L"Zones", L"FancyZone", 0, inipath);
-  # endif
+    // [Performance]
+    if (conf.RezTimer) conf.RefreshRate=0; // Ignore the refresh rate in RezTimer mode.
+    if (conf.FullWin == 2) { // Use current config to determine if we use FullWin.
+        BOOL drag_full_win=1;  // Default to ON if unable to detect
+        SystemParametersInfo(SPI_GETDRAGFULLWINDOWS, 0, &drag_full_win, 0);
+        conf.FullWin = drag_full_win;
+    }
 
+    // Prepare the transparent window
     if (!conf.FullWin) {
         int color[2];
         // Read the color for the TransWin from ini file

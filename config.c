@@ -331,7 +331,7 @@ static int ReadOptionIntW(HWND hwnd, WORD id, const wchar_t *section, const char
 }
 #define ReadOptionInt(id, section, name, def, mask) ReadOptionIntW(hwnd, id, section, name, def, mask)
 
-struct dialogstring { const int idc; wchar_t *string; };
+struct dialogstring { const int idc; const wchar_t *string; };
 static void UpdateDialogStrings(HWND hwnd, struct dialogstring strlst[], unsigned size)
 {
     unsigned i;
@@ -339,26 +339,62 @@ static void UpdateDialogStrings(HWND hwnd, struct dialogstring strlst[], unsigne
         SetDlgItemText(hwnd, strlst[i].idc, strlst[i].string);
     }
 }
-
+// Options to bead or written...
+enum opttype {T_BOL, T_STR};
+struct optlst {
+    const short idc;
+    const enum opttype type;
+    const UCHAR bitN;
+    const wchar_t *section;
+    const char* name;
+    const void *def;
+};
+static void ReadDialogOptions(HWND hwnd,const struct optlst *ol, unsigned size)
+{
+    unsigned i;
+    for (i=0; i < size; i++) {
+        if(ol[i].type == T_BOL)
+            ReadOptionIntW(hwnd, ol[i].idc, ol[i].section, ol[i].name, (int)ol[i].def, 1<<ol[i].bitN);
+        else
+            ReadOptionStrW(hwnd, ol[i].idc, ol[i].section, ol[i].name, (wchar_t*)ol[i].def);
+    }
+}
+static void WriteDialogOptions(HWND hwnd,const struct optlst *ol, unsigned size)
+{
+    unsigned i;
+    for (i=0; i < size; i++) {
+        if(ol[i].type == T_BOL)
+            WriteOptionBoolBW(hwnd, ol[i].idc, ol[i].section, ol[i].name, ol[i].bitN);
+        else
+            WriteOptionStrW(hwnd, ol[i].idc, ol[i].section, ol[i].name);
+    }
+}
 
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+    #pragma GCC diagnostic ignored "-Wint-conversion"
+    static const struct optlst optlst[] = {
+       // dialog id, type, bit number, section name, option name, def val.
+        { IDC_AUTOFOCUS,     T_BOL, 0,  L"General",  "AutoFocus", 0 },
+        { IDC_AERO,          T_BOL, 0,  L"General",  "Aero", 1 },
+        { IDC_SMARTAERO,     T_BOL, 0,  L"General",  "SmartAero", 1 },
+        { IDC_SMARTERAERO,   T_BOL, 1,  L"General",  "SmartAero", 0 },
+        { IDC_STICKYRESIZE,  T_BOL, 0,  L"General",  "StickyResize", 1 },
+        { IDC_INACTIVESCROLL,T_BOL, 0,  L"General",  "InactiveScroll", 0 },
+        { IDC_MDI,           T_BOL, 0,  L"General",  "MDI", 1 },
+        { IDC_RESIZEALL,     T_BOL, 0,  L"Advanced", "ResizeAll", 1 },
+        { IDC_USEZONES,      T_BOL, 0,  L"Zones",    "UseZones", 0 },
+        { IDC_PIERCINGCLICK, T_BOL, 0,  L"Advanced", "PiercingClick", 0 },
+    };
+    #pragma GCC diagnostic pop
+
     int updatestrings = 0;
     static int have_to_apply = 0;
     if (msg == WM_INITDIALOG) {
         MoveToCorner(g_cfgwnd);
         int ret;
-        ReadOptionInt(IDC_AUTOFOCUS,     L"General",    "AutoFocus", 0, -1);
-        ReadOptionInt(IDC_AERO,          L"General",    "Aero", 1, -1);
-        ReadOptionInt(IDC_SMARTAERO,     L"General",    "SmartAero", 1, 1);
-        ReadOptionInt(IDC_SMARTERAERO,   L"General",    "SmartAero", 0, 2);
-        ReadOptionInt(IDC_STICKYRESIZE,  L"General",    "StickyResize", 1, 1);
-        ReadOptionInt(IDC_INACTIVESCROLL,L"General",    "InactiveScroll", 0, -1);
-        ReadOptionInt(IDC_MDI,           L"General",    "MDI", 1, -1);
-        ReadOptionInt(IDC_RESIZEALL,     L"Advanced",   "ResizeAll", 1, -1);
-        ReadOptionInt(IDC_USEZONES,      L"Zones",      "UseZones", 0, 1);
-        ReadOptionInt(IDC_PIERCINGCLICK, L"Advanced",   "PiercingClick", 0, -1);
+        ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
 
         ret = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
         ret = ret==1? IDC_RZCENTER_NORM: ret==2? IDC_RZCENTER_MOVE: IDC_RZCENTER_BR;
@@ -420,18 +456,10 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), autostart && VISTA);
             if(WIN10) Button_Enable(GetDlgItem(hwnd, IDC_INACTIVESCROLL), IsChecked(IDC_INACTIVESCROLL));
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
-            wchar_t txt[8];
-            WriteOptionBool(IDC_AUTOFOCUS,     L"General",    "AutoFocus");
-            WriteOptionBool(IDC_AERO,          L"General",    "Aero");
-            WriteOptionBoolB(IDC_SMARTAERO,    L"General",    "SmartAero", 0);
-            WriteOptionBoolB(IDC_SMARTERAERO,  L"General",    "SmartAero", 1);
-            WriteOptionBoolB(IDC_STICKYRESIZE, L"General",    "StickyResize", 0);
-            WriteOptionBool(IDC_INACTIVESCROLL,L"General",    "InactiveScroll");
-            WriteOptionBool(IDC_MDI,           L"General",    "MDI");
-            WriteOptionBool(IDC_RESIZEALL,     L"Advanced",   "ResizeAll");
-            WriteOptionBoolB(IDC_USEZONES,     L"Zones",      "UseZones", 0);
-            WriteOptionBool(IDC_PIERCINGCLICK, L"Advanced",   "PiercingClick");
+            // all bool options (checkboxes).
+            WriteDialogOptions(hwnd, optlst, ARR_SZ(optlst));
 
+            wchar_t txt[8];
             int val = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_AUTOSNAP));
             WritePrivateProfileString(L"General",    L"AutoSnap", _itow(val, txt, 10), inipath);
 
@@ -917,13 +945,20 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+    #pragma GCC diagnostic ignored "-Wint-conversion"
+    static const struct optlst optlst[] = {
+        { IDC_PROCESSBLACKLIST, T_STR, 0, L"Blacklist", "Processes", L"" },
+        { IDC_BLACKLIST,        T_STR, 0, L"Blacklist", "Windows", L"" },
+        { IDC_SCROLLLIST,       T_STR, 0, L"Blacklist", "Scroll", L"" },
+        { IDC_MDIS,             T_STR, 0, L"Blacklist", "MDIs", L"" },
+        { IDC_PAUSEBL,          T_STR, 0, L"Blacklist", "Pause", L"" },
+    };
+    #pragma GCC diagnostic pop
+
     static int have_to_apply = 0;
+
     if (msg == WM_INITDIALOG) {
-        ReadOptionStr(IDC_PROCESSBLACKLIST, L"Blacklist", "Processes", L"");
-        ReadOptionStr(IDC_BLACKLIST,        L"Blacklist", "Windows", L"");
-        ReadOptionStr(IDC_SCROLLLIST,       L"Blacklist", "Scroll", L"");
-        ReadOptionStr(IDC_MDIS,             L"Blacklist", "MDIs", L"");
-        ReadOptionStr(IDC_PAUSEBL,          L"Blacklist", "Pause", L"");
+        ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
         BOOL haveProcessBL = HaveProc("PSAPI.DLL", "GetModuleFileNameExW");
         Button_Enable(GetDlgItem(hwnd, IDC_PROCESSBLACKLIST), haveProcessBL);
         Button_Enable(GetDlgItem(hwnd, IDC_PAUSEBL), haveProcessBL);
@@ -979,16 +1014,12 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 	        // Enable or disable buttons if needed
             Button_Enable(GetDlgItem(hwnd, IDC_MDIS), GetPrivateProfileInt(L"General", L"MDI", 1, inipath));
             Button_Enable(GetDlgItem(hwnd, IDC_PAUSEBL)
-                       , GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath)
-                       | GetPrivateProfileInt(L"Input", L"AggressiveKill", 0, inipath));
+                       ,  GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath)
+                       || GetPrivateProfileInt(L"Input", L"AggressiveKill", 0, inipath));
                         // Grayout useless
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Save to the config
-            WriteOptionStr(IDC_PROCESSBLACKLIST, L"Blacklist", "Processes");
-            WriteOptionStr(IDC_BLACKLIST,        L"Blacklist", "Windows");
-            WriteOptionStr(IDC_SCROLLLIST,       L"Blacklist", "Scroll");
-            WriteOptionStr(IDC_MDIS,             L"Blacklist", "MDIs");
-            WriteOptionStr(IDC_PAUSEBL,          L"Blacklist", "Pause");
+            WriteDialogOptions(hwnd, optlst, ARR_SZ(optlst));
             UpdateSettings();
             have_to_apply = 0;
         }
@@ -1171,30 +1202,34 @@ static HWND NewTestWindow()
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+    #pragma GCC diagnostic ignored "-Wint-conversion"
+    static const struct optlst optlst[] = {
+        { IDC_AUTOREMAXIMIZE,   T_BOL, 0, L"Advanced", "AutoRemaximize", 0 },
+        { IDC_AEROTOPMAXIMIZES, T_BOL, 0, L"Advanced", "AeroTopMaximizes", 1 },// bit 0
+        { IDC_AERODBCLICKSHIFT, T_BOL, 1, L"Advanced", "AeroTopMaximizes", 1 },// bit 1
+        { IDC_MULTIPLEINSTANCES,T_BOL, 0, L"Advanced", "MultipleInstances",0 },
+        { IDC_FULLSCREEN,       T_BOL, 0, L"Advanced", "FullScreen", 1 },
+        { IDC_BLMAXIMIZED,      T_BOL, 0, L"Advanced", "BLMaximized", 1 },
+        { IDC_FANCYZONE,        T_BOL, 0, L"Zones",    "FancyZone", 0 },
+        { IDC_NORESTORE,        T_BOL, 2, L"General",  "SmartAero", 0 }, // bit 2
+        { IDC_MAXWITHLCLICK,    T_BOL, 0, L"General",  "MMMaximize", 1 }, // bit 0
+        { IDC_RESTOREONCLICK,   T_BOL, 1, L"General",  "MMMaximize", 0 }, // bit 1
+
+        { IDC_CENTERFRACTION,   T_STR, 0, L"General",  "CenterFraction",L"24" },
+        { IDC_AEROHOFFSET,      T_STR, 0, L"General",  "AeroHoffset",   L"50" },
+        { IDC_AEROVOFFSET,      T_STR, 0, L"General",  "AeroVoffset",   L"50" },
+        { IDC_SNAPTHRESHOLD,    T_STR, 0, L"Advanced", "SnapThreshold", L"20" },
+        { IDC_AEROTHRESHOLD,    T_STR, 0, L"Advanced", "AeroThreshold", L"5"  },
+        { IDC_AEROSPEED,        T_STR, 0, L"Advanced", "AeroMaxSpeed",  L""   },
+        { IDC_AEROSPEEDTAU,     T_STR, 0, L"Advanced", "AeroSpeedTau",  L"32" },
+        { IDC_MOVETRANS,        T_STR, 0, L"General",  "MoveTrans",     L""   },
+    };
+    #pragma GCC diagnostic pop
+
     static HWND testwnd=NULL;
     static int have_to_apply = 0;
     if (msg == WM_INITDIALOG) {
-        ReadOptionInt(IDC_AUTOREMAXIMIZE,   L"Advanced", "AutoRemaximize", 0, -1);
-        ReadOptionInt(IDC_AEROTOPMAXIMIZES, L"Advanced", "AeroTopMaximizes", 1, 1);// bit 1
-        ReadOptionInt(IDC_AERODBCLICKSHIFT, L"Advanced", "AeroTopMaximizes", 1, 2);// bit 2
-        ReadOptionInt(IDC_MULTIPLEINSTANCES,L"Advanced", "MultipleInstances",0, -1);
-        ReadOptionInt(IDC_FULLSCREEN,       L"Advanced", "FullScreen", 1, -1);
-        ReadOptionInt(IDC_BLMAXIMIZED,      L"Advanced", "BLMaximized", 1, -1);
-        ReadOptionInt(IDC_FANCYZONE,        L"Zones",    "FancyZone", 0, -1);
-        ReadOptionInt(IDC_NORESTORE,        L"General",  "SmartAero", 0, 4);
-
-        ReadOptionInt(IDC_MAXWITHLCLICK,    L"General", "MMMaximize", 1, 1); // bit 1
-        ReadOptionInt(IDC_RESTOREONCLICK,   L"General", "MMMaximize", 1, 2); // bit 2
-
-        ReadOptionStr(IDC_CENTERFRACTION,L"General",  "CenterFraction",L"24");
-        ReadOptionStr(IDC_AEROHOFFSET,   L"General",  "AeroHoffset",   L"50");
-        ReadOptionStr(IDC_AEROVOFFSET,   L"General",  "AeroVoffset",   L"50");
-        ReadOptionStr(IDC_SNAPTHRESHOLD, L"Advanced", "SnapThreshold", L"20");
-        ReadOptionStr(IDC_AEROTHRESHOLD, L"Advanced", "AeroThreshold", L"5");
-        ReadOptionStr(IDC_AEROSPEED,     L"Advanced", "AeroMaxSpeed",  L"");
-        ReadOptionStr(IDC_AEROSPEEDTAU,  L"Advanced", "AeroSpeedTau",  L"32");
-        ReadOptionStr(IDC_MOVETRANS,     L"General",  "MoveTrans",     L"");
-
+      ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
       # ifndef WIN64
         Button_Enable(GetDlgItem(hwnd, IDC_FANCYZONE), 0);
       # endif
@@ -1243,27 +1278,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             // Apply or OK button was pressed.
             // Save settings
             wchar_t txt[8];
-            int val;
-            WriteOptionBool(IDC_MULTIPLEINSTANCES, L"Advanced", "MultipleInstances");
-            WriteOptionBool(IDC_AUTOREMAXIMIZE,    L"Advanced", "AutoRemaximize");
-            WriteOptionBool(IDC_FULLSCREEN,        L"Advanced", "FullScreen");
-            WriteOptionBool(IDC_BLMAXIMIZED,       L"Advanced", "BLMaximized");
-            WriteOptionBool(IDC_FANCYZONE,         L"Zones",    "FancyZone");
-            WriteOptionBoolB(IDC_NORESTORE,        L"General",  "SmartAero", 2);
-
-            val = IsChecked(IDC_AEROTOPMAXIMIZES) + 2 * IsChecked(IDC_AERODBCLICKSHIFT);
-            WritePrivateProfileString(L"Advanced",L"AeroTopMaximizes", _itow(val, txt, 10), inipath);
-            val = IsChecked(IDC_MAXWITHLCLICK) + 2 * IsChecked(IDC_RESTOREONCLICK);
-            WritePrivateProfileString(L"General", L"MMMaximize", _itow(val, txt, 10), inipath);
-
-            WriteOptionStr(IDC_CENTERFRACTION,L"General",  "CenterFraction");
-            WriteOptionStr(IDC_AEROHOFFSET,   L"General",  "AeroHoffset");
-            WriteOptionStr(IDC_AEROVOFFSET,   L"General",  "AeroVoffset");
-            WriteOptionStr(IDC_SNAPTHRESHOLD, L"Advanced", "SnapThreshold");
-            WriteOptionStr(IDC_AEROTHRESHOLD, L"Advanced", "AeroThreshold");
-            WriteOptionStr(IDC_AEROSPEED,     L"Advanced", "AeroMaxSpeed");
-            WriteOptionStr(IDC_MOVETRANS,     L"General",  "MoveTrans");
-
+            WriteDialogOptions(hwnd, optlst, ARR_SZ(optlst));
             // Update center fraction in Test window in if open.
             if (testwnd && IsWindow(testwnd)) {
                 int centerfraction = 24;

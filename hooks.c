@@ -78,9 +78,10 @@ static struct {
     UCHAR ignoreclick;
     UCHAR ctrl;
     UCHAR shift;
-    UCHAR snap;
 
+    UCHAR snap;
     UCHAR moving;
+
     UCHAR clickbutton;
     UCHAR resizable;
     struct {

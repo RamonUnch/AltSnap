@@ -78,9 +78,10 @@ static struct {
     UCHAR ignoreclick;
     UCHAR ctrl;
     UCHAR shift;
-    UCHAR snap;
 
+    UCHAR snap;
     UCHAR moving;
+
     UCHAR clickbutton;
     UCHAR resizable;
     struct {
@@ -1679,17 +1680,17 @@ static void Send_KEY(unsigned char vkey)
 // Sends the click down/click up sequence to the system
 static void Send_Click(enum button button)
 {
-    static const DWORD bmapping[] =
-        { 0, 0, MOUSEEVENTF_LEFTDOWN
+    static const DWORD bmapping[] = {
+          0, 0, MOUSEEVENTF_LEFTDOWN
         , MOUSEEVENTF_RIGHTDOWN
         , MOUSEEVENTF_MIDDLEDOWN
         , MOUSEEVENTF_XDOWN, MOUSEEVENTF_XDOWN
-        };
+    };
     if (!button) return;
 
     DWORD MouseEvent = bmapping[button];
     DWORD mdata = 0;
-    if(MouseEvent==MOUSEEVENTF_XDOWN) // XBUTTON
+    if (MouseEvent == MOUSEEVENTF_XDOWN) // XBUTTON
         mdata = button - 0x04; // mdata = 1 for X1 and 2 for X2
     // MouseEvent<<1 corresponds to MOUSEEVENTF_*UP
     MOUSEINPUT click[2] = { {0, 0, mdata, MouseEvent, 0, 0}
@@ -3356,46 +3357,52 @@ static UCHAR readbuttonactions(const wchar_t *inipath)
     static const struct {
         char *key;
         char *def;
-        enum action *ptr;
+        /* enum action *ptr; */
     } buttons[] = {
         // Primary Actions (performed with Alt+Click)
-        {"LMB",        "Move",    &conf.Mouse.LMB[0]},
-        {"MMB",        "Maximize",&conf.Mouse.MMB[0]},
-        {"RMB",        "Resize",  &conf.Mouse.RMB[0]},
-        {"MB4",        "Nothing", &conf.Mouse.MB4[0]},
-        {"MB5",        "Nothing", &conf.Mouse.MB5[0]},
-        {"Scroll",     "Nothing", &conf.Mouse.Scroll[0]},
-        {"HScroll",    "Nothing", &conf.Mouse.HScroll[0]},
-        {"GrabWithAlt","Nothing", &conf.GrabWithAlt[0]},
-        {"MoveUp"     ,"Nothing", &conf.MoveUp[0]},
-        {"ResizeUp"   ,"Nothing", &conf.ResizeUp[0]},
-        // Secondary Actions (performed with Alt+ModKey+Click)
-        {"LMBB",       "Resize",  &conf.Mouse.LMB[1]},
-        {"MMBB",       "Maximize",&conf.Mouse.MMB[1]},
-        {"RMBB",       "Move",    &conf.Mouse.RMB[1]},
-        {"MB4B",       "Nothing", &conf.Mouse.MB4[1]},
-        {"MB5B",       "Nothing", &conf.Mouse.MB5[1]},
-        {"ScrollB",    "Volume",  &conf.Mouse.Scroll[1]},
-        {"HScrollB",   "Nothing", &conf.Mouse.HScroll[1]},
-        {"GrabWithAltB","Nothing", &conf.GrabWithAlt[1]},
-        {"MoveUpB"    ,"Nothing", &conf.MoveUp[1]},
-        {"ResizeUpB"  ,"Nothing", &conf.ResizeUp[1]},
-        // Titlenar Actions
-        {"LMBT",       "Nothing", &conf.Mouse.LMB[2]},
-        {"MMBT",       "Lower",   &conf.Mouse.MMB[2]},
-        {"RMBT",       "Nothing", &conf.Mouse.RMB[2]},
-        {"MB4T",       "Nothing", &conf.Mouse.MB4[2]},
-        {"MB5T",       "Nothing", &conf.Mouse.MB5[2]},
-        {"ScrollT",    "Nothing", &conf.Mouse.Scroll[2]},
-        {"HScrollT",   "Nothing", &conf.Mouse.HScroll[2]},
-        // Secondary Titlenar Actions
-        {"LMBTB",      "Nothing", &conf.Mouse.LMB[3]},
-        {"MMBTB",      "Nothing", &conf.Mouse.MMB[3]},
-        {"RMBTB",      "Nothing", &conf.Mouse.RMB[3]},
-        {"MB4TB",      "Nothing", &conf.Mouse.MB4[3]},
-        {"MB5TB",      "Nothing", &conf.Mouse.MB5[3]},
-        {"ScrollTB",   "Nothing", &conf.Mouse.Scroll[3]},
-        {"HScrollTB",  "Nothing", &conf.Mouse.HScroll[3]},
+        // Must be in the same order than in the conf struct
+        {"LMB",        "Move"    /*&conf.Mouse.LMB[0]*/ },
+        {"LMBB",       "Resize"  /*&conf.Mouse.LMB[1]*/ },
+        {"LMBT",       "Nothing" /*&conf.Mouse.LMB[2]*/ },
+        {"LMBTB",      "Nothing" /*&conf.Mouse.LMB[3]*/ },
+
+        {"RMB",        "Resize"  /*&conf.Mouse.RMB[0]*/ },
+        {"RMBB",       "Move"    /*&conf.Mouse.RMB[1]*/ },
+        {"RMBT",       "Nothing" /*&conf.Mouse.RMB[2]*/ },
+        {"RMBTB",      "Nothing" /*&conf.Mouse.RMB[3]*/ },
+
+        {"MMB",        "Maximize"/*&conf.Mouse.MMB[0]*/ },
+        {"MMBB",       "Maximize"/*&conf.Mouse.MMB[1]*/ },
+        {"MMBT",       "Lower"   /*&conf.Mouse.MMB[2]*/ },
+        {"MMBTB",      "Nothing" /*&conf.Mouse.MMB[3]*/ },
+
+        {"MB4",        "Nothing" /*&conf.Mouse.MB4[0]*/ },
+        {"MB4B",       "Nothing" /*&conf.Mouse.MB4[1]*/ },
+        {"MB4T",       "Nothing" /*&conf.Mouse.MB4[2]*/ },
+        {"MB4TB",      "Nothing" /*&conf.Mouse.MB4[3]*/ },
+
+        {"MB5",        "Nothing" /*&conf.Mouse.MB5[0]*/ },
+        {"MB5B",       "Nothing" /*&conf.Mouse.MB5[1]*/ },
+        {"MB5T",       "Nothing" /*&conf.Mouse.MB5[2]*/ },
+        {"MB5TB",      "Nothing" /*&conf.Mouse.MB5[3]*/ },
+
+        {"Scroll",     "Nothing" /*&conf.Mouse.Scroll[0]*/ },
+        {"ScrollB",    "Volume"  /*&conf.Mouse.Scroll[1]*/ },
+        {"ScrollT",    "Nothing" /*&conf.Mouse.Scroll[2]*/ },
+        {"ScrollTB",   "Nothing" /*&conf.Mouse.Scroll[3]*/ },
+
+        {"HScroll",    "Nothing" /*&conf.Mouse.HScroll[0]*/ },
+        {"HScrollB",   "Nothing" /*&conf.Mouse.HScroll[1]*/ },
+        {"HScrollT",   "Nothing" /*&conf.Mouse.HScroll[2]*/ },
+        {"HScrollTB",  "Nothing" /*&conf.Mouse.HScroll[3]*/ },
+
+        {"GrabWithAlt","Nothing" /*&conf.GrabWithAlt[0]*/ },
+        {"GrabWithAltB","Nothing"/*&conf.GrabWithAlt[1]*/ },
+
+        {"MoveUp"     ,"Nothing" /*&conf.MoveUp[0]*/ },
+        {"MoveUpB"    ,"Nothing" /*&conf.MoveUp[1]*/ },
+        {"ResizeUp"   ,"Nothing" /*&conf.ResizeUp[0]*/ },
+        {"ResizeUpB"  ,"Nothing" /*&conf.ResizeUp[1]*/ },
         {NULL} // NULL terminate the list!!!!
     };
     unsigned i;
@@ -3406,8 +3413,9 @@ static UCHAR readbuttonactions(const wchar_t *inipath)
         str2wide(key, buttons[i].key);
         str2wide(def, buttons[i].def);
         GetPrivateProfileString(L"Input", key, def, txt, ARR_SZ(txt), inipath);
-        *buttons[i].ptr = selectaction(txt);
-        if (*buttons[i].ptr == AC_MENU) action_menu_load = 1;
+        enum action * const actionptr = &conf.Mouse.LMB[0]; // first action in list
+        actionptr[i] = selectaction(txt);
+        if (actionptr[i] == AC_MENU) action_menu_load = 1;
     }
     return action_menu_load;
 }

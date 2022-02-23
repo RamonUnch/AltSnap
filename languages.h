@@ -185,8 +185,6 @@ struct strings {
   wchar_t *zone_confirmation;
 };
 
-static struct strings l10n_ini;
-
 // SAME ORDER THAN ABOVE!!!!
 static const char* l10n_inimapping[] = {
     "Code",
@@ -344,6 +342,7 @@ static const char* l10n_inimapping[] = {
     "MiscZoneConfirmation"
 };
 
+// SAME ORDER THAN ABOVE!!!!
 static const struct strings en_US = {
  /* === translation info === */
  /* code               */ L"en-US",

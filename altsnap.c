@@ -322,7 +322,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
 
     }
     // Language
-    memset(&l10n_ini, 0, sizeof(l10n_ini));
     ListAllTranslations(); LOG("All translations listed");
     UpdateLanguage(); LOG("Language updated");
 

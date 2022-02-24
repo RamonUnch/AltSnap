@@ -295,10 +295,13 @@ static pure int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state
 
 static int pure IsResizable(HWND hwnd)
 {
-    return (conf.ResizeAll
-        || GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME
-        || GetBorderlessFlag(hwnd)
-        || blacklisted(hwnd, &BlkLst.AResize)); // Always resize list
+    int ret =  conf.ResizeAll // bit two is the real thickframe state.
+            | ((!!(GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME)) << 1);
+
+    if (!ret) ret = !!GetBorderlessFlag(hwnd);
+    if (!ret) ret = !!blacklisted(hwnd, &BlkLst.AResize); // Always resize list
+
+    return ret;
 }
 /////////////////////////////////////////////////////////////////////////////
 // WM_ENTERSIZEMOVE or WM_EXITSIZEMOVE...
@@ -986,7 +989,9 @@ static DWORD WINAPI ResizeWindowThread(LPVOID LastWinV)
 static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
     MoveResizeWindowThread(LastWinV
-        , SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS|SWP_DEFERERASE);
+        , state.resizable&2 
+         ? SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE
+         : SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS|SWP_DEFERERASE);
     return 0;
 }
 static void MoveWindowInThread(struct windowRR *lw)
@@ -3403,11 +3408,10 @@ static UCHAR readbuttonactions(const wchar_t *inipath)
         {"MoveUpB"    ,"Nothing" /*&conf.MoveUp[1]*/ },
         {"ResizeUp"   ,"Nothing" /*&conf.ResizeUp[0]*/ },
         {"ResizeUpB"  ,"Nothing" /*&conf.ResizeUp[1]*/ },
-        {NULL} // NULL terminate the list!!!!
     };
     unsigned i;
     UCHAR action_menu_load = 0;
-    for (i=0; buttons[i].key != NULL; i++) {
+    for (i=0; i < ARR_SZ(buttons); i++) {
         wchar_t key[32];
         wchar_t def[32];
         str2wide(key, buttons[i].key);

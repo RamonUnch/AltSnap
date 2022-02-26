@@ -565,12 +565,12 @@ static int IsWindowSnapped(HWND hwnd)
     nW = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
     nH = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
 
-    return (W != nW || H != nH);
+    return wndpl.showCmd != SW_MAXIMIZE && (W != nW || H != nH);
 }
 
 static xpure int SamePt(const POINT a, const POINT b)
 {
-    return (a.x == b.x && a.y ==b.y);
+    return (a.x == b.x && a.y == b.y);
 }
 
 /* If pt and ptt are it is the same points with 4px tolerence */

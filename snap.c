@@ -37,8 +37,9 @@ struct wnddata {
     HWND hwnd;
     int width;
     int height;
+    int rolledh;
 };
-struct wnddata wnddb[NUMWNDDB];
+static struct wnddata wnddb[NUMWNDDB];
 
 /////////////////////////////////////////////////////////////////////////////
 // Database functions: used as fallback if SetPropA fails
@@ -168,6 +169,8 @@ static void SetRestoreFlag(HWND hwnd, unsigned flag)
         wnddb[idx].restore = flag;
     }
 }
+/////////////////////////////////////////////////////////////////////////////
+// borderless flag (saving old GWL_STYLE)
 static void SetBorderlessFlag(HWND hwnd, LONG_PTR flag)
 {
     SetPropA(hwnd, APP_PRBDLESS,(HANDLE)flag);
@@ -180,6 +183,48 @@ static LONG_PTR ClearBorderlessFlag(HWND hwnd)
 {
     return (LONG_PTR)RemovePropA(hwnd, APP_PRBDLESS);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+//// Roll unroll stuff
+//static int GetRolledHeight(HWND hwnd)
+//{
+//    int ret = (int)GetPropA(hwnd, APP_ROLLED);
+//    int idx;
+//    if (!ret && ((idx = GetWindowInDB(hwnd)) >=0)) {
+//        ret = wnddb[idx].rolledh;
+//    }
+//    return ret;
+//}
+//static int ClearRolledHeight(HWND hwnd)
+//{
+//    int ret = (int)RemovePropA(hwnd, APP_ROLLED);
+//
+//    int idx;
+//    if (!ret && ((idx = GetWindowInDB(hwnd)) >=0)) {
+//        ret = wnddb[idx].rolledh;
+//        wnddb[idx].rolledh = 0;
+//    }
+//    return ret;
+//}
+//static void SetRolledHeight(HWND hwnd, int rolledh)
+//{
+//    BOOL ret = SetPropA(hwnd, APP_ROLLED, (HANDLE)(DorQWORD)rolledh);
+//    if (ret) return;
+//
+//    int idx;
+//    if (((idx = GetWindowInDB(hwnd)) >=0)) {
+//        wnddb[idx].rolledh = rolledh;
+//    } else {
+//        int i;
+//        for (i=0; i < NUMWNDDB && wnddb[i].hwnd; i++);
+//        if (i >= NUMWNDDB) return;
+//        idx = i;
+//        wnddb[idx].hwnd = hwnd;
+//        wnddb[idx].rolledh = rolledh;
+//        wnddb[idx].restore = 0;
+//    }
+//
+//}
 //static void AddToFlag(HWND hwnd, unsigned flag)
 //{
 //    SetRestoreFlag(hwnd, flag|GetRestoreFlag(hwnd));

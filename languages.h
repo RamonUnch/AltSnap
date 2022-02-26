@@ -183,6 +183,7 @@ struct strings {
   /* misc */
   wchar_t *unhook_error;
   wchar_t *zone_confirmation;
+  wchar_t *zone_testwinhelp;
 };
 
 // SAME ORDER THAN ABOVE!!!!
@@ -339,7 +340,8 @@ static const char* l10n_inimapping[] = {
     "AboutTranslationCredit",
 
     "MiscUnhookError",
-    "MiscZoneConfirmation"
+    "MiscZoneConfirmation",
+    "MiscZoneTestWinHelp",
 };
 
 // SAME ORDER THAN ABOVE!!!!
@@ -510,9 +512,16 @@ static const struct strings en_US = {
  /* translation_credit */ L"Translation credit",
 
  /* === misc === */
- /* unhook_error       */ L"There was an error disabling "APP_NAME". This was most likely caused by Windows having already disabled "APP_NAME"'s hooks.\n\nIf this is the first time this has happened, you can safely ignore it and continue using "APP_NAME".\n\nIf this is happening repeatedly, you can read on the website how to prevent this from happening again (look for '"APP_NAME" mysteriously stops working' in the documentation).",
- /* zoneconfirmation   */ L"Erase old snap layout and save current Test Windows positions as the new snap layout?",
+ /* unhook_error       */ L"There was an error disabling "APP_NAME". This was most likely caused by Windows having already disabled "APP_NAME"'s hooks.\n\n"
+                           "If this is the first time this has happened, you can safely ignore it and continue using "APP_NAME".\n\n"
+                           "If this is happening repeatedly, you can read on the website how to prevent this from happening again "
+                           "(look for '"APP_NAME" mysteriously stops working' in the documentation).",
 
+ /* zoneconfirmation   */ L"Erase old snap layout and save current Test Windows positions as the new snap layout?",
+ /* zone test win help */ L"To setup Snap layout:\n"
+                           "1) Open several of those Test Windows\n"
+                           "2) Dispose them as you please\n"
+                           "3) Hit the *&Save test windows as snap layout* option in the tray menu"
 };
 
 #endif

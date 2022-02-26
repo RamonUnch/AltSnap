@@ -250,8 +250,8 @@ static pure int blacklisted(HWND hwnd, const struct blacklist *list)
     // Null hwnd or empty list
     if (!hwnd || !list->length)
         return 0;
-    // If the first element is *|* then we are in whitelist mode
-    // mode = 1 => blacklist mode = 0 => whitelist;
+    // If the first element is *|* (NULL|NULL)then we are in whitelist mode
+    // mode = 1 => blacklist, mode = 0 => whitelist;
     mode = (DorQWORD)list->items[0].classname|(DorQWORD)list->items[0].title;
     i = !mode;
 
@@ -989,7 +989,7 @@ static DWORD WINAPI ResizeWindowThread(LPVOID LastWinV)
 static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
     MoveResizeWindowThread(LastWinV
-        , state.resizable&2 
+        , state.resizable&2
          ? SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE
          : SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS|SWP_DEFERERASE);
     return 0;
@@ -1172,7 +1172,8 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         restore:
         if (restore&SNAPPED && !MM_THREAD_ON) {
             // Restore original window size
-            if (restore) ClearRestoreData(state.hwnd);
+            // Clear restore data at the end of the movement
+            SetRestoreFlag(state.hwnd, restore|SNCLEAR);
             restore = 0;
             *wndwidth = state.origin.width;
             *wndheight = state.origin.height;
@@ -1194,7 +1195,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         *wndwidth += borders.left+borders.right;
         *wndheight+= borders.top+borders.bottom;
 
-        // If we go too fast then donot move the window
+        // If we go too fast then do not move the window
         if (state.Speed > conf.AeroMaxSpeed) return 1;
         if (conf.FullWin) {
             if (IsZoomed(state.hwnd)) MaximizeRestore_atpt(state.hwnd, SW_RESTORE);
@@ -1210,9 +1211,6 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
                 MoveWindowInThread(&LastWin);
                 return 1;
             }
-//            state.moving = 1; // We are moving...
-//            if(!LastWin.hwnd) MoveWindow(state.hwnd, *posx, *posy, *wndwidth, *wndheight, TRUE);
-//            return 1;
         }
     }
     return 0;
@@ -1316,20 +1314,16 @@ static int IsHotkeyDown()
     return !ckeys;
 }
 /////////////////////////////////////////////////////////////////////////////
-// if pt is NULL then the window is not moved when restored.
 // index 1 => normal restore on any move restore & 1
-// index 2 => Rolled window restore & 2
 // restore & 3 => Both 1 & 2 ie: Maximized then rolled.
-// Set was_snapped to 2 if you wan to
-// if pt is NULL we also restore with SWP_NOSENDCHANGING
-static void RestoreOldWin(const POINT *pt, unsigned was_snapped, unsigned index)
+static void RestoreOldWin(const POINT pt, unsigned was_snapped)
 {
     // Restore old width/height?
     unsigned restore = 0;
     int rwidth=0, rheight=0;
     unsigned rdata_flag = GetRestoreData(state.hwnd, &rwidth, &rheight);
 
-    if (((rdata_flag & index) && !(state.origin.maximized&&rdata_flag&2))) {
+    if (((rdata_flag & SNAPPED) && !(state.origin.maximized&&rdata_flag&2))) {
         // Set origin width and height to the saved values
         restore = rdata_flag;
         state.origin.width = rwidth;
@@ -1339,35 +1333,32 @@ static void RestoreOldWin(const POINT *pt, unsigned was_snapped, unsigned index)
 
     RECT wnd;
     GetWindowRect(state.hwnd, &wnd);
+    if (state.origin.maximized)
+        wnd.bottom = state.origin.mon.bottom;
 
     // Set offset
-    if (pt) {
-        state.offset.x = state.origin.width  * min(pt->x-wnd.left, wnd.right-wnd.left)
-                       / max(wnd.right-wnd.left,1);
-        state.offset.y = state.origin.height * min(pt->y-wnd.top, wnd.bottom-wnd.top)
-                       / max(wnd.bottom-wnd.top,1);
-    }
-    if (state.origin.maximized || was_snapped == 1) {
-        if (rdata_flag&ROLLED || restore&ROLLED) {
-            // if we restore a  Rolled Maximized window...
+    state.offset.x = state.origin.width  * min(pt.x-wnd.left, wnd.right-wnd.left)
+                   / max(wnd.right-wnd.left,1);
+    state.offset.y = state.origin.height * min(pt.y-wnd.top, wnd.bottom-wnd.top)
+                   / max(wnd.bottom-wnd.top,1);
+
+    if (rdata_flag&ROLLED) {
+        if (state.origin.maximized || was_snapped){
+            // if we restore a  Rolled Maximized/snapped window...
             state.offset.y = GetSystemMetrics(SM_CYMIN)/2;
+        } else {
+            state.offset.x = pt.x - wnd.left;
+            state.offset.y = pt.y - wnd.top;
         }
-    } else if (restore) {
-        if (was_snapped == 2 && pt) {
-            // Restoring via normal drag we want
-            // the offset along Y to be unchanged...
-            state.offset.y = pt->y-wnd.top;
-        }
-        // If pt is null it means UnRoll...
+    }
+
+    if (restore) {
         SetWindowPos(state.hwnd, NULL
-                , pt? pt->x - state.offset.x - mdiclientpt.x: 0
-                , pt? pt->y - state.offset.y - mdiclientpt.y: 0
+                , pt.x - state.offset.x - mdiclientpt.x
+                , pt.y - state.offset.y - mdiclientpt.y
                 , state.origin.width, state.origin.height
-                , pt? SWP_NOZORDER: SWP_NOSENDCHANGING|SWP_NOZORDER|SWP_NOMOVE|SWP_ASYNCWINDOWPOS);
+                , SWP_NOZORDER);
         ClearRestoreData(state.hwnd);
-    } else if (pt) {
-        state.offset.x = pt->x - wnd.left;
-        state.offset.y = pt->y - wnd.top;
     }
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -1491,7 +1482,7 @@ static void MouseMove(POINT pt)
         SetOriginFromRestoreData(state.hwnd, state.action);
         if (state.action == AC_MOVE) {
             was_snapped = IsWindowSnapped(state.hwnd);
-            RestoreOldWin(&pt, was_snapped, 1);
+            RestoreOldWin(pt, was_snapped);
         }
     }
 
@@ -1510,7 +1501,7 @@ static void MouseMove(POINT pt)
     LastWin.end = 0;
     LastWin.moveonly = 0;
     if (state.action == AC_MOVE) {
-        // Set end to 2 to add the SWP_NOSIZE to SetWindowPos
+        // SWP_NOSIZE to SetWindowPos
         LastWin.moveonly = 1;
 
         posx = pt.x-state.offset.x;
@@ -1685,15 +1676,15 @@ static void Send_KEY(unsigned char vkey)
 // Sends the click down/click up sequence to the system
 static void Send_Click(enum button button)
 {
-    static const DWORD bmapping[] = {
-          0, 0, MOUSEEVENTF_LEFTDOWN
+    static const WORD bmapping[] = {
+          MOUSEEVENTF_LEFTDOWN
         , MOUSEEVENTF_RIGHTDOWN
         , MOUSEEVENTF_MIDDLEDOWN
         , MOUSEEVENTF_XDOWN, MOUSEEVENTF_XDOWN
     };
     if (!button) return;
 
-    DWORD MouseEvent = bmapping[button];
+    DWORD MouseEvent = bmapping[button-2];
     DWORD mdata = 0;
     if (MouseEvent == MOUSEEVENTF_XDOWN) // XBUTTON
         mdata = button - 0x04; // mdata = 1 for X1 and 2 for X2
@@ -2246,39 +2237,63 @@ static void UpdateCursor(POINT pt)
         ShowWindow(g_mainhwnd, SW_SHOWNA);
     }
 }
+
+static int IsMXRolled(HWND hwnd, RECT *rc)
+{
+    MONITORINFO mi = { sizeof(MONITORINFO) };
+    HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    GetMonitorInfo(monitor, &mi);
+    // Consider the window rolled if its height less than a quarter of monitors
+    return (rc->bottom - rc->top) < (mi.rcWork.bottom - mi.rcWork.top) / 4;
+}
 /////////////////////////////////////////////////////////////////////////////
 // Roll/Unroll Window. If delta > 0: Roll if < 0: Unroll if == 0: Toggle.
 static void RollWindow(HWND hwnd, int delta)
 {
+    // if the window is maximized do a spetial
+    // treatement with no restore flags
     RECT rc;
-    state.hwnd = hwnd;
-    state.origin.maximized = IsZoomed(state.hwnd);
-    state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
+    GetWindowRect(hwnd, &rc);
 
-    unsigned restore = GetRestoreFlag(hwnd);
-
-    if (restore & ROLLED && delta <= 0) { // UNROLL
-        if (state.origin.maximized) {
+    if (IsZoomed(hwnd)) {
+        int ismxrolled = IsMXRolled(hwnd, &rc);
+        if (delta <= 0 && ismxrolled) {
+            // Unroll Maximized window
             WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
             GetWindowPlacement(hwnd, &wndpl);
             wndpl.showCmd = SW_SHOWMINIMIZED;
             SetWindowPlacement(hwnd, &wndpl);
             wndpl.showCmd = SW_SHOWMAXIMIZED;
             SetWindowPlacement(hwnd, &wndpl);
-        } else {
-            RestoreOldWin(NULL, 2, 2);
+        } else if(delta >= 0 && !ismxrolled) {
+            // Roll maximized window
+            SetWindowPos(hwnd, NULL, 0, 0, rc.right - rc.left
+                , GetSystemMetrics(SM_CYMIN)
+                , SWP_NOMOVE|SWP_NOZORDER|SWP_NOSENDCHANGING|SWP_ASYNCWINDOWPOS);
         }
-    } else if (((!(restore & ROLLED) && delta == 0)) || delta > 0 ) { // ROLL
-        GetWindowRect(state.hwnd, &rc);
-        SetWindowPos(state.hwnd, NULL, 0, 0, rc.right - rc.left
+        return;
+    }
+    // Handle non maximized windows
+    unsigned restore = GetRestoreFlag(hwnd);
+
+    if (restore&ROLLED && delta <= 0) { // UNROLL
+        // Restore the Old height
+        // Set origin width and height to the saved values
+        int width, height;
+        GetRestoreData(hwnd, &width, &height);
+        width = rc.right - rc.left; // keep current width
+        ClearRestoreData(hwnd);
+            SetWindowPos(hwnd, NULL, 0, 0, width, height
+                , SWP_NOSENDCHANGING|SWP_NOZORDER|SWP_NOMOVE|SWP_ASYNCWINDOWPOS);
+
+    } else if (((!(restore&ROLLED) && delta == 0)) || delta > 0 ) { // ROLL
+        SetWindowPos(hwnd, NULL, 0, 0, rc.right - rc.left
               , GetSystemMetrics(SM_CYMIN)
               , SWP_NOMOVE|SWP_NOZORDER|SWP_NOSENDCHANGING|SWP_ASYNCWINDOWPOS);
         if (!(restore & ROLLED)) { // Save window size if not saved already.
-            if (!state.origin.maximized) {
-                SetRestoreData(hwnd, rc.right - rc.left, rc.bottom - rc.top, 0);
-            }
+            SetRestoreData(hwnd, rc.right - rc.left, rc.bottom - rc.top, 0);
             // Add the SNAPPED falg is maximized and and add the SNTHENROLLED flag is snapped
-            SetRestoreFlag(hwnd, ROLLED | state.origin.maximized|IsWindowSnapped(hwnd)<<10);
+            SetRestoreFlag(hwnd, ROLLED|IsWindowSnapped(hwnd)<<10);
         }
     }
 }
@@ -2286,7 +2301,6 @@ static int IsDoubleClick(int button)
 { // Never validate a double-click if the click has to pierce
     return !conf.PiercingClick && state.clickbutton == button
         && GetTickCount()-state.clicktime <= GetDoubleClickTime();
-       //&& (state.was_dbclick=1) ;
 }
 /////////////////////////////////////////////////////////////////////////////
 static int ActionMove(POINT pt, int button)
@@ -2869,6 +2883,12 @@ static void FinishMovement()
             }
         }
     }
+    // Clear restore data if needed
+    unsigned rdata_flag = GetRestoreFlag(state.hwnd);
+    if (rdata_flag&SNCLEAR) {
+        ClearRestoreData(state.hwnd);
+    }
+
     // Auto Remaximize if option enabled and conditions are met.
     if (conf.AutoRemaximize && state.moving
     && (state.origin.maximized || state.origin.fullscreen)
@@ -2927,28 +2947,27 @@ static void ClickComboActions(enum action action)
         HideCursor();
         state.blockmouseup = 2; // block two mouse up events!
     }
-
 }
-static xpure enum button GetButton(WPARAM wParam, LPARAM lParam)
+static xpure enum button GetButton(WPARAM wp, LPARAM lp)
 {
-    PMSLLHOOKSTRUCT msg = (PMSLLHOOKSTRUCT)lParam;
+    PMSLLHOOKSTRUCT msg = (PMSLLHOOKSTRUCT)lp;
     return
-        (wParam==WM_LBUTTONDOWN||wParam==WM_LBUTTONUP)?BT_LMB:
-        (wParam==WM_MBUTTONDOWN||wParam==WM_MBUTTONUP)?BT_MMB:
-        (wParam==WM_RBUTTONDOWN||wParam==WM_RBUTTONUP)?BT_RMB:
-        (wParam==WM_MOUSEWHEEL)?BT_WHEEL:
-        (wParam==WM_MOUSEHWHEEL)?BT_HWHEEL:
+        (wp==WM_LBUTTONDOWN||wp==WM_LBUTTONUP)?BT_LMB:
+        (wp==WM_MBUTTONDOWN||wp==WM_MBUTTONUP)?BT_MMB:
+        (wp==WM_RBUTTONDOWN||wp==WM_RBUTTONUP)?BT_RMB:
+        (wp==WM_MOUSEWHEEL)?BT_WHEEL:
+        (wp==WM_MOUSEHWHEEL)?BT_HWHEEL:
         (HIWORD(msg->mouseData)==XBUTTON1)?BT_MB4:
         (HIWORD(msg->mouseData)==XBUTTON2)?BT_MB5:BT_NONE;
 }
-static xpure enum buttonstate GetButtonState(WPARAM wParam)
+static xpure enum buttonstate GetButtonState(WPARAM wp)
 {
     return
-        (wParam==WM_LBUTTONDOWN||wParam==WM_MBUTTONDOWN
-        || wParam==WM_RBUTTONDOWN||wParam==WM_XBUTTONDOWN)? STATE_DOWN
-        : (wParam==WM_LBUTTONUP  ||wParam==WM_MBUTTONUP
-        || wParam==WM_RBUTTONUP  ||wParam==WM_XBUTTONUP)? STATE_UP
-        : (wParam==WM_MOUSEWHEEL ||wParam==WM_MOUSEHWHEEL)? STATE_DOWN
+        (  wp==WM_LBUTTONDOWN||wp==WM_MBUTTONDOWN
+        || wp==WM_RBUTTONDOWN||wp==WM_XBUTTONDOWN)? STATE_DOWN
+        : (wp==WM_LBUTTONUP  ||wp==WM_MBUTTONUP
+        || wp==WM_RBUTTONUP  ||wp==WM_XBUTTONUP)? STATE_UP
+        : (wp==WM_MOUSEWHEEL ||wp==WM_MOUSEHWHEEL)? STATE_DOWN
         : STATE_NONE;
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -3014,7 +3033,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         if (!action) return 1; // Block mouse up if it is not also an action...
     } else if (is_hotclick && buttonstate == STATE_UP) {
         state.alt = 0;
-        return 1; // Block hotclick up
+        if (!action) return 1; // Block hotclick up
     }
 
     // Handle Titlebars actions if any
@@ -3366,48 +3385,48 @@ static UCHAR readbuttonactions(const wchar_t *inipath)
     } buttons[] = {
         // Primary Actions (performed with Alt+Click)
         // Must be in the same order than in the conf struct
-        {"LMB",        "Move"    /*&conf.Mouse.LMB[0]*/ },
-        {"LMBB",       "Resize"  /*&conf.Mouse.LMB[1]*/ },
-        {"LMBT",       "Nothing" /*&conf.Mouse.LMB[2]*/ },
-        {"LMBTB",      "Nothing" /*&conf.Mouse.LMB[3]*/ },
+        {"LMB",        "Move"     },
+        {"LMBB",       "Resize"   },
+        {"LMBT",       "Nothing"  },
+        {"LMBTB",      "Nothing"  },
 
-        {"RMB",        "Resize"  /*&conf.Mouse.RMB[0]*/ },
-        {"RMBB",       "Move"    /*&conf.Mouse.RMB[1]*/ },
-        {"RMBT",       "Nothing" /*&conf.Mouse.RMB[2]*/ },
-        {"RMBTB",      "Nothing" /*&conf.Mouse.RMB[3]*/ },
+        {"RMB",        "Resize"   },
+        {"RMBB",       "Move"     },
+        {"RMBT",       "Nothing"  },
+        {"RMBTB",      "Nothing"  },
 
-        {"MMB",        "Maximize"/*&conf.Mouse.MMB[0]*/ },
-        {"MMBB",       "Maximize"/*&conf.Mouse.MMB[1]*/ },
-        {"MMBT",       "Lower"   /*&conf.Mouse.MMB[2]*/ },
-        {"MMBTB",      "Nothing" /*&conf.Mouse.MMB[3]*/ },
+        {"MMB",        "Maximize" },
+        {"MMBB",       "Maximize" },
+        {"MMBT",       "Lower"    },
+        {"MMBTB",      "Nothing"  },
 
-        {"MB4",        "Nothing" /*&conf.Mouse.MB4[0]*/ },
-        {"MB4B",       "Nothing" /*&conf.Mouse.MB4[1]*/ },
-        {"MB4T",       "Nothing" /*&conf.Mouse.MB4[2]*/ },
-        {"MB4TB",      "Nothing" /*&conf.Mouse.MB4[3]*/ },
+        {"MB4",        "Nothing"  },
+        {"MB4B",       "Nothing"  },
+        {"MB4T",       "Nothing"  },
+        {"MB4TB",      "Nothing"  },
 
-        {"MB5",        "Nothing" /*&conf.Mouse.MB5[0]*/ },
-        {"MB5B",       "Nothing" /*&conf.Mouse.MB5[1]*/ },
-        {"MB5T",       "Nothing" /*&conf.Mouse.MB5[2]*/ },
-        {"MB5TB",      "Nothing" /*&conf.Mouse.MB5[3]*/ },
+        {"MB5",        "Nothing"  },
+        {"MB5B",       "Nothing"  },
+        {"MB5T",       "Nothing"  },
+        {"MB5TB",      "Nothing"  },
 
-        {"Scroll",     "Nothing" /*&conf.Mouse.Scroll[0]*/ },
-        {"ScrollB",    "Volume"  /*&conf.Mouse.Scroll[1]*/ },
-        {"ScrollT",    "Nothing" /*&conf.Mouse.Scroll[2]*/ },
-        {"ScrollTB",   "Nothing" /*&conf.Mouse.Scroll[3]*/ },
+        {"Scroll",     "Nothing"  },
+        {"ScrollB",    "Volume"   },
+        {"ScrollT",    "Nothing"  },
+        {"ScrollTB",   "Nothing"  },
 
-        {"HScroll",    "Nothing" /*&conf.Mouse.HScroll[0]*/ },
-        {"HScrollB",   "Nothing" /*&conf.Mouse.HScroll[1]*/ },
-        {"HScrollT",   "Nothing" /*&conf.Mouse.HScroll[2]*/ },
-        {"HScrollTB",  "Nothing" /*&conf.Mouse.HScroll[3]*/ },
+        {"HScroll",    "Nothing"  },
+        {"HScrollB",   "Nothing"  },
+        {"HScrollT",   "Nothing"  },
+        {"HScrollTB",  "Nothing"  },
 
-        {"GrabWithAlt","Nothing" /*&conf.GrabWithAlt[0]*/ },
-        {"GrabWithAltB","Nothing"/*&conf.GrabWithAlt[1]*/ },
+        {"GrabWithAlt","Nothing"  },
+        {"GrabWithAltB","Nothing" },
 
-        {"MoveUp"     ,"Nothing" /*&conf.MoveUp[0]*/ },
-        {"MoveUpB"    ,"Nothing" /*&conf.MoveUp[1]*/ },
-        {"ResizeUp"   ,"Nothing" /*&conf.ResizeUp[0]*/ },
-        {"ResizeUpB"  ,"Nothing" /*&conf.ResizeUp[1]*/ },
+        {"MoveUp"     ,"Nothing"  },
+        {"MoveUpB"    ,"Nothing"  },
+        {"ResizeUp"   ,"Nothing"  },
+        {"ResizeUpB"  ,"Nothing"  },
     };
     unsigned i;
     UCHAR action_menu_load = 0;
@@ -3521,6 +3540,8 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.CenterFraction=CLAMP(0, conf.CenterFraction, 100);
     conf.AHoff        = CLAMP(0, conf.AHoff,          100);
     conf.AVoff        = CLAMP(0, conf.AVoff,          100);
+    conf.AeroSpeedTau = min(1, conf.AeroSpeedTau);
+    conf.MinAlpha     = min(1, conf.MinAlpha);
 
     // [Advanced] Max Speed
     conf.AeroMaxSpeed  = GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath);

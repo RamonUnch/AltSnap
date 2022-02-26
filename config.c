@@ -934,7 +934,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_GRABWITHALTB));
             WritePrivateProfileString(L"Input", L"GrabWithAltB", kb_actions[i].action, inipath);
 
-            ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
+            WriteDialogOptions(hwnd, optlst, ARR_SZ(optlst));
             ScrollLockState = WriteOptionBoolB(IDC_SCROLLLOCKSTATE, L"Input", "ScrollLockState", 0);
             // Invert move/resize key.
             i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_MODKEY));
@@ -1157,10 +1157,11 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         if (UseZones&1) {
             // Draw textual info....
             SetBkMode(hdc, TRANSPARENT);
+            SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
             RECT crc;
             GetWindowRect(hwnd, &crc);
             wchar_t *str = l10n->zone_testwinhelp;
-            DrawTextW(hdc, str, wcslen(str), &(RECT){5, 5, crc.right, crc.bottom}, DT_NOCLIP|DT_TABSTOP);
+            DrawText(hdc, str, wcslen(str), &(RECT){5, 5, crc.right, crc.bottom}, DT_NOCLIP|DT_TABSTOP);
         }
         EndPaint(hwnd, &ps);
         return 0;

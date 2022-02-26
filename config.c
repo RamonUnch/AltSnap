@@ -340,21 +340,23 @@ static void UpdateDialogStrings(HWND hwnd, struct dialogstring strlst[], unsigne
     }
 }
 // Options to bead or written...
-enum opttype {T_BOL, T_STR};
+enum opttype {T_BOL, T_BMK, T_STR};
 struct optlst {
     const short idc;
     const enum opttype type;
     const UCHAR bitN;
     const wchar_t *section;
-    const char* name;
+    const char *name;
     const void *def;
 };
 static void ReadDialogOptions(HWND hwnd,const struct optlst *ol, unsigned size)
 {
     unsigned i;
     for (i=0; i < size; i++) {
-        if(ol[i].type == T_BOL)
-            ReadOptionIntW(hwnd, ol[i].idc, ol[i].section, ol[i].name, (int)ol[i].def, 1<<ol[i].bitN);
+        if (ol[i].type == T_BOL)
+            ReadOptionIntW(hwnd, ol[i].idc, ol[i].section, ol[i].name, (int)(DorQWORD)ol[i].def, -1);
+        else if (ol[i].type == T_BMK)
+            ReadOptionIntW(hwnd, ol[i].idc, ol[i].section, ol[i].name, (int)(DorQWORD)ol[i].def, 1<<ol[i].bitN);
         else
             ReadOptionStrW(hwnd, ol[i].idc, ol[i].section, ol[i].name, (wchar_t*)ol[i].def);
     }
@@ -363,7 +365,9 @@ static void WriteDialogOptions(HWND hwnd,const struct optlst *ol, unsigned size)
 {
     unsigned i;
     for (i=0; i < size; i++) {
-        if(ol[i].type == T_BOL)
+        if (ol[i].type == T_BOL)
+            WriteOptionBoolW(hwnd, ol[i].idc, ol[i].section, ol[i].name);
+        else if(ol[i].type == T_BMK)
             WriteOptionBoolBW(hwnd, ol[i].idc, ol[i].section, ol[i].name, ol[i].bitN);
         else
             WriteOptionStrW(hwnd, ol[i].idc, ol[i].section, ol[i].name);
@@ -378,8 +382,8 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
        // dialog id, type, bit number, section name, option name, def val.
         { IDC_AUTOFOCUS,     T_BOL, 0,  L"General",  "AutoFocus", 0 },
         { IDC_AERO,          T_BOL, 0,  L"General",  "Aero", 1 },
-        { IDC_SMARTAERO,     T_BOL, 0,  L"General",  "SmartAero", 1 },
-        { IDC_SMARTERAERO,   T_BOL, 1,  L"General",  "SmartAero", 0 },
+        { IDC_SMARTAERO,     T_BMK, 0,  L"General",  "SmartAero", 1 },
+        { IDC_SMARTERAERO,   T_BMK, 1,  L"General",  "SmartAero", 0 },
         { IDC_STICKYRESIZE,  T_BOL, 0,  L"General",  "StickyResize", 1 },
         { IDC_INACTIVESCROLL,T_BOL, 0,  L"General",  "InactiveScroll", 0 },
         { IDC_MDI,           T_BOL, 0,  L"General",  "MDI", 1 },
@@ -713,12 +717,16 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         { 0, 0 }
     };
 
+    static const struct optlst optlst[] = {
+        { IDC_TTBACTIONSNA,  T_BMK, 0, L"Input", "TTBActions", 0    },
+        { IDC_TTBACTIONSWA,  T_BMK, 1, L"Input", "TTBActions", 0    },
+        { IDC_LONGCLICKMOVE, T_BOL, 0, L"Input", "LongClickMove", 0 }
+    };
+
     if (msg == WM_INITDIALOG) {
-        ReadOptionInt(IDC_TTBACTIONSNA,    L"Input", "TTBActions", 0, 1);
-        ReadOptionInt(IDC_TTBACTIONSWA,    L"Input", "TTBActions", 0, 2);
-        ReadOptionInt(IDC_LONGCLICKMOVE,   L"Input", "LongClickMove", 0, -1);
-        CheckRadioButton(hwnd, IDC_MBA1, IDC_INTTB, IDC_MBA1); // Check the primary action
         // Hotclicks buttons
+        ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
+        CheckRadioButton(hwnd, IDC_MBA1, IDC_INTTB, IDC_MBA1); // Check the primary action
         CheckConfigHotKeys(hotclicks, hwnd, L"Hotclicks", L"");
     } else if (msg == WM_COMMAND) {
         int event = HIWORD(wParam);
@@ -755,30 +763,30 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 
             // Update text
             struct dialogstring strlst[] = {
-	            { IDC_MBA1,            l10n->input_mouse_btac1 },
-	            { IDC_MBA2,            l10n->input_mouse_btac2 },
-	            { IDC_INTTB,           l10n->input_mouse_inttb },
+                { IDC_MBA1,            l10n->input_mouse_btac1 },
+                { IDC_MBA2,            l10n->input_mouse_btac2 },
+                { IDC_INTTB,           l10n->input_mouse_inttb },
 
-	            { IDC_MOUSE_BOX,       l10n->input_mouse_box },
-	            { IDC_LMB_HEADER,      l10n->input_mouse_lmb },
-	            { IDC_MMB_HEADER,      l10n->input_mouse_mmb },
-	            { IDC_RMB_HEADER,      l10n->input_mouse_rmb },
-	            { IDC_MB4_HEADER,      l10n->input_mouse_mb4 },
-	            { IDC_MB5_HEADER,      l10n->input_mouse_mb5 },
-	            { IDC_SCROLL_HEADER,   l10n->input_mouse_scroll },
-	            { IDC_HSCROLL_HEADER,  l10n->input_mouse_hscroll },
-	            { IDC_TTBACTIONS_BOX,  l10n->input_mouse_ttbactions_box },
-	            { IDC_TTBACTIONSNA,    l10n->input_mouse_ttbactionsna },
-	            { IDC_TTBACTIONSWA,    l10n->input_mouse_ttbactionswa },
+                { IDC_MOUSE_BOX,       l10n->input_mouse_box },
+                { IDC_LMB_HEADER,      l10n->input_mouse_lmb },
+                { IDC_MMB_HEADER,      l10n->input_mouse_mmb },
+                { IDC_RMB_HEADER,      l10n->input_mouse_rmb },
+                { IDC_MB4_HEADER,      l10n->input_mouse_mb4 },
+                { IDC_MB5_HEADER,      l10n->input_mouse_mb5 },
+                { IDC_SCROLL_HEADER,   l10n->input_mouse_scroll },
+                { IDC_HSCROLL_HEADER,  l10n->input_mouse_hscroll },
+                { IDC_TTBACTIONS_BOX,  l10n->input_mouse_ttbactions_box },
+                { IDC_TTBACTIONSNA,    l10n->input_mouse_ttbactionsna },
+                { IDC_TTBACTIONSWA,    l10n->input_mouse_ttbactionswa },
 
-	            { IDC_HOTCLICKS_BOX,   l10n->input_hotclicks_box },
-	            { IDC_HOTCLICKS_MORE,  l10n->input_hotclicks_more },
-	            { IDC_MMB_HC,          l10n->input_mouse_mmb_hc },
-	            { IDC_MB4_HC,          l10n->input_mouse_mb4_hc },
-	            { IDC_MB5_HC,          l10n->input_mouse_mb5_hc },
-	            { IDC_LONGCLICKMOVE,   l10n->input_mouse_longclickmove },
+                { IDC_HOTCLICKS_BOX,   l10n->input_hotclicks_box },
+                { IDC_HOTCLICKS_MORE,  l10n->input_hotclicks_more },
+                { IDC_MMB_HC,          l10n->input_mouse_mmb_hc },
+                { IDC_MB4_HC,          l10n->input_mouse_mb4_hc },
+                { IDC_MB5_HC,          l10n->input_mouse_mb5_hc },
+                { IDC_LONGCLICKMOVE,   l10n->input_mouse_longclickmove },
             };
-			UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
+            UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
 
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Mouse actions, for all mouse buttons...
@@ -796,9 +804,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             }
 
             // Checkboxes...
-            WriteOptionBoolB(IDC_TTBACTIONSNA, L"Input", "TTBActions", 0);
-            WriteOptionBoolB(IDC_TTBACTIONSWA, L"Input", "TTBActions", 1);
-            WriteOptionBool(IDC_LONGCLICKMOVE, L"Input", "LongClickMove");
+            WriteDialogOptions(hwnd, optlst, ARR_SZ(optlst));
             // Hotclicks
             SaveHotKeys(hotclicks, hwnd, L"Hotclicks");
             UpdateSettings();
@@ -854,13 +860,16 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         { L"A0", l10n->input_hotkeys_leftshift},
         { L"A1", l10n->input_hotkeys_rightshift},
     };
+    static const struct optlst optlst[] = {
+        { IDC_AGGRESSIVEPAUSE,  T_BOL, 0, L"Input", "AggressivePause", 0 },
+        { IDC_AGGRESSIVEKILL,   T_BOL, 0, L"Input", "AggressiveKill", 0 },
+        { IDC_SCROLLLOCKSTATE,  T_BMK, 0, L"Input", "ScrollLockState", 0},
+        { IDC_KEYCOMBO,         T_BOL, 0, L"Input", "KeyCombo", 0 }
+    };
 
     if (msg == WM_INITDIALOG) {
+        ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
         // Agressive Pause
-        ReadOptionInt(IDC_AGGRESSIVEPAUSE,  L"Input", "AggressivePause", 0, -1);
-        ReadOptionInt(IDC_AGGRESSIVEKILL,   L"Input", "AggressiveKill", 0, -1);
-        ReadOptionInt(IDC_SCROLLLOCKSTATE,  L"Input", "ScrollLockState",0, 1);
-        ReadOptionInt(IDC_KEYCOMBO,         L"Input", "KeyCombo", 0, -1);
         CheckConfigHotKeys(hotkeys, hwnd, L"Hotkeys", L"A4 A5");
 
         Button_Enable(GetDlgItem(hwnd, IDC_AGGRESSIVEPAUSE), HaveProc("NTDLL.DLL", "NtResumeProcess"));
@@ -897,25 +906,25 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             }
             ComboBox_SetCurSel(control, sel);
             // Update text
-			struct dialogstring strlst[] = {
-	            { IDC_KEYBOARD_BOX,    l10n->tab_keyboard},
-	            { IDC_AGGRESSIVEPAUSE, l10n->input_aggressive_pause},
-	            { IDC_AGGRESSIVEKILL,  l10n->input_aggressive_kill},
-	            { IDC_SCROLLLOCKSTATE, l10n->input_scrolllockstate},
-	            { IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box},
-	            { IDC_MODKEY_H,        l10n->input_hotkeys_modkey},
-	            { IDC_LEFTALT,         l10n->input_hotkeys_leftalt},
-	            { IDC_RIGHTALT,        l10n->input_hotkeys_rightalt},
-	            { IDC_LEFTWINKEY,      l10n->input_hotkeys_leftwinkey},
-	            { IDC_RIGHTWINKEY,     l10n->input_hotkeys_rightwinkey},
-	            { IDC_LEFTCTRL,        l10n->input_hotkeys_leftctrl},
-	            { IDC_RIGHTCTRL,       l10n->input_hotkeys_rightctrl},
-	            { IDC_HOTKEYS_MORE,    l10n->input_hotkeys_more},
-	            { IDC_KEYCOMBO,        l10n->input_keycombo},
-	            { IDC_GRABWITHALT_H,   l10n->input_grabwithalt},
-	            { IDC_GRABWITHALTB_H,  l10n->input_grabwithaltb}
+            struct dialogstring strlst[] = {
+                { IDC_KEYBOARD_BOX,    l10n->tab_keyboard},
+                { IDC_AGGRESSIVEPAUSE, l10n->input_aggressive_pause},
+                { IDC_AGGRESSIVEKILL,  l10n->input_aggressive_kill},
+                { IDC_SCROLLLOCKSTATE, l10n->input_scrolllockstate},
+                { IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box},
+                { IDC_MODKEY_H,        l10n->input_hotkeys_modkey},
+                { IDC_LEFTALT,         l10n->input_hotkeys_leftalt},
+                { IDC_RIGHTALT,        l10n->input_hotkeys_rightalt},
+                { IDC_LEFTWINKEY,      l10n->input_hotkeys_leftwinkey},
+                { IDC_RIGHTWINKEY,     l10n->input_hotkeys_rightwinkey},
+                { IDC_LEFTCTRL,        l10n->input_hotkeys_leftctrl},
+                { IDC_RIGHTCTRL,       l10n->input_hotkeys_rightctrl},
+                { IDC_HOTKEYS_MORE,    l10n->input_hotkeys_more},
+                { IDC_KEYCOMBO,        l10n->input_keycombo},
+                { IDC_GRABWITHALT_H,   l10n->input_grabwithalt},
+                { IDC_GRABWITHALTB_H,  l10n->input_grabwithaltb}
             };
-			UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
+            UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
 
         } else if (pnmh->code == PSN_APPLY && have_to_apply ) {
             int i;
@@ -925,10 +934,8 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_GRABWITHALTB));
             WritePrivateProfileString(L"Input", L"GrabWithAltB", kb_actions[i].action, inipath);
 
-            WriteOptionBool(IDC_AGGRESSIVEPAUSE,  L"Input", "AggressivePause");
-            WriteOptionBool(IDC_AGGRESSIVEKILL,   L"Input", "AggressiveKill");
-            ScrollLockState=
-            WriteOptionBoolB(IDC_SCROLLLOCKSTATE, L"Input", "ScrollLockState", 0);
+            ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
+            ScrollLockState = WriteOptionBoolB(IDC_SCROLLLOCKSTATE, L"Input", "ScrollLockState", 0);
             // Invert move/resize key.
             i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_MODKEY));
             WritePrivateProfileString(L"Input", L"ModKey", togglekeys[i].action, inipath);
@@ -1001,7 +1008,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // Update text
-			struct dialogstring strlst[] = {
+            struct dialogstring strlst[] = {
                 { IDC_BLACKLIST_BOX          , l10n->blacklist_box },
                 { IDC_PROCESSBLACKLIST_HEADER, l10n->blacklist_processblacklist },
                 { IDC_BLACKLIST_HEADER       , l10n->blacklist_blacklist },
@@ -1010,8 +1017,8 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
                 { IDC_PAUSEBL_HEADER         , l10n->blacklist_pause },
                 { IDC_FINDWINDOW_BOX         , l10n->blacklist_findwindow_box }
             };
-			UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
-	        // Enable or disable buttons if needed
+            UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
+            // Enable or disable buttons if needed
             Button_Enable(GetDlgItem(hwnd, IDC_MDIS), GetPrivateProfileInt(L"General", L"MDI", 1, inipath));
             Button_Enable(GetDlgItem(hwnd, IDC_PAUSEBL)
                        ,  GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath)
@@ -1147,11 +1154,14 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
         DeleteObject(pen);
 
-        // Draw textual info....
-//        SetBkMode(hdc, TRANSPARENT);
-//        wchar_t *str = L"huhu:\t12\nsdtui.hd\t33\naaa\tT";
-//        DrawTextW(hdc, str, wcslen(str), &(RECT){5, 5, 100, 100}, DT_NOCLIP|DT_TABSTOP);
-
+        if (UseZones&1) {
+            // Draw textual info....
+            SetBkMode(hdc, TRANSPARENT);
+            RECT crc;
+            GetWindowRect(hwnd, &crc);
+            wchar_t *str = l10n->zone_testwinhelp;
+            DrawTextW(hdc, str, wcslen(str), &(RECT){5, 5, crc.right, crc.bottom}, DT_NOCLIP|DT_TABSTOP);
+        }
         EndPaint(hwnd, &ps);
         return 0;
         break;
@@ -1205,15 +1215,15 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
     #pragma GCC diagnostic ignored "-Wint-conversion"
     static const struct optlst optlst[] = {
         { IDC_AUTOREMAXIMIZE,   T_BOL, 0, L"Advanced", "AutoRemaximize", 0 },
-        { IDC_AEROTOPMAXIMIZES, T_BOL, 0, L"Advanced", "AeroTopMaximizes", 1 },// bit 0
-        { IDC_AERODBCLICKSHIFT, T_BOL, 1, L"Advanced", "AeroTopMaximizes", 1 },// bit 1
+        { IDC_AEROTOPMAXIMIZES, T_BMK, 0, L"Advanced", "AeroTopMaximizes", 1 },// bit 0
+        { IDC_AERODBCLICKSHIFT, T_BMK, 1, L"Advanced", "AeroTopMaximizes", 1 },// bit 1
         { IDC_MULTIPLEINSTANCES,T_BOL, 0, L"Advanced", "MultipleInstances",0 },
         { IDC_FULLSCREEN,       T_BOL, 0, L"Advanced", "FullScreen", 1 },
         { IDC_BLMAXIMIZED,      T_BOL, 0, L"Advanced", "BLMaximized", 1 },
         { IDC_FANCYZONE,        T_BOL, 0, L"Zones",    "FancyZone", 0 },
-        { IDC_NORESTORE,        T_BOL, 2, L"General",  "SmartAero", 0 }, // bit 2
-        { IDC_MAXWITHLCLICK,    T_BOL, 0, L"General",  "MMMaximize", 1 }, // bit 0
-        { IDC_RESTOREONCLICK,   T_BOL, 1, L"General",  "MMMaximize", 0 }, // bit 1
+        { IDC_NORESTORE,        T_BMK, 2, L"General",  "SmartAero", 0 },  // bit 2
+        { IDC_MAXWITHLCLICK,    T_BMK, 0, L"General",  "MMMaximize", 1 }, // bit 0
+        { IDC_RESTOREONCLICK,   T_BMK, 1, L"General",  "MMMaximize", 0 }, // bit 1
 
         { IDC_CENTERFRACTION,   T_STR, 0, L"General",  "CenterFraction",L"24" },
         { IDC_AEROHOFFSET,      T_STR, 0, L"General",  "AeroHoffset",   L"50" },

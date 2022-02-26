@@ -23,6 +23,7 @@
 #define APP_PROPFL     APP_NAMEA"-RFlag"
 #define APP_PROPOFFSET APP_NAMEA"-ROffset"
 #define APP_PRBDLESS   APP_NAMEA"-RStyle"
+#define APP_ROLLED     APP_NAMEA"-Rolled"
 #define FZ_PROPPT      "FancyZones_RestoreSize"
 #define FZ_PROPZONES   "FancyZones_zones"
 

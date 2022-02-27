@@ -980,26 +980,28 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
     lw->hwnd = NULL;
     lw->end = 0;
 }
-static DWORD WINAPI ResizeWindowThread(LPVOID LastWinV)
-{
-    MoveResizeWindowThread(LastWinV
-        , SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE);
-    return 0;
-}
+
+#define RESIZEFLAG        SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE
+#define MOVETHICKBORDERS  SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE
+#define MOVEASYNC         SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS|SWP_DEFERERASE
 static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
-    MoveResizeWindowThread(LastWinV
-        , state.resizable&2
-         ? SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE
-         : SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS|SWP_DEFERERASE);
+    struct windowRR *lw = (struct windowRR *)LastWinV;
+    UINT flag = !lw->moveonly? RESIZEFLAG: state.resizable&2 ? MOVETHICKBORDERS: MOVEASYNC;
+
+    MoveResizeWindowThread(lw, flag);
     return 0;
 }
+#undef RESIZEFLAG
+#undef MOVETHICKBORDERS
+#undef MOVEASYNC
+
 static void MoveWindowInThread(struct windowRR *lw)
 {
     DWORD lpThreadId;
     CloseHandle(
         CreateThread( NULL, STACK
-            , (lw->moveonly)? MoveWindowThread: ResizeWindowThread
+            , MoveWindowThread
             , lw, 0, &lpThreadId)
     );
 }
@@ -2268,8 +2270,9 @@ static void RollWindow(HWND hwnd, int delta)
         } else if(delta >= 0 && !ismxrolled) {
             // Roll maximized window
             SetWindowPos(hwnd, NULL, 0, 0, rc.right - rc.left
-                , GetSystemMetrics(SM_CYMIN)
-                , SWP_NOMOVE|SWP_NOZORDER|SWP_NOSENDCHANGING|SWP_ASYNCWINDOWPOS);
+                  , GetSystemMetrics(SM_CYMIN)
+                  , SWP_NOMOVE|SWP_NOZORDER|SWP_NOSENDCHANGING|SWP_ASYNCWINDOWPOS);
+
         }
         return;
     }
@@ -2287,14 +2290,14 @@ static void RollWindow(HWND hwnd, int delta)
                 , SWP_NOSENDCHANGING|SWP_NOZORDER|SWP_NOMOVE|SWP_ASYNCWINDOWPOS);
 
     } else if (((!(restore&ROLLED) && delta == 0)) || delta > 0 ) { // ROLL
-        SetWindowPos(hwnd, NULL, 0, 0, rc.right - rc.left
-              , GetSystemMetrics(SM_CYMIN)
-              , SWP_NOMOVE|SWP_NOZORDER|SWP_NOSENDCHANGING|SWP_ASYNCWINDOWPOS);
         if (!(restore & ROLLED)) { // Save window size if not saved already.
             SetRestoreData(hwnd, rc.right - rc.left, rc.bottom - rc.top, 0);
             // Add the SNAPPED falg is maximized and and add the SNTHENROLLED flag is snapped
             SetRestoreFlag(hwnd, ROLLED|IsWindowSnapped(hwnd)<<10);
         }
+        SetWindowPos(hwnd, NULL, 0, 0, rc.right - rc.left
+              , GetSystemMetrics(SM_CYMIN)
+              , SWP_NOMOVE|SWP_NOZORDER|SWP_NOSENDCHANGING|SWP_ASYNCWINDOWPOS);
     }
 }
 static int IsDoubleClick(int button)
@@ -2660,7 +2663,7 @@ static void SClickActions(HWND hwnd, enum action action)
 }
 /////////////////////////////////////////////////////////////////////////////
 //
-static int DoWheelActions(POINT pt, HWND hwnd, enum action action)
+static int DoWheelActions(HWND hwnd, enum action action)
 {
     // Return if in the scroll blacklist.
     if (blacklisted(hwnd, &BlkLst.Scroll)) {
@@ -2668,13 +2671,13 @@ static int DoWheelActions(POINT pt, HWND hwnd, enum action action)
     }
     int ret=1;
 
-    if      (action == AC_ALTTAB)       ret = ActionAltTab(pt, state.delta);
+    if      (action == AC_ALTTAB)       ret = ActionAltTab(state.prevpt, state.delta);
     else if (action == AC_VOLUME)       ActionVolume(state.delta);
     else if (action == AC_TRANSPARENCY) ret = ActionTransparency(hwnd, state.delta);
     else if (action == AC_LOWER)        ActionLower(hwnd, state.delta, state.shift);
     else if (action == AC_MAXIMIZE)     ActionMaxRestMin(hwnd, state.delta);
     else if (action == AC_ROLL)         RollWindow(hwnd, state.delta);
-    else if (action == AC_HSCROLL)      ret = ScrollPointedWindow(pt, -state.delta, WM_MOUSEHWHEEL);
+    else if (action == AC_HSCROLL)      ret = ScrollPointedWindow(state.prevpt, -state.delta, WM_MOUSEHWHEEL);
     else                                ret = 0; // No action
 
     // ret is 0: next hook or 1: block whel and AltUp.
@@ -2759,6 +2762,8 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         return 1; // Unresponsive window...
     }
 
+    state.prevpt=pt;
+
     // Set origin width/height by default from current state/wndpl.
     state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
     state.origin.width  = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
@@ -2801,7 +2806,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     } else if(button == BT_WHEEL || button == BT_HWHEEL) {
         // Wheel actions, directly return here
         // because maybe the action will not be done
-        return DoWheelActions(state.prevpt, state.hwnd, action);
+        return DoWheelActions(state.hwnd, action);
     } else {
         SClickActions(state.hwnd, action);
         state.blockmouseup = 1; // because the is done
@@ -2933,8 +2938,12 @@ static void ClickComboActions(enum action action)
     if(state.action == AC_MOVE && action == AC_RESIZE) {
         WaitMovementEnd();
         if (IsZoomed(state.hwnd)) {
-            state.moving = 0;
-            MouseMove(state.prevpt);
+            if (IsSamePTT(&state.clickpt, &state.prevpt)) {
+                RestoreWindow(state.hwnd);
+            } else {
+                state.moving = 0;
+                MouseMove(state.prevpt);
+            }
         } else if (state.resizable) {
             state.moving = CURSOR_ONLY; // So that MouseMove will only move g_mainhwnd
             HideTransWin();
@@ -3499,7 +3508,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {&conf.MinAlpha,        L"Advanced", "MinAlpha", 20 },
         {&conf.AlphaDeltaShift, L"Advanced", "AlphaDeltaShift", 8 },
         {&conf.AlphaDelta,      L"Advanced", "AlphaDelta", 64 },
-        // AeroMaxSpeed not here...
+        /* AeroMaxSpeed not here... */
         {&conf.AeroSpeedTau,    L"Advanced", "AeroSpeedTau", 64 },
         {&conf.SnapGap,         L"Advanced", "SnapGap", 0 },
         {&conf.ShiftSnaps,      L"Advanced", "ShiftSnaps", 1 },

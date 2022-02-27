@@ -2612,9 +2612,9 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
 {
     static HWND restore = NULL;
     HMONITOR hMon = NULL;
-    if (CurrentMonOnly)  hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    if (CurrentMonOnly) hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
 
-    if (restore == hwnd){
+    if (restore == hwnd) {
         // We have to restore all saved windows (minhwnds) when
         // we click again on the same hwnd and have everything saved...
         unsigned i;
@@ -2794,7 +2794,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         }
         if      (ret == 1) return 1; // block mouse down!
         else if (ret == 0) return 0; // Next hook!
-        else // ret == -1 ...
+        // else ret == -1 ...
         UpdateCursor(pt);
 
         // Send WM_ENTERSIZEMOVE
@@ -2939,6 +2939,7 @@ static void ClickComboActions(enum action action)
         WaitMovementEnd();
         if (IsZoomed(state.hwnd)) {
             if (IsSamePTT(&state.clickpt, &state.prevpt)) {
+                state.moving = CURSOR_ONLY;
                 RestoreWindow(state.hwnd);
             } else {
                 state.moving = 0;

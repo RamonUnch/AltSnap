@@ -555,7 +555,7 @@ static int IsWindowSnapped(HWND hwnd)
 {
     RECT rect;
     int W, H, nW, nH;
-    WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+    WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
 
     if(!GetWindowRect(hwnd, &rect)) return 0;
     W = rect.right  - rect.left;

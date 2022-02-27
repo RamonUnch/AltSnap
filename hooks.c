@@ -385,7 +385,7 @@ BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMon
     monitors = GetEnoughSpace(monitors, nummonitors, &monitors_alloc, sizeof(RECT));
     if (!monitors) return FALSE; // Stop enum, we failed
     // Add monitor
-    MONITORINFO mi = { sizeof(MONITORINFO) };
+    MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
     GetMonitorInfo(hMonitor, &mi);
     CopyRect(&monitors[nummonitors++], &mi.rcWork); //*lprcMonitor;
 
@@ -426,7 +426,7 @@ BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
             if (state.mdiclient) return TRUE;
             // Get monitor size
             HMONITOR monitor = MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
-            MONITORINFO mi = { sizeof(MONITORINFO) };
+            MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
             GetMonitorInfo(monitor, &mi);
             // Crop this window so that it does not exceed the size of the monitor
             // This is done because when maximized, windows have an extra invisible
@@ -473,7 +473,7 @@ BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
             snwnds[numsnwnds].flag = restore;
         } else if (conf.SmartAero&2 || IsWindowSnapped(hwnd)) {
             HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-            MONITORINFO mi = { sizeof(MONITORINFO) };
+            MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
             GetMonitorInfo(monitor, &mi);
             snwnds[numsnwnds].flag = WhichSideRectInRect(&mi.rcWork, &wnd);
         } else {
@@ -937,19 +937,17 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
 #define SW_FULLSCREEN 28
 static void MaximizeRestore_atpt(HWND hwnd, UINT sw_cmd)
 {
-    WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+    WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
     GetWindowPlacement(hwnd, &wndpl);
     if (sw_cmd != SW_FULLSCREEN)
         wndpl.showCmd = sw_cmd;
 
-    RECT fmon;
+    MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
     if(sw_cmd == SW_MAXIMIZE || sw_cmd == SW_FULLSCREEN) {
         HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         HMONITOR monitor = MonitorFromPoint(state.prevpt, MONITOR_DEFAULTTONEAREST);
 
-        MONITORINFO mi = { sizeof(MONITORINFO) };
         GetMonitorInfo(monitor, &mi);
-        CopyRect(&fmon, &mi.rcMonitor);
 
         // Center window on monitor, if needed
         if (monitor != wndmonitor) {
@@ -959,7 +957,9 @@ static void MaximizeRestore_atpt(HWND hwnd, UINT sw_cmd)
 
     SetWindowPlacement(hwnd, &wndpl);
     if (sw_cmd == SW_FULLSCREEN) {
-        MoveWindowAsync(hwnd, fmon.left, fmon.top, fmon.right-fmon.left, fmon.bottom-fmon.top);
+        MoveWindowAsync(hwnd, mi.rcMonitor.left , mi.rcMonitor.top 
+                      , mi.rcMonitor.right-mi.rcMonitor.left
+                      , mi.rcMonitor.bottom-mi.rcMonitor.top);
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -1050,7 +1050,7 @@ static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
         return; // MDI!
     }
 
-    MONITORINFO mi = { sizeof(MONITORINFO) };
+    MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
     GetMonitorInfo(MonitorFromPoint(*pt, MONITOR_DEFAULTTONEAREST), &mi);
 
     CopyRect(_mon, full? &mi.rcMonitor : &mi.rcWork);
@@ -1386,7 +1386,7 @@ static void RestrictCursorToMon()
         static RECT fmon;
         if (origMonitor != state.origin.monitor || !state.origin.monitor) {
             origMonitor = state.origin.monitor;
-            MONITORINFO mi = { sizeof(MONITORINFO) };
+            MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
             GetMonitorInfo(state.origin.monitor, &mi);
             CopyRect(&fmon, &mi.rcMonitor);
             fmon.left++; fmon.top++;
@@ -1520,7 +1520,7 @@ static void MouseMove(POINT pt)
         // Restore window if maximized when starting
         if (was_snapped || IsZoomed(state.hwnd)) {
             LastWin.moveonly = 0;
-            WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+            WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
             GetWindowPlacement(state.hwnd, &wndpl);
             // Restore original width and height in case we are restoring
             // A Snapped + Maximized window.
@@ -1542,7 +1542,7 @@ static void MouseMove(POINT pt)
         // Restore the window (to monitor size) if it's maximized
         if (!state.moving && IsZoomed(state.hwnd)) {
             ClearRestoreData(state.hwnd); //Clear restore flag and data
-            WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+            WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
             GetWindowPlacement(state.hwnd, &wndpl);
 
             // Set size to origin monitor to prevent flickering
@@ -2242,7 +2242,7 @@ static void UpdateCursor(POINT pt)
 
 static int IsMXRolled(HWND hwnd, RECT *rc)
 {
-    MONITORINFO mi = { sizeof(MONITORINFO) };
+    MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
     HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
     GetMonitorInfo(monitor, &mi);
     // Consider the window rolled if its height less than a quarter of monitors
@@ -2261,7 +2261,7 @@ static void RollWindow(HWND hwnd, int delta)
         int ismxrolled = IsMXRolled(hwnd, &rc);
         if (delta <= 0 && ismxrolled) {
             // Unroll Maximized window
-            WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+            WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
             GetWindowPlacement(hwnd, &wndpl);
             wndpl.showCmd = SW_SHOWMINIMIZED;
             SetWindowPlacement(hwnd, &wndpl);
@@ -2722,7 +2722,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 
     // Get monitor info
     HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-    MONITORINFO mi = { sizeof(MONITORINFO) };
+    MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
     GetMonitorInfo(monitor, &mi);
     CopyRect(&state.origin.mon, &mi.rcWork);
     RECT fmon;
@@ -2735,7 +2735,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         CopyRect(&state.origin.mon, &fmon);
     }
 
-    WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+    WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
     // Return if window is blacklisted,
     // if we can't get information about it,
     // or if the window is fullscreen.

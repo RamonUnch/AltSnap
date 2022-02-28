@@ -1,7 +1,7 @@
 *=========================================================================*
-*                        ALTSNAP for NT4 to Win10                         *
+*            ALTSNAP for Windows NT4/2000/XP/Vista/7/8.x/10/11            *
 *  Modified by Raymond Gillibert from original AltDrag by Stefan Sundin   *
-*                     release 1.51 (February 21, 2022)                    *
+*                     release 1.52 (February 29, 2022)                    *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltSnap/releases/         *
@@ -183,6 +183,31 @@ Note that this version has some more feature.
 
 ===========================================================================
 == CHANGELOG ==
+
+== AltSnap 1.52 ==
+
+  * New: Now a help message is added to the test window to indicate how to
+    setup snap layout (zones).
+
+  * Changed: some code refactoring and unification inducing size reduction.
+
+  * Fixed: Lag when dragging and resizing some programs (issue #160)
+
+  * Fixed: #172, drag was locked down when combining and action and hotclick.
+    Also, now if a hotclick is combined with the Move or Resize action then a
+    long click will be forwarded to the pointed program is no drag occurred.
+    This long click will not even be necessary if you enabled the
+    **Avoid blocking Alt+Click** option in the General tab of the config.
+
+  * Fixed: #124, A window will be restored to its original position when
+    using the Move+Resize click combo without a drag.
+
+  * Fixed: bugs in rolling and snapping code.
+
+  * Updated French and Italian translations
+
+  * Updated German translation, thanks to @Ichisich.
+
 == AltSnap 1.51 ==
 
  * Fixed regression that would make it impossible to select alternate action

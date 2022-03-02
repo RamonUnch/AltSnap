@@ -29,7 +29,10 @@ static void HookMouse();
 
 // Enumerators
 enum button { BT_NONE=0, BT_LMB=0x02, BT_RMB=0x03, BT_MMB=0x04, BT_MB4=0x05
-            , BT_MB5=0x06, BT_WHEEL=0x07, BT_HWHEEL=0x08 };
+            , BT_MB5=0x06, BT_MB6=0x07, BT_MB7=0x08, BT_MB8=0x09, BT_MB9=0x0A
+            , BT_MB10=0x0B, BT_MB11=0x0C, BT_MB12=0x0D, BT_MB13=0x0E, BT_MB14=0x0F
+            , BT_MB15=0x10, BT_MB16=0x11, BT_MB17=0x12
+            , BT_WHEEL=0x13, BT_HWHEEL=0x14 };
 enum resize { RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER };
 enum buttonstate {STATE_NONE, STATE_DOWN, STATE_UP};
 
@@ -114,7 +117,7 @@ HWND *hwnds = NULL;
 unsigned numhwnds = 0;
 
 // Settings
-#define MAXKEYS 7
+#define MAXKEYS 15
 static struct {
     UCHAR AutoFocus;
     UCHAR AutoSnap;
@@ -180,9 +183,14 @@ static struct {
     UCHAR Shiftkeys[MAXKEYS+1];
     UCHAR Hotclick[MAXKEYS+1];
     UCHAR Killkey[MAXKEYS+1];
+    UCHAR XXButtons[MAXKEYS+1];
 
     struct {
-        enum action LMB[4], RMB[4], MMB[4], MB4[4], MB5[4], Scroll[4], HScroll[4];
+        enum action LMB[4], RMB[4], MMB[4], MB4[4], MB5[4]
+        , MB6[4], MB7[4], MB8[4], MB9[4]
+        , MB10[4], MB11[4], MB12[4], MB13[4], MB14[4]
+        , MB15[4], MB16[4], MB17[4], MB18[4]
+        , Scroll[4], HScroll[4];
     } Mouse;
     enum action GrabWithAlt[2]; // Actions without click
     enum action MoveUp[2];      // Actions on (long) Move Up w/o drag
@@ -957,7 +965,7 @@ static void MaximizeRestore_atpt(HWND hwnd, UINT sw_cmd)
 
     SetWindowPlacement(hwnd, &wndpl);
     if (sw_cmd == SW_FULLSCREEN) {
-        MoveWindowAsync(hwnd, mi.rcMonitor.left , mi.rcMonitor.top 
+        MoveWindowAsync(hwnd, mi.rcMonitor.left , mi.rcMonitor.top
                       , mi.rcMonitor.right-mi.rcMonitor.left
                       , mi.rcMonitor.bottom-mi.rcMonitor.top);
     }
@@ -1823,6 +1831,23 @@ static void LogState(const char *Title)
 
     fclose(f);
 }
+static unsigned XXButtonIndex(UCHAR vkey)
+{
+    int i;
+    for (i=0; i < 12 && conf.XXButtons[i] != vkey; i++);
+    return i+3;
+}
+LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam);
+static void SimulateXButton(WPARAM wp, UCHAR vkey)
+{
+    MSLLHOOKSTRUCT msg;
+    GetCursorPos(&msg.pt);
+    msg.mouseData=XXButtonIndex(vkey) << 16;
+    msg.flags=0;
+    msg.time = GetTickCount();
+
+    LowLevelMouseProc(HC_ACTION, wp, (LPARAM)&msg);
+}
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -1918,6 +1943,9 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             }
         } else if (state.sclickhwnd && state.alt && (vkey == VK_LMENU || vkey == VK_RMENU)) {
             return 1;
+        } else if (IsHotkeyy(vkey, conf.XXButtons)) {
+            SimulateXButton(WM_XBUTTONDOWN, vkey);
+            return 1;
         }
 
     } else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP) {
@@ -1935,9 +1963,13 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.ctrl = 0;
             // If there is no action then Control UP prevents AltDragging...
             if (!state.action) state.alt = 0;
-        } else if (vkey == conf.ModKey) {
-            ; // TODO, block modkey with Ctrl when needed...
+//        } else if (vkey == conf.ModKey) {
+//            ; // TODO, block modkey with Ctrl when needed...
+        } else if (IsHotkeyy(vkey, conf.XXButtons)) {
+            SimulateXButton(WM_XBUTTONUP, vkey);
+            return 1;
         }
+
     }
 
     return CallNextHookEx(NULL, nCode, wParam, lParam);
@@ -2681,7 +2713,7 @@ static int DoWheelActions(HWND hwnd, enum action action)
     else                                ret = 0; // No action
 
     // ret is 0: next hook or 1: block whel and AltUp.
-    state.blockaltup = ret && state.alt > 8; // block or not;
+    state.blockaltup = ret && state.alt > BT_HWHEEL; // block or not;
     return ret; // block or next hook
 }
 
@@ -2967,8 +2999,8 @@ static xpure enum button GetButton(WPARAM wp, LPARAM lp)
         (wp==WM_RBUTTONDOWN||wp==WM_RBUTTONUP)?BT_RMB:
         (wp==WM_MOUSEWHEEL)?BT_WHEEL:
         (wp==WM_MOUSEHWHEEL)?BT_HWHEEL:
-        (HIWORD(msg->mouseData)==XBUTTON1)?BT_MB4:
-        (HIWORD(msg->mouseData)==XBUTTON2)?BT_MB5:BT_NONE;
+        (wp==WM_XBUTTONDOWN||wp==WM_XBUTTONUP)? BT_MB4-1+HIWORD(msg->mouseData):
+        BT_NONE;
 }
 static xpure enum buttonstate GetButtonState(WPARAM wp)
 {
@@ -3348,11 +3380,13 @@ void readallblacklists(wchar_t *inipath)
 }
 ///////////////////////////////////////////////////////////////////////////
 // Used to read Hotkeys and Hotclicks
-static void readhotkeys(const wchar_t *inipath, const wchar_t *name, const wchar_t *def, UCHAR *keys)
+static void readhotkeys(const wchar_t *inipath, const char *name, const wchar_t *def, UCHAR *keys)
 {
     wchar_t txt[64];
+    wchar_t nameW[64];
+    str2wide(nameW, name);
 
-    GetPrivateProfileString(L"Input", name, def, txt, ARR_SZ(txt), inipath);
+    GetPrivateProfileString(L"Input", nameW, def, txt, ARR_SZ(txt), inipath);
     UCHAR i=0;
     wchar_t *pos = txt;
     while (*pos) {
@@ -3388,64 +3422,39 @@ static enum action selectaction(const wchar_t *txt)
 static UCHAR readbuttonactions(const wchar_t *inipath)
 {
     wchar_t txt[32];
-    static const struct {
-        char *key;
-        char *def;
-        /* enum action *ptr; */
-    } buttons[] = {
-        // Primary Actions (performed with Alt+Click)
-        // Must be in the same order than in the conf struct
-        {"LMB",        "Move"     },
-        {"LMBB",       "Resize"   },
-        {"LMBT",       "Nothing"  },
-        {"LMBTB",      "Nothing"  },
+    static const char* buttons[] = {
+        "LMB", "LMBB", "LMBT", "LMBTB",
+        "RMB", "RMBB", "RMBT", "RMBTB",
+        "MMB", "MMBB", "MMBT", "MMBTB",
 
-        {"RMB",        "Resize"   },
-        {"RMBB",       "Move"     },
-        {"RMBT",       "Nothing"  },
-        {"RMBTB",      "Nothing"  },
+        "MB4", "MB4B", "MB4T", "MB4TB",
+        "MB5", "MB5B", "MB5T", "MB5TB",
 
-        {"MMB",        "Maximize" },
-        {"MMBB",       "Maximize" },
-        {"MMBT",       "Lower"    },
-        {"MMBTB",      "Nothing"  },
+        "MB6", "MB6B", "MB6T", "MB6TB",
+        "MB7", "MB7B", "MB7T", "MB7TB",
+        "MB8", "MB8B", "MB8T", "MB8TB",
+        "MB9", "MB9B", "MB9T", "MB9TB",
+        "MB10", "MB10B", "MB10T", "MB10TB",
+        "MB11", "MB11B", "MB11T", "MB11TB",
+        "MB12", "MB12B", "MB12T", "MB12TB",
+        "MB13", "MB13B", "MB13T", "MB13TB",
+        "MB14", "MB14B", "MB14T", "MB14TB",
+        "MB15", "MB15B", "MB15T", "MB15TB",
+        "MB16", "MB16B", "MB16T", "MB16TB",
+        "MB17", "MB17B", "MB17T", "MB17TB",
 
-        {"MB4",        "Nothing"  },
-        {"MB4B",       "Nothing"  },
-        {"MB4T",       "Nothing"  },
-        {"MB4TB",      "Nothing"  },
-
-        {"MB5",        "Nothing"  },
-        {"MB5B",       "Nothing"  },
-        {"MB5T",       "Nothing"  },
-        {"MB5TB",      "Nothing"  },
-
-        {"Scroll",     "Nothing"  },
-        {"ScrollB",    "Volume"   },
-        {"ScrollT",    "Nothing"  },
-        {"ScrollTB",   "Nothing"  },
-
-        {"HScroll",    "Nothing"  },
-        {"HScrollB",   "Nothing"  },
-        {"HScrollT",   "Nothing"  },
-        {"HScrollTB",  "Nothing"  },
-
-        {"GrabWithAlt","Nothing"  },
-        {"GrabWithAltB","Nothing" },
-
-        {"MoveUp"     ,"Nothing"  },
-        {"MoveUpB"    ,"Nothing"  },
-        {"ResizeUp"   ,"Nothing"  },
-        {"ResizeUpB"  ,"Nothing"  },
+        "Scroll", "ScrollB", "ScrollT", "ScrollTB",
+        "HScroll", "HScrollB", "HScrollT", "HScrollTB",
+        "GrabWithAlt", "GrabWithAltB",
+        "MoveUp", "MoveUpB", "ResizeUp", "ResizeUpB",
     };
+
     unsigned i;
     UCHAR action_menu_load = 0;
     for (i=0; i < ARR_SZ(buttons); i++) {
         wchar_t key[32];
-        wchar_t def[32];
-        str2wide(key, buttons[i].key);
-        str2wide(def, buttons[i].def);
-        GetPrivateProfileString(L"Input", key, def, txt, ARR_SZ(txt), inipath);
+        str2wide(key, buttons[i]);
+        GetPrivateProfileString(L"Input", key, L"Nothing", txt, ARR_SZ(txt), inipath);
         enum action * const actionptr = &conf.Mouse.LMB[0]; // first action in list
         actionptr[i] = selectaction(txt);
         if (actionptr[i] == AC_MENU) action_menu_load = 1;
@@ -3559,11 +3568,19 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     // [Input]
     UCHAR action_menu_load = readbuttonactions(inipath);
 
-    readhotkeys(inipath, L"Hotkeys",  L"A4 A5",   conf.Hotkeys);
-    readhotkeys(inipath, L"Shiftkeys",L"A0 A1",   conf.Shiftkeys);
-    readhotkeys(inipath, L"Hotclicks",L"",        conf.Hotclick);
-    readhotkeys(inipath, L"Killkeys", L"09 2E",   conf.Killkey);
-
+    // Same order than in the conf struct
+    static const struct hklst {
+        char *name; wchar_t *def;
+    } hklst[] = {
+        { "Hotkeys",   L"A4 A5" },
+        { "Shiftkeys", L"A0 A1" },
+        { "Hotclicks", NULL    },
+        { "Killkeys",  L"09 2E" },
+        { "XXButtons", NULL },
+    };
+    for (i=0; i < ARR_SZ(hklst); i++) {
+        readhotkeys(inipath, hklst[i].name, hklst[i].def, &conf.Hotkeys[i*(MAXKEYS+1)]);
+    }
     conf.ModKey     = readsinglekey(inipath, L"ModKey", L"");
     conf.HScrollKey = readsinglekey(inipath, L"HScrollKey", L"10"); // VK_SHIFT
 
@@ -3596,7 +3613,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     if (!conf.FullWin) {
         int color[2];
         // Read the color for the TransWin from ini file
-        readhotkeys(inipath, L"FrameColor",  L"80 00 80", (UCHAR *)&color[0]);
+        readhotkeys(inipath, "FrameColor",  L"80 00 80", (UCHAR *)&color[0]);
         WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0
                      , DefWindowProc, 0, 0, hinstDLL
                      , NULL, NULL

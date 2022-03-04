@@ -98,6 +98,7 @@ static struct {
         int bottom;
     } origin;
 
+    UCHAR xxbutton;
     enum action action;
     struct {
         enum resize x, y;
@@ -189,7 +190,7 @@ static struct {
         enum action LMB[4], RMB[4], MMB[4], MB4[4], MB5[4]
         , MB6[4], MB7[4], MB8[4], MB9[4]
         , MB10[4], MB11[4], MB12[4], MB13[4], MB14[4]
-        , MB15[4], MB16[4], MB17[4], MB18[4]
+        , MB15[4], MB16[4], MB17[4]
         , Scroll[4], HScroll[4];
     } Mouse;
     enum action GrabWithAlt[2]; // Actions without click
@@ -207,7 +208,7 @@ struct blacklist {
     unsigned length;
     wchar_t *data;
 };
-static const struct {
+static struct {
     struct blacklist Processes;
     struct blacklist Windows;
     struct blacklist Snaplist;
@@ -1692,7 +1693,7 @@ static void Send_Click(enum button button)
         , MOUSEEVENTF_MIDDLEDOWN
         , MOUSEEVENTF_XDOWN, MOUSEEVENTF_XDOWN
     };
-    if (!button) return;
+    if (!button || button > BT_MB5) return;
 
     DWORD MouseEvent = bmapping[button-2];
     DWORD mdata = 0;
@@ -1855,7 +1856,12 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 //    if (state.ignorekey) LOGA("IgnoreKey")
     if (nCode != HC_ACTION || state.ignorekey) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
-    unsigned char vkey = ((PKBDLLHOOKSTRUCT)lParam)->vkCode;
+    PKBDLLHOOKSTRUCT kbh = ((PKBDLLHOOKSTRUCT)lParam);
+    unsigned char vkey = kbh->vkCode;
+//    if (vkey!=VK_F5) {
+//        LOGA("wp=%u, vKey=%lx, sCode=%lx, flgs=%lx, ex=%lx"
+//        , wParam, kbh->vkCode, kbh->scanCode, kbh->flags, kbh->dwExtraInfo);
+//    }
     if (vkey == VK_SCROLL) PostMessage(g_mainhwnd, WM_UPDATETRAY, 0, 0);
     if (ScrollLockState()) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
@@ -1943,7 +1949,8 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             }
         } else if (state.sclickhwnd && state.alt && (vkey == VK_LMENU || vkey == VK_RMENU)) {
             return 1;
-        } else if (IsHotkeyy(vkey, conf.XXButtons)) {
+        } else if (!state.xxbutton && IsHotkeyy(vkey, conf.XXButtons)) {
+            state.xxbutton = 1; // To Ignore autorepeat...
             SimulateXButton(WM_XBUTTONDOWN, vkey);
             return 1;
         }
@@ -1966,6 +1973,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 //        } else if (vkey == conf.ModKey) {
 //            ; // TODO, block modkey with Ctrl when needed...
         } else if (IsHotkeyy(vkey, conf.XXButtons)) {
+            state.xxbutton = 0;
             SimulateXButton(WM_XBUTTONUP, vkey);
             return 1;
         }
@@ -2676,6 +2684,60 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
     }
 }
 /////////////////////////////////////////////////////////////////////////////
+// Adjust brightness
+static void ActionBrightness(const POINT pt, const short delta)
+{
+    typedef struct _PHYSICAL_MONITOR {
+        HANDLE hPhysicalMonitor;
+        WCHAR  szPhysicalMonitorDescription[128];
+    } PHYSICAL_MONITOR, *LPPHYSICAL_MONITOR;
+
+    BOOL (WINAPI *myGetPhysMonitorsFromHM)(HMONITOR hMonitor, DWORD sz, LPPHYSICAL_MONITOR pmarr);
+    BOOL (WINAPI *myGetMonitorBrightness)(HANDLE hMonitor, LPDWORD min, LPDWORD cur, LPDWORD max);
+    BOOL (WINAPI *mySetMonitorBrightness)(HANDLE hMonitor, DWORD dwNewBrightness);
+    BOOL (WINAPI *myDestroyPhysicalMonitor)(HANDLE hMonitor);
+    BOOL (WINAPI *myGetNumberOfPhysmons)(HMONITOR hMonitor, LPDWORD pdwNumberOfPhysicalMonitors);
+//    BOOL (WINAPI *myGetMonitorCapabilities)(HANDLE hMonitor, LPDWORD supcap, LPDWORD supcoltemp);
+    HANDLE dll = LoadLibraryA("DXVA2.DLL");
+    if (dll) {
+//        LOGA("WE got DXVA2.DLL");
+        myGetPhysMonitorsFromHM =(void*)GetProcAddress(dll, "GetPhysicalMonitorsFromHMONITOR");
+        myGetMonitorBrightness = (void*)GetProcAddress(dll, "GetMonitorBrightness");
+        mySetMonitorBrightness = (void*)GetProcAddress(dll, "SetMonitorBrightness");
+        myDestroyPhysicalMonitor=(void*)GetProcAddress(dll, "DestroyPhysicalMonitor");
+        myGetNumberOfPhysmons   =(void*)GetProcAddress(dll, "GetNumberOfPhysicalMonitorsFromHMONITOR");
+//        myGetMonitorCapabilities=(void*)GetProcAddress(dll, "GetMonitorCapabilities");
+
+        if (myGetPhysMonitorsFromHM && myGetMonitorBrightness 
+        && mySetMonitorBrightness && myDestroyPhysicalMonitor && myGetNumberOfPhysmons) 
+        {
+//            LOGA("We got functions!");
+            HMONITOR hmon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+            DWORD numpm=0;
+            
+            if(myGetNumberOfPhysmons(hmon, &numpm) && numpm) {
+                LOGA("numpm=%lu", numpm);
+                size_t allocsz = numpm * sizeof(PHYSICAL_MONITOR);
+                PHYSICAL_MONITOR *pm = malloc(allocsz);
+                if(pm && myGetPhysMonitorsFromHM(hmon, allocsz, pm)) {
+                    DWORD min, cur, max;
+                    if (myGetMonitorBrightness(pm->hPhysicalMonitor, &min, &cur, &max)) {
+                        LOGA("Brightness of %S: min=%lu, cur=%lu, max=%lu"
+                            , pm->szPhysicalMonitorDescription, min, cur, max);
+                        int newbr = cur + delta>0? (max-min)/16: -(max-min)/16;
+                        cur = CLAMP(min, newbr, max);
+                        mySetMonitorBrightness(pm->hPhysicalMonitor, cur);
+                    }
+                    myDestroyPhysicalMonitor(pm->hPhysicalMonitor);
+                }
+                free(pm);
+            }
+        }
+        LOGA("FreeLib");
+        FreeLibrary(dll);
+    }
+}
+/////////////////////////////////////////////////////////////////////////////
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
 {
@@ -2710,6 +2772,7 @@ static int DoWheelActions(HWND hwnd, enum action action)
     else if (action == AC_MAXIMIZE)     ActionMaxRestMin(hwnd, state.delta);
     else if (action == AC_ROLL)         RollWindow(hwnd, state.delta);
     else if (action == AC_HSCROLL)      ret = ScrollPointedWindow(state.prevpt, -state.delta, WM_MOUSEHWHEEL);
+//    else if (action == AC_BRIGHTNESS)   ActionBrightness(state.prevpt, state.delta);
     else                                ret = 0; // No action
 
     // ret is 0: next hook or 1: block whel and AltUp.
@@ -3020,11 +3083,10 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 //    if (state.ignoreclick) LOGA("IgnoreClick")
     if (nCode != HC_ACTION || state.ignoreclick || ScrollLockState())
         return CallNextHookEx(NULL, nCode, wParam, lParam);
-
+    
     // Set up some variables
     PMSLLHOOKSTRUCT msg = (PMSLLHOOKSTRUCT)lParam;
     POINT pt = msg->pt;
-
     // Mouse move, only if it is not exactly the same point than before
     if (wParam == WM_MOUSEMOVE) {
         if (SamePt(pt, state.prevpt)) return CallNextHookEx(NULL, nCode, wParam, lParam);
@@ -3054,6 +3116,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
 
+//    LOGA("wParam=%x, data=%lx, time=%lu, extra=%lx", wParam, msg->mouseData, msg->time, msg->dwExtraInfo);
     // Get button/wheel info and buttonstate+wheel info.
     enum button button = GetButton(wParam, lParam);
     enum buttonstate buttonstate = GetButtonState(wParam);
@@ -3372,7 +3435,7 @@ static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist, c
 // Read all the blacklitsts
 void readallblacklists(wchar_t *inipath)
 {
-    struct blacklist *list = (void *)&BlkLst;
+    struct blacklist *list = &BlkLst.Processes;
     unsigned i;
     for (i=0; i< sizeof(BlkLst)/sizeof(struct blacklist); i++) {
         readblacklist(inipath, list+i, BlackListStrings[i]);

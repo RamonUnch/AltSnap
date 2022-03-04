@@ -1858,7 +1858,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
     PKBDLLHOOKSTRUCT kbh = ((PKBDLLHOOKSTRUCT)lParam);
     unsigned char vkey = kbh->vkCode;
-//    if (vkey!=VK_F5) {
+//    if (vkey!=VK_F5) { // show key codes
 //        LOGA("wp=%u, vKey=%lx, sCode=%lx, flgs=%lx, ex=%lx"
 //        , wParam, kbh->vkCode, kbh->scanCode, kbh->flags, kbh->dwExtraInfo);
 //    }
@@ -2684,60 +2684,6 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-// Adjust brightness
-static void ActionBrightness(const POINT pt, const short delta)
-{
-    typedef struct _PHYSICAL_MONITOR {
-        HANDLE hPhysicalMonitor;
-        WCHAR  szPhysicalMonitorDescription[128];
-    } PHYSICAL_MONITOR, *LPPHYSICAL_MONITOR;
-
-    BOOL (WINAPI *myGetPhysMonitorsFromHM)(HMONITOR hMonitor, DWORD sz, LPPHYSICAL_MONITOR pmarr);
-    BOOL (WINAPI *myGetMonitorBrightness)(HANDLE hMonitor, LPDWORD min, LPDWORD cur, LPDWORD max);
-    BOOL (WINAPI *mySetMonitorBrightness)(HANDLE hMonitor, DWORD dwNewBrightness);
-    BOOL (WINAPI *myDestroyPhysicalMonitor)(HANDLE hMonitor);
-    BOOL (WINAPI *myGetNumberOfPhysmons)(HMONITOR hMonitor, LPDWORD pdwNumberOfPhysicalMonitors);
-//    BOOL (WINAPI *myGetMonitorCapabilities)(HANDLE hMonitor, LPDWORD supcap, LPDWORD supcoltemp);
-    HANDLE dll = LoadLibraryA("DXVA2.DLL");
-    if (dll) {
-//        LOGA("WE got DXVA2.DLL");
-        myGetPhysMonitorsFromHM =(void*)GetProcAddress(dll, "GetPhysicalMonitorsFromHMONITOR");
-        myGetMonitorBrightness = (void*)GetProcAddress(dll, "GetMonitorBrightness");
-        mySetMonitorBrightness = (void*)GetProcAddress(dll, "SetMonitorBrightness");
-        myDestroyPhysicalMonitor=(void*)GetProcAddress(dll, "DestroyPhysicalMonitor");
-        myGetNumberOfPhysmons   =(void*)GetProcAddress(dll, "GetNumberOfPhysicalMonitorsFromHMONITOR");
-//        myGetMonitorCapabilities=(void*)GetProcAddress(dll, "GetMonitorCapabilities");
-
-        if (myGetPhysMonitorsFromHM && myGetMonitorBrightness 
-        && mySetMonitorBrightness && myDestroyPhysicalMonitor && myGetNumberOfPhysmons) 
-        {
-//            LOGA("We got functions!");
-            HMONITOR hmon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-            DWORD numpm=0;
-            
-            if(myGetNumberOfPhysmons(hmon, &numpm) && numpm) {
-                LOGA("numpm=%lu", numpm);
-                size_t allocsz = numpm * sizeof(PHYSICAL_MONITOR);
-                PHYSICAL_MONITOR *pm = malloc(allocsz);
-                if(pm && myGetPhysMonitorsFromHM(hmon, allocsz, pm)) {
-                    DWORD min, cur, max;
-                    if (myGetMonitorBrightness(pm->hPhysicalMonitor, &min, &cur, &max)) {
-                        LOGA("Brightness of %S: min=%lu, cur=%lu, max=%lu"
-                            , pm->szPhysicalMonitorDescription, min, cur, max);
-                        int newbr = cur + delta>0? (max-min)/16: -(max-min)/16;
-                        cur = CLAMP(min, newbr, max);
-                        mySetMonitorBrightness(pm->hPhysicalMonitor, cur);
-                    }
-                    myDestroyPhysicalMonitor(pm->hPhysicalMonitor);
-                }
-                free(pm);
-            }
-        }
-        LOGA("FreeLib");
-        FreeLibrary(dll);
-    }
-}
-/////////////////////////////////////////////////////////////////////////////
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
 {
@@ -3083,7 +3029,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 //    if (state.ignoreclick) LOGA("IgnoreClick")
     if (nCode != HC_ACTION || state.ignoreclick || ScrollLockState())
         return CallNextHookEx(NULL, nCode, wParam, lParam);
-    
+
     // Set up some variables
     PMSLLHOOKSTRUCT msg = (PMSLLHOOKSTRUCT)lParam;
     POINT pt = msg->pt;

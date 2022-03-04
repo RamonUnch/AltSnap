@@ -1130,11 +1130,11 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_SYSKEYUP:
     case WM_SYSKEYDOWN: {
         wchar_t txt[10];
-        wcscpy(lastkey, L"VirtKey = ");
+        wcscpy(lastkey, L"vKey = ");
         wcscat(lastkey, _itow(wParam, txt, 16));
-        wcscat(lastkey, L", scanCode = ");
+        wcscat(lastkey, L", sCode = ");
         wcscat(lastkey, _itow(HIWORD(lParam)&0x00FF, txt, 16));
-        wcscat(lastkey, L", KeyData = " );
+        wcscat(lastkey, L", Data = " );
         wcscat(lastkey, _itow(lParam, txt, 16));
         RECT crc;
         GetClientRect(hwnd, &crc);

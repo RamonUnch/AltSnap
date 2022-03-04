@@ -1205,21 +1205,24 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 static HWND NewTestWindow()
 {
+    static char registered=0;
     HWND testwnd;
-    WNDCLASSEX wnd = {
-        sizeof(WNDCLASSEX)
-      , CS_HREDRAW|CS_VREDRAW|CS_BYTEALIGNCLIENT
-      , TestWindowProc
-      , 0, 0, g_hinst, LoadIconA(g_hinst, iconstr[1])
-      , LoadCursor(NULL, IDC_ARROW)
-      , (HBRUSH)(COLOR_BACKGROUND+1)
-      , NULL, APP_NAME"-Test", NULL
-    };
-    RegisterClassEx(&wnd);
+    if (!registered) {
+	    WNDCLASSEX wnd = {
+	        sizeof(WNDCLASSEX)
+	      , CS_HREDRAW|CS_VREDRAW|CS_BYTEALIGNCLIENT
+	      , TestWindowProc
+	      , 0, 0, g_hinst, LoadIconA(g_hinst, iconstr[1])
+	      , LoadCursor(NULL, IDC_ARROW)
+	      , (HBRUSH)(COLOR_BACKGROUND+1)
+	      , NULL, APP_NAME"-Test", NULL
+	    };
+	    registered=!!RegisterClassEx(&wnd);
+    }
     wchar_t wintitle[256];
     wcscpy_noaccel(wintitle, l10n->advanced_testwindow, ARR_SZ(wintitle));
     testwnd = CreateWindowEx(0
-         , wnd.lpszClassName
+         , APP_NAME"-Test"
          , wintitle, WS_CAPTION|WS_OVERLAPPEDWINDOW
          , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT
          , NULL, NULL, g_hinst, NULL);

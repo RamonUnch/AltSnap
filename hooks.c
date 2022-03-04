@@ -190,8 +190,8 @@ static struct {
 
     struct {
         enum action // Up to 20 BUTTONS!!!
-          LMB[4],   RMB[4], MMB[4],  MB4[4], MB5[4]
-        , MB6[4],  MB7[4],  MB8[4],  MB9[4], MB10[4]
+          LMB[4],  RMB[4],  MMB[4],  MB4[4],  MB5[4]
+        , MB6[4],  MB7[4],  MB8[4],  MB9[4],  MB10[4]
         , MB11[4], MB12[4], MB13[4], MB14[4], MB15[4]
         , MB16[4], MB17[4], MB18[4], MB19[4], MB20[4]
         , Scroll[4], HScroll[4]; // Plus vertical and horieontal wheels
@@ -1070,7 +1070,7 @@ static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
 static void WaitMovementEnd()
 { // Only wait 192ms maximum
     int i=0;
-    while (LastWin.hwnd && i++ < 15) Sleep(16);
+    while (LastWin.hwnd && i++ < 12) Sleep(16);
     LastWin.hwnd = NULL; // Zero out in case.
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -1835,23 +1835,27 @@ static void LogState(const char *Title)
 
     fclose(f);
 }
-static pure WORD XXButtonIndex(UCHAR vkey)
+static pure int XXButtonIndex(UCHAR vkey)
 {
     WORD i;
-    for (i=0; i < 12 && conf.XXButtons[i] != vkey; i++);
-    return i+3;
+    for (i=0; i < 15 && conf.XXButtons[i]; i++) {
+        if(conf.XXButtons[i] == vkey)
+            return i+3;
+    }
+    return -1;
 }
 LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam);
-static void SimulateXButton(WPARAM wp, UCHAR vkey)
+static int SimulateXButton(WPARAM wp, WORD xbtidx)
 {
+//    WORD xbtidx = XXButtonIndex(vkey);
     MSLLHOOKSTRUCT msg;
     GetCursorPos(&msg.pt);
     // XButton number is in HIWORD(mouseData)
-    msg.mouseData=XXButtonIndex(vkey) << 16;
+    msg.mouseData= xbtidx << 16;
     msg.flags=0;
     msg.time = GetTickCount();
     LowLevelMouseProc(HC_ACTION, wp, (LPARAM)&msg);
-//    HookMouse();
+    return 1;
 }
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
@@ -1862,6 +1866,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
     PKBDLLHOOKSTRUCT kbh = ((PKBDLLHOOKSTRUCT)lParam);
     unsigned char vkey = kbh->vkCode;
+    int xxbtidx;
 //    if (vkey!=VK_F5) { // show key codes
 //        LOGA("wp=%u, vKey=%lx, sCode=%lx, flgs=%lx, ex=%lx"
 //        , wParam, kbh->vkCode, kbh->scanCode, kbh->flags, kbh->dwExtraInfo);
@@ -1953,10 +1958,10 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             }
         } else if (state.sclickhwnd && state.alt && (vkey == VK_LMENU || vkey == VK_RMENU)) {
             return 1;
-        } else if (IsHotkeyy(vkey, conf.XXButtons)) {
+        } else if ((xxbtidx = XXButtonIndex(vkey)) >=0 ) {
             if (!state.xxbutton) {
                 state.xxbutton = 1; // To Ignore autorepeat...
-                SimulateXButton(WM_XBUTTONDOWN, vkey);
+                SimulateXButton(WM_XBUTTONDOWN, xxbtidx);
             }
             return 1;
         }
@@ -1978,9 +1983,9 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             if (!state.action) state.alt = 0;
 //        } else if (vkey == conf.ModKey) {
 //            ; // TODO, block modkey with Ctrl when needed...
-        } else if (IsHotkeyy(vkey, conf.XXButtons)) {
+        } else if ((xxbtidx = XXButtonIndex(vkey)) >=0 ) {
             state.xxbutton = 0;
-            SimulateXButton(WM_XBUTTONUP, vkey);
+            SimulateXButton(WM_XBUTTONUP, xxbtidx);
             return 1;
         }
 
@@ -3425,7 +3430,7 @@ static unsigned char readsinglekey(const wchar_t *inipath, const wchar_t *name, 
     return 0;
 }
 // Map action string to actual action enum
-static enum action getaction(const wchar_t *inipath, const wchar_t *key)
+static enum action readaction(const wchar_t *inipath, const wchar_t *key)
 {
     wchar_t txt[32];
     GetPrivateProfileString(L"Input", key, L"Nothing", txt, ARR_SZ(txt), inipath);
@@ -3441,34 +3446,15 @@ static enum action getaction(const wchar_t *inipath, const wchar_t *key)
 static void readbuttonactions(const wchar_t *inipath)
 {
     static const char* buttons[] = {
-        "LMB",// "LMBB", "LMBT", "LMBTB",
-        "RMB",// "RMBB", "RMBT", "RMBTB",
-        "MMB",// "MMBB", "MMBT", "MMBTB",
+        "LMB", "RMB", "MMB", "MB4", "MB5",
+        "MB6",  "MB7",  "MB8",
+        "MB9",  "MB10", "MB11", "MB12",
+        "MB13", "MB14", "MB15", "MB16",
+        "MB17", "MB18", "MB19", "MB20",
+        "Scroll", "HScroll",
 
-        "MB4",// "MB4B", "MB4T", "MB4TB",
-        "MB5",// "MB5B", "MB5T", "MB5TB",
-
-        "MB6",// "MB6B", "MB6T", "MB6TB",
-        "MB7",// "MB7B", "MB7T", "MB7TB",
-        "MB8",// "MB8B", "MB8T", "MB8TB",
-        "MB9",// "MB9B", "MB9T", "MB9TB",
-        "MB10",// "MB10B", "MB10T", "MB10TB",
-        "MB11",// "MB11B", "MB11T", "MB11TB",
-        "MB12",// "MB12B", "MB12T", "MB12TB",
-        "MB13",// "MB13B", "MB13T", "MB13TB",
-        "MB14",// "MB14B", "MB14T", "MB14TB",
-        "MB15",// "MB15B", "MB15T", "MB15TB",
-        "MB16",// "MB16B", "MB16T", "MB16TB",
-        "MB17",// "MB17B", "MB17T", "MB17TB",
-        "MB18",// "MB18B", "MB18T", "MB18TB",
-        "MB19",// "MB19B", "MB19T", "MB19TB",
-        "MB20",// "MB20B", "MB20T", "MB20TB",
-
-        "Scroll",// "ScrollB", "ScrollT", "ScrollTB",
-        "HScroll",// "HScrollB", "HScrollT", "HScrollTB",
-        "GrabWithAlt",// "GrabWithAltB",
-        "MoveUp",// "MoveUpB",
-        "ResizeUp",// "ResizeUpB",
+        "GrabWithAlt",
+        "MoveUp", "ResizeUp",
     };
 
     unsigned i;
@@ -3478,16 +3464,16 @@ static void readbuttonactions(const wchar_t *inipath)
         wchar_t key[32];
         str2wide(key, buttons[i]);
         int len = wcslen(key);
-        actionptr[4*i+0] = getaction(inipath, key);
+        actionptr[4*i+0] = readaction(inipath, key);
 
         key[len] = 'B'; key[len+1] = '\0';
-        actionptr[4*i+1] = getaction(inipath, key);
+        actionptr[4*i+1] = readaction(inipath, key);
 
         key[len] = 'T'; key[len+1] = '\0';
-        actionptr[4*i+2] = getaction(inipath, key);
+        actionptr[4*i+2] = readaction(inipath, key);
 
         key[len] = 'T'; key[len+1] = 'B'; key[len+2] = '\0';
-        actionptr[4*i+3] = getaction(inipath, key);
+        actionptr[4*i+3] = readaction(inipath, key);
     }
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -3640,7 +3626,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     // Prepare the transparent window
     if (!conf.FullWin) {
-        int color[4];
+        int color[4]; // 16 bytes to be sure no overfows
         // Read the color for the TransWin from ini file
         readhotkeys(inipath, "FrameColor",  L"80 00 80", (UCHAR *)&color[0]);
         WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0

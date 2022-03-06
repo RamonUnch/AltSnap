@@ -255,7 +255,7 @@ HHOOK mousehook = NULL;
 // wether a window is present or not in a blacklist
 static pure int blacklisted(HWND hwnd, const struct blacklist *list)
 {
-    wchar_t title[256]=L"", classname[256]=L"";
+    wchar_t title[256], classname[256];
     DorQWORD mode ;
     unsigned i;
 
@@ -267,8 +267,10 @@ static pure int blacklisted(HWND hwnd, const struct blacklist *list)
     mode = (DorQWORD)list->items[0].classname|(DorQWORD)list->items[0].title;
     i = !mode;
 
-    GetWindowText(hwnd, title, ARR_SZ(title));
-    GetClassName(hwnd, classname, ARR_SZ(classname));
+    if(!GetWindowText(hwnd, title, ARR_SZ(title))
+    || !GetClassName(hwnd, classname, ARR_SZ(classname)))
+        return 0;
+
     for ( ; i < list->length; i++) {
         if (!wcscmp_star(classname, list->items[i].classname)
         &&  !wcscmp_rstar(title, list->items[i].title)) {
@@ -279,7 +281,7 @@ static pure int blacklisted(HWND hwnd, const struct blacklist *list)
 }
 static pure int blacklistedP(HWND hwnd, const struct blacklist *list)
 {
-    wchar_t title[MAX_PATH]=L"";
+    wchar_t title[MAX_PATH];
     DorQWORD mode ;
     unsigned i ;
 
@@ -291,7 +293,8 @@ static pure int blacklistedP(HWND hwnd, const struct blacklist *list)
     mode = (DorQWORD)list->items[0].title;
     i = !mode;
 
-    GetWindowProgName(hwnd, title, ARR_SZ(title));
+    if (!GetWindowProgName(hwnd, title, ARR_SZ(title)))
+        return 0;
 
     // ProcessBlacklist is case-insensitive
     for ( ; i < list->length; i++) {
@@ -303,8 +306,8 @@ static pure int blacklistedP(HWND hwnd, const struct blacklist *list)
 static int isClassName(HWND hwnd, const wchar_t *str)
 {
     wchar_t classname[256];
-    GetClassName(hwnd, classname, ARR_SZ(classname));
-    return !wcscmp(classname, str);
+    return GetClassName(hwnd, classname, ARR_SZ(classname)) 
+        && !wcscmp(classname, str);
 }
 
 // To clamp width and height of windows
@@ -2528,13 +2531,15 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
 /////////////////////////////////////////////////////////////////////////////
 static void ActionBorderless(HWND hwnd)
 {
-    LONG_PTR style;
+    LONG_PTR style=0;
     // Get anc clear eventual old style.
     LONG_PTR ostyle = ClearBorderlessFlag(hwnd);
     if (ostyle) {
         // Restore old style if found
         style = ostyle;
-    } else if ((style=GetWindowLongPtr(hwnd, GWL_STYLE))) {
+    } else {
+        style=GetWindowLongPtr(hwnd, GWL_STYLE);
+        if (!style) return;
         SetBorderlessFlag(hwnd, style); // Save style
         if((style&WS_CAPTION) == WS_CAPTION || style&WS_THICKFRAME) {
             style &= state.shift? ~WS_CAPTION: ~(WS_CAPTION|WS_THICKFRAME);
@@ -2545,17 +2550,13 @@ static void ActionBorderless(HWND hwnd)
     SetWindowLongPtr(hwnd, GWL_STYLE, style);
 
     // Under Windows 10, with DWM we HAVE to resize the windows twice
-    // to have proper drawing. this is a bug...
-    if (HaveDWM()) {
-        RECT rc;
-        GetWindowRect(hwnd, &rc);
-        SetWindowPos(hwnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top+1
-                   , SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_FRAMECHANGED|SWP_NOZORDER);
-        SetWindowPos(hwnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top
-                   , SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_NOZORDER);
-    } else {
-        SetWindowPos(hwnd, NULL, 0, 0, 0, 0, SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_NOSIZE|SWP_FRAMECHANGED|SWP_NOZORDER);
-    }
+    // to have proper drawing. this is a bug.
+    RECT rc;
+    GetWindowRect(hwnd, &rc);
+    SetWindowPos(hwnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top+1
+               , SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_FRAMECHANGED|SWP_NOZORDER);
+    SetWindowPos(hwnd, NULL, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top
+               , SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_NOZORDER);
 }
 /////////////////////////////////////////////////////////////////////////////
 static int IsFullscreen(HWND hwnd, const RECT *wnd, const RECT *fmon)
@@ -3464,15 +3465,16 @@ static void readbuttonactions(const wchar_t *inipath)
         wchar_t key[32];
         str2wide(key, buttons[i]);
         int len = wcslen(key);
+        // Read primary action (no sufix)
         actionptr[4*i+0] = readaction(inipath, key);
 
-        key[len] = 'B'; key[len+1] = '\0';
+        key[len] = 'B'; key[len+1] = '\0'; // Secondary B sufixe
         actionptr[4*i+1] = readaction(inipath, key);
 
-        key[len] = 'T'; key[len+1] = '\0';
+        key[len] = 'T'; key[len+1] = '\0'; // Titlebar T sufixes
         actionptr[4*i+2] = readaction(inipath, key);
 
-        key[len] = 'T'; key[len+1] = 'B'; key[len+2] = '\0';
+        key[len] = 'T'; key[len+1] = 'B'; key[len+2] = '\0'; // TB
         actionptr[4*i+3] = readaction(inipath, key);
     }
 }

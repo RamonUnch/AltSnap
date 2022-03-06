@@ -1998,20 +1998,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
     return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
 /////////////////////////////////////////////////////////////////////////////
-static HWND GetClass_HideIfTooltip(POINT pt, HWND hwnd, wchar_t *classname, size_t classlen)
-{
-    GetClassName(hwnd, classname, classlen);
-
-    if (!wcscmp(classname, TOOLTIPS_CLASS)) {
-        ShowWindowAsync(hwnd, SW_HIDE);
-        hwnd = WindowFromPoint(pt);
-        if (!hwnd) return NULL;
-
-        GetClassName(hwnd, classname, classlen);
-    }
-    return hwnd;
-}
-/////////////////////////////////////////////////////////////////////////////
 // 1.44
 static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
 {
@@ -2023,9 +2009,9 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
     if (!hwnd || (foreground && blacklisted(foreground,&BlkLst.Windows)))
         return 0;
 
-    // Get class behind eventual tooltip
+    // Get class name
     wchar_t classname[20] = L"";
-    hwnd = GetClass_HideIfTooltip(pt, hwnd, classname, ARR_SZ(classname));
+    GetClassName(hwnd, classname, ARR_SZ(classname));
 
     // If it's a groupbox, grab the real window
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
@@ -2110,7 +2096,7 @@ static int ActionAltTab(POINT pt, int delta)
     numhwnds = 0;
 
     if (conf.MDI) {
-        // Get Class and Hide if tooltip
+        // Get Class name
         wchar_t classname[32] = L"";
         HWND hwnd = WindowFromPoint(pt);
         GetClassName(hwnd, classname, ARR_SZ(classname));
@@ -2765,8 +2751,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     state.mdiclient = NULL;
     state.hwnd = WindowFromPoint(pt);
     // Hide if tooltip
-    wchar_t classname[20] = L"";
-    state.hwnd = GetClass_HideIfTooltip(pt, state.hwnd, classname, ARR_SZ(classname));
     // Get MDI chlild hwnd or root hwnd if not MDI!
     state.hwnd = MDIorNOT(state.hwnd, &state.mdiclient);
 

@@ -300,11 +300,19 @@ static pure int blacklistedP(HWND hwnd, const struct blacklist *list)
     }
     return !mode;
 }
+static int isClassName(HWND hwnd, const wchar_t *str)
+{
+    wchar_t classname[256];
+    GetClassName(hwnd, classname, ARR_SZ(classname));
+    return !wcscmp(classname, str);
+}
 
 // To clamp width and height of windows
 static pure int CLAMPW(int width)  { return CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x); }
 static pure int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state.mmi.Max.y); }
 
+/////////////////////////////////////////////////////////////////////////////
+// The second bit (&2) will always correspond to the WS_THICKFRAME flag
 static int pure IsResizable(HWND hwnd)
 {
     int ret =  conf.ResizeAll // bit two is the real thickframe state.
@@ -1790,9 +1798,7 @@ static int ActionKill(HWND hwnd)
     //LOG("hwnd=%lx",(DWORD) hwnd);
     if (!hwnd) return 0;
 
-    wchar_t classn[256];
-    if(GetClassName(hwnd, classn, ARR_SZ(classn))
-    && !wcscmp(classn, L"Ghost")) {
+    if(isClassName(hwnd, L"Ghost")) {
         PostMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0);
         return 1;
     }
@@ -2009,13 +2015,9 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
     if (!hwnd || (foreground && blacklisted(foreground,&BlkLst.Windows)))
         return 0;
 
-    // Get class name
-    wchar_t classname[20] = L"";
-    GetClassName(hwnd, classname, ARR_SZ(classname));
-
     // If it's a groupbox, grab the real window
     LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
-    if ((style&BS_GROUPBOX) && !wcscmp(classname,L"Button")) {
+    if ((style&BS_GROUPBOX) && isClassName(hwnd, L"Button")) {
         HWND groupbox = hwnd;
         EnableWindow(groupbox, FALSE);
         hwnd = WindowFromPoint(pt);
@@ -2097,14 +2099,12 @@ static int ActionAltTab(POINT pt, int delta)
 
     if (conf.MDI) {
         // Get Class name
-        wchar_t classname[32] = L"";
         HWND hwnd = WindowFromPoint(pt);
-        GetClassName(hwnd, classname, ARR_SZ(classname));
-
         if (!hwnd) return 0;
+
         // Get MDIClient
         HWND mdiclient = NULL;
-        if (!wcscmp(classname, L"MDIClient")) {
+        if (isClassName(hwnd, L"MDIClient")) {
             mdiclient = hwnd; // we are pointing to the MDI client!
         } else {
             MDIorNOT(hwnd, &mdiclient); // Get mdiclient from hwnd

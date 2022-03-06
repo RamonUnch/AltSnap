@@ -3,7 +3,7 @@
  * This program is free software: you can redistribute it and/or modify  *
  * it under the terms of the GNU General Public License as published by  *
  * the Free Software Foundation, either version 3 or later.              *
- * Modified By Raymond Gillibert in 2021                                 *
+ * Modified By Raymond Gillibert in 2022                                 *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "hooks.h"
@@ -77,15 +77,15 @@ static struct {
     UCHAR alt;
     UCHAR alt1;
     UCHAR blockaltup;
-    UCHAR blockmouseup;
-
     UCHAR ignorekey;
+
     UCHAR ignoreclick;
     UCHAR ctrl;
     UCHAR shift;
-
     UCHAR snap;
+
     UCHAR moving;
+    UCHAR blockmouseup;
 
     UCHAR clickbutton;
     UCHAR resizable;
@@ -194,7 +194,7 @@ static struct {
         , MB6[4],  MB7[4],  MB8[4],  MB9[4],  MB10[4]
         , MB11[4], MB12[4], MB13[4], MB14[4], MB15[4]
         , MB16[4], MB17[4], MB18[4], MB19[4], MB20[4]
-        , Scroll[4], HScroll[4]; // Plus vertical and horieontal wheels
+        , Scroll[4], HScroll[4]; // Plus vertical and horizontal wheels
     } Mouse;
     enum action GrabWithAlt[4]; // Actions without click
     enum action MoveUp[4];      // Actions on (long) Move Up w/o drag
@@ -481,14 +481,19 @@ BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
     && GetWindowRectL(hwnd, &wnd)) {
         unsigned restore;
 
-        if ((restore = GetRestoreFlag(hwnd)) && restore&SNAPPED && restore&SNAPPEDSIDE) {
-            snwnds[numsnwnds].flag = restore;
-        } else if (conf.SmartAero&2 || IsWindowSnapped(hwnd)) {
+        if (conf.SmartAero&2 || IsWindowSnapped(hwnd)) {
+            // In SMARTER snapping mode or if the WINDOW IS SNAPPED
+            // We only consider the position of the window
+            // to determine its snapping state
             HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
             MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
             GetMonitorInfo(monitor, &mi);
             snwnds[numsnwnds].flag = WhichSideRectInRect(&mi.rcWork, &wnd);
+        } else if ((restore = GetRestoreFlag(hwnd)) && restore&SNAPPED && restore&SNAPPEDSIDE) {
+            // The window was AltSnapped...
+            snwnds[numsnwnds].flag = restore;
         } else {
+            // thiw window is not snapped.
             return TRUE; // next hwnd
         }
         // Add the window to the list
@@ -1881,7 +1886,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             //LOGA("\nALT DOWN");
             state.alt = vkey;
             state.blockaltup = 0;
-            state.blockmouseup = 0;
 
             // Hook mouse
             HookMouse();
@@ -2109,7 +2113,7 @@ static int ActionAltTab(POINT pt, int delta)
         // Get Class and Hide if tooltip
         wchar_t classname[32] = L"";
         HWND hwnd = WindowFromPoint(pt);
-        hwnd = GetClass_HideIfTooltip(pt, hwnd, classname, ARR_SZ(classname));
+        GetClassName(hwnd, classname, ARR_SZ(classname));
 
         if (!hwnd) return 0;
         // Get MDIClient
@@ -2511,9 +2515,8 @@ static void SnapToCorner(HWND hwnd)
 static int ActionResize(POINT pt, const RECT *wnd, int button)
 {
     if(!state.resizable) {
-        // state.blockmouseup = 1;
         state.action = AC_NONE;
-        return 0; //1
+        return 0;// Next Hook
     }
     // Aero-move this window if this is a double-click
     if (IsDoubleClick(button)) {
@@ -2761,7 +2764,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Get window
     state.mdiclient = NULL;
     state.hwnd = WindowFromPoint(pt);
-    DorQWORD lpdwResult;
     // Hide if tooltip
     wchar_t classname[20] = L"";
     state.hwnd = GetClass_HideIfTooltip(pt, state.hwnd, classname, ARR_SZ(classname));
@@ -2808,6 +2810,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Set state
     state.blockaltup = state.alt; // If alt is down...
     // return if window has to be moved/resized and does not respond in 1/4 s.
+    DorQWORD lpdwResult;
     if (MOUVEMENT(action)
     && !SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 255, &lpdwResult)) {
         state.blockmouseup = 1;
@@ -2855,6 +2858,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         if(!g_mchwnd) g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
         state.sclickhwnd = state.hwnd;
         PostMessage(g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd, conf.AggressiveKill);
+        state.blockmouseup = 1;
         return 1; // block mouse down
     } else if(button == BT_WHEEL || button == BT_HWHEEL) {
         // Wheel actions, directly return here
@@ -2862,7 +2866,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         return DoWheelActions(state.hwnd, action);
     } else {
         SClickActions(state.hwnd, action);
-        state.blockmouseup = 1; // because the is done
+        state.blockmouseup = 1; // because the action is done
     }
     // AN ACTION HAS BEEN DONE!!!
 
@@ -2985,6 +2989,7 @@ static void FinishMovement()
 
 /////////////////////////////////////////////////////////////////////////////
 // state.action is the current action
+// TODO: Generalize click combo...
 static void ClickComboActions(enum action action)
 {
     // Maximize/Restore the window if pressing Move, Resize mouse buttons.
@@ -3001,6 +3006,10 @@ static void ClickComboActions(enum action action)
         } else if (state.resizable) {
             state.moving = CURSOR_ONLY; // So that MouseMove will only move g_mainhwnd
             HideTransWin();
+            if (IsHotclick(state.alt)) {
+                state.action = AC_NONE;
+                state.moving = 0;
+            }
             MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE);
         }
         state.blockmouseup = 1;
@@ -3011,6 +3020,8 @@ static void ClickComboActions(enum action action)
         state.blockmouseup = 2; // block two mouse up events!
     }
 }
+/////////////////////////////////////////////////////////////////////////////
+//
 static xpure enum button GetButton(WPARAM wp, LPARAM lp)
 {
     PMSLLHOOKSTRUCT msg = (PMSLLHOOKSTRUCT)lp;
@@ -3036,6 +3047,10 @@ static xpure enum buttonstate GetButtonState(WPARAM wp)
 /////////////////////////////////////////////////////////////////////////////
 // This is somewhat the main function, it is active only when the ALT key is
 // pressed, or is always on when conf.keepMousehook is enabled.
+//
+// We should not call the next Hook for button 6-20 (manual call only).
+#define CALLNEXTHOOK (button>BT_MB5 && button <= BT_MB20? 1: CallNextHookEx(NULL, nCode, wParam, lParam))
+//
 LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
 //    if (state.ignoreclick) LOGA("IgnoreClick")
@@ -3108,7 +3123,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             // Scroll inactive window with wheel action...
             ret = ScrollPointedWindow(pt, state.delta, wParam);
         }
-        if (ret == 0) return CallNextHookEx(NULL, nCode, wParam, lParam);
+        if (ret == 0) return CALLNEXTHOOK;
         else if (ret == 1) return 1;
     }
 
@@ -3125,13 +3140,13 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 
     // Nothing to do...
     if (!action)
-        return CallNextHookEx(NULL, nCode, wParam, lParam);
+        return CALLNEXTHOOK;//CallNextHookEx(NULL, nCode, wParam, lParam);
 
     // Handle another click if we are already busy with an action
     if (buttonstate == STATE_DOWN && state.action && state.action != conf.GrabWithAlt[ModKey()]) {
         if ((conf.MMMaximize&1))
             ClickComboActions(action); // Handle click combo!
-        return 1; // Block mousedown so AltDrag.exe does not remove g_mainhwnd
+        return 1; // Block mousedown so altsnap does not remove g_mainhwnd
 
     // INIT ACTIONS on mouse down if Alt is down...
     } else if (buttonstate == STATE_DOWN && state.alt) {
@@ -3141,11 +3156,11 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         && !IsHotclick(state.alt)
         && !IsHotkeyDown()) {
             UnhookMouse();
-            return CallNextHookEx(NULL, nCode, wParam, lParam);
+            return CALLNEXTHOOK; //CallNextHookEx(NULL, nCode, wParam, lParam);
         }
         // Start an action (alt is down)
         int ret = init_movement_and_actions(pt, action, button);
-        if (!ret) return CallNextHookEx(NULL, nCode, wParam, lParam);
+        if (!ret) return CALLNEXTHOOK;//CallNextHookEx(NULL, nCode, wParam, lParam);
         else      return 1; // block mousedown
 
     // BUTTON UP
@@ -3182,8 +3197,9 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             return 1;
         }
     }
-    return CallNextHookEx(NULL, nCode, wParam, lParam);
+    return CALLNEXTHOOK; //CallNextHookEx(NULL, nCode, wParam, lParam);
 } // END OF LL MOUSE PROCK
+#undef CALLNEXTHOOK
 
 /////////////////////////////////////////////////////////////////////////////
 static void HookMouse()

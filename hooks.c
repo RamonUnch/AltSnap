@@ -306,7 +306,7 @@ static pure int blacklistedP(HWND hwnd, const struct blacklist *list)
 static int isClassName(HWND hwnd, const wchar_t *str)
 {
     wchar_t classname[256];
-    return GetClassName(hwnd, classname, ARR_SZ(classname)) 
+    return GetClassName(hwnd, classname, ARR_SZ(classname))
         && !wcscmp(classname, str);
 }
 
@@ -419,16 +419,17 @@ static void OffsetRectMDI(RECT *wnd)
 {
     OffsetRect(wnd, -mdiclientpt.x, -mdiclientpt.y);
 }
-static int ShouldSnapTo(HWND window)
+static int ShouldSnapTo(HWND hwnd)
 {
     LONG_PTR style;
-    return window != state.hwnd
-        && IsVisible(window)
-        && !IsIconic(window)
-        &&( ((style=GetWindowLongPtr(window, GWL_STYLE))&WS_CAPTION) == WS_CAPTION
+    return hwnd != state.hwnd
+        && IsVisible(hwnd)
+        && !IsIconic(hwnd)
+        &&( ((style=GetWindowLongPtr(hwnd, GWL_STYLE))&WS_CAPTION) == WS_CAPTION
            || (style&WS_THICKFRAME)
-           || blacklisted(window,&BlkLst.Snaplist)
-          );
+           || GetBorderlessFlag(hwnd) // prop..
+           || blacklisted(hwnd,&BlkLst.Snaplist)
+        );
 }
 /////////////////////////////////////////////////////////////////////////////
 unsigned wnds_alloc = 0;
@@ -1473,14 +1474,14 @@ static void ShowTransWin(int nCmdShow)
 
 static void MoveTransWin(int x, int y, int w, int h)
 {
-      #define f SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER
-      HDWP hwndSS = BeginDeferWindowPos(4);
-      if(hwndSS) hwndSS = DeferWindowPos(hwndSS,g_transhwnd[0],NULL,  x    , y    , w, 4, f);
-      if(hwndSS) hwndSS = DeferWindowPos(hwndSS,g_transhwnd[1],NULL,  x    , y    , 4, h, f);
-      if(hwndSS) hwndSS = DeferWindowPos(hwndSS,g_transhwnd[2],NULL,  x    , y+h-4, w, 4, f);
-      if(hwndSS) hwndSS = DeferWindowPos(hwndSS,g_transhwnd[3],NULL,  x+w-4, y    , 4, h, f);
+      #define f SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER //|SWP_DEFERERASE
+//      HDWP hwndSS = BeginDeferWindowPos(4);
+      SetWindowPos(g_transhwnd[0],NULL,  x    , y    , w, 4, f);
+      SetWindowPos(g_transhwnd[1],NULL,  x    , y    , 4, h, f);
+      SetWindowPos(g_transhwnd[2],NULL,  x    , y+h-4, w, 4, f);
+      SetWindowPos(g_transhwnd[3],NULL,  x+w-4, y    , 4, h, f);
       #undef f
-      if(hwndSS) EndDeferWindowPos(hwndSS);
+//      if(hwndSS) EndDeferWindowPos(hwndSS);
 }
 static DWORD CALLBACK WinPlacmntTrgead(LPVOID wndplptr)
 {
@@ -2040,13 +2041,18 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
     }
 
     // Add button information since we don't get it with the hook
-    if (GetAsyncKeyState(VK_LBUTTON) &0x8000) wp |= MK_LBUTTON;
-    if (GetAsyncKeyState(VK_RBUTTON) &0x8000) wp |= MK_RBUTTON;
-    if (GetAsyncKeyState(VK_CONTROL) &0x8000) wp |= MK_CONTROL;
-    if (GetAsyncKeyState(VK_SHIFT)   &0x8000) wp |= MK_SHIFT;
-    if (GetAsyncKeyState(VK_MBUTTON) &0x8000) wp |= MK_MBUTTON;
-    if (GetAsyncKeyState(VK_XBUTTON1)&0x8000) wp |= MK_XBUTTON1;
-    if (GetAsyncKeyState(VK_XBUTTON2)&0x8000) wp |= MK_XBUTTON2;
+    static const UCHAR toOr[] = {
+        VK_LBUTTON,// MK_LBUTTON  }, 1
+        VK_RBUTTON,// MK_RBUTTON  }, 2
+        VK_CONTROL,// MK_CONTROL  }, 4
+        VK_SHIFT,//   MK_SHIFT    }, 8
+        VK_MBUTTON,// MK_MBUTTON  }, 16
+        VK_XBUTTON1,//MK_XBUTTON1 }, 32
+        VK_XBUTTON2,//MK_XBUTTON2 }  64
+    };
+    unsigned i;
+    for (i=0; i < ARR_SZ(toOr); i++)
+        if (GetAsyncKeyState(toOr[i]) &0x8000) wp |= (1<<i);
 
     // Forward scroll message
     SendMessage(hwnd, wParam, wp, lp);

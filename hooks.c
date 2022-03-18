@@ -252,7 +252,7 @@ HHOOK mousehook = NULL;
 #include "zones.c"
 
 /////////////////////////////////////////////////////////////////////////////
-// wether a window is present or not in a blacklist
+// Wether a window is present or not in a blacklist
 static pure int blacklisted(HWND hwnd, const struct blacklist *list)
 {
     wchar_t title[256], classname[256];
@@ -267,9 +267,8 @@ static pure int blacklisted(HWND hwnd, const struct blacklist *list)
     mode = (DorQWORD)list->items[0].classname|(DorQWORD)list->items[0].title;
     i = !mode;
 
-    if(!GetWindowText(hwnd, title, ARR_SZ(title))
-    || !GetClassName(hwnd, classname, ARR_SZ(classname)))
-        return 0;
+    GetWindowText(hwnd, title, ARR_SZ(title));
+    GetClassName(hwnd, classname, ARR_SZ(classname));
 
     for ( ; i < list->length; i++) {
         if (!wcscmp_star(classname, list->items[i].classname)
@@ -548,7 +547,7 @@ BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
         RECT statewnd;
         GetWindowRectL(state.hwnd, &statewnd);
         unsigned flag = AreRectsTouchingT(&statewnd, &wnd, conf.SnapThreshold/2);
-        if(flag) {
+        if (flag) {
             OffsetRectMDI(&wnd);
 
             // Return if this window is overlapped by another window
@@ -571,10 +570,10 @@ BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
 //
 static DWORD WINAPI EndDeferWindowPosThread(LPVOID hwndSS)
 {
-        EndDeferWindowPos(hwndSS);
-        if (conf.RefreshRate) Sleep(conf.RefreshRate);
-        LastWin.hwnd = NULL;
-        return TRUE;
+    EndDeferWindowPos(hwndSS);
+    if (conf.RefreshRate) Sleep(conf.RefreshRate);
+    LastWin.hwnd = NULL;
+    return TRUE;
 }
 static void EndDeferWindowPosAsync(HDWP hwndSS)
 {
@@ -1729,6 +1728,22 @@ static void Send_Click(enum button button)
     SendInput(2, input, sizeof(INPUT));
     state.ignoreclick = 0;
 }
+/////////////////////////////////////////////////////////////////////////////
+// Sends an unicode chaarcter to the system UCS-2 only :{
+static void SendUnicodeKey(WORD w)
+{
+    KEYBDINPUT ctrl[2] = {
+        {0, w, KEYEVENTF_UNICODE, 0, 0},
+        {0, 0 , KEYEVENTF_UNICODE|KEYEVENTF_KEYUP, 0, 0}
+    };
+    ctrl[0].dwExtraInfo = ctrl[1].dwExtraInfo = GetMessageExtraInfo();
+    ctrl[0].time = ctrl[1].time = GetTickCount();
+    INPUT input[2] = { {INPUT_KEYBOARD,{.ki = ctrl[0]}}, {INPUT_KEYBOARD,{.ki = ctrl[1]}} };
+
+    state.ignorekey = 1; // Not intercepted by AltSnap...
+    SendInput(2, input, sizeof(INPUT));
+    state.ignorekey = 0;
+}
 
 ///////////////////////////////////////////////////////////////////////////
 static void RestrictToCurentMonitor()
@@ -1978,6 +1993,16 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 SimulateXButton(WM_XBUTTONDOWN, xxbtidx);
             }
             return 1;
+//        } else if (0x41 <= vkey && vkey <= 0x5A) {
+//            // handle long A-Z keydown.
+//            if (GetAsyncKeyState(vkey)&0x8000) { // autorepeat stuff.
+//                UCHAR idx = vkey-0x41; // 0-26 index key.
+//                Send_KEY(VK_BACK); // Errase old char...
+//                SendUnicodeKey(L'é');
+//                HMENU hMenu = CreatePopupMenu();
+//                //PostMessage(g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd, idx);
+//                return 1;
+//            }
         }
 
     } else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP) {
@@ -1993,7 +2018,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         } else if (vkey == VK_LCONTROL || vkey == VK_RCONTROL) {
             ClipCursorOnce(NULL); // Release cursor trapping
             state.ctrl = 0;
-            // If there is no action then Control UP prevents AltDragging...
+       // If there is no action then Control UP prevents AltDragging...
             if (!state.action) state.alt = 0;
 //        } else if (vkey == conf.ModKey) {
 //            ; // TODO, block modkey with Ctrl when needed...

@@ -21,18 +21,18 @@
 #define SWM_TESTWIN    (WM_APP+10)
 
 // Boring stuff
-HINSTANCE g_hinst = NULL;
-HWND g_hwnd = NULL;
-UINT WM_TASKBARCREATED = 0;
-wchar_t inipath[MAX_PATH];
+static HINSTANCE g_hinst = NULL;
+static HWND g_hwnd = NULL;
+static UINT WM_TASKBARCREATED = 0;
+static wchar_t inipath[MAX_PATH];
 
 // Cool stuff
 HINSTANCE hinstDLL = NULL;
 HHOOK keyhook = NULL;
-char elevated = 0;
-char ScrollLockState = 0;
-char SnapGap = 0;
-BYTE WinVer = 0;
+static char elevated = 0;
+static char ScrollLockState = 0;
+static char SnapGap = 0;
+static BYTE WinVer = 0;
 
 #define VISTA (WinVer >= 6)
 #define WIN10 (WinVer >= 10)
@@ -139,27 +139,27 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
     POINT pt;
     GetCursorPos(&pt);
     HMENU menu = CreatePopupMenu();
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_ALWAYSONTOP,l10n->input_actions_alwaysontop);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_BORDERLESS, l10n->input_actions_borderless);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_CENTER,     l10n->input_actions_center);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_ROLL,       l10n->input_actions_roll);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_LOWER,      l10n->input_actions_lower);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MAXHV,      l10n->input_actions_maximizehv);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MINALL,     l10n->input_actions_minallother);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_SIDESNAP,   l10n->input_actions_sidesnap);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MAXIMIZE,   l10n->input_actions_maximize);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MINIMIZE,   l10n->input_actions_minimize);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_CLOSE,      l10n->input_actions_close);
+    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_ALWAYSONTOP,l10n->input_actions_alwaysontop);
+    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_BORDERLESS, l10n->input_actions_borderless);
+    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_CENTER,     l10n->input_actions_center);
+    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_ROLL,       l10n->input_actions_roll);
+    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_LOWER,      l10n->input_actions_lower);
+    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_MAXHV,      l10n->input_actions_maximizehv);
+    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_MINALL,     l10n->input_actions_minallother);
+    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_SIDESNAP,   l10n->input_actions_sidesnap);
+    AppendMenu(menu, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
+    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_MAXIMIZE,   l10n->input_actions_maximize);
+    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_MINIMIZE,   l10n->input_actions_minimize);
+    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_CLOSE,      l10n->input_actions_close);
     if (param&1) {
-        InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
-        InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_KILL, l10n->input_actions_kill);
+        AppendMenu(menu, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
+        AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_KILL, l10n->input_actions_kill);
     }
-//    InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
-//    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_MUTE, l10n->input_actions_mute);
+//    InsertMenu(menu, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
+//    InsertMenu(menu, MF_BYPOSITION|MF_STRING, AC_MUTE, l10n->input_actions_mute);
 
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_STRING, AC_NONE, l10n->input_actions_nothing);
+    AppendMenu(menu, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
+    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_NONE, l10n->input_actions_nothing);
     SetForegroundWindow(hwnd);
     TrackPopupMenu(menu, GetSystemMetrics(SM_MENUDROPALIGNMENT), pt.x, pt.y, 0, hwnd, NULL);
     DestroyMenu(menu);
@@ -243,7 +243,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     } else if (msg == WM_LBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_RBUTTONDOWN) {
         // Hide cursorwnd if clicked on, this might happen if
         // it wasn't hidden by hooks.c for some reason
-      ShowWindow(hwnd, SW_HIDE);
+        ShowWindow(hwnd, SW_HIDE);
+        return 0;
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }

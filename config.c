@@ -1122,8 +1122,28 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     static int centerfrac=24;
+    static wchar_t lastkey[64]=L"";
+
     switch (msg) {
-    case WM_PAINT:;
+    case WM_KEYUP:
+    case WM_KEYDOWN:
+    case WM_SYSKEYUP:
+    case WM_SYSKEYDOWN: {
+        wchar_t txt[10];
+        wcscpy(lastkey, L"vKey = ");
+        wcscat(lastkey, _itow(wParam, txt, 16));
+        wcscat(lastkey, L", sCode = ");
+        wcscat(lastkey, _itow(HIWORD(lParam)&0x00FF, txt, 16));
+        wcscat(lastkey, L", Data = " );
+        wcscat(lastkey, _itow(lParam, txt, 16));
+        RECT crc;
+        GetClientRect(hwnd, &crc);
+        long splitheight = crc.bottom-GetSystemMetrics(SM_CYCAPTION);
+        InvalidateRect(hwnd,  &(RECT){5, splitheight, crc.right, crc.bottom}, TRUE);
+        PostMessage(hwnd, WM_PAINT, 0, 0);
+    } break;
+
+    case WM_PAINT: {
         RECT wRect;
         HPEN pen = (HPEN) CreatePen(PS_SOLID, 2, GetSysColor(COLOR_BTNTEXT));
         PAINTSTRUCT ps;
@@ -1154,53 +1174,55 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
         DeleteObject(pen);
 
+        // Draw textual info....
+        SetBkMode(hdc, TRANSPARENT);
+        SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
+        RECT crc;
+        GetClientRect(hwnd, &crc);
+        long splitheight = crc.bottom-GetSystemMetrics(SM_CYCAPTION);
+        DrawText(hdc, lastkey, wcslen(lastkey), &(RECT){5, splitheight, crc.right, crc.bottom}, DT_NOCLIP|DT_TABSTOP);
+        wchar_t *str = l10n->zone_testwinhelp;
         if (UseZones&1) {
-            // Draw textual info....
-            SetBkMode(hdc, TRANSPARENT);
-            SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
-            RECT crc;
-            GetWindowRect(hwnd, &crc);
-            wchar_t *str = l10n->zone_testwinhelp;
-            DrawText(hdc, str, wcslen(str), &(RECT){5, 5, crc.right, crc.bottom}, DT_NOCLIP|DT_TABSTOP);
+            DrawText(hdc, str, wcslen(str), &(RECT){5, 5, crc.right, splitheight}, DT_NOCLIP|DT_TABSTOP);
         }
         EndPaint(hwnd, &ps);
         return 0;
-        break;
+    } break;
 
     case WM_ERASEBKGND:
         return 1;
-        break;
 
     case WM_UPDCFRACTION:
         centerfrac = lParam;
         return 0;
-        break;
+
     case WM_CLOSE:
         DestroyWindow(hwnd);
         UnregisterClass(APP_NAME"-Test", g_hinst);
-        /* Fall through */
-    default:
-        return DefWindowProc(hwnd, msg, wParam, lParam);
+        break;
     }
-    return 0;
+    return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 static HWND NewTestWindow()
 {
+    static char registered=0;
     HWND testwnd;
-    WNDCLASSEX wnd = {
-        sizeof(WNDCLASSEX)
-      , CS_HREDRAW|CS_VREDRAW|CS_BYTEALIGNCLIENT
-      , TestWindowProc
-      , 0, 0, g_hinst, LoadIconA(g_hinst, iconstr[1])
-      , LoadCursor(NULL, IDC_ARROW)
-      , (HBRUSH)(COLOR_BACKGROUND+1)
-      , NULL, APP_NAME"-Test", NULL
-    };
-    RegisterClassEx(&wnd);
+    if (!registered) {
+	    WNDCLASSEX wnd = {
+	        sizeof(WNDCLASSEX)
+	      , CS_HREDRAW|CS_VREDRAW|CS_BYTEALIGNCLIENT
+	      , TestWindowProc
+	      , 0, 0, g_hinst, LoadIconA(g_hinst, iconstr[1])
+	      , LoadCursor(NULL, IDC_ARROW)
+	      , (HBRUSH)(COLOR_BACKGROUND+1)
+	      , NULL, APP_NAME"-Test", NULL
+	    };
+	    registered=!!RegisterClassEx(&wnd);
+    }
     wchar_t wintitle[256];
     wcscpy_noaccel(wintitle, l10n->advanced_testwindow, ARR_SZ(wintitle));
     testwnd = CreateWindowEx(0
-         , wnd.lpszClassName
+         , APP_NAME"-Test"
          , wintitle, WS_CAPTION|WS_OVERLAPPEDWINDOW
          , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT
          , NULL, NULL, g_hinst, NULL);

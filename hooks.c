@@ -73,6 +73,7 @@ static struct {
     short hittest;
     short delta;
     unsigned Speed;
+    HMENU unikeymenu;
 
     UCHAR alt;
     UCHAR alt1;
@@ -169,6 +170,7 @@ static struct {
     UCHAR ShiftSnaps;
     UCHAR BLMaximized;
     UCHAR LongClickMove;
+    UCHAR UniKeyHoldMenu;
 
   # ifdef WIN64
     UCHAR FancyZone;
@@ -1887,6 +1889,14 @@ static int SimulateXButton(WPARAM wp, WORD xbtidx)
     LowLevelMouseProc(HC_ACTION, wp, (LPARAM)&msg);
     return 1;
 }
+static void KillUnikeymenu()
+{
+    if (IsMenu(state.unikeymenu)) {
+	    PostMessage(g_mchwnd, WM_CLOSE, 0, 0);
+	    state.unikeymenu = NULL;
+	    g_mchwnd=NULL;
+    }
+}
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -1911,6 +1921,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             //LOGA("\nALT DOWN");
             state.alt = vkey;
             state.blockaltup = 0;
+            KillUnikeymenu(); // Hide unikey menu in case...
 
             // Hook mouse
             HookMouse();
@@ -1952,6 +1963,11 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.ctrl = 0;
             state.shift = 0;
             LastWin.hwnd = NULL;
+            if (state.unikeymenu) {
+                KillUnikeymenu();
+                return 1;
+            }
+
             // Stop current action
             if (state.action || state.alt) {
                 enum action action = state.action;
@@ -1993,18 +2009,24 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 SimulateXButton(WM_XBUTTONDOWN, xxbtidx);
             }
             return 1;
-//        } else if (0x41 <= vkey && vkey <= 0x5A) {
-//            // handle long A-Z keydown.
-//            if (GetAsyncKeyState(vkey)&0x8000) { // autorepeat stuff.
-//                UCHAR idx = vkey-0x41; // 0-26 index key.
-//                Send_KEY(VK_BACK); // Errase old char...
-//                SendUnicodeKey(L'é');
-//                HMENU hMenu = CreatePopupMenu();
-//                //PostMessage(g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd, idx);
-//                return 1;
-//            }
+        } else if (conf.UniKeyHoldMenu && !blacklistedP(GetForegroundWindow(), &BlkLst.Processes)) {
+            if (state.unikeymenu && IsMenu(state.unikeymenu) && !(GetAsyncKeyState(vkey)&0x8000)) {
+                // ((0x41 <= vkey && vkey <= 0x5A) || IsHotkeyy(vkey, (UCHAR*)"\r&(") )
+                // Forward all keys to the menu...
+                PostMessage(g_mchwnd, WM_KEYDOWN, vkey, 0); // all keys are "directed to the Menu"
+                return 1; // block keydown
+            } else if (0x41 <= vkey && vkey <= 0x5A && !state.ctrl && !state.alt) {
+                // handle long A-Z keydown.
+                if (GetAsyncKeyState(vkey)&0x8000) { // autorepeat stuff.
+                    if(!IsMenu(state.unikeymenu)) {
+                        if(!g_mchwnd) g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
+                        UCHAR shiftdown = GetAsyncKeyState(VK_SHIFT)&0x8000 || GetKeyState(VK_CAPITAL)&1;
+                        PostMessage(g_mainhwnd, WM_UNIKEYMENU, (WPARAM)g_mchwnd, vkey|(shiftdown<<8) );
+                    }
+                    return 1; // block keydown
+                }
+            }
         }
-
     } else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP) {
         if (IsHotkey(vkey)) {
             //LOGA("ALT UP");
@@ -3318,13 +3340,19 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 // Window for single click commands
 LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    if (msg == WM_COMMAND && state.sclickhwnd) {
+    if (msg == WM_MENUCREATED) {
+        state.unikeymenu = (HMENU)wParam;
+    } else if (msg == WM_COMMAND && wParam > 65535) {
+        Send_KEY(VK_BACK); // Errase old char...
+        SendUnicodeKey(HIWORD(wParam));
+        state.sclickhwnd = NULL;
+    } else if (msg == WM_COMMAND && IsWindow(state.sclickhwnd)) {
         enum action action = wParam;
         state.sclickhwnd = MDIorNOT(state.sclickhwnd, &state.mdiclient);
 
         SClickActions(state.sclickhwnd, action);
         state.sclickhwnd = NULL;
-
+        state.unikeymenu = NULL;
         return 0;
     } else if(msg == WM_KILLFOCUS) {
         // Menu gets hiden, be sure to zero-out the clickhwnd
@@ -3586,6 +3614,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {&conf.KeyCombo,        L"Input", "KeyCombo", 0 },
         {&conf.ScrollLockState, L"Input", "ScrollLockState", 0 },
         {&conf.LongClickMove,   L"Input", "LongClickMove", 0 },
+        {&conf.UniKeyHoldMenu,  L"Input", "UniKeyHoldMenu", 0 },
 
         // [Zones]
         {&conf.UseZones,        L"Zones", "UseZones", 0 },

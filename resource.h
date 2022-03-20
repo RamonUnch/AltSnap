@@ -160,3 +160,4 @@
 #define IDC_INTTB                       2082
 
 #define IDC_OUTTB                       2083
+#define IDC_UNIKEYHOLDMENU              2084

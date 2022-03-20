@@ -173,9 +173,9 @@ static wchar_t *itowL(unsigned num, wchar_t *str, int base)
 }
 #define _itow itowL
 
-static size_t wcslenL(wchar_t *__restrict__ str)
+static size_t wcslenL(const wchar_t *__restrict__ str)
 {
-    wchar_t *ptr;
+    const wchar_t *ptr;
     for (ptr=str; *ptr != '\0'; ptr++);
     return ptr-str;
 }

@@ -9,9 +9,29 @@
 #define _UNFUCK_NT_
 
 #include <windows.h>
-#include <dwmapi.h>
 #include <stdio.h>
 #include "nanolibc.h"
+
+// #include <dwmapi.h>
+enum DWMWINDOWATTRIBUTE {
+  DWMWA_NCRENDERING_ENABLED = 1,
+  DWMWA_NCRENDERING_POLICY,
+  DWMWA_TRANSITIONS_FORCEDISABLED,
+  DWMWA_ALLOW_NCPAINT,
+  DWMWA_CAPTION_BUTTON_BOUNDS,
+  DWMWA_NONCLIENT_RTL_LAYOUT,
+  DWMWA_FORCE_ICONIC_REPRESENTATION,
+  DWMWA_FLIP3D_POLICY,
+  DWMWA_EXTENDED_FRAME_BOUNDS,
+  DWMWA_HAS_ICONIC_BITMAP,
+  DWMWA_DISALLOW_PEEK,
+  DWMWA_EXCLUDED_FROM_PEEK,
+  DWMWA_CLOAK,
+  DWMWA_CLOAKED,
+  DWMWA_FREEZE_REPRESENTATION,
+  DWMWA_PASSIVE_UPDATE_MODE,
+  DWMWA_LAST
+};
 
 /* Invalid pointer with which we initialize
  * all dynamically imported functions */
@@ -61,13 +81,6 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
 #ifndef WM_MOUSEHWHEEL
 #define WM_MOUSEHWHEEL 0x020E
 #endif
-//const CLSID my_CLSID_MMDeviceEnumerator= {0xBCDE0395,0xE52F,0x467C,{0x8E,0x3D,0xC4,0x57,0x92,0x91,0x69,0x2E}};
-//const GUID  my_IID_IMMDeviceEnumerator = {0xA95664D2,0x9614,0x4F35,{0xA7,0x46,0xDE,0x8D,0xB6,0x36,0x17,0xE6}};
-//const GUID  my_IID_IAudioEndpointVolume= {0x5CDF2C82,0x841E,0x4546,{0x97,0x22,0x0C,0xF7,0x40,0x78,0x22,0x9A}};
-//const GUID  myIID_IActiveIMMMessagePumpOwner = {0xb5cf2cfa,0x8aeb,0x11d1,{0x93,0x64,0x00,0x60,0xb0,0x67,0xb8,0x6e}};
-//const GUID  myIID_IActiveIMMApp = {0x08c0e040,0x62d1,0x11d1,{0x93,0x26,0x00,0x60,0xb0,0x67,0xb8,0x6e}};
-//const CLSID myCLSID_CActiveIMM = {0x4955dd33,0xb159,0x11d0,{0x8f,0xcf,0x00,0xaa,0x00,0x6b,0xcc,0x59}};
-//const IID myIID_IMultiLanguage2 = {0xDCCFC164, 0x2B38, 0x11d2, {0xB7, 0xEC, 0x00, 0xC0, 0x4F, 0x8F, 0x5D, 0x9A}};
 
 /* USER32.DLL */
 static BOOL (WINAPI *mySetLayeredWindowAttributes)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags) = IPTR;
@@ -77,6 +90,7 @@ static BOOL (WINAPI *myEnumDisplayMonitors)(HDC hdc, LPCRECT lprcClip, MONITOREN
 static BOOL (WINAPI *myGetMonitorInfoW)(HMONITOR hMonitor, LPMONITORINFO lpmi) = IPTR;
 static HMONITOR (WINAPI *myMonitorFromPoint)(POINT pt, DWORD dwFlags) = IPTR;
 static HMONITOR (WINAPI *myMonitorFromWindow)(HWND hwnd, DWORD dwFlags) = IPTR;
+static BOOL (WINAPI *myGetGUIThreadInfo)(DWORD idThread, LPGUITHREADINFO lpgui) = IPTR;
 
 /* DWMAPI.DLL */
 static HRESULT (WINAPI *myDwmGetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c) = IPTR;
@@ -297,6 +311,19 @@ static HMONITOR MonitorFromWindowL(HWND hwnd, DWORD dwFlags)
     return NULL;
 }
 #define MonitorFromWindow MonitorFromWindowL
+
+static BOOL GetGUIThreadInfoL(DWORD pid, LPGUITHREADINFO lpgui)
+{
+    if (myGetGUIThreadInfo == IPTR) { /* First time */
+        myGetGUIThreadInfo=LoadDLLProc("USER32.DLL", "GetGUIThreadInfo");
+    }
+    if (myGetGUIThreadInfo) { /* We know we have the function */
+        return myGetGUIThreadInfo(pid, lpgui);
+    }
+    return FALSE;
+}
+
+#define GetGUIThreadInfo GetGUIThreadInfoL
 
 static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 {

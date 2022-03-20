@@ -100,6 +100,7 @@ struct strings {
   wchar_t *input_aggressive_pause;
   wchar_t *input_aggressive_kill;
   wchar_t *input_scrolllockstate;
+  wchar_t *input_unikeyholdmenu;
   wchar_t *input_keycombo;
   wchar_t *input_grabwithalt;
   wchar_t *input_grabwithaltb;
@@ -180,7 +181,7 @@ struct strings {
   wchar_t *about_license;
   wchar_t *about_translation_credit;
 
-  /* misc */
+  // misc
   wchar_t *unhook_error;
   wchar_t *zone_confirmation;
   wchar_t *zone_testwinhelp;
@@ -263,6 +264,7 @@ static const char* l10n_inimapping[] = {
     "InputAggressivePause",
     "InputAggressiveKill",
     "InputScrollLockState",
+    "InputUniKeyHoldMenu",
     "InputKeyCombo",
     "InputGrabWithAlt",
     "InputGrabWithAltB",
@@ -429,6 +431,7 @@ static const struct strings en_US = {
  /* Aggressive Pause   */ L"&Pause process on Alt+Shift+Pause (Alt+Pause to resume)",
  /* Aggressive Kill    */ L"&Kill process on Ctrl+Alt+F4\nAlso adds the kill option to the action menu",
  /* scroll lock state  */ L"Suspend/Resume AltSnap based on &Scroll lock state",
+ /* unikeyholdmenu     */ L"Pop&up an extended character list menu when holding an alphabetic key down",
  /* keycombo           */ L"Use two keys &combo to activate",
  /* grabwithalt        */ L"&Action without click:",
  /* grabwithaltb       */ L"Acti&on without click (alt):",
@@ -504,6 +507,7 @@ static const struct strings en_US = {
  /* blmaximized      */   L"&Disable AltSnap on Maximized windows",
  /* fancyzone        */   L"Restore Fancy&Zones snapped windows",
  /* norestore        */   L"Never restore AltSna&pped windows",
+
  /* about tab */
  /* box                */ L"About "APP_NAME,
  /* version            */ L"Version "APP_VERSION,

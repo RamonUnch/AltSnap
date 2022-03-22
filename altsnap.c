@@ -198,6 +198,7 @@ static void ShowUnikeyMenu(HWND hwnd, LPARAM param)
         } else if (capital) {
             unichar = (wchar_t)(LONG_PTR)CharUpperW((wchar_t *)(LONG_PTR)*kl);
         }
+        if (i > 'Z') i = '1';
         wchar_t mwstr[6];
         mwstr[0] = L'&';
         mwstr[1] = i++;

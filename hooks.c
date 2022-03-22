@@ -1892,20 +1892,22 @@ static int SimulateXButton(WPARAM wp, WORD xbtidx)
 static void KillUnikeymenu()
 {
     if (IsMenu(state.unikeymenu)) {
-	    PostMessage(g_mchwnd, WM_CLOSE, 0, 0);
-	    state.unikeymenu = NULL;
-	    g_mchwnd=NULL;
+        EnableWindow(g_mchwnd, FALSE);
+        DestroyMenu(state.unikeymenu);
+        state.unikeymenu = NULL;
+//        PostMessage(g_mchwnd, WM_CLOSE, 0, 0);
+//        g_mchwnd = NULL;
     }
 }
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-//    if (state.ignorekey) LOGA("IgnoreKey")
     if (nCode != HC_ACTION || state.ignorekey) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     PKBDLLHOOKSTRUCT kbh = ((PKBDLLHOOKSTRUCT)lParam);
     unsigned char vkey = kbh->vkCode;
+//    DWORD scode = kbh->scanCode;
     int xxbtidx;
 //    if (vkey!=VK_F5) { // show key codes
 //        LOGA("wp=%u, vKey=%lx, sCode=%lx, flgs=%lx, ex=%lx"
@@ -2011,14 +2013,27 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             return 1;
         } else if (conf.UniKeyHoldMenu && !blacklistedP(GetForegroundWindow(), &BlkLst.Processes)) {
             if (state.unikeymenu && IsMenu(state.unikeymenu) && !(GetAsyncKeyState(vkey)&0x8000)) {
+
                 // ((0x41 <= vkey && vkey <= 0x5A) || IsHotkeyy(vkey, (UCHAR*)"\r&(") )
+                if (vkey == VK_SNAPSHOT) return CallNextHookEx(NULL, nCode, wParam, lParam);
+                if (vkey == VK_BACK || vkey == VK_TAB || vkey == VK_APPS
+                ||  vkey == VK_DELETE || vkey == VK_SPACE) {
+                    KillUnikeymenu();
+                    return CallNextHookEx(NULL, nCode, wParam, lParam);
+                }
+
                 // Forward all keys to the menu...
                 PostMessage(g_mchwnd, WM_KEYDOWN, vkey, 0); // all keys are "directed to the Menu"
                 return 1; // block keydown
-            } else if (0x41 <= vkey && vkey <= 0x5A && !state.ctrl && !state.alt) {
+            } else if (!state.ctrl && !state.alt
+            && ((0x41 <= vkey && vkey <= 0x5A)/* || (2 <= scode && scode <= 11)*/)) {
                 // handle long A-Z keydown.
                 if (GetAsyncKeyState(vkey)&0x8000) { // autorepeat stuff.
                     if(!IsMenu(state.unikeymenu)) {
+                        //if (2 <= scode && scode <= 11) {
+                        //    // 1234567890 keys...
+                        //    vkey = 0x5A - 1 + scode;
+                        //}
                         if(!g_mchwnd) g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
                         UCHAR shiftdown = GetAsyncKeyState(VK_SHIFT)&0x8000 || GetKeyState(VK_CAPITAL)&1;
                         PostMessage(g_mainhwnd, WM_UNIKEYMENU, (WPARAM)g_mchwnd, vkey|(shiftdown<<8) );

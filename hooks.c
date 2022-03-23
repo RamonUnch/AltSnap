@@ -327,6 +327,22 @@ static int pure IsResizable(HWND hwnd)
 
     return ret;
 }
+static void GetMonitorInfoFromWin(HWND hwnd, MONITORINFO *mi)
+{
+    mi->cbSize = sizeof(MONITORINFO);
+    GetMonitorInfo(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), mi);
+}
+static int IsFullscreen(HWND hwnd, const RECT *wnd, const RECT *fmon);
+static int IsFullScreenBL(HWND hwnd)
+{
+    if(conf.FullScreen) return 0;
+    RECT rc;
+    MONITORINFO mi;
+    GetMonitorInfoFromWin(hwnd, &mi);
+    GetWindowRect(hwnd, &rc);
+    return IsFullscreen(hwnd, &rc, &mi.rcMonitor);
+
+}
 /////////////////////////////////////////////////////////////////////////////
 // WM_ENTERSIZEMOVE or WM_EXITSIZEMOVE...
 static void SendSizeMove(DWORD msg)
@@ -450,9 +466,8 @@ BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
             // Skip maximized windows in MDI clients
             if (state.mdiclient) return TRUE;
             // Get monitor size
-            HMONITOR monitor = MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
-            MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
-            GetMonitorInfo(monitor, &mi);
+            MONITORINFO mi;
+            GetMonitorInfoFromWin(window, &mi);
             // Crop this window so that it does not exceed the size of the monitor
             // This is done because when maximized, windows have an extra invisible
             // border (a border that stretches onto other monitors)
@@ -498,9 +513,8 @@ BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
             // In SMARTER snapping mode or if the WINDOW IS SNAPPED
             // We only consider the position of the window
             // to determine its snapping state
-            HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-            MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
-            GetMonitorInfo(monitor, &mi);
+            MONITORINFO mi;
+            GetMonitorInfoFromWin(hwnd, &mi);
             snwnds[numsnwnds].flag = WhichSideRectInRect(&mi.rcWork, &wnd);
         } else if ((restore = GetRestoreFlag(hwnd)) && restore&SNAPPED && restore&SNAPPEDSIDE) {
             // The window was AltSnapped...
@@ -1909,6 +1923,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
     unsigned char vkey = kbh->vkCode;
 //    DWORD scode = kbh->scanCode;
     int xxbtidx;
+    HWND fhwnd = NULL;
 //    if (vkey!=VK_F5) { // show key codes
 //        LOGA("wp=%u, vKey=%lx, sCode=%lx, flgs=%lx, ex=%lx"
 //        , wParam, kbh->vkCode, kbh->scanCode, kbh->flags, kbh->dwExtraInfo);
@@ -2011,7 +2026,11 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 SimulateXButton(WM_XBUTTONDOWN, xxbtidx);
             }
             return 1;
-        } else if (conf.UniKeyHoldMenu && !blacklistedP(GetForegroundWindow(), &BlkLst.Processes)) {
+        } else if (conf.UniKeyHoldMenu
+        && (fhwnd=GetForegroundWindow())
+        && !IsFullScreenBL(fhwnd)
+        && !blacklistedP(fhwnd, &BlkLst.Processes)
+        && !blacklisted(fhwnd, &BlkLst.Windows)) {
             if (state.unikeymenu && IsMenu(state.unikeymenu) && !(GetAsyncKeyState(vkey)&0x8000)) {
 
                 // ((0x41 <= vkey && vkey <= 0x5A) || IsHotkeyy(vkey, (UCHAR*)"\r&(") )
@@ -2104,13 +2123,13 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
 
     // Add button information since we don't get it with the hook
     static const UCHAR toOr[] = {
-        VK_LBUTTON,// MK_LBUTTON  }, 1
-        VK_RBUTTON,// MK_RBUTTON  }, 2
-        VK_CONTROL,// MK_CONTROL  }, 4
-        VK_SHIFT,//   MK_SHIFT    }, 8
-        VK_MBUTTON,// MK_MBUTTON  }, 16
-        VK_XBUTTON1,//MK_XBUTTON1 }, 32
-        VK_XBUTTON2,//MK_XBUTTON2 }  64
+        VK_LBUTTON, // MK_LBUTTON  }, 1
+        VK_RBUTTON, // MK_RBUTTON  }, 2
+        VK_CONTROL, // MK_CONTROL  }, 4
+        VK_SHIFT,   // MK_SHIFT    }, 8
+        VK_MBUTTON, // MK_MBUTTON  }, 16
+        VK_XBUTTON1,// MK_XBUTTON1 }, 32
+        VK_XBUTTON2,// MK_XBUTTON2 }  64
     };
     unsigned i;
     for (i=0; i < ARR_SZ(toOr); i++)
@@ -2832,14 +2851,12 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
     GetMonitorInfo(monitor, &mi);
     CopyRect(&state.origin.mon, &mi.rcWork);
-    RECT fmon;
-    CopyRect(&fmon, &mi.rcMonitor);
 
     // mdiclientpt HAS to be set to Zero for ClientToScreen adds the offset
     mdiclientpt = (POINT) { 0, 0 };
     if (state.mdiclient) {
-        GetMDInfo(&mdiclientpt, &fmon);
-        CopyRect(&state.origin.mon, &fmon);
+        GetMDInfo(&mdiclientpt, &mi.rcMonitor);
+        CopyRect(&state.origin.mon, &mi.rcMonitor);
     }
 
     WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
@@ -2854,7 +2871,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     || GetWindowPlacement(state.hwnd, &wndpl) == 0
     || GetWindowRect(state.hwnd, &wnd) == 0
     || ((state.origin.maximized = IsZoomed(state.hwnd)) && conf.BLMaximized)
-    || ((state.origin.fullscreen = IsFullscreen(state.hwnd, &wnd, &fmon)) && !conf.FullScreen)
+    || ((state.origin.fullscreen = IsFullscreen(state.hwnd, &wnd, &mi.rcMonitor)) && !conf.FullScreen)
     ){
         return 0;
     }

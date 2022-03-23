@@ -82,6 +82,21 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
 #define WM_MOUSEHWHEEL 0x020E
 #endif
 
+/* on both x64 and x32 */
+#define GetLayeredWindowAttributes GetLayeredWindowAttributesL
+#define SetLayeredWindowAttributes SetLayeredWindowAttributesL
+#define NtSuspendProcess NtSuspendProcessL
+#define NtResumeProcess NtResumeProcessL
+#ifndef WIN64
+    #define GetAncestor GetAncestorL
+    #undef GetMonitorInfo
+    #define GetMonitorInfo GetMonitorInfoL
+    #define EnumDisplayMonitors EnumDisplayMonitorsL
+    #define MonitorFromPoint MonitorFromPointL
+    #define MonitorFromWindow MonitorFromWindowL
+    #define GetGUIThreadInfo GetGUIThreadInfoL
+#endif
+
 /* USER32.DLL */
 static BOOL (WINAPI *mySetLayeredWindowAttributes)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags) = IPTR;
 static BOOL (WINAPI *myGetLayeredWindowAttributes)(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWORD *pdwFlags) = IPTR;
@@ -171,30 +186,30 @@ static void ASleep(DWORD duration_ms)
     if (mtimeGetDevCaps == IPTR) {
         HANDLE h=LoadLibraryA("WINMM.DLL");
         if (h) {
-	        mtimeGetDevCaps =(void *)GetProcAddress(h, "timeGetDevCaps");
-	        mtimeBeginPeriod=(void *)GetProcAddress(h, "timeBeginPeriod");
-	        mtimeEndPeriod  =(void *)GetProcAddress(h, "timeEndPeriod");
-	        if(!mtimeGetDevCaps || !mtimeBeginPeriod || !mtimeEndPeriod) {
-		        mtimeGetDevCaps=NULL;
-		        FreeLibrary(h);
-		    }
-		}
-	}
-	/* We have winmm functions */
+            mtimeGetDevCaps =(void *)GetProcAddress(h, "timeGetDevCaps");
+            mtimeBeginPeriod=(void *)GetProcAddress(h, "timeBeginPeriod");
+            mtimeEndPeriod  =(void *)GetProcAddress(h, "timeEndPeriod");
+            if(!mtimeGetDevCaps || !mtimeBeginPeriod || !mtimeEndPeriod) {
+                mtimeGetDevCaps=NULL;
+                FreeLibrary(h);
+            }
+        }
+    }
+    /* We have winmm functions */
     // This absurd code makes Sleep() more accurate
     // - without it, Sleep() is not even +-10ms accurate
     // - with it, Sleep is around +-1.5 ms accurate
-	if(mtimeGetDevCaps) {
-	    TIMECAPS tc;
-	    mtimeGetDevCaps(&tc, sizeof(tc));
-	    mtimeBeginPeriod(tc.wPeriodMin); // begin accurate Sleep() !
+    if(mtimeGetDevCaps) {
+        TIMECAPS tc;
+        mtimeGetDevCaps(&tc, sizeof(tc));
+        mtimeBeginPeriod(tc.wPeriodMin); // begin accurate Sleep() !
 
-	    Sleep(duration_ms); // perform The SLEEP
+        Sleep(duration_ms); // perform The SLEEP
 
-	    mtimeEndPeriod(tc.wPeriodMin);
+        mtimeEndPeriod(tc.wPeriodMin);
     } else {
         Sleep(duration_ms);
-   	}
+       }
 }
 
 static BOOL FreeDLLByName(char *DLLname)
@@ -225,7 +240,6 @@ static HWND GetAncestorL(HWND hwnd, UINT gaFlags)
     }
     return hprevious;
 }
-#define GetAncestor GetAncestorL
 
 static BOOL GetLayeredWindowAttributesL(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWORD *pdwFlags)
 {
@@ -237,7 +251,6 @@ static BOOL GetLayeredWindowAttributesL(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlp
     }
     return FALSE;
 }
-#define GetLayeredWindowAttributes GetLayeredWindowAttributesL
 
 static BOOL SetLayeredWindowAttributesL(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)
 {
@@ -249,7 +262,6 @@ static BOOL SetLayeredWindowAttributesL(HWND hwnd, COLORREF crKey, BYTE bAlpha, 
     }
     return FALSE;
 }
-#define SetLayeredWindowAttributes SetLayeredWindowAttributesL
 
 static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
 {
@@ -266,8 +278,6 @@ static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
 
     return TRUE;
 }
-#undef GetMonitorInfo
-#define GetMonitorInfo GetMonitorInfoL
 
 static BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, LPARAM dwData)
 {
@@ -286,7 +296,6 @@ static BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfn
 
     return TRUE;
 }
-#define EnumDisplayMonitors EnumDisplayMonitorsL
 
 static HMONITOR MonitorFromPointL(POINT pt, DWORD dwFlags)
 {
@@ -298,7 +307,6 @@ static HMONITOR MonitorFromPointL(POINT pt, DWORD dwFlags)
     }
     return NULL;
 }
-#define MonitorFromPoint MonitorFromPointL
 
 static HMONITOR MonitorFromWindowL(HWND hwnd, DWORD dwFlags)
 {
@@ -310,7 +318,6 @@ static HMONITOR MonitorFromWindowL(HWND hwnd, DWORD dwFlags)
     }
     return NULL;
 }
-#define MonitorFromWindow MonitorFromWindowL
 
 static BOOL GetGUIThreadInfoL(DWORD pid, LPGUITHREADINFO lpgui)
 {
@@ -322,8 +329,6 @@ static BOOL GetGUIThreadInfoL(DWORD pid, LPGUITHREADINFO lpgui)
     }
     return FALSE;
 }
-
-#define GetGUIThreadInfo GetGUIThreadInfoL
 
 static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 {
@@ -419,7 +424,6 @@ static LONG NtSuspendProcessL(HANDLE ProcessHandle)
     }
     return 666; /* Here we FAIL with 666 error    */
 }
-#define NtSuspendProcess NtSuspendProcessL
 
 static LONG NtResumeProcessL(HANDLE ProcessHandle)
 {
@@ -431,7 +435,6 @@ static LONG NtResumeProcessL(HANDLE ProcessHandle)
     }
     return 666; /* Here we FAIL with 666 error    */
 }
-#define NtResumeProcess NtResumeProcessL
 
 static HRESULT DwmIsCompositionEnabledL(BOOL *pfEnabled)
 {
@@ -479,6 +482,7 @@ static DWORD GetModuleFileNameExL(HANDLE hProcess, HMODULE hModule, LPTSTR lpFil
     return 0;
 }
 static DWORD (WINAPI *myGetProcessImageFileName)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize) = IPTR;
+
 DWORD GetProcessImageFileNameL(HANDLE hProcess, LPWSTR lpImageFileName, DWORD    nSize)
 {
     if (myGetProcessImageFileName == IPTR) {

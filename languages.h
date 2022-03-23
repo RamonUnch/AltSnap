@@ -431,7 +431,7 @@ static const struct strings en_US = {
  /* Aggressive Pause   */ L"&Pause process on Alt+Shift+Pause (Alt+Pause to resume)",
  /* Aggressive Kill    */ L"&Kill process on Ctrl+Alt+F4\nAlso adds the kill option to the action menu",
  /* scroll lock state  */ L"Suspend/Resume AltSnap based on &Scroll lock state",
- /* unikeyholdmenu     */ L"Pop&up an extended character list menu when holding an alphabetic key down",
+ /* unikeyholdmenu     */ L"Pop&up an extended character menu when holding an alphabetic key down",
  /* keycombo           */ L"Use two keys &combo to activate",
  /* grabwithalt        */ L"&Action without click:",
  /* grabwithaltb       */ L"Acti&on without click (alt):",

@@ -1711,6 +1711,7 @@ static void Send_KEY(unsigned char vkey)
 {
     KEYBDINPUT ctrl[2] = { {vkey, 0, 0, 0, 0}, {vkey, 0 , KEYEVENTF_KEYUP, 0, 0} };
     ctrl[0].dwExtraInfo = ctrl[1].dwExtraInfo = GetMessageExtraInfo();
+//    ctrl[0].time = ctrl[1].time = GetTickCount();
     INPUT input[2] = { {INPUT_KEYBOARD,{.ki = ctrl[0]}}, {INPUT_KEYBOARD,{.ki = ctrl[1]}} };
     state.ignorekey = 1;
     SendInput(2, input, sizeof(INPUT));
@@ -1745,7 +1746,9 @@ static void Send_Click(enum button button)
     state.ignoreclick = 0;
 }
 /////////////////////////////////////////////////////////////////////////////
-// Sends an unicode chaarcter to the system UCS-2 only :{
+// Sends an unicode character to the system.
+// KEYEVENTF_UNICODE requires at least Windows 2000
+// Extended unicode page can be accessed by sending both lo&hi surrogates
 static void SendUnicodeKey(WORD w)
 {
     KEYBDINPUT ctrl[2] = {
@@ -1753,7 +1756,7 @@ static void SendUnicodeKey(WORD w)
         {0, 0 , KEYEVENTF_UNICODE|KEYEVENTF_KEYUP, 0, 0}
     };
     ctrl[0].dwExtraInfo = ctrl[1].dwExtraInfo = GetMessageExtraInfo();
-    ctrl[0].time = ctrl[1].time = GetTickCount();
+//    ctrl[0].time = ctrl[1].time = GetTickCount();
     INPUT input[2] = { {INPUT_KEYBOARD,{.ki = ctrl[0]}}, {INPUT_KEYBOARD,{.ki = ctrl[1]}} };
 
     state.ignorekey = 1; // Not intercepted by AltSnap...
@@ -1775,7 +1778,8 @@ static void RestrictToCurentMonitor()
 static void HotkeyUp()
 {
     // Prevent the alt keyup from triggering the window menu to be selected
-    // The way this works is that the alt key is "disguised" by sending ctrl keydown/keyup events
+    // The way this works is that the alt key is "disguised" by sending
+    // ctrl keydown/keyup events
     if (state.blockaltup || state.action) {
         Send_CTRL();
     }
@@ -3374,9 +3378,14 @@ LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 {
     if (msg == WM_MENUCREATED) {
         state.unikeymenu = (HMENU)wParam;
-    } else if (msg == WM_COMMAND && wParam > 65535) {
+        // state.sclickhwnd = (HWND)lParam; // Child hwnd that was clicked.
+    } else if (msg == WM_COMMAND && wParam > 32) {
         Send_KEY(VK_BACK); // Errase old char...
-        SendUnicodeKey(HIWORD(wParam));
+
+        // Send UCS-2 or Lower+Upper UTF-16 surrogates of the UNICODE char.
+        SendUnicodeKey(LOWORD(wParam)); // USC-2 or Lower surrogate
+        if(HIWORD(wParam)) SendUnicodeKey(HIWORD(wParam)); // Upper surrogate
+
         state.sclickhwnd = NULL;
     } else if (msg == WM_COMMAND && IsWindow(state.sclickhwnd)) {
         enum action action = wParam;

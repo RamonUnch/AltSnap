@@ -164,26 +164,31 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
     TrackPopupMenu(menu, GetSystemMetrics(SM_MENUDROPALIGNMENT), pt.x, pt.y, 0, hwnd, NULL);
     DestroyMenu(menu);
 }
-static void GetKarretPos(POINT *pt)
+// To get the caret position in screen coordinate.
+// We first try to get the carret rect
+static void GetKaretPos(POINT *pt)
 {
-    GUITHREADINFO gui; gui.cbSize = sizeof(GUITHREADINFO);
+    GUITHREADINFO gui;
+    gui.cbSize = sizeof(GUITHREADINFO);
     gui.hwndCaret = NULL;
-    GetGUIThreadInfo(0, &gui);
-    pt->x =  gui.rcCaret.right;
-    pt->y = (gui.rcCaret.top + gui.rcCaret.bottom)>>1;
-    if(gui.hwndCaret) ClientToScreen(gui.hwndCaret, pt);
-    else GetCursorPos(pt);
+    if (GetGUIThreadInfo(0, &gui)) {
+        pt->x = (gui.rcCaret.right + gui.rcCaret.left)>>1;
+        pt->y = (gui.rcCaret.top + gui.rcCaret.bottom)>>1;
+        if (gui.hwndCaret) {
+            ClientToScreen(gui.hwndCaret, pt);
+            return;
+        }
+    }
+    GetCursorPos(pt);
 }
-
 static void ShowUnikeyMenu(HWND hwnd, LPARAM param)
 {
     UCHAR vkey = LOBYTE(LOWORD(param));
     UCHAR capital = HIBYTE(LOWORD(param));
     static const wchar_t *ukmap[] = EXTRAKEYS_MAP;
-    POINT pt;
-    GetKarretPos(&pt);
     HMENU menu = CreatePopupMenu();
     if (!menu) return;
+
     const wchar_t *kl, *keylist = ukmap[vkey - 0x41];
     UCHAR i;
     for (kl = keylist, i='A'; *kl; kl++) {
@@ -203,12 +208,23 @@ static void ShowUnikeyMenu(HWND hwnd, LPARAM param)
         mwstr[0] = L'&';
         mwstr[1] = i++;
         mwstr[2] = L'\t';
-        mwstr[3] = unichar;
-        mwstr[4] = L'\0';
-        if (!AppendMenu(menu, MF_STRING, unichar<<16, mwstr))
+        DWORD utf16c;
+        if (IS_SURROGATE_PAIR(unichar, kl[1])) {
+            utf16c =*(DWORD*)kl;
+            mwstr[3] = LOWORD(utf16c);
+            mwstr[4] = HIWORD(utf16c);
+            mwstr[5] = L'\0';
+            kl++; // skip high surrogate
+        } else {
+            mwstr[3] = utf16c = unichar;
+            mwstr[4] = L'\0';
+        }
+        if (!AppendMenu(menu, MF_STRING, utf16c, mwstr))
             break;
     }
     if (kl > keylist) {
+        POINT pt;
+        GetKaretPos(&pt);
         PostMessage(hwnd, WM_MENUCREATED, (WPARAM)menu, 0);
         TrackPopupMenu(menu, GetSystemMetrics(SM_MENUDROPALIGNMENT), pt.x, pt.y, 0, hwnd, NULL);
     }

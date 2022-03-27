@@ -65,6 +65,7 @@ static struct {
     POINT ctrlpt;
     POINT shiftpt;
     POINT offset;
+    POINT mdipt;
 
     HWND hwnd;
     HWND sclickhwnd;
@@ -107,10 +108,6 @@ static struct {
         enum resize x, y;
     } resize;
 } state;
-// mdiclientpt is global!
-// initialized by init_movement_and_actions
-static POINT mdiclientpt;
-
 
 // Snap
 RECT *monitors = NULL;
@@ -434,7 +431,7 @@ BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMon
 /////////////////////////////////////////////////////////////////////////////
 static void OffsetRectMDI(RECT *wnd)
 {
-    OffsetRect(wnd, -mdiclientpt.x, -mdiclientpt.y);
+    OffsetRect(wnd, -state.mdipt.x, -state.mdipt.y);
 }
 static int ShouldSnapTo(HWND hwnd)
 {
@@ -444,8 +441,8 @@ static int ShouldSnapTo(HWND hwnd)
         && !IsIconic(hwnd)
         &&( ((style=GetWindowLongPtr(hwnd, GWL_STYLE))&WS_CAPTION) == WS_CAPTION
            || (style&WS_THICKFRAME)
-           || GetBorderlessFlag(hwnd) // prop..
-           || blacklisted(hwnd,&BlkLst.Snaplist)
+           || GetBorderlessFlag(hwnd)//&(WS_THICKFRAME|WS_CAPTION)
+           || blacklisted(hwnd, &BlkLst.Snaplist)
         );
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -1400,8 +1397,8 @@ static void RestoreOldWin(const POINT pt, unsigned was_snapped)
 
     if (restore) {
         SetWindowPos(state.hwnd, NULL
-                , pt.x - state.offset.x - mdiclientpt.x
-                , pt.y - state.offset.y - mdiclientpt.y
+                , pt.x - state.offset.x - state.mdipt.x
+                , pt.y - state.offset.y - state.mdipt.y
                 , state.origin.width, state.origin.height
                 , SWP_NOZORDER);
         ClearRestoreData(state.hwnd);
@@ -1439,7 +1436,7 @@ static void RestrictCursorToMon()
         RECT clip;
         if (state.mdiclient) {
             CopyRect(&clip, &state.origin.mon);
-            OffsetRect(&clip, mdiclientpt.x, mdiclientpt.y);
+            OffsetRect(&clip, state.mdipt.x, state.mdipt.y);
         } else {
             CopyRect(&clip, &fmon);
         }
@@ -1447,7 +1444,7 @@ static void RestrictCursorToMon()
     }
 }
 ///////////////////////////////////////////////////////////////////////////
-// Get mdiclientpt and mdi monitor
+// Get state.mdipt and mdi monitor
 static BOOL GetMDInfo(POINT *mdicpt, RECT *wnd)
 {
     *mdicpt= (POINT) { 0, 0 };
@@ -1537,9 +1534,9 @@ static void MouseMove(POINT pt)
     int posx=0, posy=0, wndwidth=0, wndheight=0;
 
     // Convert pt in MDI coordinates.
-    // mdiclientpt is global!
-    pt.x -= mdiclientpt.x;
-    pt.y -= mdiclientpt.y;
+    // state.mdipt is global!
+    pt.x -= state.mdipt.x;
+    pt.y -= state.mdipt.y;
 
     RestrictCursorToMon(); // When CTRL is pressed.
 
@@ -1605,7 +1602,7 @@ static void MouseMove(POINT pt)
                 // Get new values from MDIClient,
                 // since restoring the child have changed them,
                 Sleep(1); // Sometimes needed
-                GetMDInfo(&mdiclientpt, &wnd);
+                GetMDInfo(&state.mdipt, &wnd);
                 CopyRect(&state.origin.mon, &wnd);
 
                 state.origin.right = wnd.right;
@@ -1614,7 +1611,7 @@ static void MouseMove(POINT pt)
             // Fix wnd for MDI offset and invisible borders
             RECT borders;
             FixDWMRect(state.hwnd, &borders);
-            OffsetRect(&wnd, mdiclientpt.x, mdiclientpt.y);
+            OffsetRect(&wnd, state.mdipt.x, state.mdipt.y);
             InflateRectBorder(&wnd, &borders);
         }
         // Clear restore flag
@@ -1634,29 +1631,29 @@ static void MouseMove(POINT pt)
             else if (state.ctrl) pt.y = state.ctrlpt.y;
             wndwidth  = wnd.right-wnd.left + 2*(pt.x-state.offset.x);
             wndheight = wnd.bottom-wnd.top + 2*(pt.y-state.offset.y);
-            posx = wnd.left - (pt.x - state.offset.x) - mdiclientpt.x;
-            posy = wnd.top  - (pt.y - state.offset.y) - mdiclientpt.y;
+            posx = wnd.left - (pt.x - state.offset.x) - state.mdipt.x;
+            posy = wnd.top  - (pt.y - state.offset.y) - state.mdipt.y;
             state.offset.x = pt.x;
             state.offset.y = pt.y;
         } else {
             if (state.resize.y == RZ_TOP) {
-                wndheight = CLAMPH( (wnd.bottom-pt.y+state.offset.y) - mdiclientpt.y );
+                wndheight = CLAMPH( (wnd.bottom-pt.y+state.offset.y) - state.mdipt.y );
                 posy = state.origin.bottom - wndheight;
             } else if (state.resize.y == RZ_CENTER) {
-                posy = wnd.top - mdiclientpt.y;
+                posy = wnd.top - state.mdipt.y;
                 wndheight = wnd.bottom - wnd.top;
             } else if (state.resize.y == RZ_BOTTOM) {
-                posy = wnd.top - mdiclientpt.y;
+                posy = wnd.top - state.mdipt.y;
                 wndheight = pt.y - posy + state.offset.y;
             }
             if (state.resize.x == RZ_LEFT) {
-                wndwidth = CLAMPW( (wnd.right-pt.x+state.offset.x) - mdiclientpt.x );
+                wndwidth = CLAMPW( (wnd.right-pt.x+state.offset.x) - state.mdipt.x );
                 posx = state.origin.right - wndwidth;
             } else if (state.resize.x == RZ_CENTER) {
-                posx = wnd.left - mdiclientpt.x;
+                posx = wnd.left - state.mdipt.x;
                 wndwidth = wnd.right - wnd.left;
             } else if (state.resize.x == RZ_RIGHT) {
-                posx = wnd.left - mdiclientpt.x;
+                posx = wnd.left - state.mdipt.x;
                 wndwidth = pt.x - posx+state.offset.x;
             }
             wndwidth =CLAMPW(wndwidth);
@@ -1676,16 +1673,16 @@ static void MouseMove(POINT pt)
     LastWin.height = wndheight;
 
     // Update the static wnd with new dimentions.
-    wnd.left   = posx + mdiclientpt.x;
-    wnd.top    = posy + mdiclientpt.y;
-    wnd.right  = posx + mdiclientpt.x + wndwidth;
-    wnd.bottom = posy + mdiclientpt.y + wndheight;
+    wnd.left   = posx + state.mdipt.x;
+    wnd.top    = posy + state.mdipt.y;
+    wnd.right  = posx + state.mdipt.x + wndwidth;
+    wnd.bottom = posy + state.mdipt.y + wndheight;
 
     if (!conf.FullWin) {
         static RECT bd;
         if(!state.moving) FixDWMRectLL(state.hwnd, &bd, 0);
-        int tx      = posx + mdiclientpt.x + bd.left;
-        int ty      = posy + mdiclientpt.y + bd.top;
+        int tx      = posx + state.mdipt.x + bd.left;
+        int ty      = posy + state.mdipt.y + bd.top;
         int twidth  = wndwidth - bd.left - bd.right;
         int theight = wndheight - bd.top - bd.bottom;
         MoveTransWin(tx, ty, twidth, theight);
@@ -2481,7 +2478,7 @@ static void SetEdgeAndOffset(const RECT *wnd, POINT pt)
         state.offset.x = pt.x-wnd->left;
     } else if (pt.x-wnd->left < (wndwidth*CenteR)/100) {
         state.resize.x = RZ_CENTER;
-        state.offset.x = pt.x-mdiclientpt.x; // Used only if both x and y are CENTER
+        state.offset.x = pt.x-state.mdipt.x; // Used only if both x and y are CENTER
     } else {
         state.resize.x = RZ_RIGHT;
         state.offset.x = wnd->right-pt.x;
@@ -2491,14 +2488,14 @@ static void SetEdgeAndOffset(const RECT *wnd, POINT pt)
         state.offset.y = pt.y-wnd->top;
     } else if (pt.y-wnd->top < (wndheight*CenteR)/100) {
         state.resize.y = RZ_CENTER;
-        state.offset.y = pt.y-mdiclientpt.y;
+        state.offset.y = pt.y-state.mdipt.y;
     } else {
         state.resize.y = RZ_BOTTOM;
         state.offset.y = wnd->bottom-pt.y;
     }
     // Set window right/bottom origin
-    state.origin.right = wnd->right-mdiclientpt.x;
-    state.origin.bottom = wnd->bottom-mdiclientpt.y;
+    state.origin.right = wnd->right-state.mdipt.x;
+    state.origin.bottom = wnd->bottom-state.mdipt.y;
 }
 static void SnapToCorner(HWND hwnd)
 {
@@ -2519,24 +2516,24 @@ static void SnapToCorner(HWND hwnd)
 
     if (!state.shift ^ !(conf.AeroTopMaximizes&2)) {
     /* Extend window's borders to monitor */
-        posx = wnd.left - mdiclientpt.x;
-        posy = wnd.top - mdiclientpt.y;
+        posx = wnd.left - state.mdipt.x;
+        posy = wnd.top - state.mdipt.y;
 
         if (state.resize.y == RZ_TOP) {
             posy = mon->top - bd.top;
-            wndheight = CLAMPH(wnd.bottom-mdiclientpt.y - mon->top + bd.top);
+            wndheight = CLAMPH(wnd.bottom-state.mdipt.y - mon->top + bd.top);
         } else if (state.resize.y == RZ_BOTTOM) {
-            wndheight = CLAMPH(mon->bottom - wnd.top+mdiclientpt.y + bd.bottom);
+            wndheight = CLAMPH(mon->bottom - wnd.top+state.mdipt.y + bd.bottom);
         }
         if (state.resize.x == RZ_RIGHT) {
-            wndwidth =  CLAMPW(mon->right - wnd.left+mdiclientpt.x + bd.right);
+            wndwidth =  CLAMPW(mon->right - wnd.left+state.mdipt.x + bd.right);
         } else if (state.resize.x == RZ_LEFT) {
             posx = mon->left - bd.left;
-            wndwidth =  CLAMPW(wnd.right-mdiclientpt.x - mon->left + bd.left);
+            wndwidth =  CLAMPW(wnd.right-state.mdipt.x - mon->left + bd.left);
         } else if (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER) {
             wndwidth = CLAMPW(mon->right - mon->left + bd.left + bd.right);
             posx = mon->left - bd.left;
-            posy = wnd.top - mdiclientpt.y + bd.top ;
+            posy = wnd.top - state.mdipt.y + bd.top ;
             restore |= SNMAXW;
         }
     } else { /* Aero Snap to corresponding side/corner */
@@ -2575,7 +2572,7 @@ static void SnapToCorner(HWND hwnd)
                 }
             }
             wndwidth = wnd.right - wnd.left - bd.left - bd.right;
-            posx = wnd.left - mdiclientpt.x + bd.left;
+            posx = wnd.left - state.mdipt.x + bd.left;
         } else if (state.resize.x == RZ_RIGHT) {
             wndwidth = rightWidth;
             posx = mon->right - wndwidth;
@@ -2856,10 +2853,10 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     GetMonitorInfo(monitor, &mi);
     CopyRect(&state.origin.mon, &mi.rcWork);
 
-    // mdiclientpt HAS to be set to Zero for ClientToScreen adds the offset
-    mdiclientpt = (POINT) { 0, 0 };
+    // state.mdipt HAS to be set to Zero for ClientToScreen adds the offset
+    state.mdipt = (POINT) { 0, 0 };
     if (state.mdiclient) {
-        GetMDInfo(&mdiclientpt, &mi.rcMonitor);
+        GetMDInfo(&state.mdipt, &mi.rcMonitor);
         CopyRect(&state.origin.mon, &mi.rcMonitor);
     }
 

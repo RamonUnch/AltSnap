@@ -34,6 +34,7 @@ static char ScrollLockState = 0;
 static char SnapGap = 0;
 static BYTE WinVer = 0;
 
+#define WIN2K (WinVer >= 5)
 #define VISTA (WinVer >= 6)
 #define WIN10 (WinVer >= 10)
 
@@ -185,7 +186,7 @@ static void ShowUnikeyMenu(HWND hwnd, LPARAM param)
 {
     UCHAR vkey = LOBYTE(LOWORD(param));
     UCHAR capital = HIBYTE(LOWORD(param));
-    static const wchar_t *ukmap[] = EXTRAKEYS_MAP;
+    wchar_t **ukmap = &l10n->a; //EXTRAKEYS_MAP;
     HMENU menu = CreatePopupMenu();
     if (!menu) return;
 

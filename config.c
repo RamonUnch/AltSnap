@@ -873,7 +873,10 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         // Agressive Pause
         CheckConfigHotKeys(hotkeys, hwnd, L"Hotkeys", L"A4 A5");
 
+      # ifndef WIN64
         Button_Enable(GetDlgItem(hwnd, IDC_AGGRESSIVEPAUSE), HaveProc("NTDLL.DLL", "NtResumeProcess"));
+        Button_Enable(GetDlgItem(hwnd, IDC_UNIKEYHOLDMENU), WIN2K);
+      # endif
 
     } else if (msg == WM_COMMAND) {
         int event = HIWORD(wParam);

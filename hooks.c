@@ -344,6 +344,7 @@ static int IsFullScreenBL(HWND hwnd)
 // WM_ENTERSIZEMOVE or WM_EXITSIZEMOVE...
 static void SendSizeMove(DWORD msg)
 {
+//    LockWindowUpdate(WM_ENTERSIZEMOVE?state.hwnd:NULL);
     // Don't send WM_ENTER/EXIT SIZEMOVE if the window is in SSizeMove BL
     if(!blacklisted(state.hwnd, &BlkLst.SSizeMove)) {
         PostMessage(state.hwnd, msg, 0, 0);
@@ -2169,6 +2170,9 @@ static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_)
     if (conf.MDI && !blacklisted(root, &BlkLst.MDIs)) {
         while (hwnd != root) {
             HWND parent = GetParent(hwnd);
+            if (!parent)             return root;
+            else if (parent == hwnd) return hwnd;
+
             LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
             if ((exstyle&WS_EX_MDICHILD)) {
                 // Found MDI child, parent is now MDIClient window
@@ -3210,7 +3214,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     }
 
     // Nothing to do...
-    if (!action)
+    if (!action && buttonstate == STATE_DOWN)
         return CALLNEXTHOOK;//CallNextHookEx(NULL, nCode, wParam, lParam);
 
     // Handle another click if we are already busy with an action
@@ -3236,7 +3240,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 
     // BUTTON UP
     } else if (buttonstate == STATE_UP) {
-//        LogState("BUTTON UP:\n");
+        //LogState("BUTTON UP:\n");
         SetWindowTrans(NULL); // Reset window transparency
         if (state.blockmouseup) {
             // block mouse up and decrement counter.

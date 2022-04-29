@@ -65,6 +65,7 @@ static struct {
     POINT ctrlpt;
     POINT shiftpt;
     POINT offset;
+    POINT mdipt;
 
     HWND hwnd;
     HWND sclickhwnd;
@@ -73,6 +74,7 @@ static struct {
     short hittest;
     short delta;
     unsigned Speed;
+    HMENU unikeymenu;
 
     UCHAR alt;
     UCHAR alt1;
@@ -106,10 +108,6 @@ static struct {
         enum resize x, y;
     } resize;
 } state;
-// mdiclientpt is global!
-// initialized by init_movement_and_actions
-static POINT mdiclientpt;
-
 
 // Snap
 RECT *monitors = NULL;
@@ -169,6 +167,7 @@ static struct {
     UCHAR ShiftSnaps;
     UCHAR BLMaximized;
     UCHAR LongClickMove;
+    UCHAR UniKeyHoldMenu;
 
   # ifdef WIN64
     UCHAR FancyZone;
@@ -325,6 +324,22 @@ static int pure IsResizable(HWND hwnd)
 
     return ret;
 }
+static void GetMonitorInfoFromWin(HWND hwnd, MONITORINFO *mi)
+{
+    mi->cbSize = sizeof(MONITORINFO);
+    GetMonitorInfo(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), mi);
+}
+static int IsFullscreen(HWND hwnd, const RECT *wnd, const RECT *fmon);
+static int IsFullScreenBL(HWND hwnd)
+{
+    if(conf.FullScreen) return 0;
+    RECT rc;
+    MONITORINFO mi;
+    GetMonitorInfoFromWin(hwnd, &mi);
+    GetWindowRect(hwnd, &rc);
+    return IsFullscreen(hwnd, &rc, &mi.rcMonitor);
+
+}
 /////////////////////////////////////////////////////////////////////////////
 // WM_ENTERSIZEMOVE or WM_EXITSIZEMOVE...
 static void SendSizeMove(DWORD msg)
@@ -416,7 +431,7 @@ BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMon
 /////////////////////////////////////////////////////////////////////////////
 static void OffsetRectMDI(RECT *wnd)
 {
-    OffsetRect(wnd, -mdiclientpt.x, -mdiclientpt.y);
+    OffsetRect(wnd, -state.mdipt.x, -state.mdipt.y);
 }
 static int ShouldSnapTo(HWND hwnd)
 {
@@ -426,8 +441,8 @@ static int ShouldSnapTo(HWND hwnd)
         && !IsIconic(hwnd)
         &&( ((style=GetWindowLongPtr(hwnd, GWL_STYLE))&WS_CAPTION) == WS_CAPTION
            || (style&WS_THICKFRAME)
-           || GetBorderlessFlag(hwnd) // prop..
-           || blacklisted(hwnd,&BlkLst.Snaplist)
+           || GetBorderlessFlag(hwnd)//&(WS_THICKFRAME|WS_CAPTION)
+           || blacklisted(hwnd, &BlkLst.Snaplist)
         );
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -448,9 +463,8 @@ BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
             // Skip maximized windows in MDI clients
             if (state.mdiclient) return TRUE;
             // Get monitor size
-            HMONITOR monitor = MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
-            MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
-            GetMonitorInfo(monitor, &mi);
+            MONITORINFO mi;
+            GetMonitorInfoFromWin(window, &mi);
             // Crop this window so that it does not exceed the size of the monitor
             // This is done because when maximized, windows have an extra invisible
             // border (a border that stretches onto other monitors)
@@ -496,9 +510,8 @@ BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
             // In SMARTER snapping mode or if the WINDOW IS SNAPPED
             // We only consider the position of the window
             // to determine its snapping state
-            HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-            MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
-            GetMonitorInfo(monitor, &mi);
+            MONITORINFO mi;
+            GetMonitorInfoFromWin(hwnd, &mi);
             snwnds[numsnwnds].flag = WhichSideRectInRect(&mi.rcWork, &wnd);
         } else if ((restore = GetRestoreFlag(hwnd)) && restore&SNAPPED && restore&SNAPPEDSIDE) {
             // The window was AltSnapped...
@@ -1384,8 +1397,8 @@ static void RestoreOldWin(const POINT pt, unsigned was_snapped)
 
     if (restore) {
         SetWindowPos(state.hwnd, NULL
-                , pt.x - state.offset.x - mdiclientpt.x
-                , pt.y - state.offset.y - mdiclientpt.y
+                , pt.x - state.offset.x - state.mdipt.x
+                , pt.y - state.offset.y - state.mdipt.y
                 , state.origin.width, state.origin.height
                 , SWP_NOZORDER);
         ClearRestoreData(state.hwnd);
@@ -1423,7 +1436,7 @@ static void RestrictCursorToMon()
         RECT clip;
         if (state.mdiclient) {
             CopyRect(&clip, &state.origin.mon);
-            OffsetRect(&clip, mdiclientpt.x, mdiclientpt.y);
+            OffsetRect(&clip, state.mdipt.x, state.mdipt.y);
         } else {
             CopyRect(&clip, &fmon);
         }
@@ -1431,7 +1444,7 @@ static void RestrictCursorToMon()
     }
 }
 ///////////////////////////////////////////////////////////////////////////
-// Get mdiclientpt and mdi monitor
+// Get state.mdipt and mdi monitor
 static BOOL GetMDInfo(POINT *mdicpt, RECT *wnd)
 {
     *mdicpt= (POINT) { 0, 0 };
@@ -1521,9 +1534,9 @@ static void MouseMove(POINT pt)
     int posx=0, posy=0, wndwidth=0, wndheight=0;
 
     // Convert pt in MDI coordinates.
-    // mdiclientpt is global!
-    pt.x -= mdiclientpt.x;
-    pt.y -= mdiclientpt.y;
+    // state.mdipt is global!
+    pt.x -= state.mdipt.x;
+    pt.y -= state.mdipt.y;
 
     RestrictCursorToMon(); // When CTRL is pressed.
 
@@ -1589,7 +1602,7 @@ static void MouseMove(POINT pt)
                 // Get new values from MDIClient,
                 // since restoring the child have changed them,
                 Sleep(1); // Sometimes needed
-                GetMDInfo(&mdiclientpt, &wnd);
+                GetMDInfo(&state.mdipt, &wnd);
                 CopyRect(&state.origin.mon, &wnd);
 
                 state.origin.right = wnd.right;
@@ -1598,7 +1611,7 @@ static void MouseMove(POINT pt)
             // Fix wnd for MDI offset and invisible borders
             RECT borders;
             FixDWMRect(state.hwnd, &borders);
-            OffsetRect(&wnd, mdiclientpt.x, mdiclientpt.y);
+            OffsetRect(&wnd, state.mdipt.x, state.mdipt.y);
             InflateRectBorder(&wnd, &borders);
         }
         // Clear restore flag
@@ -1618,29 +1631,29 @@ static void MouseMove(POINT pt)
             else if (state.ctrl) pt.y = state.ctrlpt.y;
             wndwidth  = wnd.right-wnd.left + 2*(pt.x-state.offset.x);
             wndheight = wnd.bottom-wnd.top + 2*(pt.y-state.offset.y);
-            posx = wnd.left - (pt.x - state.offset.x) - mdiclientpt.x;
-            posy = wnd.top  - (pt.y - state.offset.y) - mdiclientpt.y;
+            posx = wnd.left - (pt.x - state.offset.x) - state.mdipt.x;
+            posy = wnd.top  - (pt.y - state.offset.y) - state.mdipt.y;
             state.offset.x = pt.x;
             state.offset.y = pt.y;
         } else {
             if (state.resize.y == RZ_TOP) {
-                wndheight = CLAMPH( (wnd.bottom-pt.y+state.offset.y) - mdiclientpt.y );
+                wndheight = CLAMPH( (wnd.bottom-pt.y+state.offset.y) - state.mdipt.y );
                 posy = state.origin.bottom - wndheight;
             } else if (state.resize.y == RZ_CENTER) {
-                posy = wnd.top - mdiclientpt.y;
+                posy = wnd.top - state.mdipt.y;
                 wndheight = wnd.bottom - wnd.top;
             } else if (state.resize.y == RZ_BOTTOM) {
-                posy = wnd.top - mdiclientpt.y;
+                posy = wnd.top - state.mdipt.y;
                 wndheight = pt.y - posy + state.offset.y;
             }
             if (state.resize.x == RZ_LEFT) {
-                wndwidth = CLAMPW( (wnd.right-pt.x+state.offset.x) - mdiclientpt.x );
+                wndwidth = CLAMPW( (wnd.right-pt.x+state.offset.x) - state.mdipt.x );
                 posx = state.origin.right - wndwidth;
             } else if (state.resize.x == RZ_CENTER) {
-                posx = wnd.left - mdiclientpt.x;
+                posx = wnd.left - state.mdipt.x;
                 wndwidth = wnd.right - wnd.left;
             } else if (state.resize.x == RZ_RIGHT) {
-                posx = wnd.left - mdiclientpt.x;
+                posx = wnd.left - state.mdipt.x;
                 wndwidth = pt.x - posx+state.offset.x;
             }
             wndwidth =CLAMPW(wndwidth);
@@ -1660,16 +1673,16 @@ static void MouseMove(POINT pt)
     LastWin.height = wndheight;
 
     // Update the static wnd with new dimentions.
-    wnd.left   = posx + mdiclientpt.x;
-    wnd.top    = posy + mdiclientpt.y;
-    wnd.right  = posx + mdiclientpt.x + wndwidth;
-    wnd.bottom = posy + mdiclientpt.y + wndheight;
+    wnd.left   = posx + state.mdipt.x;
+    wnd.top    = posy + state.mdipt.y;
+    wnd.right  = posx + state.mdipt.x + wndwidth;
+    wnd.bottom = posy + state.mdipt.y + wndheight;
 
     if (!conf.FullWin) {
         static RECT bd;
         if(!state.moving) FixDWMRectLL(state.hwnd, &bd, 0);
-        int tx      = posx + mdiclientpt.x + bd.left;
-        int ty      = posy + mdiclientpt.y + bd.top;
+        int tx      = posx + state.mdipt.x + bd.left;
+        int ty      = posy + state.mdipt.y + bd.top;
         int twidth  = wndwidth - bd.left - bd.right;
         int theight = wndheight - bd.top - bd.bottom;
         MoveTransWin(tx, ty, twidth, theight);
@@ -1695,6 +1708,7 @@ static void Send_KEY(unsigned char vkey)
 {
     KEYBDINPUT ctrl[2] = { {vkey, 0, 0, 0, 0}, {vkey, 0 , KEYEVENTF_KEYUP, 0, 0} };
     ctrl[0].dwExtraInfo = ctrl[1].dwExtraInfo = GetMessageExtraInfo();
+//    ctrl[0].time = ctrl[1].time = GetTickCount();
     INPUT input[2] = { {INPUT_KEYBOARD,{.ki = ctrl[0]}}, {INPUT_KEYBOARD,{.ki = ctrl[1]}} };
     state.ignorekey = 1;
     SendInput(2, input, sizeof(INPUT));
@@ -1729,7 +1743,9 @@ static void Send_Click(enum button button)
     state.ignoreclick = 0;
 }
 /////////////////////////////////////////////////////////////////////////////
-// Sends an unicode chaarcter to the system UCS-2 only :{
+// Sends an unicode character to the system.
+// KEYEVENTF_UNICODE requires at least Windows 2000
+// Extended unicode page can be accessed by sending both lo&hi surrogates
 static void SendUnicodeKey(WORD w)
 {
     KEYBDINPUT ctrl[2] = {
@@ -1737,7 +1753,7 @@ static void SendUnicodeKey(WORD w)
         {0, 0 , KEYEVENTF_UNICODE|KEYEVENTF_KEYUP, 0, 0}
     };
     ctrl[0].dwExtraInfo = ctrl[1].dwExtraInfo = GetMessageExtraInfo();
-    ctrl[0].time = ctrl[1].time = GetTickCount();
+//    ctrl[0].time = ctrl[1].time = GetTickCount();
     INPUT input[2] = { {INPUT_KEYBOARD,{.ki = ctrl[0]}}, {INPUT_KEYBOARD,{.ki = ctrl[1]}} };
 
     state.ignorekey = 1; // Not intercepted by AltSnap...
@@ -1759,7 +1775,8 @@ static void RestrictToCurentMonitor()
 static void HotkeyUp()
 {
     // Prevent the alt keyup from triggering the window menu to be selected
-    // The way this works is that the alt key is "disguised" by sending ctrl keydown/keyup events
+    // The way this works is that the alt key is "disguised" by sending
+    // ctrl keydown/keyup events
     if (state.blockaltup || state.action) {
         Send_CTRL();
     }
@@ -1887,16 +1904,27 @@ static int SimulateXButton(WPARAM wp, WORD xbtidx)
     LowLevelMouseProc(HC_ACTION, wp, (LPARAM)&msg);
     return 1;
 }
+static void KillUnikeymenu()
+{
+    if (IsMenu(state.unikeymenu)) {
+        EnableWindow(g_mchwnd, FALSE);
+        DestroyMenu(state.unikeymenu);
+        state.unikeymenu = NULL;
+//        PostMessage(g_mchwnd, WM_CLOSE, 0, 0);
+//        g_mchwnd = NULL;
+    }
+}
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-//    if (state.ignorekey) LOGA("IgnoreKey")
     if (nCode != HC_ACTION || state.ignorekey) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     PKBDLLHOOKSTRUCT kbh = ((PKBDLLHOOKSTRUCT)lParam);
     unsigned char vkey = kbh->vkCode;
+//    DWORD scode = kbh->scanCode;
     int xxbtidx;
+    HWND fhwnd = NULL;
 //    if (vkey!=VK_F5) { // show key codes
 //        LOGA("wp=%u, vKey=%lx, sCode=%lx, flgs=%lx, ex=%lx"
 //        , wParam, kbh->vkCode, kbh->scanCode, kbh->flags, kbh->dwExtraInfo);
@@ -1911,6 +1939,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             //LOGA("\nALT DOWN");
             state.alt = vkey;
             state.blockaltup = 0;
+            KillUnikeymenu(); // Hide unikey menu in case...
 
             // Hook mouse
             HookMouse();
@@ -1952,6 +1981,11 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.ctrl = 0;
             state.shift = 0;
             LastWin.hwnd = NULL;
+            if (state.unikeymenu) {
+                KillUnikeymenu();
+                return 1;
+            }
+
             // Stop current action
             if (state.action || state.alt) {
                 enum action action = state.action;
@@ -1993,18 +2027,41 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 SimulateXButton(WM_XBUTTONDOWN, xxbtidx);
             }
             return 1;
-//        } else if (0x41 <= vkey && vkey <= 0x5A) {
-//            // handle long A-Z keydown.
-//            if (GetAsyncKeyState(vkey)&0x8000) { // autorepeat stuff.
-//                UCHAR idx = vkey-0x41; // 0-26 index key.
-//                Send_KEY(VK_BACK); // Errase old char...
-//                SendUnicodeKey(L'é');
-//                HMENU hMenu = CreatePopupMenu();
-//                //PostMessage(g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd, idx);
-//                return 1;
-//            }
-        }
+        } else if (conf.UniKeyHoldMenu
+        && (fhwnd=GetForegroundWindow())
+        && !IsFullScreenBL(fhwnd)
+        && !blacklistedP(fhwnd, &BlkLst.Processes)
+        && !blacklisted(fhwnd, &BlkLst.Windows)) {
+            if (state.unikeymenu && IsMenu(state.unikeymenu) && !(GetAsyncKeyState(vkey)&0x8000)) {
 
+                // ((0x41 <= vkey && vkey <= 0x5A) || IsHotkeyy(vkey, (UCHAR*)"\r&(") )
+                if (vkey == VK_SNAPSHOT) return CallNextHookEx(NULL, nCode, wParam, lParam);
+                if (vkey == VK_BACK || vkey == VK_TAB || vkey == VK_APPS
+                ||  vkey == VK_DELETE || vkey == VK_SPACE) {
+                    KillUnikeymenu();
+                    return CallNextHookEx(NULL, nCode, wParam, lParam);
+                }
+
+                // Forward all keys to the menu...
+                PostMessage(g_mchwnd, WM_KEYDOWN, vkey, 0); // all keys are "directed to the Menu"
+                return 1; // block keydown
+            } else if (!state.ctrl && !state.alt
+            && ((0x41 <= vkey && vkey <= 0x5A)/* || (2 <= scode && scode <= 11)*/)) {
+                // handle long A-Z keydown.
+                if (GetAsyncKeyState(vkey)&0x8000) { // autorepeat stuff.
+                    if(!IsMenu(state.unikeymenu)) {
+                        //if (2 <= scode && scode <= 11) {
+                        //    // 1234567890 keys...
+                        //    vkey = 0x5A - 1 + scode;
+                        //}
+                        if(!g_mchwnd) g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
+                        UCHAR shiftdown = GetAsyncKeyState(VK_SHIFT)&0x8000 || GetKeyState(VK_CAPITAL)&1;
+                        PostMessage(g_mainhwnd, WM_UNIKEYMENU, (WPARAM)g_mchwnd, vkey|(shiftdown<<8) );
+                    }
+                    return 1; // block keydown
+                }
+            }
+        }
     } else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP) {
         if (IsHotkey(vkey)) {
             //LOGA("ALT UP");
@@ -2067,13 +2124,13 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
 
     // Add button information since we don't get it with the hook
     static const UCHAR toOr[] = {
-        VK_LBUTTON,// MK_LBUTTON  }, 1
-        VK_RBUTTON,// MK_RBUTTON  }, 2
-        VK_CONTROL,// MK_CONTROL  }, 4
-        VK_SHIFT,//   MK_SHIFT    }, 8
-        VK_MBUTTON,// MK_MBUTTON  }, 16
-        VK_XBUTTON1,//MK_XBUTTON1 }, 32
-        VK_XBUTTON2,//MK_XBUTTON2 }  64
+        VK_LBUTTON, // MK_LBUTTON  }, 1
+        VK_RBUTTON, // MK_RBUTTON  }, 2
+        VK_CONTROL, // MK_CONTROL  }, 4
+        VK_SHIFT,   // MK_SHIFT    }, 8
+        VK_MBUTTON, // MK_MBUTTON  }, 16
+        VK_XBUTTON1,// MK_XBUTTON1 }, 32
+        VK_XBUTTON2,// MK_XBUTTON2 }  64
     };
     unsigned i;
     for (i=0; i < ARR_SZ(toOr); i++)
@@ -2421,7 +2478,7 @@ static void SetEdgeAndOffset(const RECT *wnd, POINT pt)
         state.offset.x = pt.x-wnd->left;
     } else if (pt.x-wnd->left < (wndwidth*CenteR)/100) {
         state.resize.x = RZ_CENTER;
-        state.offset.x = pt.x-mdiclientpt.x; // Used only if both x and y are CENTER
+        state.offset.x = pt.x-state.mdipt.x; // Used only if both x and y are CENTER
     } else {
         state.resize.x = RZ_RIGHT;
         state.offset.x = wnd->right-pt.x;
@@ -2431,14 +2488,14 @@ static void SetEdgeAndOffset(const RECT *wnd, POINT pt)
         state.offset.y = pt.y-wnd->top;
     } else if (pt.y-wnd->top < (wndheight*CenteR)/100) {
         state.resize.y = RZ_CENTER;
-        state.offset.y = pt.y-mdiclientpt.y;
+        state.offset.y = pt.y-state.mdipt.y;
     } else {
         state.resize.y = RZ_BOTTOM;
         state.offset.y = wnd->bottom-pt.y;
     }
     // Set window right/bottom origin
-    state.origin.right = wnd->right-mdiclientpt.x;
-    state.origin.bottom = wnd->bottom-mdiclientpt.y;
+    state.origin.right = wnd->right-state.mdipt.x;
+    state.origin.bottom = wnd->bottom-state.mdipt.y;
 }
 static void SnapToCorner(HWND hwnd)
 {
@@ -2459,24 +2516,24 @@ static void SnapToCorner(HWND hwnd)
 
     if (!state.shift ^ !(conf.AeroTopMaximizes&2)) {
     /* Extend window's borders to monitor */
-        posx = wnd.left - mdiclientpt.x;
-        posy = wnd.top - mdiclientpt.y;
+        posx = wnd.left - state.mdipt.x;
+        posy = wnd.top - state.mdipt.y;
 
         if (state.resize.y == RZ_TOP) {
             posy = mon->top - bd.top;
-            wndheight = CLAMPH(wnd.bottom-mdiclientpt.y - mon->top + bd.top);
+            wndheight = CLAMPH(wnd.bottom-state.mdipt.y - mon->top + bd.top);
         } else if (state.resize.y == RZ_BOTTOM) {
-            wndheight = CLAMPH(mon->bottom - wnd.top+mdiclientpt.y + bd.bottom);
+            wndheight = CLAMPH(mon->bottom - wnd.top+state.mdipt.y + bd.bottom);
         }
         if (state.resize.x == RZ_RIGHT) {
-            wndwidth =  CLAMPW(mon->right - wnd.left+mdiclientpt.x + bd.right);
+            wndwidth =  CLAMPW(mon->right - wnd.left+state.mdipt.x + bd.right);
         } else if (state.resize.x == RZ_LEFT) {
             posx = mon->left - bd.left;
-            wndwidth =  CLAMPW(wnd.right-mdiclientpt.x - mon->left + bd.left);
+            wndwidth =  CLAMPW(wnd.right-state.mdipt.x - mon->left + bd.left);
         } else if (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER) {
             wndwidth = CLAMPW(mon->right - mon->left + bd.left + bd.right);
             posx = mon->left - bd.left;
-            posy = wnd.top - mdiclientpt.y + bd.top ;
+            posy = wnd.top - state.mdipt.y + bd.top ;
             restore |= SNMAXW;
         }
     } else { /* Aero Snap to corresponding side/corner */
@@ -2515,7 +2572,7 @@ static void SnapToCorner(HWND hwnd)
                 }
             }
             wndwidth = wnd.right - wnd.left - bd.left - bd.right;
-            posx = wnd.left - mdiclientpt.x + bd.left;
+            posx = wnd.left - state.mdipt.x + bd.left;
         } else if (state.resize.x == RZ_RIGHT) {
             wndwidth = rightWidth;
             posx = mon->right - wndwidth;
@@ -2795,14 +2852,12 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
     GetMonitorInfo(monitor, &mi);
     CopyRect(&state.origin.mon, &mi.rcWork);
-    RECT fmon;
-    CopyRect(&fmon, &mi.rcMonitor);
 
-    // mdiclientpt HAS to be set to Zero for ClientToScreen adds the offset
-    mdiclientpt = (POINT) { 0, 0 };
+    // state.mdipt HAS to be set to Zero for ClientToScreen adds the offset
+    state.mdipt = (POINT) { 0, 0 };
     if (state.mdiclient) {
-        GetMDInfo(&mdiclientpt, &fmon);
-        CopyRect(&state.origin.mon, &fmon);
+        GetMDInfo(&state.mdipt, &mi.rcMonitor);
+        CopyRect(&state.origin.mon, &mi.rcMonitor);
     }
 
     WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
@@ -2817,7 +2872,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     || GetWindowPlacement(state.hwnd, &wndpl) == 0
     || GetWindowRect(state.hwnd, &wnd) == 0
     || ((state.origin.maximized = IsZoomed(state.hwnd)) && conf.BLMaximized)
-    || ((state.origin.fullscreen = IsFullscreen(state.hwnd, &wnd, &fmon)) && !conf.FullScreen)
+    || ((state.origin.fullscreen = IsFullscreen(state.hwnd, &wnd, &mi.rcMonitor)) && !conf.FullScreen)
     ){
         return 0;
     }
@@ -3318,13 +3373,24 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 // Window for single click commands
 LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    if (msg == WM_COMMAND && state.sclickhwnd) {
+    if (msg == WM_MENUCREATED) {
+        state.unikeymenu = (HMENU)wParam;
+        // state.sclickhwnd = (HWND)lParam; // Child hwnd that was clicked.
+    } else if (msg == WM_COMMAND && wParam > 32) {
+        Send_KEY(VK_BACK); // Errase old char...
+
+        // Send UCS-2 or Lower+Upper UTF-16 surrogates of the UNICODE char.
+        SendUnicodeKey(LOWORD(wParam)); // USC-2 or Lower surrogate
+        if(HIWORD(wParam)) SendUnicodeKey(HIWORD(wParam)); // Upper surrogate
+
+        state.sclickhwnd = NULL;
+    } else if (msg == WM_COMMAND && IsWindow(state.sclickhwnd)) {
         enum action action = wParam;
         state.sclickhwnd = MDIorNOT(state.sclickhwnd, &state.mdiclient);
 
         SClickActions(state.sclickhwnd, action);
         state.sclickhwnd = NULL;
-
+        state.unikeymenu = NULL;
         return 0;
     } else if(msg == WM_KILLFOCUS) {
         // Menu gets hiden, be sure to zero-out the clickhwnd
@@ -3586,6 +3652,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {&conf.KeyCombo,        L"Input", "KeyCombo", 0 },
         {&conf.ScrollLockState, L"Input", "ScrollLockState", 0 },
         {&conf.LongClickMove,   L"Input", "LongClickMove", 0 },
+        {&conf.UniKeyHoldMenu,  L"Input", "UniKeyHoldMenu", 0 },
 
         // [Zones]
         {&conf.UseZones,        L"Zones", "UseZones", 0 },

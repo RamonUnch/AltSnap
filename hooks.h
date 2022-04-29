@@ -3,7 +3,7 @@
 
 #define UNICODE
 #define _UNICODE
-#define _WIN32_WINNT 0x0400
+#define _WIN32_WINNT 0x0600
 #include <windows.h>
 
 #include "unfuck.h"
@@ -18,7 +18,7 @@
 // App
 #define APP_NAME       L"AltSnap"
 #define APP_NAMEA      "AltSnap"
-#define APP_VERSION    "1.52"
+#define APP_VERSION    "1.53"
 #define APP_PROPPT     APP_NAMEA"-RDim"
 #define APP_PROPFL     APP_NAMEA"-RFlag"
 #define APP_PROPOFFSET APP_NAMEA"-ROffset"
@@ -37,6 +37,8 @@
 #define WM_UPDATESETTINGS (WM_USER+8)
 #define WM_ADDTRAY        (WM_USER+9)
 #define WM_HIDETRAY       (WM_USER+10)
+#define WM_UNIKEYMENU     (WM_USER+11)
+#define WM_MENUCREATED    (WM_USER+12)
 
 // List of possible actions
 enum action {
@@ -44,7 +46,6 @@ enum action {
   , AC_CENTER , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_BORDERLESS
   , AC_KILL, AC_MAXHV, AC_MINALL, AC_MUTE, AC_SIDESNAP
   , AC_ROLL, AC_ALTTAB, AC_VOLUME, AC_TRANSPARENCY, AC_HSCROLL
-//  , AC_BRIGHTNESS
 };
 // List of actions strings, keep the SAME ORDER than above
 #define ACTION_MAP { \
@@ -52,9 +53,7 @@ enum action {
   , "Center", "AlwaysOnTop", "Close", "Lower", "Borderless"        \
   , "Kill" , "MaximizeHV", "MinAllOther", "Mute", "SideSnap"       \
   , "Roll", "AltTab", "Volume", "Transparency", "HScroll"          \
-
 }
-//  , "Brightness"
 
 #define MOUVEMENT(action) (action <= AC_RESIZE)
 

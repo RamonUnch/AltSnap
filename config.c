@@ -864,6 +864,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         { IDC_AGGRESSIVEPAUSE,  T_BOL, 0, L"Input", "AggressivePause", 0 },
         { IDC_AGGRESSIVEKILL,   T_BOL, 0, L"Input", "AggressiveKill", 0 },
         { IDC_SCROLLLOCKSTATE,  T_BMK, 0, L"Input", "ScrollLockState", 0},
+        { IDC_UNIKEYHOLDMENU,   T_BOL, 0, L"Input", "UniKeyHoldMenu", 0},
         { IDC_KEYCOMBO,         T_BOL, 0, L"Input", "KeyCombo", 0 }
     };
 
@@ -872,7 +873,10 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         // Agressive Pause
         CheckConfigHotKeys(hotkeys, hwnd, L"Hotkeys", L"A4 A5");
 
+      # ifndef WIN64
         Button_Enable(GetDlgItem(hwnd, IDC_AGGRESSIVEPAUSE), HaveProc("NTDLL.DLL", "NtResumeProcess"));
+        Button_Enable(GetDlgItem(hwnd, IDC_UNIKEYHOLDMENU), WIN2K);
+      # endif
 
     } else if (msg == WM_COMMAND) {
         int event = HIWORD(wParam);
@@ -911,6 +915,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 { IDC_AGGRESSIVEPAUSE, l10n->input_aggressive_pause},
                 { IDC_AGGRESSIVEKILL,  l10n->input_aggressive_kill},
                 { IDC_SCROLLLOCKSTATE, l10n->input_scrolllockstate},
+                { IDC_UNIKEYHOLDMENU,  l10n->input_unikeyholdmenu},
                 { IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box},
                 { IDC_MODKEY_H,        l10n->input_hotkeys_modkey},
                 { IDC_LEFTALT,         l10n->input_hotkeys_leftalt},
@@ -1196,10 +1201,6 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         centerfrac = lParam;
         return 0;
 
-    case WM_CLOSE:
-        DestroyWindow(hwnd);
-        UnregisterClass(APP_NAME"-Test", g_hinst);
-        break;
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }

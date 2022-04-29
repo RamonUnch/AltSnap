@@ -1,4 +1,4 @@
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+﻿/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Copyright (C) 2015    Stefan Sundin                                   *
  * This program is free software: you can redistribute it and/or modify  *
  * it under the terms of the GNU General Public License as published by  *
@@ -100,6 +100,7 @@ struct strings {
   wchar_t *input_aggressive_pause;
   wchar_t *input_aggressive_kill;
   wchar_t *input_scrolllockstate;
+  wchar_t *input_unikeyholdmenu;
   wchar_t *input_keycombo;
   wchar_t *input_grabwithalt;
   wchar_t *input_grabwithaltb;
@@ -180,10 +181,14 @@ struct strings {
   wchar_t *about_license;
   wchar_t *about_translation_credit;
 
-  /* misc */
+  // misc
   wchar_t *unhook_error;
   wchar_t *zone_confirmation;
   wchar_t *zone_testwinhelp;
+  wchar_t *a, *b, *c, *d, *e, *f, *g, *h;
+  wchar_t *i, *j, *k, *l, *m, *n, *o, *p;
+  wchar_t *q, *r, *s, *t, *u, *v, *w, *x;
+  wchar_t *y, *z;
 };
 
 // SAME ORDER THAN ABOVE!!!!
@@ -263,6 +268,7 @@ static const char* l10n_inimapping[] = {
     "InputAggressivePause",
     "InputAggressiveKill",
     "InputScrollLockState",
+    "InputUniKeyHoldMenu",
     "InputKeyCombo",
     "InputGrabWithAlt",
     "InputGrabWithAltB",
@@ -342,6 +348,11 @@ static const char* l10n_inimapping[] = {
     "MiscUnhookError",
     "MiscZoneConfirmation",
     "MiscZoneTestWinHelp",
+    "A", "B", "C", "D", "E",
+    "F", "G", "H", "I", "J",
+    "K", "L", "M", "N", "O",
+    "P", "Q", "R", "S", "T",
+    "U", "V", "W", "X", "Y", "Z",
 };
 
 // SAME ORDER THAN ABOVE!!!!
@@ -429,6 +440,7 @@ static const struct strings en_US = {
  /* Aggressive Pause   */ L"&Pause process on Alt+Shift+Pause (Alt+Pause to resume)",
  /* Aggressive Kill    */ L"&Kill process on Ctrl+Alt+F4\nAlso adds the kill option to the action menu",
  /* scroll lock state  */ L"Suspend/Resume AltSnap based on &Scroll lock state",
+ /* unikeyholdmenu     */ L"Pop&up an extended character menu when holding an alphabetic key down",
  /* keycombo           */ L"Use two keys &combo to activate",
  /* grabwithalt        */ L"&Action without click:",
  /* grabwithaltb       */ L"Acti&on without click (alt):",
@@ -504,6 +516,7 @@ static const struct strings en_US = {
  /* blmaximized      */   L"&Disable AltSnap on Maximized windows",
  /* fancyzone        */   L"Restore Fancy&Zones snapped windows",
  /* norestore        */   L"Never restore AltSna&pped windows",
+
  /* about tab */
  /* box                */ L"About "APP_NAME,
  /* version            */ L"Version "APP_VERSION,
@@ -521,7 +534,35 @@ static const struct strings en_US = {
  /* zone test win help */ L"To setup Snap layout:\n"
                            "1) Open several of those Test Windows\n"
                            "2) Dispose them as you please\n"
-                           "3) Hit the *&Save test windows as snap layout* option in the tray menu"
+                           "3) Hit the *&Save test windows as snap layout* option in the tray menu",
+
+ /* A */ L"àáâäãåæª%āăąǎǟǡǣǻǽȁȃȧ|Ȧḁ%ⱥ|Ⱥɐ|Ɐɑ|Ɑɒ|Ɒⲁ|Ⲁ", \
+ /* B */ L"%ƀɓƃƅɃ%ɓ|Ɓḃḅḇ", \
+ /* C */ L"ç¢©%ćĉċčƈȼḉ|Ȼɕ", \
+ /* D */ L"ð%ďđɖɗƌƍḋḍḏḑḓǆǅǳǲȡȸ", \
+ /* E */ L"èéêë€%ēĕėęěǝəɛȅȇḕḗḙḛȩ|Ȩḝɇ|Ɇⱸ", \
+ /* F */ L"ƒ%ḟɸⱷ", \
+ /* G */ L"%ǵǧḡɠɣǥ", \
+ /* H */ L"%ĥħƕǶḣḥḧḩḫȟ|Ȟⱨ|Ⱨⱶ|Ⱶẖ", \
+ /* I */ L"ìíîï%ĩīĭǐȉȋįİıĳɩɨḭḯ", \
+ /* J */ L"%ĵǰȷɉ|Ɉ", \
+ /* K */ L"%ķĸƙǩḱḳⱪ|Ⱪꝁ|Ꝁʞ|Ʞ", \
+ /* L */ L"£%ĺļľŀłƛǉǈȴƚ|Ƚⱡ|Ⱡɫ|Ɫḷḹḻḽ", \
+ /* M */ L"µ%ḿṁṃɱ|Ɱɯ", \
+ /* N */ L"ñ%ńņňŉŋɲƞ|Ƞǌǋǹȵ%ṅṇṉṋ", \
+ /* O */ L"òóôöõø°%ōŏő%ɔɵơƣǒǫǭǿȍȏȣ|Ȣȫ|Ȫȭ|Ȭȯ|Ȯȱ|Ȱṍṏṑṓ%ⱺ", \
+ /* P */ L"¶þ·•%ƥᵽ|Ᵽṕṗ", \
+ /* Q */ L"¿¤‰‘’“”„…–—«»‹›%ȹɋ|Ɋ", \
+ /* R */ L"®%ŕŗřƦȑȓṙṛṝṟɍ|Ɍɽ|Ɽⱹ", \
+ /* S */ L"šß§%śŝşſ%ƨʃƪș|Șȿ|Ȿ%ṡṣṥṧṩ", \
+ /* T */ L"†‡™%ţťŧƫƭʈț|Țȶⱦ|Ⱦ%ṫṭṯṱẗ", \
+ /* U */ L"ùúûü%ũūůŭűų%ưʊǔǖǘǚǜȕȗʉ|Ʉ%ṳṵṷṹṻ", \
+ /* V */ L"%ʋɅⱱⱴ%ṽṿ", \
+ /* W */ L"%ẁẃŵẅⱳ|Ⱳ%ẇẉ", \
+ /* X */ L"±×÷¬%ẋẍ", \
+ /* Y */ L"ýÿ¥%ŷẏȳ|Ȳƴɏ|Ɏ", \
+ /* Z */ L"ž%źẑżẓẕ%ƶʒƹƺǯȥ|Ȥɀ|Ɀⱬ|Ⱬ", \
+
 };
 
 #endif

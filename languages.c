@@ -3,7 +3,7 @@
  * This program is free software: you can redistribute it and/or modify  *
  * it under the terms of the GNU General Public License as published by  *
  * the Free Software Foundation, either version 3 or later.              *
- * Modified By Raymond Gillibert in 2020                                 *
+ * Modified By Raymond Gillibert in 2022                                 *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "languages.h"

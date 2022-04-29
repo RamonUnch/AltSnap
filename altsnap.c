@@ -34,6 +34,7 @@ static char ScrollLockState = 0;
 static char SnapGap = 0;
 static BYTE WinVer = 0;
 
+#define WIN2K (WinVer >= 5)
 #define VISTA (WinVer >= 6)
 #define WIN10 (WinVer >= 10)
 
@@ -139,29 +140,96 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
     POINT pt;
     GetCursorPos(&pt);
     HMENU menu = CreatePopupMenu();
-    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_ALWAYSONTOP,l10n->input_actions_alwaysontop);
-    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_BORDERLESS, l10n->input_actions_borderless);
-    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_CENTER,     l10n->input_actions_center);
-    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_ROLL,       l10n->input_actions_roll);
-    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_LOWER,      l10n->input_actions_lower);
-    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_MAXHV,      l10n->input_actions_maximizehv);
-    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_MINALL,     l10n->input_actions_minallother);
-    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_SIDESNAP,   l10n->input_actions_sidesnap);
-    AppendMenu(menu, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
-    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_MAXIMIZE,   l10n->input_actions_maximize);
-    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_MINIMIZE,   l10n->input_actions_minimize);
-    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_CLOSE,      l10n->input_actions_close);
+    AppendMenu(menu, MF_STRING, AC_ALWAYSONTOP,l10n->input_actions_alwaysontop);
+    AppendMenu(menu, MF_STRING, AC_BORDERLESS, l10n->input_actions_borderless);
+    AppendMenu(menu, MF_STRING, AC_CENTER,     l10n->input_actions_center);
+    AppendMenu(menu, MF_STRING, AC_ROLL,       l10n->input_actions_roll);
+    AppendMenu(menu, MF_STRING, AC_LOWER,      l10n->input_actions_lower);
+    AppendMenu(menu, MF_STRING, AC_MAXHV,      l10n->input_actions_maximizehv);
+    AppendMenu(menu, MF_STRING, AC_MINALL,     l10n->input_actions_minallother);
+    AppendMenu(menu, MF_STRING, AC_SIDESNAP,   l10n->input_actions_sidesnap);
+    AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+    AppendMenu(menu, MF_STRING, AC_MAXIMIZE,   l10n->input_actions_maximize);
+    AppendMenu(menu, MF_STRING, AC_MINIMIZE,   l10n->input_actions_minimize);
+    AppendMenu(menu, MF_STRING, AC_CLOSE,      l10n->input_actions_close);
     if (param&1) {
-        AppendMenu(menu, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
-        AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_KILL, l10n->input_actions_kill);
+        AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+        AppendMenu(menu, MF_STRING, AC_KILL, l10n->input_actions_kill);
     }
-//    InsertMenu(menu, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
-//    InsertMenu(menu, MF_BYPOSITION|MF_STRING, AC_MUTE, l10n->input_actions_mute);
+//    InsertMenu(menu, MF_SEPARATOR, 0, NULL);
+//    InsertMenu(menu, MF_STRING, AC_MUTE, l10n->input_actions_mute);
 
-    AppendMenu(menu, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
-    AppendMenu(menu, MF_BYPOSITION|MF_STRING, AC_NONE, l10n->input_actions_nothing);
+    AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+    AppendMenu(menu, MF_STRING, AC_NONE, l10n->input_actions_nothing);
     SetForegroundWindow(hwnd);
     TrackPopupMenu(menu, GetSystemMetrics(SM_MENUDROPALIGNMENT), pt.x, pt.y, 0, hwnd, NULL);
+    DestroyMenu(menu);
+}
+// To get the caret position in screen coordinate.
+// We first try to get the carret rect
+static void GetKaretPos(POINT *pt)
+{
+    GUITHREADINFO gui;
+    gui.cbSize = sizeof(GUITHREADINFO);
+    gui.hwndCaret = NULL;
+    if (GetGUIThreadInfo(0, &gui)) {
+        pt->x = (gui.rcCaret.right + gui.rcCaret.left)>>1;
+        pt->y = (gui.rcCaret.top + gui.rcCaret.bottom)>>1;
+        if (gui.hwndCaret) {
+            ClientToScreen(gui.hwndCaret, pt);
+            return;
+        }
+    }
+    GetCursorPos(pt);
+}
+static void ShowUnikeyMenu(HWND hwnd, LPARAM param)
+{
+    UCHAR vkey = LOBYTE(LOWORD(param));
+    UCHAR capital = HIBYTE(LOWORD(param));
+    wchar_t **ukmap = &l10n->a; //EXTRAKEYS_MAP;
+    HMENU menu = CreatePopupMenu();
+    if (!menu) return;
+
+    const wchar_t *kl, *keylist = ukmap[vkey - 0x41];
+    UCHAR i;
+    for (kl = keylist, i='A'; *kl; kl++) {
+        if(*kl==L'%') {
+            AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+            continue;
+        }
+        wchar_t unichar = *kl;
+        if (kl[1] == L'|') {
+            kl+=2;
+            if (capital) unichar = *kl;
+        } else if (capital) {
+            unichar = (wchar_t)(LONG_PTR)CharUpperW((wchar_t *)(LONG_PTR)*kl);
+        }
+        if (i > 'Z') i = '1';
+        wchar_t mwstr[6];
+        mwstr[0] = L'&';
+        mwstr[1] = i++;
+        mwstr[2] = L'\t';
+        DWORD utf16c;
+        if (IS_SURROGATE_PAIR(unichar, kl[1])) {
+            utf16c =*(DWORD*)kl;
+            mwstr[3] = LOWORD(utf16c);
+            mwstr[4] = HIWORD(utf16c);
+            mwstr[5] = L'\0';
+            kl++; // skip high surrogate
+        } else {
+            mwstr[3] = utf16c = unichar;
+            mwstr[4] = L'\0';
+        }
+        if (!AppendMenu(menu, MF_STRING, utf16c, mwstr))
+            break;
+    }
+    if (kl > keylist) {
+        POINT pt;
+        GetKaretPos(&pt);
+        PostMessage(hwnd, WM_MENUCREATED, (WPARAM)menu, 0);
+        TrackPopupMenu(menu, GetSystemMetrics(SM_MENUDROPALIGNMENT), pt.x, pt.y, 0, hwnd, NULL);
+    }
+    PostMessage(hwnd, WM_MENUCREATED, 0, 0);
     DestroyMenu(menu);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -186,6 +254,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
     } else if (msg == WM_SCLICK && wParam) {
         ShowSClickMenu((HWND)wParam, lParam);
+    } else if (msg == WM_UNIKEYMENU) {
+        ShowUnikeyMenu((HWND)wParam, lParam);
     } else if (msg == WM_UPDATESETTINGS) {
         // Reload hooks
         if (ENABLED()) {

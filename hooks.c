@@ -221,6 +221,7 @@ static struct {
     struct blacklist AResize;
     struct blacklist SSizeMove;
     struct blacklist NCHittest;
+    struct blacklist Bottommost;
 } BlkLst;
 // MUST MATCH THE ABOVE!!!
 static const char *BlackListStrings[] = {
@@ -233,7 +234,8 @@ static const char *BlackListStrings[] = {
     "Scroll",
     "AResize",
     "SSizeMove",
-    "NCHittest"
+    "NCHittest",
+    "Bottommost"
 };
 // Cursor data
 HWND g_mainhwnd = NULL;
@@ -1817,18 +1819,24 @@ static int ActionPause(HWND hwnd, char pause)
 // Kill the process from hwnd
 DWORD WINAPI ActionKillThread(LPVOID hwnd)
 {
-    DWORD pid;
-    GetWindowThreadProcessId(hwnd, &pid);
-    //LOG("pid=%lu", pid);
+    if (state.shift) {
+        // TODO: Aggressive command such as:
+        // taskkill.exe /F /FI "status eq NOT RESPONDING" /FI "IMAGENAME ne AltSnap.exe" /FI "IMAGENAME ne dwm.exe"
+    } else {
+        DWORD pid;
+        GetWindowThreadProcessId(hwnd, &pid);
+        //LOG("pid=%lu", pid);
 
-    // Open the process
-    HANDLE proc = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
-    //LOG("proc=%lx", (DWORD)proc);
-    if (proc) {
-        TerminateProcess(proc, 1);
-        CloseHandle(proc);
+        // Open the process
+        HANDLE proc = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+        //LOG("proc=%lx", (DWORD)proc);
+        if (proc) {
+            TerminateProcess(proc, 1);
+            CloseHandle(proc);
+        }
+        return 1;
     }
-    return 1;
+    return 0;
 }
 static int ActionKill(HWND hwnd)
 {
@@ -2282,6 +2290,25 @@ static int ActionTransparency(HWND hwnd, int delta)
 
     return 1;
 }
+static void SetBottomMost(HWND hwnd)
+{
+    HWND lowhwnd = HWND_BOTTOM; // Lowest hwnd to consider.
+
+    if(!blacklisted(hwnd, &BlkLst.Bottommost)) {
+        // Ignore bottommost list if the lowered windows is also part of it.
+        HWND tmph=hwnd;
+        int i=0;
+        while ((tmph = GetNextWindow(tmph, GW_HWNDNEXT)) && i++ < 1024) {
+            if (IsVisible(tmph)
+            && !IsIconic(tmph)
+            && blacklisted(tmph, &BlkLst.Bottommost)) {
+                lowhwnd = GetNextWindow(tmph, GW_HWNDPREV);
+                break;
+            }
+        }
+    }
+    if (lowhwnd) SetWindowLevel(hwnd, lowhwnd);
+}
 /////////////////////////////////////////////////////////////////////////////
 static void TogglesAlwaysOnTop(HWND hwnd);
 static int xpure IsAeraCapbutton(int area);
@@ -2308,7 +2335,8 @@ static void ActionLower(HWND hwnd, int delta, UCHAR shift)
                 if(tmp && hwnd != GetAncestor(tmp, GA_ROOT))
                     SetForegroundWindowL(tmp);
             }
-            SetWindowLevel(hwnd, HWND_BOTTOM);
+            //SetWindowLevel(hwnd, HWND_BOTTOM);
+            SetBottomMost(hwnd);
         }
     }
 }

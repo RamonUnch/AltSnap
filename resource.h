@@ -93,8 +93,8 @@
 #define IDC_RZCENTER_NORM               2017
 #define IDC_RZCENTER_BR                 2018
 #define IDC_RZCENTER_MOVE               2019
+#define IDC_RZCENTER_CLOSE              2020
 
-#define IDC_PEARCEDBCLICK               2020
 #define IDC_AUTOREMAXIMIZE              2021
 #define IDC_AEROTOPMAXIMIZES            2022
 #define IDC_MULTIPLEINSTANCES           2023
@@ -145,6 +145,7 @@
 #define IDC_GRABWITHALTB_H              2068
 #define IDC_RECT                        2069
 #define IDC_TTBACTIONS_BOX              2070
+#define IDC_PEARCEDBCLICK               2071
 
 #define IDC_USEZONES                    2072
 #define IDC_FANCYZONE                   2073

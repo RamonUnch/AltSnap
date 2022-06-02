@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include "nanolibc.h"
 
-// #include <dwmapi.h>
+/* #include <dwmapi.h> */
 enum DWMWINDOWATTRIBUTE {
   DWMWA_NCRENDERING_ENABLED = 1,
   DWMWA_NCRENDERING_POLICY,
@@ -39,7 +39,7 @@ enum DWMWINDOWATTRIBUTE {
 
 #define QWORD unsigned long long
 #ifdef WIN64
-    #define CopyRect(x, y) (*(x) = *(y));
+    #define CopyRect(x, y) (*(x) = *(y))
     #define DorQWORD QWORD
     #define HIWORDPTR(ll)   ((DWORD) (((QWORD) (ll) >> 32) & 0xFFFFFFFF))
     #define LOWORDPTR(ll)   ((DWORD) (ll))
@@ -94,7 +94,7 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
     #define EnumDisplayMonitors EnumDisplayMonitorsL
     #define MonitorFromPoint MonitorFromPointL
     #define MonitorFromWindow MonitorFromWindowL
-    #define GetGUIThreadInfo GetGUIThreadInfoL
+/*    #define GetGUIThreadInfo GetGUIThreadInfoL (NT4 SP3+/Win98+) */
 #endif
 
 /* USER32.DLL */
@@ -170,16 +170,14 @@ static void *LoadDLLProc(char *DLLname, char *PROCname)
     return ret;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// Accurate Sleep, needs WINMM.DLL
-// Might be useful
+/* Accurate Sleep, needs WINMM.DLL */
 static MMRESULT (WINAPI *mtimeGetDevCaps)(LPTIMECAPS ptc, UINT cbtc) = IPTR;
 static MMRESULT (WINAPI *mtimeBeginPeriod)(UINT uPeriod) = IPTR;
 static MMRESULT (WINAPI *mtimeEndPeriod)(UINT uPeriod) = IPTR;
 static void ASleep(DWORD duration_ms)
 {
     if (duration_ms > 15) {
-        // No need for accurate sleep...
+        /* No need for accurate sleep... */
         Sleep(duration_ms);
         return;
     }
@@ -196,20 +194,21 @@ static void ASleep(DWORD duration_ms)
         }
     }
     /* We have winmm functions */
-    // This absurd code makes Sleep() more accurate
-    // - without it, Sleep() is not even +-10ms accurate
-    // - with it, Sleep is around +-1.5 ms accurate
+    /* This absurd code makes Sleep() more accurate
+     * - without it, Sleep() is not even +-10ms accurate
+     * - with it, Sleep is around +-1.5 ms accurate
+     */
     if(mtimeGetDevCaps) {
         TIMECAPS tc;
         mtimeGetDevCaps(&tc, sizeof(tc));
-        mtimeBeginPeriod(tc.wPeriodMin); // begin accurate Sleep() !
+        mtimeBeginPeriod(tc.wPeriodMin); /* begin accurate sleep */
 
-        Sleep(duration_ms); // perform The SLEEP
+        Sleep(duration_ms); /* perform The SLEEP */
 
-        mtimeEndPeriod(tc.wPeriodMin);
+        mtimeEndPeriod(tc.wPeriodMin); /* end accurate sleep*/
     } else {
         Sleep(duration_ms);
-       }
+    }
 }
 
 static BOOL FreeDLLByName(char *DLLname)

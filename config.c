@@ -401,8 +401,8 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
 
         ret = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
-        ret = ret==1? IDC_RZCENTER_NORM: ret==2? IDC_RZCENTER_MOVE: IDC_RZCENTER_BR;
-        CheckRadioButton(hwnd, IDC_RZCENTER_NORM, IDC_RZCENTER_MOVE, ret);
+        ret = ret==1? IDC_RZCENTER_NORM: ret==2? IDC_RZCENTER_MOVE: ret==3? IDC_RZCENTER_CLOSE: IDC_RZCENTER_BR;
+        CheckRadioButton(hwnd, IDC_RZCENTER_NORM, IDC_RZCENTER_CLOSE, ret);
 
         HWND control = GetDlgItem(hwnd, IDC_LANGUAGE);
         ComboBox_ResetContent(control);
@@ -429,8 +429,8 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             PropSheet_Changed(g_cfgwnd, hwnd);
             have_to_apply = 1;
         }
-        if (IDC_RZCENTER_NORM <= id && id <= IDC_RZCENTER_MOVE) {
-            CheckRadioButton(hwnd, IDC_RZCENTER_NORM, IDC_RZCENTER_MOVE, id);
+        if (IDC_RZCENTER_NORM <= id && id <= IDC_RZCENTER_CLOSE) {
+            CheckRadioButton(hwnd, IDC_RZCENTER_NORM, IDC_RZCENTER_CLOSE, id);
         } else if (id == IDC_AUTOSTART) {
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE), val);
             Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), val && VISTA);
@@ -467,7 +467,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             int val = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_AUTOSNAP));
             WritePrivateProfileString(L"General",    L"AutoSnap", _itow(val, txt, 10), inipath);
 
-            val = IsChecked(IDC_RZCENTER_NORM)? 1: IsChecked(IDC_RZCENTER_MOVE)? 2: 0;
+            val = IsChecked(IDC_RZCENTER_NORM)? 1: IsChecked(IDC_RZCENTER_MOVE)? 2:IsChecked(IDC_RZCENTER_CLOSE)? 3: 0;
             WritePrivateProfileString(L"General",    L"ResizeCenter", _itow(val, txt, 10), inipath);
 
             // Load selected Language
@@ -510,6 +510,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             { IDC_RZCENTER_NORM,    l10n->general_resizecenter_norm },
             { IDC_RZCENTER_BR,      l10n->general_resizecenter_br },
             { IDC_RZCENTER_MOVE,    l10n->general_resizecenter_move },
+            { IDC_RZCENTER_CLOSE,   l10n->general_resizecenter_close },
             { IDC_AUTOSTART_BOX,    l10n->general_autostart_box },
             { IDC_AUTOSTART,        l10n->general_autostart },
             { IDC_AUTOSTART_HIDE,   l10n->general_autostart_hide },
@@ -1176,6 +1177,14 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             , Offset.y+(height-height*centerfrac/100)/2
             , width
             , (height+height*centerfrac/100)/2 + Offset.y);
+        POINT pta[2] = {{Offset.x+(width-width*centerfrac/100)/2, Offset.y+(height-height*centerfrac/100)/2},
+                        { (width+width*centerfrac/100)/2 + Offset.x, (height+height*centerfrac/100)/2 + Offset.y}
+                       };
+        Polyline(hdc, pta, 2);
+        POINT ptb[2] = {{Offset.x+(width-width*centerfrac/100)/2, (height+height*centerfrac/100)/2 + Offset.y},
+                        {(width+width*centerfrac/100)/2 + Offset.x, Offset.y+(height-height*centerfrac/100)/2}
+                     };
+        Polyline(hdc, ptb, 2);
 
         DeleteObject(pen);
 
@@ -1243,7 +1252,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         { IDC_AERODBCLICKSHIFT, T_BMK, 1, L"Advanced", "AeroTopMaximizes", 1 },// bit 1
         { IDC_MULTIPLEINSTANCES,T_BOL, 0, L"Advanced", "MultipleInstances",0 },
         { IDC_FULLSCREEN,       T_BOL, 0, L"Advanced", "FullScreen", 1 },
-        { IDC_BLMAXIMIZED,      T_BOL, 0, L"Advanced", "BLMaximized", 1 },
+        { IDC_BLMAXIMIZED,      T_BOL, 0, L"Advanced", "BLMaximized", 0 },
         { IDC_FANCYZONE,        T_BOL, 0, L"Zones",    "FancyZone", 0 },
         { IDC_NORESTORE,        T_BMK, 2, L"General",  "SmartAero", 0 },  // bit 2
         { IDC_MAXWITHLCLICK,    T_BMK, 0, L"General",  "MMMaximize", 1 }, // bit 0

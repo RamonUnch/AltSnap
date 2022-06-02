@@ -65,6 +65,7 @@ struct strings {
   wchar_t *general_resizecenter_norm;
   wchar_t *general_resizecenter_br;
   wchar_t *general_resizecenter_move;
+  wchar_t *general_resizecenter_close;
 
   // general autostart
   wchar_t *general_autostart_box;
@@ -236,6 +237,7 @@ static const char* l10n_inimapping[] = {
     "GeneralResizeCenterNorm",
     "GeneralResizeCenterBr",
     "GeneralResizeCenterMove",
+    "GeneralResizeCenterClose",
 
     "GeneralAutostartBox",
     "GeneralAutostart",
@@ -406,6 +408,7 @@ static const struct strings en_US = {
  /* ResizeCenterNorm   */ L"All d&irections",
  /* ResizeCenterBr     */ L"&Bottom right",
  /* ResizeCenterMove   */ L"Mo&ve",
+ /* ResizeCenterClose  */ L"Clos&est side",
 
  /* autostart_box      */ L"Autostart",
  /* autostart          */ L"S&tart "APP_NAME" when logging on",
@@ -536,33 +539,32 @@ static const struct strings en_US = {
                            "2) Dispose them as you please\n"
                            "3) Hit the *&Save test windows as snap layout* option in the tray menu",
 
- /* A */ L"àáâäãåæª%āăąǎǟǡǣǻǽȁȃȧ|Ȧḁ%ⱥ|Ⱥɐ|Ɐɑ|Ɑɒ|Ɒⲁ|Ⲁ", \
- /* B */ L"%ƀɓƃƅɃ%ɓ|Ɓḃḅḇ", \
- /* C */ L"ç¢©%ćĉċčƈȼḉ|Ȼɕ", \
- /* D */ L"ð%ďđɖɗƌƍḋḍḏḑḓǆǅǳǲȡȸ", \
- /* E */ L"èéêë€%ēĕėęěǝəɛȅȇḕḗḙḛȩ|Ȩḝɇ|Ɇⱸ", \
- /* F */ L"ƒ%ḟɸⱷ", \
- /* G */ L"%ǵǧḡɠɣǥ", \
- /* H */ L"%ĥħƕǶḣḥḧḩḫȟ|Ȟⱨ|Ⱨⱶ|Ⱶẖ", \
- /* I */ L"ìíîï%ĩīĭǐȉȋįİıĳɩɨḭḯ", \
- /* J */ L"%ĵǰȷɉ|Ɉ", \
- /* K */ L"%ķĸƙǩḱḳⱪ|Ⱪꝁ|Ꝁʞ|Ʞ", \
- /* L */ L"£%ĺļľŀłƛǉǈȴƚ|Ƚⱡ|Ⱡɫ|Ɫḷḹḻḽ", \
- /* M */ L"µ%ḿṁṃɱ|Ɱɯ", \
- /* N */ L"ñ%ńņňŉŋɲƞ|Ƞǌǋǹȵ%ṅṇṉṋ", \
- /* O */ L"òóôöõø°%ōŏő%ɔɵơƣǒǫǭǿȍȏȣ|Ȣȫ|Ȫȭ|Ȭȯ|Ȯȱ|Ȱṍṏṑṓ%ⱺ", \
- /* P */ L"¶þ·•%ƥᵽ|Ᵽṕṗ", \
- /* Q */ L"¿¤‰‘’“”„…–—«»‹›%ȹɋ|Ɋ", \
- /* R */ L"®%ŕŗřƦȑȓṙṛṝṟɍ|Ɍɽ|Ɽⱹ", \
- /* S */ L"šß§%śŝşſ%ƨʃƪș|Șȿ|Ȿ%ṡṣṥṧṩ", \
- /* T */ L"†‡™%ţťŧƫƭʈț|Țȶⱦ|Ⱦ%ṫṭṯṱẗ", \
- /* U */ L"ùúûü%ũūůŭűų%ưʊǔǖǘǚǜȕȗʉ|Ʉ%ṳṵṷṹṻ", \
- /* V */ L"%ʋɅⱱⱴ%ṽṿ", \
- /* W */ L"%ẁẃŵẅⱳ|Ⱳ%ẇẉ", \
- /* X */ L"±×÷¬%ẋẍ", \
- /* Y */ L"ýÿ¥%ŷẏȳ|Ȳƴɏ|Ɏ", \
- /* Z */ L"ž%źẑżẓẕ%ƶʒƹƺǯȥ|Ȥɀ|Ɀⱬ|Ⱬ", \
-
+ /* A */ L"àáâäãåæª%āăąǎǟǡǣǻǽȁȃȧ|Ȧḁ%ⱥ|Ⱥɐ|Ɐɑ|Ɑɒ|Ɒⲁ|Ⲁⓐ", \
+ /* B */ L"%ƀɓƃƅɃ%ɓḃḅḇⓑ", \
+ /* C */ L"ç¢©%ćĉċčƈḉȼ|Ȼɕⓒ", \
+ /* D */ L"ð%ďđɖɗƌƍḋḍḏḑḓǆǅǳǲȡȸⓓ", \
+ /* E */ L"èéêë€%ēĕėęěǝəɛȅȇḕḗḙḛȩ|Ȩḝɇ|Ɇⱸⓔ", \
+ /* F */ L"ƒ%ḟɸⱷⓕ%♩♪♮♭♯♬♫", \
+ /* G */ L"%ǵǧḡɠɣǥⓖ", \
+ /* H */ L"%ĥħƕǶḣḥḧḩḫȟ|Ȟⱨ|Ⱨⱶ|Ⱶẖⓗ", \
+ /* I */ L"ìíîï%ĩīĭǐȉȋįİıĳɩɨḭḯⓘ", \
+ /* J */ L"%ĵǰȷɉ|Ɉⓙ", \
+ /* K */ L"%ķĸƙǩḱḳⱪ|Ⱪꝁ|Ꝁʞ|Ʞⓚ", \
+ /* L */ L"£%ĺļľŀłƛǉǈȴƚ|Ƚⱡ|Ⱡɫ|Ɫḷḹḻḽⓛ", \
+ /* M */ L"µ%ḿṁṃɱ|Ɱɯⓜ", \
+ /* N */ L"ñ%ńņňŉŋɲƞ|Ƞǌǋǹȵ%ṅṇṉṋⓝ", \
+ /* O */ L"òóôöõø°%ōŏő%ɔɵơƣǒǫǭǿȍȏȣ|Ȣȫ|Ȫȭ|Ȭȯ|Ȯȱ|Ȱṍṏṑṓ%ⱺⓞ", \
+ /* P */ L"¶þ·•%ƥᵽ|Ᵽṕṗⓟ", \
+ /* Q */ L"¿¤‰‘’“”„…–—«»‹›%ȹɋ|Ɋⓠ", \
+ /* R */ L"®%ŕŗřƦȑȓṙṛṝṟɍ|Ɍɽ|Ɽⱹⓡ", \
+ /* S */ L"šß§%śŝşſ%ƨʃƪș|Șȿ|Ȿ%ṡṣṥṧṩⓢ", \
+ /* T */ L"†‡™%ţťŧƫƭʈț|Țȶⱦ|Ⱦ%ṫṭṯṱẗⓣ", \
+ /* U */ L"ùúûü%ũūůŭűų%ưʊǔǖǘǚǜȕȗʉ|Ʉ%ṳṵṷṹṻⓤ", \
+ /* V */ L"%ʋɅⱱⱴ%ṽṿⓥ", \
+ /* W */ L"%ẁẃŵẅⱳ|Ⱳ%ẇẉⓦ", \
+ /* X */ L"±×÷¬%ẋẍⓧ", \
+ /* Y */ L"ýÿ¥%ŷẏȳ|Ȳƴɏ|Ɏⓨ", \
+ /* Z */ L"ž%źẑżẓẕ%ƶʒƹƺǯȥ|Ȥɀ|Ɀⱬ|Ⱬⓩ", \
 };
 
 #endif

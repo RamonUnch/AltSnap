@@ -2638,12 +2638,39 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
     SetEdgeAndOffset(wnd, pt);
     if (state.resize.y == RZ_CENTER && state.resize.x == RZ_CENTER) {
         if (conf.ResizeCenter == 0) {
+            // Use Bottom Right Mode
             state.resize.x = RZ_RIGHT;
             state.resize.y = RZ_BOTTOM;
             state.offset.y = wnd->bottom-pt.y;
             state.offset.x = wnd->right-pt.x;
         } else if (conf.ResizeCenter == 2) {
+            // Switch to Move action
             state.action = AC_MOVE;
+        } else if (conf.ResizeCenter == 3) {
+            // Use diagonals to select pure L/C R/C T/C B/C
+            int W = wnd->right - wnd->left;
+            int H = wnd->bottom - wnd->top;
+            int x = pt.x - wnd->left;
+            int y = pt.y - wnd->top;
+            char TR = y <= (H * x)/W ; // T/C or R/C mode
+            char TL = y <= H - (H * x)/W ; // B/C or C/C mode
+            if (TR) { // Top or right
+                if (TL) {
+                    state.resize.y = RZ_TOP;
+                    state.offset.y = pt.y-wnd->top;
+                } else {
+                    state.resize.x = RZ_RIGHT;
+                    state.offset.x = wnd->right-pt.x;
+                }
+            } else { // Bottom or Left
+                if (TL) { // Bottom right
+                    state.resize.x = RZ_LEFT;
+                    state.offset.x = pt.x-wnd->left;
+                } else {
+                    state.resize.y = RZ_BOTTOM;
+                    state.offset.y = wnd->bottom-pt.y;
+                }
+            }
         }
     }
     return -1;
@@ -3237,6 +3264,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             // Start Grab timer
             SetTimer(g_timerhwnd, GRAB_TIMER, GetDoubleClickTime(), NULL);
         } else if (wParam == WM_LBUTTONUP) {
+            action = AC_MOVE;
             KillTimer(g_timerhwnd, GRAB_TIMER);
         }
     }
@@ -3661,7 +3689,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {&conf.AeroThreshold,   L"Advanced", "AeroThreshold", 5 },
         {&conf.AeroTopMaximizes,L"Advanced", "AeroTopMaximizes", 1 },
         {&conf.UseCursor,       L"Advanced", "UseCursor", 1 },
-        {&conf.MinAlpha,        L"Advanced", "MinAlpha", 20 },
+        {&conf.MinAlpha,        L"Advanced", "MinAlpha", 32 },
         {&conf.AlphaDeltaShift, L"Advanced", "AlphaDeltaShift", 8 },
         {&conf.AlphaDelta,      L"Advanced", "AlphaDelta", 64 },
         /* AeroMaxSpeed not here... */
@@ -3706,8 +3734,8 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.CenterFraction=CLAMP(0, conf.CenterFraction, 100);
     conf.AHoff        = CLAMP(0, conf.AHoff,          100);
     conf.AVoff        = CLAMP(0, conf.AVoff,          100);
-    conf.AeroSpeedTau = min(1, conf.AeroSpeedTau);
-    conf.MinAlpha     = min(1, conf.MinAlpha);
+    conf.AeroSpeedTau = max(1, conf.AeroSpeedTau);
+    conf.MinAlpha     = max(1, conf.MinAlpha);
 
     // [Advanced] Max Speed
     conf.AeroMaxSpeed  = GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath);

@@ -375,6 +375,20 @@ static void WriteDialogOptions(HWND hwnd,const struct optlst *ol, unsigned size)
 }
 
 /////////////////////////////////////////////////////////////////////////////
+// to be used with EnumDesktopWindows()
+BOOL CALLBACK RefreshTestWin(HWND hwnd, LPARAM lp)
+{
+    wchar_t classn[256];
+    if (GetClassName(hwnd, classn, ARR_SZ(classn))
+    && !wcscmp(APP_NAME"-Test", classn) ) {
+        PostMessage(hwnd, WM_UPDCFRACTION, 0, 0);
+        SetWindowPos(hwnd, NULL, 0, 0, 0, 0
+            , SWP_NOCOPYBITS|SWP_NOMOVE|SWP_NOREPOSITION|SWP_NOSIZE );
+    }
+    return TRUE;
+}
+
+/////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     #pragma GCC diagnostic ignored "-Wint-conversion"
@@ -482,6 +496,9 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             SetAutostart(IsChecked(IDC_AUTOSTART), IsChecked(IDC_AUTOSTART_HIDE), IsChecked(IDC_AUTOSTART_ELEVATE));
 
             UpdateSettings();
+            // Update Test windows in if open.
+            EnumDesktopWindows(NULL, RefreshTestWin, 0);
+
             have_to_apply = 0;
         }
 //    } else if (msg == WM_HELP) {
@@ -1127,7 +1144,8 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 // Simple windows proc that draws the resizing regions.
 LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    static int centerfrac=24;
+    static UCHAR centerfrac=24;
+    static UCHAR centermode=1;
     static wchar_t lastkey[64]=L"";
 
     switch (msg) {
@@ -1177,14 +1195,33 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             , Offset.y+(height-height*centerfrac/100)/2
             , width
             , (height+height*centerfrac/100)/2 + Offset.y);
-        POINT pta[2] = {{Offset.x+(width-width*centerfrac/100)/2, Offset.y+(height-height*centerfrac/100)/2},
-                        { (width+width*centerfrac/100)/2 + Offset.x, (height+height*centerfrac/100)/2 + Offset.y}
-                       };
-        Polyline(hdc, pta, 2);
-        POINT ptb[2] = {{Offset.x+(width-width*centerfrac/100)/2, (height+height*centerfrac/100)/2 + Offset.y},
-                        {(width+width*centerfrac/100)/2 + Offset.x, Offset.y+(height-height*centerfrac/100)/2}
-                     };
-        Polyline(hdc, ptb, 2);
+        if (centermode == 3) {
+            POINT pta[2] = {{Offset.x+(width-width*centerfrac/100)/2, Offset.y+(height-height*centerfrac/100)/2},
+                          { (width+width*centerfrac/100)/2 + Offset.x, (height+height*centerfrac/100)/2 + Offset.y}
+                         };
+            Polyline(hdc, pta, 2);
+            POINT ptb[2] = {{Offset.x+(width-width*centerfrac/100)/2, (height+height*centerfrac/100)/2 + Offset.y},
+                          { (width+width*centerfrac/100)/2 + Offset.x, Offset.y+(height-height*centerfrac/100)/2}
+                         };
+            Polyline(hdc, ptb, 2);
+            HPEN rcpen = (HPEN) CreatePen(PS_SOLID, 2, GetSysColor(COLOR_BTNFACE));
+            SelectObject(hdc, rcpen);
+            Rectangle(hdc
+                , Offset.x+(width-width*centerfrac/100)/2
+                , Offset.y+(height-height*centerfrac/100)/2
+                , (width+width*centerfrac/100)/2 + Offset.x
+                , (height+height*centerfrac/100)/2 + Offset.y);
+
+            rcpen = (HPEN) CreatePen(PS_DOT, 1, GetSysColor(COLOR_BTNTEXT));
+            SelectObject(hdc, rcpen);
+            SetBkColor(hdc, GetSysColor(COLOR_BTNFACE));
+            Rectangle(hdc
+                , Offset.x+(width-width*centerfrac/100)/2
+                , Offset.y+(height-height*centerfrac/100)/2
+                , (width+width*centerfrac/100)/2 + Offset.x
+                , (height+height*centerfrac/100)/2 + Offset.y);
+            DeleteObject(rcpen);
+        }
 
         DeleteObject(pen);
 
@@ -1207,7 +1244,8 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return 1;
 
     case WM_UPDCFRACTION:
-        centerfrac = lParam;
+        centerfrac = GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath);
+        centermode = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
         return 0;
 
     }
@@ -1236,8 +1274,7 @@ static HWND NewTestWindow()
          , wintitle, WS_CAPTION|WS_OVERLAPPEDWINDOW
          , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT
          , NULL, NULL, g_hinst, NULL);
-    PostMessage(testwnd, WM_UPDCFRACTION, 0
-         , GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath));
+    PostMessage(testwnd, WM_UPDCFRACTION, 0, 0);
     ShowWindow(testwnd, SW_SHOW);
 
     return testwnd;
@@ -1269,7 +1306,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
     };
     #pragma GCC diagnostic pop
 
-    static HWND testwnd=NULL;
+//    static HWND testwnd=NULL;
     static int have_to_apply = 0;
     if (msg == WM_INITDIALOG) {
       ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
@@ -1286,7 +1323,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             have_to_apply = 1;
         }
         if (id == IDC_TESTWINDOW) { // Click on the Test Window button
-            testwnd = NewTestWindow();
+            NewTestWindow();
         }
     } else if (msg == WM_NOTIFY) {
         LPNMHDR pnmh = (LPNMHDR) lParam;
@@ -1320,18 +1357,10 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Apply or OK button was pressed.
             // Save settings
-            wchar_t txt[8];
             WriteDialogOptions(hwnd, optlst, ARR_SZ(optlst));
-            // Update center fraction in Test window in if open.
-            if (testwnd && IsWindow(testwnd)) {
-                int centerfraction = 24;
-                Edit_GetText(GetDlgItem(hwnd, IDC_CENTERFRACTION), txt, ARR_SZ(txt));
-                centerfraction = _wtoi(txt);
-                PostMessage(testwnd, WM_UPDCFRACTION, 0, centerfraction);
-                SetWindowPos(testwnd, NULL, 0, 0, 0, 0
-                    , SWP_NOCOPYBITS|SWP_NOMOVE|SWP_NOREPOSITION|SWP_NOSIZE );
-            }
             UpdateSettings();
+            // Update Test windows in if open.
+            EnumDesktopWindows(NULL, RefreshTestWin, 0);
             have_to_apply = 0;
         }
     }

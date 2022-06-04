@@ -1,4 +1,4 @@
-English | [中文文档](./README_zh-CN.md) | [한국어](./README_ko-KR.md)
+English | [中文](./README_zh-CN.md) | [한국어](./README_ko-KR.md)
 # AltSnap
 Fork from Stefan Sundin's AltDrag.
 
@@ -14,7 +14,7 @@ This behavior is very common on Linux distributions and is not actually hard to 
 
 This fork tries to keep a version up to date with minimal amount of bugs while keeping it feature-rich.
 
-It is oriented towards all Windows users from Windows NT 4 to Windows 10, even though it is mostly tested on Windows XP and Windows 10.
+It is oriented towards all Windows users from Windows NT 4 to Windows 11, even though it is mostly tested on Windows XP and Windows 10.
 
 Main differences:
 To simplify the code greatly the Hooks windows feature was removed, it allowed you have windows snapping while dragging them normally. It required however to inject a dll in every application and induced thus an obvious security risk. The amount of mess added to the code just for this feature was substantial and in addition forced to have both a 32bits and a 64bits version of the program running at the same time.

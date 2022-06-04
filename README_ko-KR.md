@@ -1,4 +1,4 @@
-[English](./README.md) | [中文文档](./README_zh-CN.md) | 한국어
+[English](./README.md) | [中文](./README_zh-CN.md) | 한국어
 # AltSnap
 Stefan Sundin의 AltDrag에서 포크되었습니다.
 
@@ -14,7 +14,7 @@ AltSnap은 Alt 키를 누르고 윈도 창의 아무곳이나 클릭하여 창�
 
 이 포크는 기능을 풍부하게 유지하면서 최소한의 버그로 버전을 최신 상태로 유지하려고 합니다.
 
-주로 Windows XP와 Windows 10에서 테스트 되었습니다만 Windows NT 4에서 Windows 10까지의 모든 Windows에서 사용이 가능합니다.
+주로 Windows XP와 Windows 10에서 테스트 되었습니다만 Windows NT 4에서 Windows 11까지의 모든 Windows에서 사용이 가능합니다.
 
 주요 차이점:
 코드를 최대한 단순화하기 위해 창을 후크하는 기능을 제거하였습니다. 드래그를 하는동안 창을 스냅할 수 있도록 해줄 수 있었지만 모든 응용 프로그램에 dll을 삽입(DLL Injection)해야 했었으므로 보안 위험이 발생하는 것은 명백했습니다. 단순히 이 기능을 위해 상당한 양의 복잡도가 코드에 추가되었으며 동시에 32비트 및 64비트 버전의 프로그램을 모두 실행해야 했습니다.

@@ -6,7 +6,7 @@
  * Modified By Raymond Gillibert in 2020                                 *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-struct { // NOTIFYICONDATA for NT4
+static struct { // NOTIFYICONDATA for NT4
     DWORD cbSize;
     HWND hWnd;
     UINT uID;
@@ -16,16 +16,16 @@ struct { // NOTIFYICONDATA for NT4
     char szTip[64];
 } tray;
 
-int tray_added = 0;
-int hide = 0;
-int UseZones = 0;
+static int tray_added = 0;
+static int hide = 0;
+static int UseZones = 0;
 
 char *iconstr[] = {
     "TRAY_OFF",
     "TRAY_ON",
     "TRAY_SUS"
 };
-char *traystr[] = {
+static const char *traystr[] = {
     APP_NAMEA" (Off)",
     APP_NAMEA" (On)",
     APP_NAMEA"...",

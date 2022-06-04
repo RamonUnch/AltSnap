@@ -1196,6 +1196,16 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             , width
             , (height+height*centerfrac/100)/2 + Offset.y);
         if (centermode == 3) {
+            HPEN rcpen = (HPEN) CreatePen(PS_SOLID, 2, GetSysColor(COLOR_BTNFACE));
+            SelectObject(hdc, rcpen);
+            Rectangle(hdc
+                , Offset.x+(width-width*centerfrac/100)/2
+                , Offset.y+(height-height*centerfrac/100)/2
+                , (width+width*centerfrac/100)/2 + Offset.x
+                , (height+height*centerfrac/100)/2 + Offset.y);
+            DeleteObject(rcpen);
+
+            SelectObject(hdc, pen);
             POINT pta[2] = {{Offset.x+(width-width*centerfrac/100)/2, Offset.y+(height-height*centerfrac/100)/2},
                           { (width+width*centerfrac/100)/2 + Offset.x, (height+height*centerfrac/100)/2 + Offset.y}
                          };
@@ -1204,13 +1214,6 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                           { (width+width*centerfrac/100)/2 + Offset.x, Offset.y+(height-height*centerfrac/100)/2}
                          };
             Polyline(hdc, ptb, 2);
-            HPEN rcpen = (HPEN) CreatePen(PS_SOLID, 2, GetSysColor(COLOR_BTNFACE));
-            SelectObject(hdc, rcpen);
-            Rectangle(hdc
-                , Offset.x+(width-width*centerfrac/100)/2
-                , Offset.y+(height-height*centerfrac/100)/2
-                , (width+width*centerfrac/100)/2 + Offset.x
-                , (height+height*centerfrac/100)/2 + Offset.y);
 
             rcpen = (HPEN) CreatePen(PS_DOT, 1, GetSysColor(COLOR_BTNTEXT));
             SelectObject(hdc, rcpen);

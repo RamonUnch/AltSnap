@@ -2397,7 +2397,7 @@ static void UpdateCursor(POINT pt)
 {
     // Update cursor
     if (conf.UseCursor && g_mainhwnd) {
-        SetWindowPos(g_mainhwnd, NULL, pt.x-8, pt.y-8, 16, 16
+        SetWindowPos(g_mainhwnd, HWND_TOPMOST, pt.x-8, pt.y-8, 16, 16
                     , SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
         SetClassLongPtr(g_mainhwnd, GCLP_HCURSOR, (LONG_PTR)CursorToDraw());
         ShowWindow(g_mainhwnd, SW_SHOWNA);
@@ -2936,6 +2936,9 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         return 0;
     }
 
+    // If no action is to be done then we passed all balcklists
+    if(action == AC_NONE) return 1;
+
     // An action will be performed...
     // Set state
     state.blockaltup = state.alt; // If alt is down...
@@ -3415,12 +3418,14 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             &&  GetAsyncKeyState(1 + (buttonswaped = !!GetSystemMetrics(SM_SWAPBUTTON)))
             && (ptwnd = WindowFromPoint(state.prevpt))
             &&!IsAreaLongClikcable(HitTestTimeoutbl(ptwnd, state.prevpt.x, state.prevpt.y))) {
-                state.ignoreclick=1;
-                mouse_event(buttonswaped?MOUSEEVENTF_RIGHTUP:MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
-                state.ignoreclick=0;
-//                state.alt = 1;
-                init_movement_and_actions(state.prevpt, AC_MOVE, 2);
-//                state.alt = 0;
+                // Determine if we should actually move the Window by probing with AC_NONE
+                int ret = init_movement_and_actions(state.prevpt, AC_NONE, 0);
+                if (ret) { // Release mouse click if we have to move.
+                    state.ignoreclick=1;
+                    mouse_event(buttonswaped?MOUSEEVENTF_RIGHTUP:MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
+                    state.ignoreclick=0;
+                    init_movement_and_actions(state.prevpt, AC_MOVE, 0);
+                }
             }
             KillTimer(g_timerhwnd, GRAB_TIMER);
         }

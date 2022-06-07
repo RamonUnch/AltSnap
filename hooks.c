@@ -3255,6 +3255,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         }
         if (ret == 0) return CALLNEXTHOOK;
         else if (ret == 1) return 1;
+        ttbact = AC_NONE; // No titlebar action to be done.
     }
 
     // Long click grab timer
@@ -3270,7 +3271,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     }
 
     // Nothing to do...
-    if (!action && buttonstate == STATE_DOWN)
+    if (!action && !ttbact && buttonstate == STATE_DOWN)
         return CALLNEXTHOOK;//CallNextHookEx(NULL, nCode, wParam, lParam);
 
     // Handle another click if we are already busy with an action
@@ -3409,15 +3410,17 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         } else if (wParam == GRAB_TIMER) {
             // Grab the action after a certain amount of time of click down
             HWND ptwnd;
+            UCHAR buttonswaped;
             if (IsSamePTT(&state.prevpt, &state.clickpt)
+            &&  GetAsyncKeyState(1 + (buttonswaped = !!GetSystemMetrics(SM_SWAPBUTTON)))
             && (ptwnd = WindowFromPoint(state.prevpt))
             &&!IsAreaLongClikcable(HitTestTimeoutbl(ptwnd, state.prevpt.x, state.prevpt.y))) {
                 state.ignoreclick=1;
-                mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
+                mouse_event(buttonswaped?MOUSEEVENTF_RIGHTUP:MOUSEEVENTF_LEFTUP, 0, 0, 0, GetMessageExtraInfo());
                 state.ignoreclick=0;
-                state.alt = 1;
+//                state.alt = 1;
                 init_movement_and_actions(state.prevpt, AC_MOVE, 2);
-                state.alt = 0;
+//                state.alt = 0;
             }
             KillTimer(g_timerhwnd, GRAB_TIMER);
         }

@@ -2652,8 +2652,8 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
             int H = wnd->bottom - wnd->top;
             int x = pt.x - wnd->left;
             int y = pt.y - wnd->top;
-            char TR = y <= (H * x)/W ; // T/C or R/C mode
-            char TL = y <= H - (H * x)/W ; // B/C or C/C mode
+            char TR = y * W     <= H * x; // T/C or R/C mode
+            char TL = (H-y) * W >= H * x; // B/C or C/C mode
             if (TR) { // Top or right
                 if (TL) {
                     state.resize.y = RZ_TOP;

@@ -41,4 +41,4 @@ Just install the latest version (I use TDM-gcc 10.3, MinGW64 based) and use:
 
 `> make -fMakefileX64db` for x86_64 debug build.
 
-You can also use mk.bart and mk64.bat files.
+You can also use mk.bat and mk64.bat files.

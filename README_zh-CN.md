@@ -40,4 +40,4 @@ AltSnap使用gcc构建，对于i686来说，我使用Mingw-w64。
 
 `> make -fMakefileX64db` 用于构建x86_64的调试版本。
 
-您也可以使用mk.bart和mk64.bat文件。
+您也可以使用mk.bat和mk64.bat文件。

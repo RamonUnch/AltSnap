@@ -1140,6 +1140,7 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 
     return FALSE;
 }
+static HWND NewTestWindow();
 /////////////////////////////////////////////////////////////////////////////
 // Simple windows proc that draws the resizing regions.
 LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -1149,8 +1150,12 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     static wchar_t lastkey[64]=L"";
 
     switch (msg) {
-    case WM_KEYUP:
     case WM_KEYDOWN:
+        if (wParam == 0x4E && (GetAsyncKeyState(VK_CONTROL)&0x8000)) {
+            NewTestWindow();
+            break;
+        }
+    case WM_KEYUP:
     case WM_SYSKEYUP:
     case WM_SYSKEYDOWN: {
         wchar_t txt[10];
@@ -1165,6 +1170,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         long splitheight = crc.bottom-GetSystemMetrics(SM_CYCAPTION);
         InvalidateRect(hwnd,  &(RECT){5, splitheight, crc.right, crc.bottom}, TRUE);
         PostMessage(hwnd, WM_PAINT, 0, 0);
+
     } break;
 
     case WM_PAINT: {
@@ -1250,7 +1256,6 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         centerfrac = GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath);
         centermode = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
         return 0;
-
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }

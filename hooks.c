@@ -3262,14 +3262,15 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     }
 
     // Long click grab timer
-    if(conf.LongClickMove && !state.action && !state.alt) {
+    if (conf.LongClickMove && !state.action && !state.alt) {
         if (wParam == WM_LBUTTONDOWN) {
             state.clickpt = pt;
             // Start Grab timer
             SetTimer(g_timerhwnd, GRAB_TIMER, GetDoubleClickTime(), NULL);
-        } else if (wParam == WM_LBUTTONUP) {
-            action = AC_MOVE;
+        } else {
+            // Cancel Grab timer.
             KillTimer(g_timerhwnd, GRAB_TIMER);
+            return CALLNEXTHOOK;
         }
     }
 

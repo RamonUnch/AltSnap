@@ -1,7 +1,7 @@
 *=========================================================================*
 *            ALTSNAP for Windows NT4/2000/XP/Vista/7/8.x/10/11            *
 *  Modified by Raymond Gillibert from original AltDrag by Stefan Sundin   *
-*                      release 1.53 (March XX, 2022)                      *
+*                      release 1.53 (June 23, 2022)                       *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltSnap/releases/         *
@@ -187,13 +187,13 @@ Note that this version has some more feature.
 == AltSnap 1.53 ==
 
  * New: An extra key menu can now be enabled in the Keyboard tab of the
-   config and a poup menu with additional characters will show up when 
+   config and a popup menu with additional characters will show up when
    you press a key from A-Z for a long time. This is similar to the way
-   Andorid and MacOS behave. The menu entry can be selected by pressing
+   Android and MacOS behave. The menu entry can be selected by pressing
    the accelerator key (first column), or using the usual arrows/mouse.
-   The menu can be configured individually for each language.
+   The menu can be configured individually for each language (#181).
 
- * New: Now any key can be mapped to mouse button 6-20, this ise useful if
+ * New: Now any key can be mapped to mouse button 6-20, this is useful if
    you have more than 5 mouse buttons and want to use your extra buttons with
    AltSnap. You can first bind your extra mouse buttons to keys that you
    would never use ie F13-F24, or some multimedia keys or even in some cases
@@ -204,18 +204,28 @@ Note that this version has some more feature.
    section of the .ini file. I advise to also add those buttons to the
    `Hotclicks` key list. Finally keep in mind that any keys added to the
    `XXButtons` list will be unusable outside of AltSnap.
-   Check #175 for the feature developpement and more tricks.
+   Check issue #175 for the feature development and more tricks.
 
  * New: the `Bottommost` list was added to the `[Blacklist]` section of the
    ini file. When AltSnap lowers a window, it will try to keep it above all
    those Bottommost windows. Default value is `*|RainmeterMeterWindow` for
    the Rainmaker skin windows (fixes #189).
 
+ * New: You can now replace the all directions center resize mode by the
+   **Closest side** mode that picks the closest side resizing mode instead.
+   The test window will be updated accordingly (see issue #193).
+
+ * New: Now pressing Ctrl+N in a test window will open a New one.
+
+ * Fixed: Now maximizing a window with the Action without click option will
+   no longer prevent further movement.
+
+ * Fixed: The long click move option now works when left and right buttons
+   are swapped, it will also no longer interact with blacklisted windows.
+
  * Fixed MDI ancestor detection to avoid AltSnap freezing on WinTabber.
 
- * Fixed: `MinAlpha` Is no longer Ignored (1.52 regression).
-
- * Fixed: `AeroSpeedTau` Is no longer Ignored (1.52 regression).
+ * Fixed: `MinAlpha` and `AeroSpeedTau` being ignored (1.52 regression).
 
  * Fixed: #183 Titlebar move action would not work properly when no primary
    action was selected.
@@ -227,6 +237,9 @@ Note that this version has some more feature.
    borderless using AltSnap (partially fixes #185).
 
  * Changed: minor code refactoring, inducing even more exe size reduction.
+
+ * Updated German translation thanks to @Ichisich, updated Korean translation
+   thanks to @1kko.
 
 == AltSnap 1.52 ==
 

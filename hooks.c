@@ -1956,6 +1956,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 POINT pt;
                 enum action action = conf.GrabWithAlt[(vkey==conf.ModKey) || (!IsHotkey(conf.ModKey)&&ModKey())];
                 if (action) {
+                    state.blockmouseup = 0; // In case.
                     GetCursorPos(&pt);
                     if (!init_movement_and_actions(pt, action, vkey)) {
                         UnhookMouse();
@@ -1986,7 +1987,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             HotkeyUp();
         } else if (vkey == VK_ESCAPE) { // USER PRESSED ESCAPE!
             // Alsays disable shift and ctrl, in case of Ctrl+Shift+ESC.
-            //LogState("ESCAPE KEY WAS PRESSED:\n"); // Debug stuff....
+            // LogState("ESCAPE KEY WAS PRESSED:\n"); // Debug stuff....
             state.ctrl = 0;
             state.shift = 0;
             LastWin.hwnd = NULL;

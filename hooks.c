@@ -1969,7 +1969,9 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         } else if (IsHotkeyy(vkey, conf.Shiftkeys)) {
             if (!state.shift && vkey != conf.ModKey) {
                 EnumOnce(NULL); // Reset enum state.
-                if(conf.ShiftSnaps) state.snap = 3;
+                if (conf.ShiftSnaps) {
+                    state.snap = conf.AutoSnap==3? 0: 3;
+                }
                 state.shift = 1;
                 state.shiftpt = state.prevpt; // Save point where shift was pressed.
             }

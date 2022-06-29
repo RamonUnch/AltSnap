@@ -134,6 +134,9 @@ struct strings {
   wchar_t *input_hotkeys_modkey;
   wchar_t *input_hotclicks_box;
   wchar_t *input_hotclicks_more;
+  wchar_t *input_hotkeys_alt;
+  wchar_t *input_hotkeys_ctrl;
+  wchar_t *input_hotkeys_shift;
   wchar_t *input_hotkeys_leftalt;
   wchar_t *input_hotkeys_rightalt;
   wchar_t *input_hotkeys_leftwinkey;
@@ -301,6 +304,9 @@ static const char* l10n_inimapping[] = {
     "InputHotkeysModKey",
     "InputHotclicksBox",
     "InputHotclicksMore",
+    "InputHotkeysAlt",
+    "InputHotkeysCtrl",
+    "InputHotkeysShift",
     "InputHotkeysLeftAlt",
     "InputHotkeysRightAlt",
     "InputHotkeysLeftWinkey",
@@ -476,6 +482,9 @@ static const struct strings en_US = {
  /* modkey             */ L"Modifier key for al&ternate action:",
  /* hotclicks box      */ L"Activate with click",
  /* hotclicks more     */ L"Checked buttons will not be usable outside of AltSnap. They can be combined with an action.",
+ /* alt                */ L"Alt",
+ /* control            */ L"Control",
+ /* shift              */ L"Shift",
  /* leftalt            */ L"L&eft Alt",
  /* rightalt           */ L"&Right Alt",
  /* leftwinkey         */ L"Left &Winkey",

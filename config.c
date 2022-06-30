@@ -910,17 +910,18 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         if (pnmh->code == PSN_SETACTIVE) {
             // GrabWithAlt
             wchar_t txt[64];
+
             GetPrivateProfileString(L"Input", L"ModKey", L"", txt, ARR_SZ(txt), inipath);
             Static_Enable(GetDlgItem(hwnd, IDC_GRABWITHALTB_H), txt[0]);
             ListBox_Enable(GetDlgItem(hwnd, IDC_GRABWITHALTB), txt[0]);
 
             FillActionDropListS(hwnd, IDC_GRABWITHALT, L"GrabWithAlt", kb_actions);
             FillActionDropListS(hwnd, IDC_GRABWITHALTB, L"GrabWithAltB", kb_actions);
+
             // ModKey init
             HWND control = GetDlgItem(hwnd, IDC_MODKEY);
             ComboBox_ResetContent(control);
-            GetPrivateProfileString(L"Input", L"ModKey", L"", txt, ARR_SZ(txt), inipath);
-            unsigned j, sel = ARR_SZ(togglekeys) - 1;
+            unsigned j, sel = 0;
             for (j = 0; j < ARR_SZ(togglekeys); j++) {
                 wchar_t key_name[256];
                 wcscpy_noaccel(key_name, togglekeys[j].l10n, ARR_SZ(key_name));
@@ -929,7 +930,13 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                     sel = j;
                 }
             }
-            ComboBox_SetCurSel(control, sel);
+            // Add the current ModKey string to the list if not found!
+            if (sel == 0 && txt[0]) {
+                ComboBox_AddString(control, &txt[0]);
+                sel = ARR_SZ(togglekeys);
+            }
+            ComboBox_SetCurSel(control, sel); // select current ModKey
+
             // Update text
             struct dialogstring strlst[] = {
                 { IDC_KEYBOARD_BOX,    l10n->tab_keyboard},
@@ -964,7 +971,8 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             ScrollLockState = WriteOptionBoolB(IDC_SCROLLLOCKSTATE, L"Input", "ScrollLockState", 0);
             // Invert move/resize key.
             i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_MODKEY));
-            WritePrivateProfileString(L"Input", L"ModKey", togglekeys[i].action, inipath);
+            if(i < (int)ARR_SZ(togglekeys))
+                WritePrivateProfileString(L"Input", L"ModKey", togglekeys[i].action, inipath);
             // Hotkeys
             SaveHotKeys(hotkeys, hwnd, L"Hotkeys");
             WriteOptionBool(IDC_KEYCOMBO,  L"Input", "KeyCombo");

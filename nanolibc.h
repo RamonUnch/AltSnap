@@ -1,13 +1,22 @@
 #ifndef NANOLIBC_H
 #define NANOLIBC_H
 
+#ifdef __GNUC__
 #define flatten __attribute__((flatten))
 #define xpure __attribute__((const))
 #define pure __attribute__((pure))
 #define noreturn __attribute__((noreturn))
 #define fastcall __attribute__((fastcall))
 #define ainline __attribute__((always_inline))
-
+#else
+#define flatten
+#define xpure
+#define pure
+#define noreturn
+#define fastcall
+#define ainline
+#define __restrict__
+#endif
 /* return +/-1 if x is +/- and 0 if x == 0 */
 static xpure int sign(int x)
 {

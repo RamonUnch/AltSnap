@@ -114,7 +114,7 @@ static void OpenConfig(int startpage)
     }
     // Define the pages
     static const struct {
-        int pszTemplate;
+        WORD pszTemplate;
         DLGPROC pfnDlgProc;
     } pages[] = {
         { IDD_GENERALPAGE,   GeneralPageDialogProc  },
@@ -124,7 +124,8 @@ static void OpenConfig(int startpage)
         { IDD_ADVANCEDPAGE,  AdvancedPageDialogProc },
         { IDD_ABOUTPAGE,     AboutPageDialogProc    }
     };
-    PROPSHEETPAGE psp[ARR_SZ(pages)] = { };
+    PROPSHEETPAGE psp[ARR_SZ(pages)];
+    memset(&psp[0], 0, sizeof(psp));
     size_t i;
     for (i = 0; i < ARR_SZ(pages); i++) {
         psp[i].dwSize = sizeof(PROPSHEETPAGE);
@@ -176,8 +177,13 @@ static void UpdateStrings()
     // Update tab titles
     HWND tc = PropSheet_GetTabControl(g_cfgwnd);
     int numrows_prev = TabCtrl_GetRowCount(tc);
-    wchar_t *titles[] = { l10n->tab_general, l10n->tab_mouse, l10n->tab_keyboard
-                        , l10n->tab_blacklist, l10n->tab_advanced,l10n->tab_about };
+    wchar_t *titles[6];
+    titles[0] = l10n->tab_general;
+    titles[1] = l10n->tab_mouse;
+    titles[2] = l10n->tab_keyboard;
+    titles[3] = l10n->tab_blacklist;
+    titles[4] = l10n->tab_advanced;
+    titles[5] = l10n->tab_about;
     size_t i;
     for (i = 0; i < ARR_SZ(titles); i++) {
         TCITEM ti;
@@ -331,7 +337,7 @@ static int ReadOptionIntW(HWND hwnd, WORD id, const wchar_t *section, const char
 }
 #define ReadOptionInt(id, section, name, def, mask) ReadOptionIntW(hwnd, id, section, name, def, mask)
 
-struct dialogstring { const int idc; const wchar_t *string; };
+struct dialogstring { int idc; wchar_t *string; };
 static void UpdateDialogStrings(HWND hwnd, struct dialogstring strlst[], unsigned size)
 {
     unsigned i;

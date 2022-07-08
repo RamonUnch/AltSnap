@@ -516,9 +516,12 @@ static DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
 /* Helper function to get the Min and Max tracking sizes */
 static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
 {
-    MINMAXINFO mmi = { {0, 0}, {0, 0}, {0, 0}
-                     , {GetSystemMetrics(SM_CXMINTRACK), GetSystemMetrics(SM_CYMINTRACK)}
-                     , {GetSystemMetrics(SM_CXMAXTRACK), GetSystemMetrics(SM_CXMAXTRACK)}};
+    MINMAXINFO mmi = { {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
+    mmi.ptMinTrackSize.x = GetSystemMetrics(SM_CXMINTRACK);
+    mmi.ptMinTrackSize.y = GetSystemMetrics(SM_CYMINTRACK);
+    mmi.ptMaxTrackSize.x = GetSystemMetrics(SM_CXMAXTRACK);
+    mmi.ptMaxTrackSize.y = GetSystemMetrics(SM_CYMAXTRACK);
+
     SendMessage(hwnd, WM_GETMINMAXINFO, 0, (LPARAM)&mmi);
     *Min = mmi.ptMinTrackSize;
     *Max = mmi.ptMaxTrackSize;

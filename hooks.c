@@ -119,7 +119,7 @@ unsigned numhwnds = 0;
 
 // Settings
 #define MAXKEYS 15
-static struct {
+static struct config {
     UCHAR AutoFocus;
     UCHAR AutoSnap;
     UCHAR AutoRemaximize;
@@ -340,7 +340,6 @@ static int IsFullScreenBL(HWND hwnd)
     GetMonitorInfoFromWin(hwnd, &mi);
     GetWindowRect(hwnd, &rc);
     return IsFullscreen(hwnd, &rc, &mi.rcMonitor);
-
 }
 /////////////////////////////////////////////////////////////////////////////
 // WM_ENTERSIZEMOVE or WM_EXITSIZEMOVE...
@@ -628,7 +627,10 @@ static int ResizeTouchingWindows(LPVOID lwptr)
         unsigned flag = snwnds[i].flag;
         HWND hwnd = snwnds[i].hwnd;
 
-        if(!PtInRect(&state.origin.mon, (POINT){nwnd->left+16, nwnd->top+16}))
+        POINT tpt;
+        tpt.x = nwnd->left+16;
+        tpt.y = nwnd->top+16 ;
+        if(!PtInRect(&state.origin.mon, tpt))
             continue;
 
         if (PureLeft(flag)) {
@@ -1067,7 +1069,10 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
         unsigned flag = snwnds[i].flag;
         RECT *wnd = &snwnds[i].wnd;
         // if the window is in current monitor
-        if (PtInRect(mon, (POINT) { wnd->left+16, wnd->top+16 })) {
+        POINT tpt;
+        tpt.x = wnd->left+16;
+        tpt.y = wnd->top+16 ;
+        if (PtInRect(mon, tpt)) {
             // We have a snapped window in the monitor
             if (flag & SNLEFT) {
                 *leftWidth  = CLAMPW(wnd->right - wnd->left);
@@ -1130,7 +1135,10 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     int leftWidth, rightWidth, topHeight, bottomHeight;
 
     unsigned restore = GetRestoreFlag(state.hwnd);
-    if(PtInRect(&(RECT){ pLeft, pTop, pRight, pBottom}, pt)) goto restore;
+    RECT trc;
+    trc.left = pLeft; trc.top = pTop;
+    trc.right = pRight; trc.bottom =pBottom;
+    if(PtInRect(&trc, pt)) goto restore;
 
     GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, &mon);
     int Left  = pLeft   + AERO_TH ;
@@ -1450,7 +1458,7 @@ static void RestrictCursorToMon()
 // Get state.mdipt and mdi monitor
 static BOOL GetMDInfo(POINT *mdicpt, RECT *wnd)
 {
-    *mdicpt= (POINT) { 0, 0 };
+    mdicpt->x = mdicpt->y = 0;
     if (!GetClientRect(state.mdiclient, wnd)
     ||  !ClientToScreen(state.mdiclient, mdicpt) ) {
          return FALSE;
@@ -1709,10 +1717,13 @@ static void MouseMove(POINT pt)
 /////////////////////////////////////////////////////////////////////////////
 static void Send_KEY(unsigned char vkey)
 {
-    KEYBDINPUT ctrl[2] = { {vkey, 0, 0, 0, 0}, {vkey, 0 , KEYEVENTF_KEYUP, 0, 0} };
+    KEYBDINPUT ctrl[2] = { {0, 0, 0, 0, 0}, {0, 0 , KEYEVENTF_KEYUP, 0, 0} };
+    ctrl[0].wVk = ctrl[1].wVk = vkey;
     ctrl[0].dwExtraInfo = ctrl[1].dwExtraInfo = GetMessageExtraInfo();
 //    ctrl[0].time = ctrl[1].time = GetTickCount();
-    INPUT input[2] = { {INPUT_KEYBOARD,{.ki = ctrl[0]}}, {INPUT_KEYBOARD,{.ki = ctrl[1]}} };
+    INPUT input[2];
+    input[0].type = input[1].type = INPUT_KEYBOARD;
+    input[0].ki = ctrl[0]; input[1].ki = ctrl[1];
     state.ignorekey = 1;
     SendInput(2, input, sizeof(INPUT));
     state.ignorekey = 0;
@@ -1736,10 +1747,15 @@ static void Send_Click(enum button button)
     if (MouseEvent == MOUSEEVENTF_XDOWN) // XBUTTON
         mdata = button - 0x04; // mdata = 1 for X1 and 2 for X2
     // MouseEvent<<1 corresponds to MOUSEEVENTF_*UP
-    MOUSEINPUT click[2] = { {0, 0, mdata, MouseEvent, 0, 0}
-                          , {0, 0, mdata, MouseEvent<<1, 0, 0} };
+    MOUSEINPUT click[2];
+    memset(&click[0], 0, sizeof(MOUSEINPUT)*2);
+    click[0].mouseData = click[1].mouseData = mdata;
+    click[0].dwFlags = MouseEvent;
+    click[1].dwFlags = MouseEvent<<1;
     click[0].dwExtraInfo = click[1].dwExtraInfo = GetMessageExtraInfo();
-    INPUT input[2] = { {INPUT_MOUSE, {.mi = click[0]}}, {INPUT_MOUSE, {.mi = click[1]}} };
+    INPUT input[2];
+    input[0].type = input[1].type = INPUT_MOUSE;
+    input[0].mi = click[0]; input[1].mi = click[1];
 
     state.ignoreclick = 1;
     SendInput(2, input, sizeof(INPUT));
@@ -1752,12 +1768,18 @@ static void Send_Click(enum button button)
 static void SendUnicodeKey(WORD w)
 {
     KEYBDINPUT ctrl[2] = {
-        {0, w, KEYEVENTF_UNICODE, 0, 0},
-        {0, 0 , KEYEVENTF_UNICODE|KEYEVENTF_KEYUP, 0, 0}
+        {0, 0, KEYEVENTF_UNICODE, 0, 0},
+        {0, 0, KEYEVENTF_UNICODE|KEYEVENTF_KEYUP, 0, 0}
     };
+    // memset(&click[0], 0, sizeof(KEYBDINPUT)*2);
+    ctrl[0].wScan = ctrl[1].wScan = w;
+//    ctrl[0].dwFlags = KEYEVENTF_UNICODE;
+//    ctrl[1].dwFlags = KEYEVENTF_UNICODE|KEYEVENTF_KEYUP;
     ctrl[0].dwExtraInfo = ctrl[1].dwExtraInfo = GetMessageExtraInfo();
 //    ctrl[0].time = ctrl[1].time = GetTickCount();
-    INPUT input[2] = { {INPUT_KEYBOARD,{.ki = ctrl[0]}}, {INPUT_KEYBOARD,{.ki = ctrl[1]}} };
+    INPUT input[2];
+    input[0].type = input[1].type = INPUT_KEYBOARD;
+    input[0].ki = ctrl[0]; input[1].ki = ctrl[1];
 
     state.ignorekey = 1; // Not intercepted by AltSnap...
     SendInput(2, input, sizeof(INPUT));
@@ -2736,6 +2758,9 @@ static void CenterWindow(HWND hwnd)
 /////////////////////////////////////////////////////////////////////////////
 static void TogglesAlwaysOnTop(HWND hwnd)
 {
+// WIP: Check the owner window?
+//    HWND ohwnd = GetWindow(hwnd, GW_OWNER);
+//    if (ohwnd) hwnd = ohwnd;
     LONG_PTR topmost = GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST;
     SetWindowLevel(hwnd, topmost? HWND_NOTOPMOST: HWND_TOPMOST);
 }
@@ -2916,7 +2941,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     CopyRect(&state.origin.mon, &mi.rcWork);
 
     // state.mdipt HAS to be set to Zero for ClientToScreen adds the offset
-    state.mdipt = (POINT) { 0, 0 };
+    state.mdipt.x = state.mdipt.y = 0;
     if (state.mdiclient) {
         GetMDInfo(&state.mdipt, &mi.rcMonitor);
         CopyRect(&state.origin.mon, &mi.rcMonitor);
@@ -3651,8 +3676,14 @@ static void readbuttonactions(const wchar_t *inipath)
 // Create a window for msessages handeling.
 static HWND KreateMsgWin(WNDPROC proc, wchar_t *name)
 {
-    WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0, proc, 0, 0, hinstDLL
-                     , NULL, NULL, NULL, NULL, name, NULL };
+    WNDCLASSEX wnd; 
+//    = { sizeof(WNDCLASSEX), 0, proc, 0, 0, hinstDLL
+//      , NULL, NULL, NULL, NULL, name, NULL };
+    memset(&wnd, 0, sizeof(wnd));
+    wnd.cbSize = sizeof(WNDCLASSEX);
+    wnd.lpfnWndProc = proc;
+    wnd.hInstance = hinstDLL;
+    wnd.lpszClassName = name;
     RegisterClassEx(&wnd);
     return CreateWindowEx(0, wnd.lpszClassName, NULL, 0
                      , 0, 0, 0, 0, g_mainhwnd, NULL, hinstDLL, NULL);
@@ -3801,11 +3832,18 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         int color[4]; // 16 bytes to be sure no overfows
         // Read the color for the TransWin from ini file
         readhotkeys(inipath, "FrameColor",  L"80 00 80", (UCHAR *)&color[0]);
-        WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0
-                     , DefWindowProc, 0, 0, hinstDLL
-                     , NULL, NULL
-                     , CreateSolidBrush(color[0])
-                     , NULL, APP_NAME"-Trans", NULL };
+        WNDCLASSEX wnd;
+        memset(&wnd, 0, sizeof(wnd));
+        wnd.cbSize = sizeof(WNDCLASSEX);
+        wnd.lpfnWndProc = DefWindowProc;
+        wnd.hInstance = hinstDLL;
+        wnd.hbrBackground = CreateSolidBrush(color[0]);
+        wnd.lpszClassName = APP_NAME"-Trans";
+//         = { sizeof(WNDCLASSEX), 0
+//                     , DefWindowProc, 0, 0, hinstDLL
+//                     , NULL, NULL
+//                     , CreateSolidBrush(color[0])
+//                     , NULL, APP_NAME"-Trans", NULL };
         RegisterClassEx(&wnd);
         for (i=0; i<4; i++) { // the transparent window is made with 4 thin windows
             g_transhwnd[i] = CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW  //|WS_EX_NOACTIVATE|

@@ -1,4 +1,5 @@
-﻿/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * This file must be UTF-8, Çe fichier doit être encodé en UTF8          *
  * Copyright (C) 2015    Stefan Sundin                                   *
  * This program is free software: you can redistribute it and/or modify  *
  * it under the terms of the GNU General Public License as published by  *
@@ -135,6 +136,7 @@ struct strings {
   wchar_t *input_hotclicks_box;
   wchar_t *input_hotclicks_more;
   wchar_t *input_hotkeys_alt;
+  wchar_t *input_hotkeys_winkey;
   wchar_t *input_hotkeys_ctrl;
   wchar_t *input_hotkeys_shift;
   wchar_t *input_hotkeys_leftalt;
@@ -305,6 +307,7 @@ static const char* l10n_inimapping[] = {
     "InputHotclicksBox",
     "InputHotclicksMore",
     "InputHotkeysAlt",
+    "InputHotkeysWinkey"
     "InputHotkeysCtrl",
     "InputHotkeysShift",
     "InputHotkeysLeftAlt",
@@ -483,7 +486,8 @@ static const struct strings en_US = {
  /* hotclicks box      */ L"Activate with click",
  /* hotclicks more     */ L"Checked buttons will not be usable outside of AltSnap. They can be combined with an action.",
  /* alt                */ L"Alt",
- /* control            */ L"Control",
+ /* winkey             */ L"Winkey",
+ /* ctrl               */ L"Ctrl",
  /* shift              */ L"Shift",
  /* leftalt            */ L"L&eft Alt",
  /* rightalt           */ L"&Right Alt",

@@ -178,7 +178,7 @@ static struct config {
 
     UCHAR PiercingClick;
     UCHAR AeroSpeedTau;
-    UCHAR ModKey;
+//    UCHAR ModKey;
     UCHAR RezTimer;
 
     UCHAR Hotkeys[MAXKEYS+1];
@@ -186,6 +186,7 @@ static struct config {
     UCHAR Hotclick[MAXKEYS+1];
     UCHAR Killkey[MAXKEYS+1];
     UCHAR XXButtons[MAXKEYS+1];
+    UCHAR ModKey[MAXKEYS+1];
 
     struct {
         enum action // Up to 20 BUTTONS!!!
@@ -1303,11 +1304,20 @@ static void HideCursor()
         , SWP_NOMOVE|SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
     ShowWindow(g_mainhwnd, SW_HIDE);
 }
+static pure int IsAKeyDown(const UCHAR *k)
+{
+    while (*k) {
+        if(GetAsyncKeyState(*k++)&0x8000)
+            return 1;
+    }
+    return 0;
+}
 /////////////////////////////////////////////////////////////////////////////
 // Mod Key can return 0 or 1, maybe more in the future...
 static pure int ModKey()
 {
-    return conf.ModKey && GetAsyncKeyState(conf.ModKey)&0x8000;
+    return conf.ModKey[0]
+        && IsAKeyDown(conf.ModKey);
 }
 ///////////////////////////////////////////////////////////////////////////
 // Get action of button
@@ -1348,6 +1358,10 @@ static int pure IsKillkey(unsigned char a)
     return
         (0x41 <= a && a <= 0x5A) // A-Z vkeys
         || IsHotkeyy(a, conf.Killkey) ;
+}
+static xpure int IsModKey(const UCHAR vkey)
+{
+    return IsHotkeyy(vkey, conf.ModKey);
 }
 
 // Return true if required amount of hotkeys are holded.
@@ -1976,7 +1990,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             HookMouse();
             if (conf.GrabWithAlt[0]) {
                 POINT pt;
-                enum action action = conf.GrabWithAlt[(vkey==conf.ModKey) || (!IsHotkey(conf.ModKey)&&ModKey())];
+                enum action action = conf.GrabWithAlt[IsModKey(vkey) || (!IsHotkey(conf.ModKey[0])&&ModKey())];
                 if (action) {
                     state.blockmouseup = 0; // In case.
                     GetCursorPos(&pt);
@@ -1989,7 +2003,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.alt1 = vkey;
 
         } else if (IsHotkeyy(vkey, conf.Shiftkeys)) {
-            if (!state.shift && vkey != conf.ModKey) {
+            if (!state.shift && !IsModKey(vkey)/* != conf.ModKey*/) {
                 EnumOnce(NULL); // Reset enum state.
                 if (conf.ShiftSnaps) {
                     state.snap = conf.AutoSnap==3? 0: 3;
@@ -2045,7 +2059,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             POINT pt; GetCursorPos(&pt);
             HWND hwnd = WindowFromPoint(pt);
             if(ActionKill(hwnd)) return 1;
-        } else if (!state.ctrl && state.alt!=vkey && vkey != conf.ModKey
+        } else if (!state.ctrl && state.alt!=vkey && !IsModKey(vkey)/*vkey != conf.ModKey*/
                && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
             RestrictToCurentMonitor();
             state.ctrl = 1;
@@ -3676,7 +3690,7 @@ static void readbuttonactions(const wchar_t *inipath)
 // Create a window for msessages handeling.
 static HWND KreateMsgWin(WNDPROC proc, wchar_t *name)
 {
-    WNDCLASSEX wnd; 
+    WNDCLASSEX wnd;
 //    = { sizeof(WNDCLASSEX), 0, proc, 0, 0, hinstDLL
 //      , NULL, NULL, NULL, NULL, name, NULL };
     memset(&wnd, 0, sizeof(wnd));
@@ -3795,11 +3809,12 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         { "Hotclicks", NULL    },
         { "Killkeys",  L"09 2E" },
         { "XXButtons", NULL },
+        { "ModKey",    NULL },
     };
     for (i=0; i < ARR_SZ(hklst); i++) {
         readhotkeys(inipath, hklst[i].name, hklst[i].def, &conf.Hotkeys[i*(MAXKEYS+1)]);
     }
-    conf.ModKey     = readsinglekey(inipath, L"ModKey", L"");
+    //conf.ModKey     = readsinglekey(inipath, L"ModKey", L"");
     conf.HScrollKey = readsinglekey(inipath, L"HScrollKey", L"10"); // VK_SHIFT
 
     // Read all the BLACKLITSTS

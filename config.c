@@ -875,9 +875,10 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         wchar_t *l10n;
     } togglekeys[] = {
         { L"",   l10n->input_actions_nothing},
-        { L"12", l10n->input_hotkeys_alt},
-        { L"11", l10n->input_hotkeys_ctrl},
-        { L"10", l10n->input_hotkeys_shift},
+        { L"A4 A5", l10n->input_hotkeys_alt},
+        { L"5B 5C", l10n->input_hotkeys_winkey},
+        { L"A2 A3", l10n->input_hotkeys_ctrl},
+        { L"A0 A1", l10n->input_hotkeys_shift},
         { L"A4", l10n->input_hotkeys_leftalt},
         { L"A5", l10n->input_hotkeys_rightalt},
         { L"5B", l10n->input_hotkeys_leftwinkey},

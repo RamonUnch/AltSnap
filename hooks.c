@@ -161,10 +161,9 @@ static struct config {
 
     UCHAR SmartAero;
     UCHAR StickyResize;
-    UCHAR HScrollKey;
     UCHAR ScrollLockState;
-
     UCHAR ShiftSnaps;
+
     UCHAR BLMaximized;
     UCHAR LongClickMove;
     UCHAR UniKeyHoldMenu;
@@ -178,7 +177,6 @@ static struct config {
 
     UCHAR PiercingClick;
     UCHAR AeroSpeedTau;
-//    UCHAR ModKey;
     UCHAR RezTimer;
 
     UCHAR Hotkeys[MAXKEYS+1];
@@ -187,6 +185,7 @@ static struct config {
     UCHAR Killkey[MAXKEYS+1];
     UCHAR XXButtons[MAXKEYS+1];
     UCHAR ModKey[MAXKEYS+1];
+    UCHAR HScrollKey[MAXKEYS+1];
 
     struct {
         enum action // Up to 20 BUTTONS!!!
@@ -2165,7 +2164,7 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
 
     // Change WM_MOUSEWHEEL to WM_MOUSEHWHEEL if shift is being depressed
     // Introduced in Vista and far from all programs have implemented it.
-    if ((wParam == WM_MOUSEWHEEL && (GetAsyncKeyState(conf.HScrollKey) &0x8000))) {
+    if (wParam == WM_MOUSEWHEEL && IsAKeyDown(conf.HScrollKey)) {
         wParam = WM_MOUSEHWHEEL;
         wp = -wp ; // Up is left, down is right
     }
@@ -3629,15 +3628,6 @@ static void readhotkeys(const wchar_t *inipath, const char *name, const wchar_t 
     }
     keys[i] = 0;
 }
-static unsigned char readsinglekey(const wchar_t *inipath, const wchar_t *name,  const wchar_t *def)
-{
-    wchar_t txt[4];
-    GetPrivateProfileString(L"Input", name, def, txt, ARR_SZ(txt), inipath);
-    if (*txt) {
-        return whex2u(txt);
-    }
-    return 0;
-}
 // Map action string to actual action enum
 static enum action readaction(const wchar_t *inipath, const wchar_t *key)
 {
@@ -3810,12 +3800,11 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         { "Killkeys",  L"09 2E" },
         { "XXButtons", NULL },
         { "ModKey",    NULL },
+        { "HScrollKey", L"10" },
     };
     for (i=0; i < ARR_SZ(hklst); i++) {
         readhotkeys(inipath, hklst[i].name, hklst[i].def, &conf.Hotkeys[i*(MAXKEYS+1)]);
     }
-    //conf.ModKey     = readsinglekey(inipath, L"ModKey", L"");
-    conf.HScrollKey = readsinglekey(inipath, L"HScrollKey", L"10"); // VK_SHIFT
 
     // Read all the BLACKLITSTS
     readallblacklists(inipath);

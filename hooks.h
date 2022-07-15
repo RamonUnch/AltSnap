@@ -4,6 +4,7 @@
 #define UNICODE
 #define _UNICODE
 #define _WIN32_WINNT 0x0600
+#define WINVER 0x0600
 #include <windows.h>
 
 #include "unfuck.h"
@@ -14,6 +15,11 @@
 #else
 #define LOW_LEVELK_BPROC "LowLevelKeyboardProc@12"
 #endif
+
+// Extra messages for Action Menu
+#define LP_AGGRKILL   (1)
+#define LP_TOPMOST    (1<<1)
+#define LP_BORDERLESS (1<<2)
 
 // App
 #define APP_NAME       L"AltSnap"

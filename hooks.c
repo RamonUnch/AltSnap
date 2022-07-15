@@ -88,6 +88,7 @@ static struct {
 
     UCHAR moving;
     UCHAR blockmouseup;
+    UCHAR enumed;
 
     UCHAR clickbutton;
     UCHAR resizable;
@@ -743,21 +744,27 @@ static void Enum()
     }
 }
 ///////////////////////////////////////////////////////////////////////////
-// Pass NULL to reset Enum state and recalculate it
-// at the next non null ptr.
+//
 static void EnumOnce(RECT **bd)
 {
-    static char enumed;
     static RECT borders;
-    if (bd && !enumed) {
+    if (bd && !(state.enumed&1)) {
+        // LOGA("Enum");
         Enum(); // Enumerate monitors and windows
         FixDWMRect(state.hwnd, &borders);
-        enumed = 1;
+        state.enumed |= 1;
         *bd = &borders;
-    } else if (bd && enumed) {
+    } else if (bd && state.enumed) {
         *bd = &borders;
-    } else if (!bd) {
-        enumed = 0;
+
+    }
+}
+static void EnumSnappedOnce()
+{
+    if (!(state.enumed&2)) {
+        // LOGA("EnumSnapped");
+        EnumSnapped();
+        state.enumed |= 2;
     }
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -1120,9 +1127,9 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     LastWin.maximize = 0;
     LastWin.snap = 0;
 
-    if (!state.moving) {
-        EnumSnapped();
-    }
+////    if (!state.moving || !state.enumed) {
+//        EnumSnappedOnce();
+////    }
 
     // We HAVE to check the monitor for each pt...
     RECT mon;
@@ -1140,6 +1147,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     trc.right = pRight; trc.bottom =pBottom;
     if(PtInRect(&trc, pt)) goto restore;
 
+    EnumSnappedOnce();
     GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, &mon);
     int Left  = pLeft   + AERO_TH ;
     int Right = pRight  - AERO_TH ;
@@ -2003,12 +2011,12 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
         } else if (IsHotkeyy(vkey, conf.Shiftkeys)) {
             if (!state.shift && !IsModKey(vkey)/* != conf.ModKey*/) {
-                EnumOnce(NULL); // Reset enum state.
                 if (conf.ShiftSnaps) {
                     state.snap = conf.AutoSnap==3? 0: 3;
                 }
                 state.shift = 1;
                 state.shiftpt = state.prevpt; // Save point where shift was pressed.
+                state.enumed = 0; // Reset enum state.
             }
 
             // Block keydown to prevent Windows from changing keyboard layout
@@ -3012,7 +3020,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 
         GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
         SetWindowTrans(state.hwnd);
-        EnumOnce(NULL); // Reset enum stuff
+        state.enumed = 0; // Reset enum stuff
         StartSpeedMes(); // Speed timer
 
         int ret;
@@ -3031,7 +3039,12 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     } else if (action == AC_MENU) {
         if(!g_mchwnd) g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
         state.sclickhwnd = state.hwnd;
-        PostMessage(g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd, conf.AggressiveKill);
+        PostMessage(
+            g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd,
+             conf.AggressiveKill  // LP_AGGRKILL
+           | !!(GetWindowLongPtr(state.sclickhwnd, GWL_EXSTYLE)&WS_EX_TOPMOST) << 1 // LP_TOPMOST
+           | !!GetBorderlessFlag(state.sclickhwnd) << 2 // LP_BORDERLESS
+        );
         state.blockmouseup = 1;
         return 1; // block mouse down
     } else if(button == BT_WHEEL || button == BT_HWHEEL) {

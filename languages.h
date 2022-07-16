@@ -307,7 +307,7 @@ static const char* l10n_inimapping[] = {
     "InputHotclicksBox",
     "InputHotclicksMore",
     "InputHotkeysAlt",
-    "InputHotkeysWinkey"
+    "InputHotkeysWinkey",
     "InputHotkeysCtrl",
     "InputHotkeysShift",
     "InputHotkeysLeftAlt",
@@ -493,13 +493,11 @@ static const struct strings en_US = {
  /* rightalt           */ L"&Right Alt",
  /* leftwinkey         */ L"Left &Winkey",
  /* rightwinkey        */ L"Right W&inkey",
-
  /* leftctrl           */ L"&Left Ctrl",
  /* rightctrl          */ L"Ri&ght Ctrl",
  /* leftshift          */ L"Left Shift",
  /* rightshift         */ L"Right Shift",
-
- /* more               */ L"You can add any key by editing the ini file.\nUse the shift key to snap windows to each other.",
+ /* hotkeys more       */ L"You can add any key by editing the ini file.\nUse the shift key to snap windows to each other.",
 
  /* blacklist tab */
  /* box                */ L"Blacklist settings",

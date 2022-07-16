@@ -2673,7 +2673,7 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
     // Aero-move this window if this is a double-click
     if (IsDoubleClick(button)) {
         SnapToCorner(state.hwnd);
-        state.blockmouseup = 1; // Block mouse up (context menu would pops)
+        state.blockmouseup = 1; // Block mouse up (context menu would pop)
         state.clicktime = 0;    // Reset double-click time
         // Prevent mousedown from propagating
         return 1;
@@ -3011,7 +3011,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 
     // Do things depending on what button was pressed
     if (MOUVEMENT(action)) {
-        // Set action state.
+        // Set action statte.
         state.action = action; // MOVE OR RESIZE
         state.resizable = IsResizable(state.hwnd);
 
@@ -3034,6 +3034,8 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         // Send WM_ENTERSIZEMOVE
         SendSizeMove(WM_ENTERSIZEMOVE);
     } else if (action == AC_MENU) {
+        // KillUnikeymenu();
+//        KillTimer(g_timerhwnd, GRAB_TIMER);
         if (g_mchwnd) DestroyWindow(g_mchwnd);
         g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
         state.sclickhwnd = state.hwnd;
@@ -3043,6 +3045,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
              conf.AggressiveKill  // LP_AGGRKILL
            | !!(GetWindowLongPtr(state.sclickhwnd, GWL_EXSTYLE)&WS_EX_TOPMOST) << 1 // LP_TOPMOST
            | !!GetBorderlessFlag(state.sclickhwnd) << 2 // LP_BORDERLESS
+           | IsZoomed(state.sclickhwnd) << 3 // LP_MAXIMIZED
         );
         state.blockmouseup = 1;
         return 1; // block mouse down
@@ -3275,12 +3278,20 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
 
-//    LOGA("wParam=%x, data=%lx, time=%lu, extra=%lx", wParam, msg->mouseData, msg->time, msg->dwExtraInfo);
-    // Get button/wheel info and buttonstate+wheel info.
-    enum button button = GetButton(wParam, lParam);
+    //LOGA("wParam=%x, data=%lx, time=%lu, extra=%lx", wParam, msg->mouseData, msg->time, msg->dwExtraInfo);
+
+    //Get Button state and data.
     enum buttonstate buttonstate = GetButtonState(wParam);
+    enum button button = GetButton(wParam, lParam);
     // Get wheel delta
     state.delta = GET_WHEEL_DELTA_WPARAM(msg->mouseData);
+
+    // Check if we must block mouse up...
+    if (buttonstate == STATE_UP && state.blockmouseup) {
+        // block mouse up and decrement counter.
+        state.blockmouseup--;
+        return 1;
+    }
 
 //    if (button<=BT_MB5)
 //        LOGA("button=%d, %s", button, buttonstate==STATE_DOWN?"DOWN":buttonstate==STATE_UP?"UP":"NONE");
@@ -3323,6 +3334,11 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         } else {
             // Cancel Grab timer.
             KillTimer(g_timerhwnd, GRAB_TIMER);
+//            if (state.blockmouseup) {
+//                // block mouse up and decrement counter.
+//                state.blockmouseup--;
+//                return 1;
+//            }
             return CALLNEXTHOOK;
         }
     }
@@ -3354,13 +3370,13 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 
     // BUTTON UP
     } else if (buttonstate == STATE_UP) {
-        //LogState("BUTTON UP:\n");
+        // LogState("BUTTON UP:\n");
         SetWindowTrans(NULL); // Reset window transparency
-        if (state.blockmouseup) {
-            // block mouse up and decrement counter.
-            state.blockmouseup--;
-            return 1;
-        }
+//        if (state.blockmouseup) {
+//            // block mouse up and decrement counter.
+//            state.blockmouseup--;
+//            return 1;
+//        }
 
         if (state.action == action
         && !state.moving // No drag occured
@@ -3508,7 +3524,7 @@ LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         state.sclickhwnd = NULL;
     } else if (msg == WM_COMMAND && IsWindow(state.sclickhwnd)) {
         enum action action = wParam;
-        state.sclickhwnd = MDIorNOT(state.sclickhwnd, &state.mdiclient);
+        //state.sclickhwnd = MDIorNOT(state.sclickhwnd, &state.mdiclient);
 
         SClickActions(state.sclickhwnd, action);
         state.sclickhwnd = NULL;
@@ -3517,6 +3533,7 @@ LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
     } else if(msg == WM_KILLFOCUS) {
         // Menu gets hiden, be sure to zero-out the clickhwnd
         state.sclickhwnd = NULL;
+        // state.blockmouseup = 0;
 //        DestroyWindow(g_mchwnd);
 //        g_mchwnd = NULL;
     }

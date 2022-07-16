@@ -1068,6 +1068,7 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
     *bottomHeight = CLAMPH((mon->bottom - mon->top)*(100-conf.AVoff)/100);
 
     if (state.snap != conf.AutoSnap) return; // do not go further is snapping state is toggled.
+    EnumSnappedOnce();
 
     // Check on all the other snapped windows from the bottom most
     // To give precedence to the topmost windows
@@ -1127,10 +1128,6 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     LastWin.maximize = 0;
     LastWin.snap = 0;
 
-////    if (!state.moving || !state.enumed) {
-//        EnumSnappedOnce();
-////    }
-
     // We HAVE to check the monitor for each pt...
     RECT mon;
     GetMonitorRect(&pt, 0, &mon);
@@ -1147,7 +1144,6 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     trc.right = pRight; trc.bottom =pBottom;
     if(PtInRect(&trc, pt)) goto restore;
 
-    EnumSnappedOnce();
     GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, &mon);
     int Left  = pLeft   + AERO_TH ;
     int Right = pRight  - AERO_TH ;
@@ -1958,6 +1954,7 @@ static int SimulateXButton(WPARAM wp, WORD xbtidx)
 }
 static void KillUnikeymenu()
 {
+    state.unikeymenu = GetMenu(g_mchwnd);
     if (IsMenu(state.unikeymenu)) {
         EnableWindow(g_mchwnd, FALSE);
         DestroyMenu(state.unikeymenu);
@@ -2109,7 +2106,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                         //    // 1234567890 keys...
                         //    vkey = 0x5A - 1 + scode;
                         //}
-                        if(!g_mchwnd) g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
+                        if (!g_mchwnd) g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
                         UCHAR shiftdown = GetAsyncKeyState(VK_SHIFT)&0x8000 || GetKeyState(VK_CAPITAL)&1;
                         PostMessage(g_mainhwnd, WM_UNIKEYMENU, (WPARAM)g_mchwnd, vkey|(shiftdown<<8) );
                     }
@@ -2616,7 +2613,7 @@ static void SnapToCorner(HWND hwnd)
         }
     } else { /* Aero Snap to corresponding side/corner */
         int leftWidth, rightWidth, topHeight, bottomHeight;
-        EnumSnapped();
+        // EnumSnapped();
         GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, mon);
         wndwidth =  leftWidth;
         wndheight = topHeight;
@@ -2676,7 +2673,7 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
     // Aero-move this window if this is a double-click
     if (IsDoubleClick(button)) {
         SnapToCorner(state.hwnd);
-        state.blockmouseup = 1; // Block mouse up (context menu would pops)
+        state.blockmouseup = 1; // Block mouse up (context menu would pop)
         state.clicktime = 0;    // Reset double-click time
         // Prevent mousedown from propagating
         return 1;
@@ -3014,7 +3011,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 
     // Do things depending on what button was pressed
     if (MOUVEMENT(action)) {
-        // Set action state.
+        // Set action statte.
         state.action = action; // MOVE OR RESIZE
         state.resizable = IsResizable(state.hwnd);
 
@@ -3037,13 +3034,18 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         // Send WM_ENTERSIZEMOVE
         SendSizeMove(WM_ENTERSIZEMOVE);
     } else if (action == AC_MENU) {
-        if(!g_mchwnd) g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
+        // KillUnikeymenu();
+//        KillTimer(g_timerhwnd, GRAB_TIMER);
+        if (g_mchwnd) DestroyWindow(g_mchwnd);
+        g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
         state.sclickhwnd = state.hwnd;
+        // Send message to Open Action Menu
         PostMessage(
             g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd,
              conf.AggressiveKill  // LP_AGGRKILL
            | !!(GetWindowLongPtr(state.sclickhwnd, GWL_EXSTYLE)&WS_EX_TOPMOST) << 1 // LP_TOPMOST
            | !!GetBorderlessFlag(state.sclickhwnd) << 2 // LP_BORDERLESS
+           | IsZoomed(state.sclickhwnd) << 3 // LP_MAXIMIZED
         );
         state.blockmouseup = 1;
         return 1; // block mouse down
@@ -3276,12 +3278,20 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
 
-//    LOGA("wParam=%x, data=%lx, time=%lu, extra=%lx", wParam, msg->mouseData, msg->time, msg->dwExtraInfo);
-    // Get button/wheel info and buttonstate+wheel info.
-    enum button button = GetButton(wParam, lParam);
+    //LOGA("wParam=%x, data=%lx, time=%lu, extra=%lx", wParam, msg->mouseData, msg->time, msg->dwExtraInfo);
+
+    //Get Button state and data.
     enum buttonstate buttonstate = GetButtonState(wParam);
+    enum button button = GetButton(wParam, lParam);
     // Get wheel delta
     state.delta = GET_WHEEL_DELTA_WPARAM(msg->mouseData);
+
+    // Check if we must block mouse up...
+    if (buttonstate == STATE_UP && state.blockmouseup) {
+        // block mouse up and decrement counter.
+        state.blockmouseup--;
+        return 1;
+    }
 
 //    if (button<=BT_MB5)
 //        LOGA("button=%d, %s", button, buttonstate==STATE_DOWN?"DOWN":buttonstate==STATE_UP?"UP":"NONE");
@@ -3324,6 +3334,11 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         } else {
             // Cancel Grab timer.
             KillTimer(g_timerhwnd, GRAB_TIMER);
+//            if (state.blockmouseup) {
+//                // block mouse up and decrement counter.
+//                state.blockmouseup--;
+//                return 1;
+//            }
             return CALLNEXTHOOK;
         }
     }
@@ -3355,13 +3370,13 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 
     // BUTTON UP
     } else if (buttonstate == STATE_UP) {
-        //LogState("BUTTON UP:\n");
+        // LogState("BUTTON UP:\n");
         SetWindowTrans(NULL); // Reset window transparency
-        if (state.blockmouseup) {
-            // block mouse up and decrement counter.
-            state.blockmouseup--;
-            return 1;
-        }
+//        if (state.blockmouseup) {
+//            // block mouse up and decrement counter.
+//            state.blockmouseup--;
+//            return 1;
+//        }
 
         if (state.action == action
         && !state.moving // No drag occured
@@ -3509,7 +3524,7 @@ LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         state.sclickhwnd = NULL;
     } else if (msg == WM_COMMAND && IsWindow(state.sclickhwnd)) {
         enum action action = wParam;
-        state.sclickhwnd = MDIorNOT(state.sclickhwnd, &state.mdiclient);
+        //state.sclickhwnd = MDIorNOT(state.sclickhwnd, &state.mdiclient);
 
         SClickActions(state.sclickhwnd, action);
         state.sclickhwnd = NULL;
@@ -3518,6 +3533,9 @@ LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
     } else if(msg == WM_KILLFOCUS) {
         // Menu gets hiden, be sure to zero-out the clickhwnd
         state.sclickhwnd = NULL;
+        // state.blockmouseup = 0;
+//        DestroyWindow(g_mchwnd);
+//        g_mchwnd = NULL;
     }
     // LOGA("msg=%X, wParam=%X, lParam=%lX", msg, wParam, lParam);
     return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -3856,11 +3874,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         wnd.hInstance = hinstDLL;
         wnd.hbrBackground = CreateSolidBrush(color[0]);
         wnd.lpszClassName = APP_NAME"-Trans";
-//         = { sizeof(WNDCLASSEX), 0
-//                     , DefWindowProc, 0, 0, hinstDLL
-//                     , NULL, NULL
-//                     , CreateSolidBrush(color[0])
-//                     , NULL, APP_NAME"-Trans", NULL };
         RegisterClassEx(&wnd);
         for (i=0; i<4; i++) { // the transparent window is made with 4 thin windows
             g_transhwnd[i] = CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW  //|WS_EX_NOACTIVATE|

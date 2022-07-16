@@ -141,7 +141,11 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
     GetCursorPos(&pt);
     HMENU menu = CreatePopupMenu();
     AppendMenu(menu, MF_STRING, AC_ALWAYSONTOP,l10n->input_actions_alwaysontop);
+    CheckMenuItem(menu, AC_ALWAYSONTOP, param&LP_TOPMOST?MF_CHECKED:MF_UNCHECKED);
+
     AppendMenu(menu, MF_STRING, AC_BORDERLESS, l10n->input_actions_borderless);
+    CheckMenuItem(menu, AC_BORDERLESS, param&LP_BORDERLESS?MF_CHECKED:MF_UNCHECKED);
+
     AppendMenu(menu, MF_STRING, AC_CENTER,     l10n->input_actions_center);
     AppendMenu(menu, MF_STRING, AC_ROLL,       l10n->input_actions_roll);
     AppendMenu(menu, MF_STRING, AC_LOWER,      l10n->input_actions_lower);
@@ -152,7 +156,7 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
     AppendMenu(menu, MF_STRING, AC_MAXIMIZE,   l10n->input_actions_maximize);
     AppendMenu(menu, MF_STRING, AC_MINIMIZE,   l10n->input_actions_minimize);
     AppendMenu(menu, MF_STRING, AC_CLOSE,      l10n->input_actions_close);
-    if (param&1) {
+    if (param&LP_AGGRKILL) {
         AppendMenu(menu, MF_SEPARATOR, 0, NULL);
         AppendMenu(menu, MF_STRING, AC_KILL, l10n->input_actions_kill);
     }

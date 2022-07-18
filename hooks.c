@@ -1067,7 +1067,8 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
     *topHeight    = CLAMPH((mon->bottom - mon->top)* conf.AVoff     /100);
     *bottomHeight = CLAMPH((mon->bottom - mon->top)*(100-conf.AVoff)/100);
 
-    if (state.snap != conf.AutoSnap) return; // do not go further is snapping state is toggled.
+    // do not go further is snapping state is toggled or shift is down.
+    if (state.snap != conf.AutoSnap) return;
     EnumSnappedOnce();
 
     // Check on all the other snapped windows from the bottom most
@@ -1183,7 +1184,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     } else if (pt.y < pTop) {
         // Pure Top
         if (!state.shift ^ !(conf.AeroTopMaximizes&1)
-         &&(state.Speed < conf.AeroMaxSpeed)) {
+        && (state.Speed < conf.AeroMaxSpeed)) {
              if (conf.FullWin) {
                 MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE);
                 LastWin.hwnd = NULL;
@@ -1954,13 +1955,10 @@ static int SimulateXButton(WPARAM wp, WORD xbtidx)
 }
 static void KillUnikeymenu()
 {
-    state.unikeymenu = GetMenu(g_mchwnd);
     if (IsMenu(state.unikeymenu)) {
         EnableWindow(g_mchwnd, FALSE);
         DestroyMenu(state.unikeymenu);
         state.unikeymenu = NULL;
-//        PostMessage(g_mchwnd, WM_CLOSE, 0, 0);
-//        g_mchwnd = NULL;
     }
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -2035,6 +2033,8 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             LastWin.hwnd = NULL;
             if (state.unikeymenu) {
                 KillUnikeymenu();
+                DestroyWindow(g_mchwnd);
+                g_mchwnd = NULL;
                 return 1;
             }
 
@@ -2991,7 +2991,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // return if window has to be moved/resized and does not respond in 1/4 s.
     DorQWORD lpdwResult;
     if (MOUVEMENT(action)
-    && !SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 255, &lpdwResult)) {
+    && !SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 128, &lpdwResult)) {
         state.blockmouseup = 1;
         return 1; // Unresponsive window...
     }
@@ -3002,9 +3002,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
     state.origin.width  = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
     state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
-
-    // Set current snapping mode from the config.
-    if (!state.snap) { state.snap = conf.AutoSnap; }
 
     // AutoFocus
     if (conf.AutoFocus || state.ctrl) { SetForegroundWindowL(state.hwnd); }
@@ -3334,11 +3331,6 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         } else {
             // Cancel Grab timer.
             KillTimer(g_timerhwnd, GRAB_TIMER);
-//            if (state.blockmouseup) {
-//                // block mouse up and decrement counter.
-//                state.blockmouseup--;
-//                return 1;
-//            }
             return CALLNEXTHOOK;
         }
     }
@@ -3372,11 +3364,6 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     } else if (buttonstate == STATE_UP) {
         // LogState("BUTTON UP:\n");
         SetWindowTrans(NULL); // Reset window transparency
-//        if (state.blockmouseup) {
-//            // block mouse up and decrement counter.
-//            state.blockmouseup--;
-//            return 1;
-//        }
 
         if (state.action == action
         && !state.moving // No drag occured
@@ -3712,8 +3699,6 @@ static void readbuttonactions(const wchar_t *inipath)
 static HWND KreateMsgWin(WNDPROC proc, wchar_t *name)
 {
     WNDCLASSEX wnd;
-//    = { sizeof(WNDCLASSEX), 0, proc, 0, 0, hinstDLL
-//      , NULL, NULL, NULL, NULL, name, NULL };
     memset(&wnd, 0, sizeof(wnd));
     wnd.cbSize = sizeof(WNDCLASSEX);
     wnd.lpfnWndProc = proc;
@@ -3814,6 +3799,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AVoff        = CLAMP(0, conf.AVoff,          100);
     conf.AeroSpeedTau = max(1, conf.AeroSpeedTau);
     conf.MinAlpha     = max(1, conf.MinAlpha);
+    state.snap = conf.AutoSnap;
 
     // [Advanced] Max Speed
     conf.AeroMaxSpeed  = GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath);

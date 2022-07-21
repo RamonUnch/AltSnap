@@ -97,8 +97,16 @@ static int pure IsResizable(HWND hwnd);
 
 static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *height)
 {
-     if (!conf.UseZones&1 || !state.shift|| state.mdiclient || !IsResizable(state.hwnd))
+     if(!(conf.UseZones&1) || state.mdiclient || !state.resizable) // Zones disabled
          return;
+
+     if (conf.UseZones&8) { // Always snap mode
+         if (!state.usezones || state.snap != conf.AutoSnap) // Zones toggled by other click
+             return;
+     } else if (!state.shift) {
+         if (!state.usezones)
+             return;
+     }
 
      RECT rc, bd;
      unsigned ret = GetZoneFromPoint(pt, &rc);

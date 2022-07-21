@@ -89,6 +89,7 @@ static struct {
     UCHAR moving;
     UCHAR blockmouseup;
     UCHAR enumed;
+    UCHAR usezones;
 
     UCHAR clickbutton;
     UCHAR resizable;
@@ -2944,7 +2945,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Get window
     state.mdiclient = NULL;
     state.hwnd = WindowFromPoint(pt);
-    // Hide if tooltip
     // Get MDI chlild hwnd or root hwnd if not MDI!
     state.hwnd = MDIorNOT(state.hwnd, &state.mdiclient);
 
@@ -3011,6 +3011,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         // Set action statte.
         state.action = action; // MOVE OR RESIZE
         state.resizable = IsResizable(state.hwnd);
+        state.usezones = !!(conf.UseZones&8);
 
         GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
         SetWindowTrans(state.hwnd);
@@ -3343,6 +3344,13 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     if (buttonstate == STATE_DOWN && state.action && state.action != conf.GrabWithAlt[ModKey()]) {
         if ((conf.MMMaximize&1))
             ClickComboActions(action); // Handle click combo!
+        else if (conf.UseZones&1 && state.action == AC_MOVE) {
+            state.usezones = !state.usezones;
+            state.blockmouseup = 1;
+            MouseMove(state.prevpt);
+        } else {
+            state.blockmouseup = 1;
+        }
         return 1; // Block mousedown so altsnap does not remove g_mainhwnd
 
     // INIT ACTIONS on mouse down if Alt is down...

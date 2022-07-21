@@ -1125,7 +1125,7 @@ static void WaitMovementEnd()
 static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight)
 {
     // return if last resizing is not finished or no Aero or not resizable.
-    if(!conf.Aero ||!state.resizable) return 0;
+    if((!conf.Aero && !conf.UseZones&1) || !state.resizable) return 0;
     LastWin.maximize = 0;
     LastWin.snap = 0;
 
@@ -1143,7 +1143,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     RECT trc;
     trc.left = pLeft; trc.top = pTop;
     trc.right = pRight; trc.bottom =pBottom;
-    if(PtInRect(&trc, pt)) goto restore;
+    if(PtInRect(&trc, pt) || !conf.Aero) goto restore;
 
     GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, &mon);
     int Left  = pLeft   + AERO_TH ;

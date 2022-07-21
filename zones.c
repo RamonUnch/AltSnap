@@ -105,6 +105,7 @@ static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *heig
      if (!ret) return; // Outside of a rect
 
      LastWin.end = 0;
+     LastWin.moveonly = 0; // We are resizing the window.
      FixDWMRect(state.hwnd, &bd);
      InflateRectBorder(&rc, &bd);
 

@@ -82,7 +82,7 @@ static unsigned GetZoneFromPoint(POINT pt, RECT *urc)
 
         int inrect=0;
         inrect = PtInRect(&Zones[i], pt);
-        if ((state.ctrl||conf.UseZones&4) && !inrect) 
+        if ((state.ctrl||conf.UseZones&4) && !inrect)
             inrect = PtInRect(&Zones[i], conf.UseZones&4?state.shiftpt:state.ctrlpt);
 
         if (iz) InflateRect(&Zones[i], -iz, -iz);
@@ -97,29 +97,26 @@ static int pure IsResizable(HWND hwnd);
 
 static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *height)
 {
-     if(!(conf.UseZones&1) || state.mdiclient || !state.resizable) // Zones disabled
-         return;
+    if(!(conf.UseZones&1) || state.mdiclient || !state.resizable) // Zones disabled
+        return;
 
-     if (conf.UseZones&8) { // Always snap mode
-         if (!state.usezones || state.snap != conf.AutoSnap) // Zones toggled by other click
-             return;
-     } else if (!state.shift) {
-         if (!state.usezones)
-             return;
-     }
+    if (conf.UseZones&8 && state.snap != conf.AutoSnap) // Zones toggled by other click
+        return;
 
-     RECT rc, bd;
-     unsigned ret = GetZoneFromPoint(pt, &rc);
-     if (!ret) return; // Outside of a rect
+    if (!state.usezones)
+        return;
+    RECT rc, bd;
+    unsigned ret = GetZoneFromPoint(pt, &rc);
+    if (!ret) return; // Outside of a rect
 
-     LastWin.end = 0;
-     LastWin.moveonly = 0; // We are resizing the window.
-     FixDWMRect(state.hwnd, &bd);
-     InflateRectBorder(&rc, &bd);
+    LastWin.end = 0;
+    LastWin.moveonly = 0; // We are resizing the window.
+    FixDWMRect(state.hwnd, &bd);
+    InflateRectBorder(&rc, &bd);
 
-     SetRestoreData(state.hwnd, state.origin.width, state.origin.height, SNAPPED|SNZONE);
-     *posx = rc.left;
-     *posy = rc.top;
-     *width = rc.right - rc.left;
-     *height = rc.bottom - rc.top;
+    SetRestoreData(state.hwnd, state.origin.width, state.origin.height, SNAPPED|SNZONE);
+    *posx = rc.left;
+    *posy = rc.top;
+    *width = rc.right - rc.left;
+    *height = rc.bottom - rc.top;
 }

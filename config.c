@@ -337,8 +337,8 @@ static int ReadOptionIntW(HWND hwnd, WORD id, const wchar_t *section, const char
 }
 #define ReadOptionInt(id, section, name, def, mask) ReadOptionIntW(hwnd, id, section, name, def, mask)
 
-struct dialogstring { int idc; wchar_t *string; };
-static void UpdateDialogStrings(HWND hwnd, struct dialogstring strlst[], unsigned size)
+struct dialogstring { const int idc; const wchar_t *string; };
+static void UpdateDialogStrings(HWND hwnd, const struct dialogstring * const strlst, unsigned size)
 {
     unsigned i;
     for (i=0; i < size; i++) {
@@ -408,7 +408,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         { IDC_INACTIVESCROLL,T_BOL, 0,  L"General",  "InactiveScroll", 0 },
         { IDC_MDI,           T_BOL, 0,  L"General",  "MDI", 1 },
         { IDC_RESIZEALL,     T_BOL, 0,  L"Advanced", "ResizeAll", 1 },
-        { IDC_USEZONES,      T_BOL, 0,  L"Zones",    "UseZones", 0 },
+        { IDC_USEZONES,      T_BMK, 0,  L"Zones",    "UseZones", 0 },
         { IDC_PIERCINGCLICK, T_BOL, 0,  L"Advanced", "PiercingClick", 0 },
     };
     #pragma GCC diagnostic pop
@@ -515,7 +515,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     }
     if (updatestrings) {
         // Update text
-        struct dialogstring strlst[] = {
+        const struct dialogstring strlst[] = {
             { IDC_GENERAL_BOX,      l10n->general_box },
             { IDC_AUTOFOCUS,        l10n->general_autofocus },
             { IDC_AERO,             l10n->general_aero },
@@ -786,7 +786,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             }
 
             // Update text
-            struct dialogstring strlst[] = {
+            const struct dialogstring strlst[] = {
                 { IDC_MBA1,            l10n->input_mouse_btac1 },
                 { IDC_MBA2,            l10n->input_mouse_btac2 },
                 { IDC_INTTB,           l10n->input_mouse_inttb },
@@ -870,23 +870,23 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {NULL, NULL}
     };
     // Hotkeys
-    struct {
+    const struct {
         wchar_t *action;
         wchar_t *l10n;
     } togglekeys[] = {
-        { L"",   l10n->input_actions_nothing},
+        { L"",      l10n->input_actions_nothing},
         { L"A4 A5", l10n->input_hotkeys_alt},
         { L"5B 5C", l10n->input_hotkeys_winkey},
         { L"A2 A3", l10n->input_hotkeys_ctrl},
         { L"A0 A1", l10n->input_hotkeys_shift},
-        { L"A4", l10n->input_hotkeys_leftalt},
-        { L"A5", l10n->input_hotkeys_rightalt},
-        { L"5B", l10n->input_hotkeys_leftwinkey},
-        { L"5C", l10n->input_hotkeys_rightwinkey},
-        { L"A2", l10n->input_hotkeys_leftctrl},
-        { L"A3", l10n->input_hotkeys_rightctrl},
-        { L"A0", l10n->input_hotkeys_leftshift},
-        { L"A1", l10n->input_hotkeys_rightshift},
+        { L"A4",    l10n->input_hotkeys_leftalt},
+        { L"A5",    l10n->input_hotkeys_rightalt},
+        { L"5B",    l10n->input_hotkeys_leftwinkey},
+        { L"5C",    l10n->input_hotkeys_rightwinkey},
+        { L"A2",    l10n->input_hotkeys_leftctrl},
+        { L"A3",    l10n->input_hotkeys_rightctrl},
+        { L"A0",    l10n->input_hotkeys_leftshift},
+        { L"A1",    l10n->input_hotkeys_rightshift},
     };
     static const struct optlst optlst[] = {
         { IDC_AGGRESSIVEPAUSE,  T_BOL, 0, L"Input", "AggressivePause", 0 },
@@ -945,7 +945,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             ComboBox_SetCurSel(control, sel); // select current ModKey
 
             // Update text
-            struct dialogstring strlst[] = {
+            const struct dialogstring strlst[] = {
                 { IDC_KEYBOARD_BOX,    l10n->tab_keyboard},
                 { IDC_AGGRESSIVEPAUSE, l10n->input_aggressive_pause},
                 { IDC_AGGRESSIVEKILL,  l10n->input_aggressive_kill},
@@ -1049,7 +1049,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // Update text
-            struct dialogstring strlst[] = {
+            const struct dialogstring strlst[] = {
                 { IDC_BLACKLIST_BOX          , l10n->blacklist_box },
                 { IDC_PROCESSBLACKLIST_HEADER, l10n->blacklist_processblacklist },
                 { IDC_BLACKLIST_HEADER       , l10n->blacklist_blacklist },
@@ -1355,7 +1355,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // Update text
-            struct dialogstring strlst[] = {
+            const struct dialogstring strlst[] = {
                 { IDC_METRICS_BOX,      l10n->advanced_metrics_box },
                 { IDC_CENTERFRACTION_H, l10n->advanced_centerfraction },
                 { IDC_AEROHOFFSET_H,    l10n->advanced_aerohoffset },

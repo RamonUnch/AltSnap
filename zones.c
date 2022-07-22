@@ -100,6 +100,12 @@ static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *heig
     if(!(conf.UseZones&1) || state.mdiclient || !state.resizable) // Zones disabled
         return;
 
+    static POINT oldpt;
+    if(state.Speed > conf.AeroMaxSpeed)
+        pt=oldpt; // do not move the window if speed is too high.
+    else
+        oldpt=pt;
+
     if (conf.UseZones&8 && state.snap != conf.AutoSnap) // Zones toggled by other click
         return;
 

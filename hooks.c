@@ -169,6 +169,7 @@ static struct config {
     UCHAR BLMaximized;
     UCHAR LongClickMove;
     UCHAR UniKeyHoldMenu;
+    UCHAR TransWinOpacity;
 
   # ifdef WIN64
     UCHAR FancyZone;
@@ -1400,10 +1401,10 @@ static void RestoreOldWin(const POINT pt, unsigned was_snapped)
     if (((rdata_flag & SNAPPED) && !(state.origin.maximized&&rdata_flag&2))) {
         // Set origin width and height to the saved values
         if(!state.usezones){
-	        restore = rdata_flag;
-	        state.origin.width = rwidth;
-	        state.origin.height = rheight;
-	        ClearRestoreData(state.hwnd);
+            restore = rdata_flag;
+            state.origin.width = rwidth;
+            state.origin.height = rheight;
+            ClearRestoreData(state.hwnd);
         }
     }
 
@@ -1512,20 +1513,28 @@ static void SetOriginFromRestoreData(HWND hnwd, enum action action)
 // Mouse frame when resizing.
 static void ShowTransWin(int nCmdShow)
 {
-    int i;
-    for (i=0; i<4; i++ )if(g_transhwnd[i]) ShowWindow(g_transhwnd[i], nCmdShow);
+    if(conf.TransWinOpacity) {
+        if(g_transhwnd[0]) ShowWindow(g_transhwnd[0], nCmdShow);
+    } else {
+        int i;
+        for (i=0; i<4; i++ )if(g_transhwnd[i]) ShowWindow(g_transhwnd[i], nCmdShow);
+    }
 }
 #define HideTransWin() ShowTransWin(SW_HIDE)
 
 static void MoveTransWin(int x, int y, int w, int h)
 {
-      #define f SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER //|SWP_DEFERERASE
+    #define f SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER //|SWP_DEFERERASE
 //      HDWP hwndSS = BeginDeferWindowPos(4);
-      SetWindowPos(g_transhwnd[0],NULL,  x    , y    , w, 4, f);
-      SetWindowPos(g_transhwnd[1],NULL,  x    , y    , 4, h, f);
-      SetWindowPos(g_transhwnd[2],NULL,  x    , y+h-4, w, 4, f);
-      SetWindowPos(g_transhwnd[3],NULL,  x+w-4, y    , 4, h, f);
-      #undef f
+    if(conf.TransWinOpacity) {
+        SetWindowPos(g_transhwnd[0],NULL, x, y, w, h, f);
+    } else {
+        SetWindowPos(g_transhwnd[0],NULL,  x    , y    , w, 4, f);
+        SetWindowPos(g_transhwnd[1],NULL,  x    , y    , 4, h, f);
+        SetWindowPos(g_transhwnd[2],NULL,  x    , y+h-4, w, 4, f);
+        SetWindowPos(g_transhwnd[3],NULL,  x+w-4, y    , 4, h, f);
+    }
+    #undef f
 //      if(hwndSS) EndDeferWindowPos(hwndSS);
 }
 static DWORD CALLBACK WinPlacmntTrgead(LPVOID wndplptr)
@@ -3559,7 +3568,12 @@ __declspec(dllexport) void Unload()
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
     DestroyWindow(g_timerhwnd);
     DestroyWindow(g_mchwnd);
-    int i; for (i=0; i<4; i++) DestroyWindow(g_transhwnd[i]);
+    if (conf.TransWinOpacity) {
+        DestroyWindow(g_transhwnd[0]);
+    } else {
+        int i;
+        for (i=0; i<4; i++) DestroyWindow(g_transhwnd[i]);
+    }
     UnregisterClass(APP_NAME"-Timers", hinstDLL);
     UnregisterClass(APP_NAME"-SClick", hinstDLL);
     UnregisterClass(APP_NAME"-Trans",  hinstDLL);
@@ -3777,6 +3791,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
         // [Performance]
         {&conf.FullWin,         L"Performance", "FullWin", 2 },
+        {&conf.TransWinOpacity,   L"Performance", "TransWinOpacity", 0 },
         {&conf.RefreshRate,     L"Performance", "RefreshRate", 0 },
         {&conf.RezTimer,        L"Performance", "RezTimer", 0 },
         {&conf.MoveRate,        L"Performance", "MoveRate", 2 },
@@ -3813,6 +3828,8 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AVoff        = CLAMP(0, conf.AVoff,          100);
     conf.AeroSpeedTau = max(1, conf.AeroSpeedTau);
     conf.MinAlpha     = max(1, conf.MinAlpha);
+    if(conf.TransWinOpacity)
+        conf.TransWinOpacity = max(16, conf.TransWinOpacity);
     state.snap = conf.AutoSnap;
 
     // [Advanced] Max Speed
@@ -3875,11 +3892,24 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         wnd.hbrBackground = CreateSolidBrush(color[0]);
         wnd.lpszClassName = APP_NAME"-Trans";
         RegisterClassEx(&wnd);
-        for (i=0; i<4; i++) { // the transparent window is made with 4 thin windows
-            g_transhwnd[i] = CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW  //|WS_EX_NOACTIVATE|
-                             , wnd.lpszClassName, NULL, WS_POPUP
-                             , 0, 0, 0, 0, NULL, NULL, hinstDLL, NULL);
-            LOG("CreateWindowEx[i] = %lX", (DWORD)(DorQWORD)g_transhwnd[i]);
+        g_transhwnd[0] = NULL;
+        if (conf.TransWinOpacity) {
+            int xflags = conf.TransWinOpacity==255
+                       ? WS_EX_TOPMOST|WS_EX_TOOLWINDOW
+                       : WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_LAYERED;
+            g_transhwnd[0] = CreateWindowEx(xflags
+                                 , wnd.lpszClassName, NULL, WS_POPUP
+                                 , 0, 0, 0, 0, NULL, NULL, hinstDLL, NULL);
+            if(conf.TransWinOpacity != 255)
+                SetLayeredWindowAttributes(g_transhwnd[0], 0, conf.TransWinOpacity, LWA_ALPHA);
+        }
+        if (!g_transhwnd[0]) {
+            for (i=0; i<4; i++) { // the transparent window is made with 4 thin windows
+                g_transhwnd[i] = CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW  //|WS_EX_NOACTIVATE|
+                                 , wnd.lpszClassName, NULL, WS_POPUP
+                                 , 0, 0, 0, 0, NULL, NULL, hinstDLL, NULL);
+                LOG("CreateWindowEx[i] = %lX", (DWORD)(DorQWORD)g_transhwnd[i]);
+            }
         }
     }
 

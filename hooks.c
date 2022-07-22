@@ -89,6 +89,7 @@ static struct {
     UCHAR moving;
     UCHAR blockmouseup;
     UCHAR enumed;
+    UCHAR usezones;
 
     UCHAR clickbutton;
     UCHAR resizable;
@@ -1126,6 +1127,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
 {
     // return if last resizing is not finished or no Aero or not resizable.
     if((!conf.Aero && !conf.UseZones&1) || !state.resizable) return 0;
+
     LastWin.maximize = 0;
     LastWin.snap = 0;
 
@@ -1143,7 +1145,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     RECT trc;
     trc.left = pLeft; trc.top = pTop;
     trc.right = pRight; trc.bottom =pBottom;
-    if(PtInRect(&trc, pt) || !conf.Aero) goto restore;
+    if (PtInRect(&trc, pt) || !conf.Aero) goto restore;
 
     GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, &mon);
     int Left  = pLeft   + AERO_TH ;
@@ -1397,10 +1399,12 @@ static void RestoreOldWin(const POINT pt, unsigned was_snapped)
 
     if (((rdata_flag & SNAPPED) && !(state.origin.maximized&&rdata_flag&2))) {
         // Set origin width and height to the saved values
-        restore = rdata_flag;
-        state.origin.width = rwidth;
-        state.origin.height = rheight;
-        ClearRestoreData(state.hwnd);
+        if(!state.usezones){
+	        restore = rdata_flag;
+	        state.origin.width = rwidth;
+	        state.origin.height = rheight;
+	        ClearRestoreData(state.hwnd);
+        }
     }
 
     RECT wnd;
@@ -2010,6 +2014,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                     state.snap = conf.AutoSnap==3? 0: 3;
                 }
                 state.shift = 1;
+                state.usezones = (conf.UseZones&9) != 9; // Zones and
                 state.shiftpt = state.prevpt; // Save point where shift was pressed.
                 state.enumed = 0; // Reset enum state.
             }
@@ -2120,6 +2125,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             HotkeyUp();
         } else if (IsHotkeyy(vkey, conf.Shiftkeys)) {
             state.shift = 0;
+            state.usezones = (conf.UseZones&9) == 9;
             state.snap = conf.AutoSnap;
             // if an action was performed and Alt is still down.
             if (state.alt && state.blockaltup && (vkey == VK_LSHIFT || vkey == VK_RSHIFT))
@@ -2944,7 +2950,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // Get window
     state.mdiclient = NULL;
     state.hwnd = WindowFromPoint(pt);
-    // Hide if tooltip
     // Get MDI chlild hwnd or root hwnd if not MDI!
     state.hwnd = MDIorNOT(state.hwnd, &state.mdiclient);
 
@@ -3011,6 +3016,8 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         // Set action statte.
         state.action = action; // MOVE OR RESIZE
         state.resizable = IsResizable(state.hwnd);
+        // Wether or not we will use the zones
+        state.usezones = ((conf.UseZones&9) == 9)^state.shift;
 
         GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
         SetWindowTrans(state.hwnd);
@@ -3343,6 +3350,13 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     if (buttonstate == STATE_DOWN && state.action && state.action != conf.GrabWithAlt[ModKey()]) {
         if ((conf.MMMaximize&1))
             ClickComboActions(action); // Handle click combo!
+        else if (conf.UseZones&1 && state.action == AC_MOVE) {
+            state.usezones = !state.usezones;
+            state.blockmouseup = 1;
+            MouseMove(state.prevpt);
+        } else {
+            state.blockmouseup = 1;
+        }
         return 1; // Block mousedown so altsnap does not remove g_mainhwnd
 
     // INIT ACTIONS on mouse down if Alt is down...

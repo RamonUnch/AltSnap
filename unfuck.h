@@ -375,7 +375,7 @@ static void FixDWMRectLL(HWND hwnd, RECT *bbb, const int SnapGap)
         CopyRect(bbb, &frame);
     } else {
         SetRectEmpty(bbb);
-        //SetRect(bbb, 10, 10, 10, 10);
+        /*SetRect(bbb, 10, 10, 10, 10);*/
     }
     if (SnapGap) OffsetRect(bbb, -SnapGap, -SnapGap);
 }
@@ -413,6 +413,23 @@ static BOOL IsVisible(HWND hwnd)
 {
     return IsWindowVisible(hwnd) && !IsWindowCloaked(hwnd);
 }
+
+/* Use the DWM api to obtain the rectangel in 
+*/
+static BOOL GetCaptionButtonsRect(HWND hwnd, RECT *rc)
+{
+    int ret = DwmGetWindowAttributeL(hwnd, DWMWA_CAPTION_BUTTON_BOUNDS, rc, sizeof(RECT));
+    // Convert rectangle to to screen coordinate.
+    if (ret == S_OK) {
+        POINT pt;
+        pt.x = pt.y = 0;
+        ClientToScreen(hwnd, &pt);
+        OffsetRect(rc, pt.x, pt.y);
+        return 1;
+    }
+    return 0;
+}
+
 static LONG NtSuspendProcessL(HANDLE ProcessHandle)
 {
     if (myNtSuspendProcess == IPTR) { /* First time */

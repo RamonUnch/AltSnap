@@ -1102,12 +1102,18 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             }
             SetDlgItemText(page, IDC_GWLSTYLE, _itow(GetWindowLongPtr(window, GWL_STYLE), txt, 16));
             SetDlgItemText(page, IDC_GWLEXSTYLE, _itow(GetWindowLongPtr(window, GWL_EXSTYLE), txt, 16));
+            // WM_NCHITTEST messages info at current pt
             _itow(HitTestTimeout(nwindow, pt.x, pt.y), txt, 10);
             wchar_t tt[8];
             _itow(HitTestTimeout(window, pt.x, pt.y), tt, 10);
             wcscat(txt, L"/");wcscat(txt, tt);
             SetDlgItemText(page, IDC_NCHITTEST, txt);
+            // IDC_DWMCAPBUTTON
             RECT rc;
+            SetDlgItemText(page, IDC_DWMCAPBUTTON
+                , (GetCaptionButtonsRect(window, &rc) && PtInRect(&rc, pt))?L"Yes":L"No");
+
+            // Window rectangle info
             if (GetWindowRectL(window, &rc)) {
                 SetDlgItemText(page, IDC_RECT, RectToStr(&rc, txt));
             }

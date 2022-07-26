@@ -415,17 +415,16 @@ static BOOL IsVisible(HWND hwnd)
 }
 
 /* Use the DWM api to obtain the rectangel that *should* contain all
- * caption buttons. This is usefull to ensure we are not in one of them.
+ * caption buttons. This is usefull to ensure we are not in one of them. 
  */
 static BOOL GetCaptionButtonsRect(HWND hwnd, RECT *rc)
 {
     int ret = DwmGetWindowAttributeL(hwnd, DWMWA_CAPTION_BUTTON_BOUNDS, rc, sizeof(RECT));
     /* Convert rectangle to to screen coordinate. */
     if (ret == S_OK) {
-        POINT pt;
-        pt.x = pt.y = 0;
-        ClientToScreen(hwnd, &pt);
-        OffsetRect(rc, pt.x, pt.y);
+        RECT wrc;
+        GetWindowRect(hwnd, &wrc);
+        OffsetRect(rc, wrc.left, wrc.top);
         return 1;
     }
     return 0;

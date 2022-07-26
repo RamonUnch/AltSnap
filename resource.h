@@ -162,3 +162,4 @@
 
 #define IDC_OUTTB                       2083
 #define IDC_UNIKEYHOLDMENU              2084
+#define IDC_DWMCAPBUTTON                2085

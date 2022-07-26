@@ -356,7 +356,8 @@ static void SendSizeMove(DWORD msg)
 }
 /////////////////////////////////////////////////////////////////////////////
 // Overloading of the Hittest function to include a whitelist
-static int HitTestTimeoutblL(HWND hwnd, LPARAM lParam)
+// x and y are in screen coordinate.
+static int HitTestTimeoutbl(HWND hwnd, POINT pt)
 {
     DorQWORD area=0;
 
@@ -365,12 +366,23 @@ static int HitTestTimeoutblL(HWND hwnd, LPARAM lParam)
     if (blacklisted(ancestor, &BlkLst.MMBLower)) return 0;
     if (hwnd != ancestor
     && blacklisted(ancestor, &BlkLst.NCHittest)) {
-        SendMessageTimeout(ancestor, WM_NCHITTEST, 0, lParam, SMTO_NORMAL, 200, &area);
-        if(area == HTCAPTION) return HTCAPTION;
+        SendMessageTimeout(ancestor, WM_NCHITTEST, 0, MAKELPARAM(pt.x, pt.y), SMTO_NORMAL, 200, &area);
+        if(area == HTCAPTION) goto DOUBLECHECK_CAPTION;
     }
-    return HitTestTimeoutL(hwnd, lParam);
+    area = HitTestTimeoutL(hwnd, MAKELPARAM(pt.x, pt.y));
+    DOUBLECHECK_CAPTION:
+    if (area == HTCAPTION) {
+        // Double check that we are not inside one of the
+        // caption buttons buttons because of buggy Win10..
+        RECT buttonRc;
+        if (GetCaptionButtonsRect(ancestor, &buttonRc) && PtInRect(&buttonRc, pt)) {
+            // let us assume it is the minimize button, it makes no sence
+            // But Windows is too buggy
+            area = HTMINBUTTON;
+        }
+    }
+    return area;
 }
-#define HitTestTimeoutbl(hwnd, x, y) HitTestTimeoutblL(hwnd, MAKELPARAM(x, y))
 /////////////////////////////////////////////////////////////////////////////
 // Use NULL to restore old transparency.
 // Set to -1 to clear old state
@@ -3108,7 +3120,7 @@ static int InTitlebar(POINT pt, enum action action,  enum button button)
         // if (blacklisted(hwnd, &BlkLst.Windows)) return 0; // Next hook
 
         // Hittest to see if we are in a caption!
-        int area = HitTestTimeoutbl(nhwnd, pt.x, pt.y);
+        int area = HitTestTimeoutbl(nhwnd, pt);
         if (area == HTCAPTION || (button > BT_RMB && IsAreaAnyCap(area))) {
             return area;
         }
@@ -3497,7 +3509,7 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             if (IsSamePTT(&state.prevpt, &state.clickpt)
             &&  GetAsyncKeyState(1 + (buttonswaped = !!GetSystemMetrics(SM_SWAPBUTTON)))
             && (ptwnd = WindowFromPoint(state.prevpt))
-            &&!IsAreaLongClikcable(HitTestTimeoutbl(ptwnd, state.prevpt.x, state.prevpt.y))) {
+            &&!IsAreaLongClikcable(HitTestTimeoutbl(ptwnd, state.prevpt))) {
                 // Determine if we should actually move the Window by probing with AC_NONE
                 int ret = init_movement_and_actions(state.prevpt, AC_NONE, 0);
                 if (ret) { // Release mouse click if we have to move.
@@ -3754,7 +3766,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     #pragma GCC diagnostic ignored "-Wpointer-sign"
     static const struct OptionListItem {
-        UCHAR *dest; wchar_t *section; char *name; int def;
+        UCHAR *const dest; const wchar_t *section; const char *name; const int def;
     } optlist[] = {
         // [General]
         {&conf.AutoFocus,       L"General", "AutoFocus", 0 },
@@ -3791,7 +3803,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
         // [Performance]
         {&conf.FullWin,         L"Performance", "FullWin", 2 },
-        {&conf.TransWinOpacity,   L"Performance", "TransWinOpacity", 0 },
+        {&conf.TransWinOpacity, L"Performance", "TransWinOpacity", 0 },
         {&conf.RefreshRate,     L"Performance", "RefreshRate", 0 },
         {&conf.RezTimer,        L"Performance", "RezTimer", 0 },
         {&conf.MoveRate,        L"Performance", "MoveRate", 2 },
@@ -3828,8 +3840,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AVoff        = CLAMP(0, conf.AVoff,          100);
     conf.AeroSpeedTau = max(1, conf.AeroSpeedTau);
     conf.MinAlpha     = max(1, conf.MinAlpha);
-    if(conf.TransWinOpacity)
-        conf.TransWinOpacity = max(16, conf.TransWinOpacity);
     state.snap = conf.AutoSnap;
 
     // [Advanced] Max Speed

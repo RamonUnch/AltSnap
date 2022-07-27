@@ -181,6 +181,7 @@ static struct config {
     UCHAR PiercingClick;
     UCHAR AeroSpeedTau;
     UCHAR RezTimer;
+    UCHAR BLCapButtons;
 
     UCHAR Hotkeys[MAXKEYS+1];
     UCHAR Shiftkeys[MAXKEYS+1];
@@ -3029,11 +3030,13 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     state.origin.width  = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
     state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
 
-    // AutoFocus
-    if (conf.AutoFocus || state.ctrl) { SetForegroundWindowL(state.hwnd); }
 
     // Do things depending on what button was pressed
     if (MOUVEMENT(action)) {
+        // AutoFocus
+        if (conf.AutoFocus || state.ctrl)
+            SetForegroundWindowL(state.hwnd);
+
         // Set action statte.
         state.action = action; // MOVE OR RESIZE
         state.resizable = IsResizable(state.hwnd);
@@ -3120,8 +3123,12 @@ static int InTitlebar(POINT pt, enum action action,  enum button button)
         // if (blacklisted(hwnd, &BlkLst.Windows)) return 0; // Next hook
 
         // Hittest to see if we are in a caption!
+        // Only accept caption buttons as a titlebar for the buttons that are
+        // Not in the blacklist (default LMB and RMB ttb actions only applies
+        // to the real titlebar (hittest=2).
         int area = HitTestTimeoutbl(nhwnd, pt);
-        if (area == HTCAPTION || (button > BT_RMB && IsAreaAnyCap(area))) {
+        if (area == HTCAPTION
+        || (!(conf.BLCapButtons&(1<<(button-2))) && IsAreaAnyCap(area))) {
             return area;
         }
     }
@@ -3317,6 +3324,13 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         state.blockmouseup--;
         return 1;
     }
+//    RECT mrc;
+//    if (buttonstate == STATE_DOWN && g_mchwnd && state.sclickhwnd && state.unikeymenu
+//    && GetWindowRect(g_mchwnd, &mrc) && !PtInRect(&mrc, pt)) {
+//        LOGA("Destroying menu")
+//        DestroyWindow(g_mchwnd);
+//        g_mchwnd = NULL;
+//    }
 
 //    if (button<=BT_MB5)
 //        LOGA("button=%d, %s", button, buttonstate==STATE_DOWN?"DOWN":buttonstate==STATE_UP?"UP":"NONE");
@@ -3555,7 +3569,7 @@ LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
     } else if(msg == WM_KILLFOCUS) {
         // Menu gets hiden, be sure to zero-out the clickhwnd
         state.sclickhwnd = NULL;
-        // state.blockmouseup = 0;
+        //state.blockmouseup = 0;
 //        DestroyWindow(g_mchwnd);
 //        g_mchwnd = NULL;
     }
@@ -3800,6 +3814,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {&conf.SnapGap,         L"Advanced", "SnapGap", 0 },
         {&conf.ShiftSnaps,      L"Advanced", "ShiftSnaps", 1 },
         {&conf.PiercingClick,   L"Advanced", "PiercingClick", 0 },
+        {&conf.BLCapButtons,    L"Advanced", "BLCapButtons", 3 },
 
         // [Performance]
         {&conf.FullWin,         L"Performance", "FullWin", 2 },

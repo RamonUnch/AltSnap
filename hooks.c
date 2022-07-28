@@ -1922,13 +1922,25 @@ static int ActionKill(HWND hwnd)
 
     return 1;
 }
-
+// Try harder to actually set the window foreground.
+static void ReallySetForegroundWindow(HWND hwnd)
+{
+    // Check existing foreground Window.
+    HWND  fore = GetForegroundWindow();
+    if (fore != hwnd) {
+        if (!state.alt && state.hittest) {
+            Send_CTRL();
+            // LOGA("Really Set Foreground");
+        }
+        SetForegroundWindow(hwnd);
+    }
+}
 static void SetForegroundWindowL(HWND hwnd)
 {
     if (!state.mdiclient) {
-        SetForegroundWindow(hwnd);
+        ReallySetForegroundWindow(hwnd);
     } else {
-        SetForegroundWindow(state.mdiclient);
+        ReallySetForegroundWindow(state.mdiclient);
         PostMessage(state.mdiclient, WM_MDIACTIVATE, (WPARAM)hwnd, 0);
     }
 }
@@ -2309,10 +2321,10 @@ static int ActionAltTab(POINT pt, int delta)
 
         // Reorder windows
         if (delta > 0) {
-            SetForegroundWindow(hwnds[numhwnds-1]);
+            ReallySetForegroundWindow(hwnds[numhwnds-1]);
         } else {
             SetWindowLevel(hwnds[0], hwnds[numhwnds-1]);
-            SetForegroundWindow(hwnds[1]);
+            ReallySetForegroundWindow(hwnds[1]);
         }
     }
     return 1;
@@ -3033,7 +3045,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 
     // Do things depending on what button was pressed
     if (MOUVEMENT(action)) {
-        // AutoFocus
+        // AutoFocus on movement/resize.
         if (conf.AutoFocus || state.ctrl)
             SetForegroundWindowL(state.hwnd);
 
@@ -3324,13 +3336,6 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         state.blockmouseup--;
         return 1;
     }
-//    RECT mrc;
-//    if (buttonstate == STATE_DOWN && g_mchwnd && state.sclickhwnd && state.unikeymenu
-//    && GetWindowRect(g_mchwnd, &mrc) && !PtInRect(&mrc, pt)) {
-//        LOGA("Destroying menu")
-//        DestroyWindow(g_mchwnd);
-//        g_mchwnd = NULL;
-//    }
 
 //    if (button<=BT_MB5)
 //        LOGA("button=%d, %s", button, buttonstate==STATE_DOWN?"DOWN":buttonstate==STATE_UP?"UP":"NONE");
@@ -3569,9 +3574,6 @@ LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
     } else if(msg == WM_KILLFOCUS) {
         // Menu gets hiden, be sure to zero-out the clickhwnd
         state.sclickhwnd = NULL;
-        //state.blockmouseup = 0;
-//        DestroyWindow(g_mchwnd);
-//        g_mchwnd = NULL;
     }
     // LOGA("msg=%X, wParam=%X, lParam=%lX", msg, wParam, lParam);
     return DefWindowProc(hwnd, msg, wParam, lParam);

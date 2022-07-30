@@ -122,6 +122,9 @@ unsigned numhwnds = 0;
 // Settings
 #define MAXKEYS 15
 static struct config {
+    DWORD BLCapButtons;
+    DWORD AeroMaxSpeed;
+
     UCHAR AutoFocus;
     UCHAR AutoSnap;
     UCHAR AutoRemaximize;
@@ -154,7 +157,6 @@ static struct config {
 
     char AlphaDelta;
     char AlphaDeltaShift;
-    unsigned short AeroMaxSpeed;
 
     UCHAR keepMousehook;
     UCHAR KeyCombo;
@@ -181,7 +183,6 @@ static struct config {
     UCHAR PiercingClick;
     UCHAR AeroSpeedTau;
     UCHAR RezTimer;
-    UCHAR BLCapButtons;
 
     UCHAR Hotkeys[MAXKEYS+1];
     UCHAR Shiftkeys[MAXKEYS+1];
@@ -3074,8 +3075,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         // Send WM_ENTERSIZEMOVE
         SendSizeMove(WM_ENTERSIZEMOVE);
     } else if (action == AC_MENU) {
-        // KillUnikeymenu();
-//        KillTimer(g_timerhwnd, GRAB_TIMER);
         if (g_mchwnd) DestroyWindow(g_mchwnd);
         g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
         state.sclickhwnd = state.hwnd;
@@ -3110,20 +3109,18 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 }
 static int xpure IsAeraCapbutton(int area)
 {
-    return area == HTMINBUTTON || area == HTMAXBUTTON
-        || area == HTCLOSE || area == HTHELP;
+    return area == HTMINBUTTON
+        || area == HTMAXBUTTON
+        || area == HTCLOSE
+        || area == HTHELP;
 }
-static int xpure IsAreaCaption(int area)
+static int xpure IsAreaAnyCap(int area)
 {
-    return area == HTCAPTION
-       || (area >= HTTOP && area <= HTTOPRIGHT)
-       || area == HTSYSMENU;
+    return area == HTCAPTION // Caption
+       || area == HTSYSMENU  // System menu
+       || (area >= HTTOP && area <= HTTOPRIGHT) // Top resizing border
+       || IsAeraCapbutton(area); // Caption buttons
 }
-static int IsAreaAnyCap(int area)
-{
-    return IsAreaCaption(area) || IsAeraCapbutton(area);
-}
-
 static int InTitlebar(POINT pt, enum action action,  enum button button)
 {
     int willtest = ((conf.TTBActions&1) && !state.alt)
@@ -3139,8 +3136,9 @@ static int InTitlebar(POINT pt, enum action action,  enum button button)
         // Not in the blacklist (default LMB and RMB ttb actions only applies
         // to the real titlebar (hittest=2).
         int area = HitTestTimeoutbl(nhwnd, pt);
-        if (area == HTCAPTION
-        || (!(conf.BLCapButtons&(1<<(button-2))) && IsAreaAnyCap(area))) {
+        if ( area == HTCAPTION // Real caption
+        || ( !(conf.BLCapButtons&(1<<(button-2))) && IsAreaAnyCap(area)) )
+        {
             return area;
         }
     }
@@ -3152,7 +3150,7 @@ static int TitleBarActions(POINT pt, enum action action, enum button button)
 {
     state.hittest = 0; // Cursor in titlebar?
     if (!conf.TTBActions) return -1; // fall through
-    if((state.hittest = InTitlebar(pt, action, button ))) {
+    if ((state.hittest = InTitlebar(pt, action, button))) {
         return init_movement_and_actions(pt, action, button);
     }
     return -1; // Fall through
@@ -3816,7 +3814,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {&conf.SnapGap,         L"Advanced", "SnapGap", 0 },
         {&conf.ShiftSnaps,      L"Advanced", "ShiftSnaps", 1 },
         {&conf.PiercingClick,   L"Advanced", "PiercingClick", 0 },
-        {&conf.BLCapButtons,    L"Advanced", "BLCapButtons", 3 },
 
         // [Performance]
         {&conf.FullWin,         L"Performance", "FullWin", 2 },
@@ -3860,6 +3857,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     state.snap = conf.AutoSnap;
 
     // [Advanced] Max Speed
+    conf.BLCapButtons  = GetPrivateProfileInt(L"Advanced", L"BLCapButtons", 3, inipath);
     conf.AeroMaxSpeed  = GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath);
 
     // [Input]

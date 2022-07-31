@@ -154,6 +154,7 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
     AppendMenu(menu, MF_STRING, AC_SIDESNAP,   l10n->input_actions_sidesnap);
     AppendMenu(menu, MF_SEPARATOR, 0, NULL);
     AppendMenu(menu, MF_STRING, AC_MAXIMIZE,   l10n->input_actions_maximize);
+    CheckMenuItem(menu, AC_MAXIMIZE, param&LP_MAXIMIZED?MF_CHECKED:MF_UNCHECKED);
     AppendMenu(menu, MF_STRING, AC_MINIMIZE,   l10n->input_actions_minimize);
     AppendMenu(menu, MF_STRING, AC_CLOSE,      l10n->input_actions_close);
     if (param&LP_AGGRKILL) {

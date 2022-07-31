@@ -1015,6 +1015,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         int event = HIWORD(wParam);
         if (event == EN_UPDATE
         && id != IDC_NEWRULE && id != IDC_NEWPROGNAME
+        && id != IDC_DWMCAPBUTTON && id != IDC_GWLEXSTYLE
         && id != IDC_NCHITTEST && id != IDC_GWLSTYLE && id != IDC_RECT) {
             PropSheet_Changed(g_cfgwnd, hwnd); // Enable the Apply Button
             have_to_apply = 1;

@@ -166,7 +166,7 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
 
     AppendMenu(menu, MF_SEPARATOR, 0, NULL);
     AppendMenu(menu, MF_STRING, AC_NONE, l10n->input_actions_nothing);
-    SetForegroundWindow(hwnd);
+    SetForegroundWindow(g_hwnd); // Focus AltSnap's main hwnd.
     TrackPopupMenu(menu, GetSystemMetrics(SM_MENUDROPALIGNMENT), pt.x, pt.y, 0, hwnd, NULL);
     DestroyMenu(menu);
 }

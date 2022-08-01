@@ -2398,7 +2398,6 @@ static void TogglesAlwaysOnTop(HWND hwnd);
 static int xpure IsAeraCapbutton(int area);
 static void ActionLower(HWND hwnd, int delta, UCHAR shift)
 {
-    // turn lower in Always on top if Ctrl or [_][O][X]
     if (delta > 0) {
         if (shift) {
             ToggleMaxRestore(hwnd);
@@ -2408,6 +2407,7 @@ static void ActionLower(HWND hwnd, int delta, UCHAR shift)
             SetWindowLevel(hwnd, HWND_NOTOPMOST);
         }
     } else if (delta == 0 && (state.ctrl || IsAeraCapbutton(state.hittest))) {
+        // turn lower in *Always on top* if Ctrl or [_][O][X]
         TogglesAlwaysOnTop(hwnd);
     } else {
         if (shift) {
@@ -2419,7 +2419,7 @@ static void ActionLower(HWND hwnd, int delta, UCHAR shift)
                 if(tmp && hwnd != GetAncestor(tmp, GA_ROOT))
                     SetForegroundWindowL(tmp);
             }
-            //SetWindowLevel(hwnd, HWND_BOTTOM);
+            // Takes bottommost blacklist into account.
             SetBottomMost(hwnd);
         }
     }
@@ -3075,7 +3075,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         // Send WM_ENTERSIZEMOVE
         SendSizeMove(WM_ENTERSIZEMOVE);
     } else if (action == AC_MENU) {
-        if (g_mchwnd) DestroyWindow(g_mchwnd);
+        DestroyWindow(g_mchwnd);
         g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
         state.sclickhwnd = state.hwnd;
         // Send message to Open Action Menu
@@ -3563,7 +3563,7 @@ LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         state.sclickhwnd = NULL;
     } else if (msg == WM_COMMAND && IsWindow(state.sclickhwnd)) {
         enum action action = wParam;
-        //state.sclickhwnd = MDIorNOT(state.sclickhwnd, &state.mdiclient);
+        // state.sclickhwnd = MDIorNOT(state.sclickhwnd, &state.mdiclient);
 
         SClickActions(state.sclickhwnd, action);
         state.sclickhwnd = NULL;
@@ -3749,16 +3749,19 @@ static void readbuttonactions(const wchar_t *inipath)
     }
 }
 ///////////////////////////////////////////////////////////////////////////
-// Create a window for msessages handeling.
+// Create a window for msessages handeling timers, menu etc.
 static HWND KreateMsgWin(WNDPROC proc, wchar_t *name)
 {
     WNDCLASSEX wnd;
-    memset(&wnd, 0, sizeof(wnd));
-    wnd.cbSize = sizeof(WNDCLASSEX);
-    wnd.lpfnWndProc = proc;
-    wnd.hInstance = hinstDLL;
-    wnd.lpszClassName = name;
-    RegisterClassEx(&wnd);
+    if(!GetClassInfoEx(hinstDLL, name, &wnd)) {
+        // Register the class if no already created.
+	    memset(&wnd, 0, sizeof(wnd));
+	    wnd.cbSize = sizeof(WNDCLASSEX);
+	    wnd.lpfnWndProc = proc;
+	    wnd.hInstance = hinstDLL;
+	    wnd.lpszClassName = name;
+	    RegisterClassEx(&wnd);
+	}
     return CreateWindowEx(0, wnd.lpszClassName, NULL, 0
                      , 0, 0, 0, 0, g_mainhwnd, NULL, hinstDLL, NULL);
 }

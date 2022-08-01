@@ -175,7 +175,8 @@ static void UpdateStrings()
     PropSheet_SetTitle(g_cfgwnd, 0, l10n->title);
 
     // Update tab titles
-    HWND tc = PropSheet_GetTabControl(g_cfgwnd);
+    // tc = PropSheet_GetTabControl(g_cfgwnd);
+    HWND tc = (HWND)SendMessage(g_cfgwnd, PSM_GETTABCONTROL, 0, 0);
     int numrows_prev = TabCtrl_GetRowCount(tc);
     wchar_t *titles[6];
     titles[0] = l10n->tab_general;
@@ -1193,7 +1194,8 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         RECT crc;
         GetClientRect(hwnd, &crc);
         long splitheight = crc.bottom-GetSystemMetrics(SM_CYCAPTION);
-        InvalidateRect(hwnd,  &(RECT){5, splitheight, crc.right, crc.bottom}, TRUE);
+        RECT trc =  {5, splitheight, crc.right, crc.bottom};
+        InvalidateRect(hwnd, &trc, TRUE);
         PostMessage(hwnd, WM_PAINT, 0, 0);
 
     } break;
@@ -1265,10 +1267,12 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         RECT crc;
         GetClientRect(hwnd, &crc);
         long splitheight = crc.bottom-GetSystemMetrics(SM_CYCAPTION);
-        DrawText(hdc, lastkey, wcslen(lastkey), &(RECT){5, splitheight, crc.right, crc.bottom}, DT_NOCLIP|DT_TABSTOP);
+        RECT trc = {5, splitheight, crc.right, crc.bottom};
+        DrawText(hdc, lastkey, wcslen(lastkey), &trc, DT_NOCLIP|DT_TABSTOP);
         wchar_t *str = l10n->zone_testwinhelp;
         if (UseZones&1) {
-            DrawText(hdc, str, wcslen(str), &(RECT){5, 5, crc.right, splitheight}, DT_NOCLIP|DT_TABSTOP);
+            RECT trc2 = {5, 5, crc.right, splitheight};
+            DrawText(hdc, str, wcslen(str), &trc2, DT_NOCLIP|DT_TABSTOP);
         }
         EndPaint(hwnd, &ps);
         return 0;

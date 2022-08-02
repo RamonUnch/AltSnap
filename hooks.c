@@ -3078,6 +3078,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         DestroyWindow(g_mchwnd);
         g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
         state.sclickhwnd = state.hwnd;
+        state.clickpt = pt;
         // Send message to Open Action Menu
         PostMessage(
             g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd,
@@ -3085,6 +3086,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
            | !!(GetWindowLongPtr(state.sclickhwnd, GWL_EXSTYLE)&WS_EX_TOPMOST) << 1 // LP_TOPMOST
            | !!GetBorderlessFlag(state.sclickhwnd) << 2 // LP_BORDERLESS
            | IsZoomed(state.sclickhwnd) << 3 // LP_MAXIMIZED
+           | !!(GetRestoreFlag(state.sclickhwnd)&2) << 4 // LP_ROLLED
         );
         state.blockmouseup = 1;
         return 1; // block mouse down
@@ -3565,6 +3567,7 @@ LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         enum action action = wParam;
         // state.sclickhwnd = MDIorNOT(state.sclickhwnd, &state.mdiclient);
 
+        state.prevpt = state.clickpt;
         SClickActions(state.sclickhwnd, action);
         state.sclickhwnd = NULL;
         state.unikeymenu = NULL;

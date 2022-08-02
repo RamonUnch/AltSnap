@@ -11,11 +11,12 @@ WARNINGS=-Wall -Wformat-security -Wstrict-overflow -Wsign-compare -Wclobbered \
 # -Wstack-usage=2048
 
 ## DEBUG FLAGS
-CFLAGS= -nostdlib -Os -g -DLOG_STUFF=1 -m32 -march=i386 -mtune=generic \
+CFLAGS= -Os -g -DLOG_STUFF=1 -m32 -march=i386 -mtune=generic \
+	-fsanitize=address -fno-omit-frame-pointer \
     -lmsvcrt -lkernel32 -luser32 -lgdi32 -fgcse-sm -fgcse-las -fno-plt \
-    -Wl,-dynamicbase,-nxcompat,--no-seh,--relax,--disable-runtime-pseudo-reloc,--enable-auto-import,--disable-stdcall-fixup \
+    -Wl,-dynamicbase,-nxcompat,--no-seh,--relax,--enable-auto-import,--disable-stdcall-fixup \
 	-D__USE_MINGW_ANSI_STDIO=0 -Wp,-D_FORTIFY_SOURCE=2 -fshort-enums\
-    $(INCLUDE) $(WARNINGS) -fno-exceptions -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables
+    $(INCLUDE) $(WARNINGS)
 
 default: AltSnap.exe hooks.dll
 
@@ -24,7 +25,7 @@ hooks.dll : hooks.c hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c
 
 #--disable-reloc-section,  -mwindows
 AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages.c unfuck.h nanolibc.h
-	$(CC) -o AltSnap.exe altsnap.c altsnapr.o $(CFLAGS) -Wl,--tsaware,--disable-reloc-section -lcomctl32 -ladvapi32 -lshell32 -e_unfuckWinMain@0
+	$(CC) -o AltSnap.exe altsnap.c altsnapr.o $(CFLAGS) -Wl,--tsaware -lcomctl32 -ladvapi32 -lshell32 -e_unfuckWinMain@0
 
 altsnapr.o : altsnap.rc window.rc resource.h AltSnap.exe.manifest media/find.cur media/find.ico media/icon.ico media/tray-disabled.ico media/tray-enabled.ico
 	windres altsnap.rc altsnapr.o -Fpe-i386

@@ -524,7 +524,7 @@ static const struct strings en_US = {
  /* autoremaximize   */   L"Automatically &remaximize windows when changing monitor",
  /* aerotopmaximizes */   L"&Maximize windows snapped at top",
  /* aerodbclickshift */   L"Invert shift &behavior for double-click aero snapping",
- /* maxwithlclick    */   L"&Toggle maximize state with right-click while moving",
+ /* maxwithlclick    */   L"&Toggle maximize state with the resize button while moving",
  /* restoreonclick   */   L"Rest&ore window with single click like original AltDrag",
  /* fullscreen       */   L"Enable on &full screen windows",
  /* blmaximized      */   L"&Disable AltSnap on Maximized windows",
@@ -549,8 +549,8 @@ static const struct strings en_US = {
                            "1) Open several of those Test Windows\n"
                            "2) Dispose them as you please\n"
                            "3) Hit the *&Save test windows as snap layout* option in the tray menu",
-
- /* A */ L"àáâäãåæª%āăąǎǟǡǣǻǽȁȃȧ|Ȧḁ%ⱥ|Ⱥɐ|Ɐɑ|Ɑɒ|Ɒⲁ|Ⲁⓐ", \
+ /* Extended character list  for each virtual key */
+ /* A */ L"àáâäæãåª%āăąǎǟǡǣǻǽȁȃȧ|Ȧḁ%ⱥ|Ⱥɐ|Ɐɑ|Ɑɒ|Ɒⲁ|Ⲁⓐ", \
  /* B */ L"%ƀɓƃƅɃ%ɓḃḅḇⓑ", \
  /* C */ L"ç¢©%ćĉċčƈḉȼ|Ȼɕⓒ", \
  /* D */ L"ð%ďđɖɗƌƍḋḍḏḑḓǆǅǳǲȡȸⓓ", \
@@ -564,7 +564,7 @@ static const struct strings en_US = {
  /* L */ L"£%ĺļľŀłƛǉǈȴƚ|Ƚⱡ|Ⱡɫ|Ɫḷḹḻḽⓛ", \
  /* M */ L"µ%ḿṁṃɱ|Ɱɯⓜ", \
  /* N */ L"ñ%ńņňŉŋɲƞ|Ƞǌǋǹȵ%ṅṇṉṋⓝ", \
- /* O */ L"òóôöõø°%ōŏő%ɔɵơƣǒǫǭǿȍȏȣ|Ȣȫ|Ȫȭ|Ȭȯ|Ȯȱ|Ȱṍṏṑṓ%ⱺⓞ", \
+ /* O */ L"òóôöœõø°%ōŏő%ɔɵơƣǒǫǭǿȍȏȣ|Ȣȫ|Ȫȭ|Ȭȯ|Ȯȱ|Ȱṍṏṑṓ%ⱺⓞ", \
  /* P */ L"¶þ·•%ƥᵽ|Ᵽṕṗⓟ", \
  /* Q */ L"¿¤‰‘’“”„…–—«»‹›%ȹɋ|Ɋⓠ", \
  /* R */ L"®%ŕŗřƦȑȓṙṛṝṟɍ|Ɍɽ|Ɽⱹⓡ", \

@@ -1,7 +1,7 @@
 *=========================================================================*
 *            ALTSNAP for Windows NT4/2000/XP/Vista/7/8.x/10/11            *
 *  Modified by Raymond Gillibert from original AltDrag by Stefan Sundin   *
-*                      release 1.53 (June 23, 2022)                       *
+*                      release 1.54 (August 2, 2022)                      *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltSnap/releases/         *
@@ -183,6 +183,66 @@ Note that this version has some more feature.
 
 ===========================================================================
 == CHANGELOG ==
+
+== AltSnap 1.54 ==
+
+ + New: You can now set `UseZones=9` in the `[Zones]` section of the .ini
+   file and Windows will snap to the layout without having to press Shift.
+   Pressing shift or hitting space will disable zone-snapping instead. #219
+
+ + Now if you use Zones, and disable the **Toggle maximize state with the
+   resize button while moving** advanced option, then Zone snapping will be
+   toggled by any secondary buttons, like with FancyZones. #219
+
+ + New: Now you can set the opacity of the hollow rectangle (0-255) used
+   when the show window content while dragging option is disabled or when
+   FullWin=0. to do this you must modify the `TransWinOpacity` value in the
+   `[Performance]` section of the .ini file. #223
+
+ + New now you can set the value of `BLCapButtons` in the `[Advanced]`
+   section of the .ini file to choose for each mouse button if the titlebar
+   action will be or not extended to the caption buttons and the top
+   resizing border. Use `BLCapButtons=0` if you want all buttons to
+   consider the extended caption and use -1 for none of them. The default
+   value is 3 to avoid the extended caption for the left and right mouse
+   buttons so that AltSnap avoids interaction with the minimize, maximize
+   and close caption buttons ([_] [O] [X]). If you are unsure stick to
+   the default value if you want less titlebar detection use -1. #236
+
+ * Now a checkmark in the action menu will indicate the always on top state
+   of the pointed window. Same for Maximized and Borderless flags (#184).
+
+ * Changed: Now when auto Snapping is enabled at the maximum level, then
+   pressing shift will disable snapping instead of doing nothing.
+
+ * Changed: Now several keys can be selected for the alternate action
+   ie: the `ModKey` value in the `[Input]` section is a key list and works
+   like the Hotkeys value. Same was applied to `HScrollKey`. (#207)
+
+ * Fixed: Now smarter areo-snapping will be properly re-enabled when you
+   release Shift. (#211)
+
+ * Fixed: Snapping to the layout  will no longer ignore the Max snapping
+   speed option. (#218)
+
+ * Fixed multiple Action menu popping up in some cases. (#213)
+
+ * Fixed some stuck mouse buttons in some cases when using the Move
+   Windows with a long left click option.
+
+ * Fixed #220, Minic aero snapping is no longer necessary for Snapping
+   to the snap layout (Zones).
+
+ * Fixed: Modifying the config will no longer reset the `UseZones` value.
+
+ * Fixed #226, #229: Now the `DWMWA_CAPTION_BUTTON_BOUNDS` rectangle is
+   used to ensure that we are inside a titlebar and not caption buttons.
+   This fixes an annoying Windows 10 bug.
+
+ * Fixed, now the common french e dans l'o `œ` character is available in
+   the default extended character menu (LATIN SMALL/CAPITAL LIGATURE OE).
+
+ * Updated Chinese translation, thanks to @yatli.
 
 == AltSnap 1.53 ==
 
@@ -1312,7 +1372,7 @@ Note that this version has some more feature.
 
 ===========================================================================
 == OS Requirement ==
-AltDrag should work on NT4sp3+/2000/XP/2003/Vista/7/8/10.
+AltDrag should work on NT4sp3+/2000/XP/2003/Vista/7/8/10/11.
 
 This program needs at least Windows NT4 service pack 3 or later.
 This is because it relies on the 'LowLevel Keyboard/Mouse Proc' functions

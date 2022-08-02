@@ -20,11 +20,12 @@
 #define LP_AGGRKILL   (1)
 #define LP_TOPMOST    (1<<1)
 #define LP_BORDERLESS (1<<2)
+#define LP_MAXIMIZED  (1<<3)
 
 // App
 #define APP_NAME       L"AltSnap"
 #define APP_NAMEA      "AltSnap"
-#define APP_VERSION    "1.53"
+#define APP_VERSION    "1.54"
 #define APP_PROPPT     APP_NAMEA"-RDim"
 #define APP_PROPFL     APP_NAMEA"-RFlag"
 #define APP_PROPOFFSET APP_NAMEA"-ROffset"

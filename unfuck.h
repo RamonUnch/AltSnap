@@ -415,7 +415,7 @@ static BOOL IsVisible(HWND hwnd)
 }
 
 /* Use the DWM api to obtain the rectangel that *should* contain all
- * caption buttons. This is usefull to ensure we are not in one of them. 
+ * caption buttons. This is usefull to ensure we are not in one of them.
  */
 static BOOL GetCaptionButtonsRect(HWND hwnd, RECT *rc)
 {

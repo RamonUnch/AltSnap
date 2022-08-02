@@ -203,7 +203,7 @@ static int wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 static int wcscmp_star(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 {
     if(!b) return 0;
-//    if (*b == '*') return 1; /* Should not start with '*' */
+    /* if (*b == '*') return 1; */ /* Should not start with '*' */
     while(*a && *a == *b) { a++; b++; }
     return (*a != *b) & (*b != '*');
 }

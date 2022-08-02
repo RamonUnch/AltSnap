@@ -6,6 +6,10 @@
  * Modified By Raymond Gillibert in 2020                                 *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+#ifndef NIF_INFO
+#define NIF_INFO 0x00000010
+#endif
+
 static struct { // NOTIFYICONDATA for NT4
     DWORD cbSize;
     HWND hWnd;

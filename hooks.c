@@ -1855,7 +1855,9 @@ static void HotkeyUp()
     state.alt = 0;
     state.alt1 = 0;
     state.blockaltup = 0;
-    if (state.action && conf.GrabWithAlt[0]) {
+    if (state.action
+    && (conf.GrabWithAlt[0] || conf.GrabWithAlt[1])
+    && MOUVEMENT(conf.GrabWithAlt[0]) && MOUVEMENT(conf.GrabWithAlt[1])) {
         FinishMovement();
     }
 
@@ -1929,9 +1931,12 @@ static void ReallySetForegroundWindow(HWND hwnd)
     // Check existing foreground Window.
     HWND  fore = GetForegroundWindow();
     if (fore != hwnd) {
-        if (!state.alt && state.hittest) {
+        if (state.alt != VK_MENU &&  state.alt != VK_CONTROL) {
+            // If the physical Alt or Ctrl keys are not down
+            // We need to activate the window with key input.
+            // CTRL seems to work. Also Alt works but trigers the menu
+            // So it is simpler to stick to CTRL.
             Send_CTRL();
-            // LOGA("Really Set Foreground");
         }
         SetForegroundWindow(hwnd);
     }
@@ -2029,7 +2034,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
             // Hook mouse
             HookMouse();
-            if (conf.GrabWithAlt[0]) {
+            if (conf.GrabWithAlt[0] || conf.GrabWithAlt[1]) {
                 POINT pt;
                 enum action action = conf.GrabWithAlt[IsModKey(vkey) || (!IsHotkey(conf.ModKey[0])&&ModKey())];
                 if (action) {
@@ -3322,7 +3327,8 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
 
-    //LOGA("wParam=%x, data=%lx, time=%lu, extra=%lx", wParam, msg->mouseData, msg->time, msg->dwExtraInfo);
+//    if ((0x201 > wParam || wParam > 0x205) && wParam != 0x20a)
+//        LOGA("wParam=%lx, data=%lx, time=%lu, extra=%lx", (DWORD)wParam, (DWORD)msg->mouseData, (DWORD)msg->time, (DWORD)msg->dwExtraInfo);
 
     //Get Button state and data.
     enum buttonstate buttonstate = GetButtonState(wParam);
@@ -3340,7 +3346,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 //    if (button<=BT_MB5)
 //        LOGA("button=%d, %s", button, buttonstate==STATE_DOWN?"DOWN":buttonstate==STATE_UP?"UP":"NONE");
 
-    // Get actions!
+    // Get actions or alternate (depends on ModKey())!
     enum action action = GetAction(button); // Normal action
     enum action ttbact = GetActionT(button);// Titlebar action
 

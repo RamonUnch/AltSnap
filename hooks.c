@@ -2581,6 +2581,48 @@ static void RollWindow(HWND hwnd, int delta)
               , SWP_NOMOVE|SWP_NOZORDER|SWP_NOSENDCHANGING|SWP_ASYNCWINDOWPOS);
     }
 }
+static void SetEdgeAndOffset(const RECT *wnd, POINT pt);
+static int ActionZoom(HWND hwnd, int delta)
+{
+    RECT rc;
+    GetWindowRect(hwnd, &rc);
+    SetEdgeAndOffset(&rc, state.prevpt);
+    int left=0, right=0, top=0, bottom=0;
+    int div = state.shift ? 100: 20;
+
+    if (state.resize.x == RZ_LEFT) {
+        right = max(1, (rc.right-rc.left)/div);
+    } else if (state.resize.x == RZ_RIGHT) {
+        left  = max(1, (rc.right-rc.left)/div);
+    }
+    if (state.resize.y == RZ_TOP) {
+        bottom = max(1, (rc.bottom-rc.top)/div);
+    } else if (state.resize.y == RZ_BOTTOM) {
+        top    = max(1, (rc.bottom-rc.top)/div);
+    }
+
+    if (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER) {
+        // Increase/decrease width 5/1%
+        left  = max(1, (state.prevpt.x-rc.left)  /div);
+        right = max(1, (rc.right-state.prevpt.x) /div);
+        top   = max(1, (state.prevpt.x-rc.top)   /div);
+        bottom= max(1, (rc.bottom-state.prevpt.x)/div);
+    }
+    if (delta < 0) {
+        rc.left += left;
+        rc.right -= right;
+        rc.top += top;
+        rc.bottom -= bottom;
+    } else {
+        rc.left -= left;
+        rc.right +=right;
+        rc.top -= top;
+        rc.bottom += bottom;
+    }
+
+    MoveWindowAsync(hwnd, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top);
+    return 1;
+}
 static int IsDoubleClick(int button)
 { // Never validate a double-click if the click has to pierce
     return !conf.PiercingClick && state.clickbutton == button
@@ -2986,6 +3028,7 @@ static int DoWheelActions(HWND hwnd, enum action action)
     else if (action == AC_MAXIMIZE)     ActionMaxRestMin(hwnd, state.delta);
     else if (action == AC_ROLL)         RollWindow(hwnd, state.delta);
     else if (action == AC_HSCROLL)      ret = ScrollPointedWindow(state.prevpt, -state.delta, WM_MOUSEHWHEEL);
+    else if (action == AC_ZOOM)         ret = ActionZoom(hwnd, state.delta);
 //    else if (action == AC_BRIGHTNESS)   ActionBrightness(state.prevpt, state.delta);
     else                                ret = 0; // No action
 

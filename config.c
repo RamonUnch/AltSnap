@@ -726,6 +726,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"AltTab",       l10n->input_actions_alttab},
         {L"Volume",       l10n->input_actions_volume},
         {L"Transparency", l10n->input_actions_transparency},
+        {L"Zoom",         l10n->input_actions_zoom},
         {L"Lower",        l10n->input_actions_lower},
         {L"Roll",         l10n->input_actions_roll},
         {L"Maximize",     l10n->input_actions_maximize},

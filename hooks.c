@@ -1403,17 +1403,18 @@ static int IsHotkeyDown()
     return !ckeys;
 }
 
-// returns the number of hotkeys that are pressed.
-static int NHotkeysDown()
+// returns the number of hotkeys/ModKeys that are pressed.
+static int NumKeysDown()
 {
     UCHAR keys = 0;
     // loop over all hotkeys
-    const UCHAR *pos=&conf.Hotkeys[0];
-    while (*pos) {
+    const UCHAR *Hpos=&conf.Hotkeys[0];
+    const UCHAR *Mpos=&conf.ModKey[0];
+    while (*Hpos) {
         // check if key is held down
-        keys += !!(GetAsyncKeyState(*pos++)&0x8000);
+        keys += !!(GetAsyncKeyState(*Hpos++)&0x8000);
+        keys += !!(GetAsyncKeyState(*Mpos++)&0x8000);
     }
-    // return true if required amount of hotkeys are down
     return keys;
 }
 
@@ -1863,12 +1864,12 @@ static void HotkeyUp()
     // The way this works is that the alt key is "disguised" by sending
     // ctrl keydown/keyup events
     if (state.blockaltup || state.action) {
-        // LOGA("SendCtrl");
+        //LOGA("SendCtrl");
         Send_CTRL();
         state.blockaltup = 0;
         // If there is more that one key down remaining
         // then we must block the next alt up.
-        if (NHotkeysDown() > 1) state.blockaltup = 1;
+        if (NumKeysDown() > 1) state.blockaltup = 1;
     }
 
     // Hotkeys have been released
@@ -2189,6 +2190,14 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             // if an action was performed and Alt is still down.
             if (state.alt && state.blockaltup && (vkey == VK_LSHIFT || vkey == VK_RSHIFT))
                 Send_CTRL(); // send Ctrl to avoid Alt+Shift=>switch keymap
+        } else if (state.blockaltup && IsModKey(vkey)) {
+            // We release ModKey before Hotkey
+	        //LOGA("SendCtrlM");
+	        Send_CTRL();
+	        state.blockaltup = 0;
+	        // If there is more that one key down remaining
+	        // then we must block the next alt up.
+	        if (NumKeysDown() > 1) state.blockaltup = 1;
         } else if (vkey == VK_LCONTROL || vkey == VK_RCONTROL) {
             ClipCursorOnce(NULL); // Release cursor trapping
             state.ctrl = 0;

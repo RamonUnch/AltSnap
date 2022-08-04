@@ -1402,6 +1402,22 @@ static int IsHotkeyDown()
     // return true if required amount of hotkeys are down
     return !ckeys;
 }
+
+// returns the number of hotkeys/ModKeys that are pressed.
+static int NumKeysDown()
+{
+    UCHAR keys = 0;
+    // loop over all hotkeys
+    const UCHAR *Hpos=&conf.Hotkeys[0];
+    const UCHAR *Mpos=&conf.ModKey[0];
+    while (*Hpos) {
+        // check if key is held down
+        keys += !!(GetAsyncKeyState(*Hpos++)&0x8000);
+        keys += !!(GetAsyncKeyState(*Mpos++)&0x8000);
+    }
+    return keys;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // index 1 => normal restore on any move restore & 1
 // restore & 3 => Both 1 & 2 ie: Maximized then rolled.
@@ -1848,14 +1864,20 @@ static void HotkeyUp()
     // The way this works is that the alt key is "disguised" by sending
     // ctrl keydown/keyup events
     if (state.blockaltup || state.action) {
+        //LOGA("SendCtrl");
         Send_CTRL();
+        state.blockaltup = 0;
+        // If there is more that one key down remaining
+        // then we must block the next alt up.
+        if (NumKeysDown() > 1) state.blockaltup = 1;
     }
 
     // Hotkeys have been released
     state.alt = 0;
     state.alt1 = 0;
-    state.blockaltup = 0;
-    if (state.action && conf.GrabWithAlt[0]) {
+    if (state.action
+    && (conf.GrabWithAlt[0] || conf.GrabWithAlt[1])
+    && (MOUVEMENT(conf.GrabWithAlt[0]) || MOUVEMENT(conf.GrabWithAlt[1]))) {
         FinishMovement();
     }
 
@@ -1929,9 +1951,12 @@ static void ReallySetForegroundWindow(HWND hwnd)
     // Check existing foreground Window.
     HWND  fore = GetForegroundWindow();
     if (fore != hwnd) {
-        if (!state.alt && state.hittest) {
+        if (state.alt != VK_MENU &&  state.alt != VK_CONTROL) {
+            // If the physical Alt or Ctrl keys are not down
+            // We need to activate the window with key input.
+            // CTRL seems to work. Also Alt works but trigers the menu
+            // So it is simpler to stick to CTRL.
             Send_CTRL();
-            // LOGA("Really Set Foreground");
         }
         SetForegroundWindow(hwnd);
     }
@@ -2029,7 +2054,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
             // Hook mouse
             HookMouse();
-            if (conf.GrabWithAlt[0]) {
+            if (conf.GrabWithAlt[0] || conf.GrabWithAlt[1]) {
                 POINT pt;
                 enum action action = conf.GrabWithAlt[IsModKey(vkey) || (!IsHotkey(conf.ModKey[0])&&ModKey())];
                 if (action) {
@@ -2165,6 +2190,14 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             // if an action was performed and Alt is still down.
             if (state.alt && state.blockaltup && (vkey == VK_LSHIFT || vkey == VK_RSHIFT))
                 Send_CTRL(); // send Ctrl to avoid Alt+Shift=>switch keymap
+        } else if (state.blockaltup && IsModKey(vkey)) {
+            // We release ModKey before Hotkey
+	        //LOGA("SendCtrlM");
+	        Send_CTRL();
+	        state.blockaltup = 0;
+	        // If there is more that one key down remaining
+	        // then we must block the next alt up.
+	        if (NumKeysDown() > 1) state.blockaltup = 1;
         } else if (vkey == VK_LCONTROL || vkey == VK_RCONTROL) {
             ClipCursorOnce(NULL); // Release cursor trapping
             state.ctrl = 0;
@@ -3322,7 +3355,8 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
 
-    //LOGA("wParam=%x, data=%lx, time=%lu, extra=%lx", wParam, msg->mouseData, msg->time, msg->dwExtraInfo);
+//    if ((0x201 > wParam || wParam > 0x205) && wParam != 0x20a)
+//        LOGA("wParam=%lx, data=%lx, time=%lu, extra=%lx", (DWORD)wParam, (DWORD)msg->mouseData, (DWORD)msg->time, (DWORD)msg->dwExtraInfo);
 
     //Get Button state and data.
     enum buttonstate buttonstate = GetButtonState(wParam);
@@ -3340,7 +3374,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 //    if (button<=BT_MB5)
 //        LOGA("button=%d, %s", button, buttonstate==STATE_DOWN?"DOWN":buttonstate==STATE_UP?"UP":"NONE");
 
-    // Get actions!
+    // Get actions or alternate (depends on ModKey())!
     enum action action = GetAction(button); // Normal action
     enum action ttbact = GetActionT(button);// Titlebar action
 

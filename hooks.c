@@ -1402,6 +1402,21 @@ static int IsHotkeyDown()
     // return true if required amount of hotkeys are down
     return !ckeys;
 }
+
+// returns the number of hotkeys that are pressed.
+static int NHotkeysDown()
+{
+    UCHAR keys = 0;
+    // loop over all hotkeys
+    const UCHAR *pos=&conf.Hotkeys[0];
+    while (*pos) {
+        // check if key is held down
+        keys += !!(GetAsyncKeyState(*pos++)&0x8000);
+    }
+    // return true if required amount of hotkeys are down
+    return keys;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // index 1 => normal restore on any move restore & 1
 // restore & 3 => Both 1 & 2 ie: Maximized then rolled.
@@ -1848,16 +1863,20 @@ static void HotkeyUp()
     // The way this works is that the alt key is "disguised" by sending
     // ctrl keydown/keyup events
     if (state.blockaltup || state.action) {
+        // LOGA("SendCtrl");
         Send_CTRL();
+        state.blockaltup = 0;
+        // If there is more that one key down remaining
+        // then we must block the next alt up.
+        if (NHotkeysDown() > 1) state.blockaltup = 1;
     }
 
     // Hotkeys have been released
     state.alt = 0;
     state.alt1 = 0;
-    state.blockaltup = 0;
     if (state.action
     && (conf.GrabWithAlt[0] || conf.GrabWithAlt[1])
-    && MOUVEMENT(conf.GrabWithAlt[0]) && MOUVEMENT(conf.GrabWithAlt[1])) {
+    && (MOUVEMENT(conf.GrabWithAlt[0]) || MOUVEMENT(conf.GrabWithAlt[1]))) {
         FinishMovement();
     }
 

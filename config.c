@@ -1119,6 +1119,11 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             if (GetWindowRectL(window, &rc)) {
                 SetDlgItemText(page, IDC_RECT, RectToStr(&rc, txt));
             }
+            // IDC_WINHANDLES
+            wcscpy(txt, L"hwnd: "); wcscat(txt, _itow((DWORD)window, tt,16));
+            wcscat(txt, L", Parent: "); wcscat(txt, _itow((DWORD)GetParent(window), tt,16));
+            wcscat(txt, L", Owner: "); wcscat(txt, _itow((DWORD)GetWindow(window, GW_OWNER), tt,16));
+            SetDlgItemText(page, IDC_WINHANDLES, txt);
 
         }
         // Show icon again

@@ -54,7 +54,7 @@ enum action {
   , AC_CENTER , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_BORDERLESS
   , AC_KILL, AC_MAXHV, AC_MINALL, AC_MUTE, AC_SIDESNAP
   , AC_ROLL, AC_ALTTAB, AC_VOLUME, AC_TRANSPARENCY, AC_HSCROLL
-  , AC_ZOOM
+  , AC_ZOOM, AC_ZOOM2
 };
 // List of actions strings, keep the SAME ORDER than above
 #define ACTION_MAP { \
@@ -62,7 +62,7 @@ enum action {
   , "Center", "AlwaysOnTop", "Close", "Lower", "Borderless"        \
   , "Kill" , "MaximizeHV", "MinAllOther", "Mute", "SideSnap"       \
   , "Roll", "AltTab", "Volume", "Transparency", "HScroll"          \
-  , "Zoom"                                                         \
+  , "Zoom", "Zoom2"                                                \
 }
 
 #define MOUVEMENT(action) (action <= AC_RESIZE)

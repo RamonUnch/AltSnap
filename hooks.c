@@ -318,6 +318,8 @@ static int isClassName(HWND hwnd, const wchar_t *str)
 // To clamp width and height of windows
 static pure int CLAMPW(int width)  { return CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x); }
 static pure int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state.mmi.Max.y); }
+static pure int ISCLAMPEDW(int x)  { return state.mmi.Min.x < x && x < state.mmi.Max.x; }
+static pure int ISCLAMPEDH(int y)  { return state.mmi.Min.y < y && y < state.mmi.Max.y; }
 
 /////////////////////////////////////////////////////////////////////////////
 // The second bit (&2) will always correspond to the WS_THICKFRAME flag
@@ -1705,6 +1707,11 @@ static void MouseMove(POINT pt)
             wndheight = wnd.bottom-wnd.top + 2*(pt.y-state.offset.y);
             posx = wnd.left - (pt.x - state.offset.x) - state.mdipt.x;
             posy = wnd.top  - (pt.y - state.offset.y) - state.mdipt.y;
+            // TODO keep it perfectly centered.
+            if (!ISCLAMPEDW(wndwidth))  posx = wnd.left - state.mdipt.x;
+            if (!ISCLAMPEDH(wndheight)) posy = wnd.top - state.mdipt.y;
+            wndwidth =CLAMPW(wndwidth);
+            wndheight=CLAMPH(wndheight);
             state.offset.x = pt.x;
             state.offset.y = pt.y;
         } else {
@@ -2584,14 +2591,18 @@ static void RollWindow(HWND hwnd, int delta)
 static void SetEdgeAndOffset(const RECT *wnd, POINT pt);
 static int ActionZoom(HWND hwnd, int delta, int center)
 {
-    RECT rc;
     if(!IsResizable(hwnd)) return 0;
+
+    RECT rc, orc;
     GetWindowRect(hwnd, &rc);
     SetEdgeAndOffset(&rc, state.prevpt);
+    OffsetRectMDI(&rc);
+    CopyRect(&orc, &rc);
+
     int left=0, right=0, top=0, bottom=0;
     int div = state.shift ? 100: 20;
-    UCHAR T = state.shift? 1: conf.SnapThreshold;
-    UCHAR CT = !center ^ !state.ctrl 
+    UCHAR T = state.shift? 1: conf.SnapThreshold-1;
+    UCHAR CT = !center ^ !state.ctrl
              || (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER);
     GetMinMaxInfo(hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
 
@@ -2602,8 +2613,8 @@ static int ActionZoom(HWND hwnd, int delta, int center)
         left  = max(T, (rc.right-rc.left)/div);
         state.resize.x = RZ_LEFT;
     } else if (state.resize.x == RZ_CENTER && CT) {
-        left  = max(1, (state.prevpt.x-rc.left)  /div);
-        right = max(1, (rc.right-state.prevpt.x) /div);
+        left  = max(T, (state.prevpt.x-rc.left)  /div);
+        right = max(T, (rc.right-state.prevpt.x) /div);
     }
 
     if (state.resize.y == RZ_TOP) {
@@ -2613,8 +2624,8 @@ static int ActionZoom(HWND hwnd, int delta, int center)
         top    = max(T, (rc.bottom-rc.top)/div);
         state.resize.y = RZ_TOP;
     } else if (state.resize.y == RZ_CENTER && CT) {
-        top   = max(1, (state.prevpt.y-rc.top)   /div);
-        bottom= max(1, (rc.bottom-state.prevpt.y)/div);
+        top   = max(T, (state.prevpt.y-rc.top)   /div);
+        bottom= max(T, (rc.bottom-state.prevpt.y)/div);
     }
     if (delta < 0) {
         // Zoom out
@@ -2633,6 +2644,8 @@ static int ActionZoom(HWND hwnd, int delta, int center)
     // in case it is resized from bottom/right
     if (state.resize.x == RZ_LEFT) rc.left = rc.right - CLAMPW(rc.right-rc.left);
     if (state.resize.y == RZ_TOP) rc.top = rc.bottom - CLAMPH(rc.bottom-rc.top);
+    if (state.resize.x == RZ_CENTER && !ISCLAMPEDW(rc.right - rc.left)) rc.left = orc.left;
+    if (state.resize.y == RZ_CENTER && !ISCLAMPEDH(rc.bottom - rc.top)) rc.top = orc.top;
 
     int x = rc.left, y = rc.top, width = rc.right-rc.left, height= rc.bottom-rc.top;
 

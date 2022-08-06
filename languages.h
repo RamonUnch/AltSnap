@@ -128,6 +128,8 @@ struct strings {
   wchar_t *input_actions_sidesnap;
   wchar_t *input_actions_minallother;
   wchar_t *input_actions_transparency;
+  wchar_t *input_actions_zoom;
+  wchar_t *input_actions_zoom2;
   wchar_t *input_actions_hscroll;
 
   // hotkeys
@@ -300,6 +302,8 @@ static const char* l10n_inimapping[] = {
     "InputActionSideSnap",
     "InputActionMinAllOther",
     "InputActionTransparency",
+    "InputActionZoom",
+    "InputActionZoom2",
     "InputActionHScroll",
 
     "InputHotkeysBox",
@@ -478,6 +482,8 @@ static const struct strings en_US = {
  /* sidesnap           */ L"&Snap to side/corner",
  /* minallother        */ L"Minimize &other windows",
  /* transparency       */ L"Transparency",
+ /* zoom               */ L"Zoom window",
+ /* zoom2              */ L"Zoom window 2",
  /* hscroll            */ L"Horizontal scroll",
 
  /* hotkeys */

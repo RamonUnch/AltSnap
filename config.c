@@ -726,6 +726,8 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"AltTab",       l10n->input_actions_alttab},
         {L"Volume",       l10n->input_actions_volume},
         {L"Transparency", l10n->input_actions_transparency},
+        {L"Zoom",         l10n->input_actions_zoom},
+        {L"Zoom2",        l10n->input_actions_zoom2},
         {L"Lower",        l10n->input_actions_lower},
         {L"Roll",         l10n->input_actions_roll},
         {L"Maximize",     l10n->input_actions_maximize},
@@ -1120,9 +1122,9 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 SetDlgItemText(page, IDC_RECT, RectToStr(&rc, txt));
             }
             // IDC_WINHANDLES
-            wcscpy(txt, L"hwnd: "); wcscat(txt, _itow((DWORD)window, tt,16));
-            wcscat(txt, L", Parent: "); wcscat(txt, _itow((DWORD)GetParent(window), tt,16));
-            wcscat(txt, L", Owner: "); wcscat(txt, _itow((DWORD)GetWindow(window, GW_OWNER), tt,16));
+            wcscpy(txt, L"hwnd: "); wcscat(txt, _itow((DWORD)(DorQWORD)window, tt,16));
+            wcscat(txt, L", Parent: "); wcscat(txt, _itow((DWORD)(DorQWORD)GetParent(window), tt,16));
+            wcscat(txt, L", Owner: "); wcscat(txt, _itow((DWORD)(DorQWORD)GetWindow(window, GW_OWNER), tt,16));
             SetDlgItemText(page, IDC_WINHANDLES, txt);
 
         }

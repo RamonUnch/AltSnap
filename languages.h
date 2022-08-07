@@ -91,6 +91,8 @@ struct strings {
   wchar_t *input_mouse_mb5;
   wchar_t *input_mouse_scroll;
   wchar_t *input_mouse_hscroll;
+  wchar_t *input_mouse_moveup;
+  wchar_t *input_mouse_resizeup;
   wchar_t *input_mouse_ttbactions_box;
   wchar_t *input_mouse_ttbactionsna;
   wchar_t *input_mouse_ttbactionswa;
@@ -167,6 +169,7 @@ struct strings {
   wchar_t *advanced_aerovoffset;
   wchar_t *advanced_snapthreshold;
   wchar_t *advanced_aerothreshold;
+  wchar_t *advanced_snapgap;
   wchar_t *advanced_aerospeed;
   wchar_t *advanced_testwindow;
   wchar_t *advanced_movetrans;
@@ -266,6 +269,8 @@ static const char* l10n_inimapping[] = {
     "InputMouseMB5",
     "InputMouseScroll",
     "InputMouseHScroll",
+    "InputMouseMoveUp",
+    "InputMouseResizeUp",
     "InputMouseTTBActionBox",
     "InputMouseTTBActionNA",
     "InputMouseTTBActionWA",
@@ -338,6 +343,7 @@ static const char* l10n_inimapping[] = {
     "AdvancedAeroVoffset",
     "AdvancedSnapThreshold",
     "AdvancedAeroThreshold",
+    "AdvancedSnapGap",
     "AdvancedAeroSpeed",
     "AdvancedTestWindow",
     "AdvancedMoveTrans",
@@ -445,6 +451,8 @@ static const struct strings en_US = {
  /* mb5                */ L"Mouse button &5:",
  /* scroll             */ L"&Scroll wheel:",
  /* hscroll            */ L"Scroll wheel (&horizontal):",
+ /* moveup             */ L"Long &drag-free Move:",
+ /* resizeup           */ L"Long drag-&free Resize:",
  /* ttbactions box     */ L"Use specific actions when clicking the Title bar",
  /* ttbaction noalt    */ L"Without hot&key",
  /* ttbaction walt     */ L"&With hotkey",
@@ -521,6 +529,7 @@ static const struct strings en_US = {
  /* aeroVoffset      */   L"&Vertical:",
  /* snapthreshold    */   L"&Snap Threshold (pixels):",
  /* aerothreshold    */   L"A&ero Threshold (pixels):",
+ /* snapgap          */   L"Snapping &gap (pixels):",
  /* aerospeed        */   L"Ma&x snapping speed (pixels):",
  /* testwindow       */   L"Test &Window",
  /* movetrans        */   L"Opacit&y when moving:",

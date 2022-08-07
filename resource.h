@@ -169,3 +169,5 @@
 #define IDC_MOVEUP_HEADER               2088
 #define IDC_RESIZEUP                    2089
 #define IDC_RESIZEUP_HEADER             2090
+#define IDC_SNAPGAP                     2091
+#define IDC_SNAPGAP_H                   2092

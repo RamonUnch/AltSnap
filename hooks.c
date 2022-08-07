@@ -123,6 +123,7 @@ unsigned numhwnds = 0;
 #define MAXKEYS 15
 static struct config {
     DWORD BLCapButtons;
+    DWORD BLUpperBorder;
 
     UCHAR AutoFocus;
     UCHAR AutoSnap;
@@ -183,7 +184,7 @@ static struct config {
     UCHAR PiercingClick;
     UCHAR AeroSpeedTau;
     UCHAR RezTimer;
-    UCHAR TTBMoveClick;
+    UCHAR DragSendsAltCtrl;
 
     UCHAR Hotkeys[MAXKEYS+1];
     UCHAR Shiftkeys[MAXKEYS+1];
@@ -1582,6 +1583,57 @@ static void SetWindowPlacementThread(HWND hwnd, WINDOWPLACEMENT *wndplptr)
     DWORD lpThreadId;
     CloseHandle(CreateThread(NULL, STACK, WinPlacmntTrgead, wndplptr, 0, &lpThreadId));
 }
+// state.origin.mon initialized in init_mov..
+// returns the final window rectangle.
+static void RestoreToMonitorSize(HWND hwnd, RECT *wnd)
+{
+    ClearRestoreData(hwnd); //Clear restore flag and data
+    WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
+    GetWindowPlacement(hwnd, &wndpl);
+
+    // Set size to origin monitor to prevent flickering
+    CopyRect(wnd, &state.origin.mon);
+    CopyRect(&wndpl.rcNormalPosition, wnd);
+
+    if (state.mdiclient) {
+        // Make it a little smaller since MDIClients by
+        // default have scrollbars that would otherwise appear
+        wndpl.rcNormalPosition.right -= 8;
+        wndpl.rcNormalPosition.bottom -= 8;
+    }
+    wndpl.showCmd = SW_RESTORE;
+    SetWindowPlacement(hwnd, &wndpl);
+    if (state.mdiclient) {
+        // Get new values from MDIClient,
+        // since restoring the child have changed them,
+        Sleep(1); // Sometimes needed
+        GetMDInfo(&state.mdipt, wnd);
+        CopyRect(&state.origin.mon, wnd);
+
+        state.origin.right = wnd->right;
+        state.origin.bottom=wnd->bottom;
+    }
+    // Fix wnd for MDI offset and invisible borders
+    RECT borders;
+    FixDWMRect(hwnd, &borders);
+    OffsetRect(wnd, state.mdipt.x, state.mdipt.y);
+    InflateRectBorder(wnd, &borders);
+
+}
+// Call if you need to resize the window.
+// If smart areo is not enabled then, we need to clear the restore date
+static void ClearRestoreFlagOnResizeIfNeeded(HWND hwnd)
+{
+    if (!(conf.SmartAero&1)) {
+        // Always clear when AeroSmart is disabled.
+        ClearRestoreData(hwnd);
+    } else {
+        // Do not clear is the window was snapped to some side or rolled.
+        unsigned smart_restore_flag=(SNZONE|SNAPPEDSIDE|ROLLED);
+        if(!(GetRestoreFlag(hwnd) & smart_restore_flag))
+            ClearRestoreData(hwnd);
+    }
+}
 ///////////////////////////////////////////////////////////////////////////
 static void MouseMove(POINT pt)
 {
@@ -1651,55 +1703,17 @@ static void MouseMove(POINT pt)
             wndwidth  = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
             wndheight = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
             SetWindowPlacement(state.hwnd, &wndpl);
+            // TODO: use a thread for sloooow windows.
 //            SetWindowPlacementThread(state.hwnd, &wndpl);
         }
 
     } else if (state.action == AC_RESIZE) {
         // Restore the window (to monitor size) if it's maximized
         if (!state.moving && IsZoomed(state.hwnd)) {
-            ClearRestoreData(state.hwnd); //Clear restore flag and data
-            WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
-            GetWindowPlacement(state.hwnd, &wndpl);
-
-            // Set size to origin monitor to prevent flickering
-            CopyRect(&wnd, &state.origin.mon);
-            CopyRect(&wndpl.rcNormalPosition, &wnd);
-
-            if (state.mdiclient) {
-                // Make it a little smaller since MDIClients by
-                // default have scrollbars that would otherwise appear
-                wndpl.rcNormalPosition.right -= 8;
-                wndpl.rcNormalPosition.bottom -= 8;
-            }
-            wndpl.showCmd = SW_RESTORE;
-            SetWindowPlacement(state.hwnd, &wndpl);
-            if (state.mdiclient) {
-                // Get new values from MDIClient,
-                // since restoring the child have changed them,
-                Sleep(1); // Sometimes needed
-                GetMDInfo(&state.mdipt, &wnd);
-                CopyRect(&state.origin.mon, &wnd);
-
-                state.origin.right = wnd.right;
-                state.origin.bottom=wnd.bottom;
-            }
-            // Fix wnd for MDI offset and invisible borders
-            RECT borders;
-            FixDWMRect(state.hwnd, &borders);
-            OffsetRect(&wnd, state.mdipt.x, state.mdipt.y);
-            InflateRectBorder(&wnd, &borders);
+              RestoreToMonitorSize(state.hwnd, &wnd);
         }
-        // Clear restore flag
-        if (!(conf.SmartAero&1)) {
-            // Always clear when AeroSmart is disabled.
-            ClearRestoreData(state.hwnd);
-        } else {
-            // Do not clear is the window was snapped to some side or rolled.
-            unsigned smart_restore_flag=(SNZONE|SNAPPEDSIDE|ROLLED);
-            if(!(GetRestoreFlag(state.hwnd) & smart_restore_flag))
-                ClearRestoreData(state.hwnd);
-        }
-
+        // Clear restore flag if needed
+        ClearRestoreFlagOnResizeIfNeeded(state.hwnd);
         // Figure out new placement
         if (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER) {
             if (state.shift) pt.x = state.shiftpt.x;
@@ -1803,6 +1817,21 @@ static void Send_KEY(unsigned char vkey)
     input[0].ki = ctrl[0]; input[1].ki = ctrl[1];
     state.ignorekey = 1;
     SendInput(2, input, sizeof(INPUT));
+    state.ignorekey = 0;
+}
+#define KEYEVENTF_KEYDOWN 0
+// Call with or KEYEVENTF_KEYDOWN/KEYEVENTF_KEYUP
+static void Send_KEY_UD(unsigned char vkey, WORD flags)
+{
+    KEYBDINPUT ctrl = {0, 0, 0, 0, 0};
+    ctrl.wVk = vkey;
+    ctrl.dwExtraInfo = GetMessageExtraInfo();
+    ctrl.dwFlags = flags;
+    INPUT input;
+    input.type = INPUT_KEYBOARD;
+    input.ki = ctrl;
+    state.ignorekey = 1;
+    SendInput(1, &input, sizeof(INPUT));
     state.ignorekey = 0;
 }
 #define Send_CTRL() Send_KEY(VK_CONTROL)
@@ -2606,6 +2635,8 @@ static int ActionZoom(HWND hwnd, int delta, int center)
 
     RECT rc, orc;
     GetWindowRect(hwnd, &rc);
+    if (IsZoomed(hwnd)) RestoreToMonitorSize(hwnd, &rc);
+    ClearRestoreFlagOnResizeIfNeeded(hwnd);
     SetEdgeAndOffset(&rc, state.prevpt);
     OffsetRectMDI(&rc);
     CopyRect(&orc, &rc);
@@ -2618,6 +2649,10 @@ static int ActionZoom(HWND hwnd, int delta, int center)
     UCHAR T = state.shift? 1: conf.SnapThreshold+1;
     UCHAR CT = !center ^ !state.ctrl
              || (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER);
+
+    if (!conf.AutoSnap || (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER))
+        T = 1; // Try to conserve a bit better the aspect ratio when in center mode.
+
     GetMinMaxInfo(hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
 
     if (state.resize.x == RZ_LEFT) {
@@ -2654,21 +2689,21 @@ static int ActionZoom(HWND hwnd, int delta, int center)
         rc.top -= top;
         rc.bottom += bottom;
     }
-    // Make sure that the windows does not move
-    // in case it is resized from bottom/right
-    if (state.resize.x == RZ_LEFT) rc.left = rc.right - CLAMPW(rc.right-rc.left);
-    if (state.resize.y == RZ_TOP) rc.top = rc.bottom - CLAMPH(rc.bottom-rc.top);
-    if (state.resize.x == RZ_CENTER && !ISCLAMPEDW(rc.right - rc.left)) rc.left = orc.left;
-    if (state.resize.y == RZ_CENTER && !ISCLAMPEDH(rc.bottom - rc.top)) rc.top = orc.top;
 
     int x = rc.left, y = rc.top, width = rc.right-rc.left, height= rc.bottom-rc.top;
 
     state.hwnd = hwnd;
     state.snap = conf.AutoSnap; // Only use autosnap setting.
+
     ResizeSnap(&x, &y, &width, &height);
+    // Make sure that the windows does not move
+    // in case it is resized from bottom/right
+    if (state.resize.x == RZ_LEFT) x = x+width - CLAMPW(width);
+    if (state.resize.y == RZ_TOP) y = y+height - CLAMPH(height);
+    if (state.resize.x == RZ_CENTER && !ISCLAMPEDW(width)) x = orc.left;
+    if (state.resize.y == RZ_CENTER && !ISCLAMPEDH(height)) y = orc.top;
     width = CLAMPW(width);
     height = CLAMPH(height);
-    if (IsZoomed(state.hwnd)) MaximizeRestore_atpt(hwnd, SW_RESTORE);
 
     MoveWindowAsync(hwnd, x, y, width, height);
     return 1;
@@ -3176,14 +3211,17 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
         // AutoFocus on movement/resize.
         if (conf.AutoFocus || state.ctrl) {
             SetForegroundWindowL(state.hwnd);
-            if (conf.TTBMoveClick && state.hittest == 2) {
-                // Send a click in the titlebar
-                // This will pop down menu and stuff
-                // In case autofocus did not do it.
-                Send_Click(button);
-            }
         }
-
+        if (conf.DragSendsAltCtrl
+        && !(GetAsyncKeyState(VK_MENU)&0x8000)
+        && !(GetAsyncKeyState(VK_SHIFT)&0x8000)) {
+            // This will pop down menu and stuff
+            // In case autofocus did not do it.
+            // LOGA("SendAltCtrlAlt");
+            Send_KEY_UD(VK_MENU, KEYEVENTF_KEYDOWN);
+            Send_CTRL();
+            Send_KEY_UD(VK_MENU, KEYEVENTF_KEYUP);
+        }
 
         // Set action statte.
         state.action = action; // MOVE OR RESIZE
@@ -3255,8 +3293,11 @@ static int xpure IsAreaAnyCap(int area)
 {
     return area == HTCAPTION // Caption
        || area == HTSYSMENU  // System menu
-       || (area >= HTTOP && area <= HTTOPRIGHT) // Top resizing border
        || IsAeraCapbutton(area); // Caption buttons
+}
+static int xpure IsAreaTopRZ(int area)
+{
+    return (area >= HTTOP && area <= HTTOPRIGHT); // Top resizing border
 }
 static int InTitlebar(POINT pt, enum action action,  enum button button)
 {
@@ -3274,7 +3315,8 @@ static int InTitlebar(POINT pt, enum action action,  enum button button)
         // to the real titlebar (hittest=2).
         int area = HitTestTimeoutbl(nhwnd, pt);
         if ( area == HTCAPTION // Real caption
-        || ( !(conf.BLCapButtons&(1<<(button-2))) && IsAreaAnyCap(area)) )
+        || ( !(conf.BLCapButtons&(1<<(button-2))) && IsAreaAnyCap(area))
+        || ( !(conf.BLUpperBorder&(1<<(button-2))) && IsAreaTopRZ(area)) )
         {
             return area;
         }
@@ -3564,8 +3606,9 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             FinishMovement();
             // Mouse UP actions here only in case of MOVEMENT!:
             // Perform an action on mouse up without drag on move/resize
-            if (action == AC_MOVE)   action = conf.MoveUp[ModKey()];
-            if (action == AC_RESIZE) action = conf.ResizeUp[ModKey()];
+            int inTTB = 2*(!!state.hittest); //If we are in the titlebar add two
+            if (action == AC_MOVE)   action = conf.MoveUp[ModKey()+inTTB];
+            if (action == AC_RESIZE) action = conf.ResizeUp[ModKey()+inTTB];
 
             if (action > AC_RESIZE) {
                 SClickActions(state.hwnd, action);
@@ -3668,6 +3711,7 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             && (ptwnd = WindowFromPoint(state.prevpt))
             &&!IsAreaLongClikcable(HitTestTimeoutbl(ptwnd, state.prevpt))) {
                 // Determine if we should actually move the Window by probing with AC_NONE
+                state.hittest = 0; // No specific hittest here.
                 int ret = init_movement_and_actions(state.prevpt, AC_NONE, 0);
                 if (ret) { // Release mouse click if we have to move.
                     state.ignoreclick=1;
@@ -3959,7 +4003,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {&conf.SnapGap,         L"Advanced", "SnapGap", 0 },
         {&conf.ShiftSnaps,      L"Advanced", "ShiftSnaps", 1 },
         {&conf.PiercingClick,   L"Advanced", "PiercingClick", 0 },
-        {&conf.TTBMoveClick,    L"Advanced", "TTBMoveClick", 0 },
+        {&conf.DragSendsAltCtrl,     L"Advanced", "DragSendsAltCtrl", 0 },
 
         // [Performance]
         {&conf.FullWin,         L"Performance", "FullWin", 2 },
@@ -4004,6 +4048,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     // [Advanced] Max Speed
     conf.BLCapButtons  = GetPrivateProfileInt(L"Advanced", L"BLCapButtons", 3, inipath);
+    conf.BLUpperBorder  = GetPrivateProfileInt(L"Advanced", L"BLUpperBorder", 3, inipath);
     conf.AeroMaxSpeed  = GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath);
 
     // [Input]

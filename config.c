@@ -685,11 +685,13 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         int control; // Same control
         wchar_t *option[3]; // Prim/alt/TTB
     } mouse_buttons[] = {
-        { IDC_LMB, {L"LMB", L"LMBB", L"LMBT"} },
-        { IDC_MMB, {L"MMB", L"MMBB", L"MMBT"} },
-        { IDC_RMB, {L"RMB", L"RMBB", L"RMBT"} },
-        { IDC_MB4, {L"MB4", L"MB4B", L"MB4T"} },
-        { IDC_MB5, {L"MB5", L"MB5B", L"MB5T"} }
+        { IDC_LMB,     {L"LMB", L"LMBB", L"LMBT"} },
+        { IDC_MMB,     {L"MMB", L"MMBB", L"MMBT"} },
+        { IDC_RMB,     {L"RMB", L"RMBB", L"RMBT"} },
+        { IDC_MB4,     {L"MB4", L"MB4B", L"MB4T"} },
+        { IDC_MB5,     {L"MB5", L"MB5B", L"MB5T"} },
+        { IDC_MOVEUP,  {L"MoveUp", L"MoveUpB", L"MoveUpT"} },
+        { IDC_RESIZEUP,{L"ResizeUp", L"ResizeUpB", L"ResizeUpT"} },
     };
 
     struct actiondl mouse_actions[] = {
@@ -802,6 +804,8 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 { IDC_MB5_HEADER,      l10n->input_mouse_mb5 },
                 { IDC_SCROLL_HEADER,   l10n->input_mouse_scroll },
                 { IDC_HSCROLL_HEADER,  l10n->input_mouse_hscroll },
+                { IDC_MOVEUP_HEADER,   l10n->input_mouse_moveup },
+                { IDC_RESIZEUP_HEADER, l10n->input_mouse_resizeup },
                 { IDC_TTBACTIONS_BOX,  l10n->input_mouse_ttbactions_box },
                 { IDC_TTBACTIONSNA,    l10n->input_mouse_ttbactionsna },
                 { IDC_TTBACTIONSWA,    l10n->input_mouse_ttbactionswa },

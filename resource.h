@@ -164,3 +164,8 @@
 #define IDC_UNIKEYHOLDMENU              2084
 #define IDC_DWMCAPBUTTON                2085
 #define IDC_WINHANDLES                  2086
+
+#define IDC_MOVEUP                      2087
+#define IDC_MOVEUP_HEADER               2088
+#define IDC_RESIZEUP                    2089
+#define IDC_RESIZEUP_HEADER             2090

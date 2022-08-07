@@ -186,6 +186,9 @@ static struct config {
     UCHAR RezTimer;
     UCHAR DragSendsAltCtrl;
 
+    UCHAR ZoomFrac;
+    UCHAR ZoomFracShift;
+
     UCHAR Hotkeys[MAXKEYS+1];
     UCHAR Shiftkeys[MAXKEYS+1];
     UCHAR Hotclick[MAXKEYS+1];
@@ -890,7 +893,7 @@ void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight)
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
+static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight, UCHAR pthx, UCHAR pthy)
 {
     if(!state.snap || state.Speed > conf.AeroMaxSpeed) return;
 
@@ -899,7 +902,8 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight)
     short thresholdx, thresholdy;
     UCHAR stuckleft=0, stucktop=0, stuckright=0, stuckbottom=0;
     int stickleft=0, sticktop=0, stickright=0, stickbottom=0;
-    thresholdx = thresholdy = conf.SnapThreshold;
+    thresholdx = pthx;
+    thresholdy = pthy;
     RECT *borders;
     EnumOnce(&borders);
 
@@ -1762,7 +1766,7 @@ static void MouseMove(POINT pt)
             wndheight=CLAMPH(wndheight);
 
             // Check if the window will snap anywhere
-            ResizeSnap(&posx, &posy, &wndwidth, &wndheight);
+            ResizeSnap(&posx, &posy, &wndwidth, &wndheight, conf.SnapThreshold, conf.SnapThreshold);
             AeroResizeSnap(pt, &posx, &posy, &wndwidth, &wndheight);
         }
     }
@@ -2642,16 +2646,17 @@ static int ActionZoom(HWND hwnd, int delta, int center)
     CopyRect(&orc, &rc);
 
     int left=0, right=0, top=0, bottom=0;
-    int div = state.shift ? 100: 20;
-    // We must increase/decrease the size at least the snap Threshold+1
-    // So that the window does not get stuck badly.
-    // In fine mode we increase/decrease at least 1 pixel.
-    UCHAR T = state.shift? 1: conf.SnapThreshold+1;
+    int div = state.shift ? conf.ZoomFracShift: conf.ZoomFrac;
+    // We increase/decrease at least 1 pixel or SnapThreshold/2.
+    UCHAR T = state.shift? 1: conf.SnapThreshold/2+1;
     UCHAR CT = !center ^ !state.ctrl
              || (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER);
 
-    if (!conf.AutoSnap || (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER))
-        T = 1; // Try to conserve a bit better the aspect ratio when in center mode.
+    if (!conf.AutoSnap
+    || (CT && (state.resize.x == RZ_CENTER || state.resize.y == RZ_CENTER)) )
+    {   // Try to conserve a bit better the aspect ratio when in center mode.
+        T = 1; // Or when no snapping has to occur.
+    }
 
     GetMinMaxInfo(hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
 
@@ -2695,14 +2700,17 @@ static int ActionZoom(HWND hwnd, int delta, int center)
     state.hwnd = hwnd;
     state.snap = conf.AutoSnap; // Only use autosnap setting.
 
-    ResizeSnap(&x, &y, &width, &height);
+    ResizeSnap(&x, &y, &width, &height
+              , min(max(left, right)-1, conf.SnapThreshold)  // initial x threshold
+              , min(max(top, bottom)-1, conf.SnapThreshold));// initial y threshold
     // Make sure that the windows does not move
     // in case it is resized from bottom/right
     if (state.resize.x == RZ_LEFT) x = x+width - CLAMPW(width);
     if (state.resize.y == RZ_TOP) y = y+height - CLAMPH(height);
+    // Avoid runaway effect when zooming in/out too much.
     if (state.resize.x == RZ_CENTER && !ISCLAMPEDW(width)) x = orc.left;
     if (state.resize.y == RZ_CENTER && !ISCLAMPEDH(height)) y = orc.top;
-    width = CLAMPW(width);
+    width = CLAMPW(width); // Double check
     height = CLAMPH(height);
 
     MoveWindowAsync(hwnd, x, y, width, height);
@@ -3706,19 +3714,21 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             // Grab the action after a certain amount of time of click down
             HWND ptwnd;
             UCHAR buttonswaped;
-            if (IsSamePTT(&state.prevpt, &state.clickpt)
+            POINT pt;
+            GetCursorPos(&pt); // Hopefully the real current cursor position
+            if (IsSamePTT(&pt, &state.clickpt)
             &&  GetAsyncKeyState(1 + (buttonswaped = !!GetSystemMetrics(SM_SWAPBUTTON)))
-            && (ptwnd = WindowFromPoint(state.prevpt))
-            &&!IsAreaLongClikcable(HitTestTimeoutbl(ptwnd, state.prevpt))) {
+            && (ptwnd = WindowFromPoint(pt))
+            &&!IsAreaLongClikcable(HitTestTimeoutbl(ptwnd, pt))) {
                 // Determine if we should actually move the Window by probing with AC_NONE
                 state.hittest = 0; // No specific hittest here.
-                int ret = init_movement_and_actions(state.prevpt, AC_NONE, 0);
+                int ret = init_movement_and_actions(pt, AC_NONE, 0);
                 if (ret) { // Release mouse click if we have to move.
                     state.ignoreclick=1;
                     mouse_event(buttonswaped?MOUSEEVENTF_RIGHTUP:MOUSEEVENTF_LEFTUP
                                , 0, 0, 0, GetMessageExtraInfo());
                     state.ignoreclick=0;
-                    init_movement_and_actions(state.prevpt, AC_MOVE, 0);
+                    init_movement_and_actions(pt, AC_MOVE, 0);
                 }
             }
             KillTimer(g_timerhwnd, GRAB_TIMER);
@@ -3997,13 +4007,16 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {&conf.UseCursor,       L"Advanced", "UseCursor", 1 },
         {&conf.MinAlpha,        L"Advanced", "MinAlpha", 32 },
         {&conf.AlphaDeltaShift, L"Advanced", "AlphaDeltaShift", 8 },
-        {&conf.AlphaDelta,      L"Advanced", "AlphaDelta", 64 },
+        {&conf.AlphaDelta,      L"Advanced", "AlphaDelta", 100 },
+        {&conf.ZoomFrac,        L"Advanced", "ZoomFrac", 16 },
+        {&conf.ZoomFracShift,   L"Advanced", "ZoomFracShift", 64 },
+
         /* AeroMaxSpeed not here... */
         {&conf.AeroSpeedTau,    L"Advanced", "AeroSpeedTau", 64 },
         {&conf.SnapGap,         L"Advanced", "SnapGap", 0 },
         {&conf.ShiftSnaps,      L"Advanced", "ShiftSnaps", 1 },
         {&conf.PiercingClick,   L"Advanced", "PiercingClick", 0 },
-        {&conf.DragSendsAltCtrl,     L"Advanced", "DragSendsAltCtrl", 0 },
+        {&conf.DragSendsAltCtrl,L"Advanced", "DragSendsAltCtrl", 0 },
 
         // [Performance]
         {&conf.FullWin,         L"Performance", "FullWin", 2 },
@@ -4046,7 +4059,9 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.MinAlpha     = max(1, conf.MinAlpha);
     state.snap = conf.AutoSnap;
 
-    // [Advanced] Max Speed
+    // [Advanced]
+    conf.ZoomFrac      = max(2, conf.ZoomFrac);
+    conf.ZoomFracShift = max(2, conf.ZoomFracShift);
     conf.BLCapButtons  = GetPrivateProfileInt(L"Advanced", L"BLCapButtons", 3, inipath);
     conf.BLUpperBorder  = GetPrivateProfileInt(L"Advanced", L"BLUpperBorder", 3, inipath);
     conf.AeroMaxSpeed  = GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath);

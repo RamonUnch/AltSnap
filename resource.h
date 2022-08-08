@@ -171,3 +171,4 @@
 #define IDC_RESIZEUP_HEADER             2090
 #define IDC_SNAPGAP                     2091
 #define IDC_SNAPGAP_H                   2092
+#define IDC_NPSTACKED                   2093

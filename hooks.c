@@ -2329,10 +2329,29 @@ BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 
     // Only store window if it's visible, not minimized
     // to taskbar and on the same monitor as the cursor
-    if (IsWindowVisible(window) && !IsIconic(window)
+    if (IsVisible(window) && !IsIconic(window)
     && (GetWindowLongPtr(window, GWL_STYLE)&WS_CAPTION) == WS_CAPTION
     && state.origin.monitor == MonitorFromWindow(window, MONITOR_DEFAULTTONULL)) {
         hwnds[numhwnds++] = window;
+    }
+    return TRUE;
+}
+// Similar to the EnumAltTabWindows, to be used in AltTab();
+BOOL CALLBACK EnumStackedWindowsProc(HWND hwnd, LPARAM lParam)
+{
+    // Make sure we have enough space allocated
+    hwnds = GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
+    if (!hwnds) return FALSE; // Stop enum, we failed
+
+    // Only store window if it's visible, not minimized to taskbar
+    RECT wnd, refwnd;
+    if (IsVisible(hwnd)
+    && !IsIconic(hwnd)
+    && GetWindowRectL(state.hwnd, &refwnd)
+    && GetWindowRectL(hwnd, &wnd)
+    && EqualRectT(&refwnd, &wnd, conf.SnapThreshold/2) )
+    { // If the window rectangle is the same with a bit of tolerance.
+        hwnds[numhwnds++] = hwnd;
     }
     return TRUE;
 }
@@ -2364,7 +2383,7 @@ static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_)
     return hwnd;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int ActionAltTab(POINT pt, int delta)
+static int ActionAltTab(POINT pt, int delta, WNDENUMPROC lpEnumFunc)
 {
     numhwnds = 0;
 
@@ -2382,7 +2401,7 @@ static int ActionAltTab(POINT pt, int delta)
         }
         // Enumerate and then reorder MDI windows
         if (mdiclient) {
-            EnumChildWindows(mdiclient, EnumAltTabWindows, 0);
+            EnumChildWindows(mdiclient, lpEnumFunc, 0);
 
             if (numhwnds > 1) {
                 if (delta > 0) {
@@ -2399,7 +2418,7 @@ static int ActionAltTab(POINT pt, int delta)
     if (numhwnds <= 1) {
         state.origin.monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
         numhwnds = 0;
-        EnumWindows(EnumAltTabWindows, 0);
+        EnumWindows(lpEnumFunc, 0);
         if (numhwnds <= 1) {
             return 0;
         }
@@ -2632,6 +2651,7 @@ static void RollWindow(HWND hwnd, int delta)
               , SWP_NOMOVE|SWP_NOZORDER|SWP_NOSENDCHANGING|SWP_ASYNCWINDOWPOS);
     }
 }
+
 static void SetEdgeAndOffset(const RECT *wnd, POINT pt);
 static int ActionZoom(HWND hwnd, int delta, int center)
 {
@@ -3120,6 +3140,8 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_MUTE)        Send_KEY(VK_VOLUME_MUTE);
     else if (action==AC_SIDESNAP)    SnapToCorner(hwnd);
     else if (action==AC_MENU)        ActionMenu(hwnd);
+    else if (action==AC_NSTACKED)    ActionAltTab(state.prevpt, 1, EnumStackedWindowsProc);
+    else if (action==AC_PSTACKED)    ActionAltTab(state.prevpt, -1, EnumStackedWindowsProc);
 }
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -3131,7 +3153,7 @@ static int DoWheelActions(HWND hwnd, enum action action)
     }
     int ret=1;
 
-    if      (action == AC_ALTTAB)       ret = ActionAltTab(state.prevpt, state.delta);
+    if      (action == AC_ALTTAB)       ActionAltTab(state.prevpt, state.delta, state.shift?EnumStackedWindowsProc:EnumAltTabWindows);
     else if (action == AC_VOLUME)       ActionVolume(state.delta);
     else if (action == AC_TRANSPARENCY) ret = ActionTransparency(hwnd, state.delta);
     else if (action == AC_LOWER)        ActionLower(hwnd, state.delta, state.shift);
@@ -3140,6 +3162,7 @@ static int DoWheelActions(HWND hwnd, enum action action)
     else if (action == AC_HSCROLL)      ret = ScrollPointedWindow(state.prevpt, -state.delta, WM_MOUSEHWHEEL);
     else if (action == AC_ZOOM)         ret = ActionZoom(hwnd, state.delta, 0);
     else if (action == AC_ZOOM2)        ret = ActionZoom(hwnd, state.delta, 1);
+    else if (action == AC_NPSTACKED)    ActionAltTab(state.prevpt, state.delta, EnumStackedWindowsProc);
 //    else if (action == AC_BRIGHTNESS)   ActionBrightness(state.prevpt, state.delta);
     else                                ret = 0; // No action
 

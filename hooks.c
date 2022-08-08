@@ -3086,6 +3086,22 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
         state.sclickhwnd = NULL;
     }
 }
+
+static void ActionMenu(HWND hwnd)
+{
+    if (g_mchwnd) DestroyWindow(g_mchwnd);
+    g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
+    state.sclickhwnd = hwnd;
+    // Send message to Open Action Menu
+    PostMessage(
+        g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd,
+         conf.AggressiveKill  // LP_AGGRKILL
+       | !!(GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST) << 1 // LP_TOPMOST
+       | !!GetBorderlessFlag(hwnd) << 2 // LP_BORDERLESS
+       | IsZoomed(hwnd) << 3 // LP_MAXIMIZED
+       | !!(GetRestoreFlag(hwnd)&2) << 4 // LP_ROLLED
+    );
+}
 /////////////////////////////////////////////////////////////////////////////
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
@@ -3103,6 +3119,7 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_MINALL)      MinimizeAllOtherWindows(hwnd, state.shift);
     else if (action==AC_MUTE)        Send_KEY(VK_VOLUME_MUTE);
     else if (action==AC_SIDESNAP)    SnapToCorner(hwnd);
+    else if (action==AC_MENU)        ActionMenu(hwnd);
 }
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -3142,7 +3159,13 @@ static void StopSpeedMes()
     if (conf.AeroMaxSpeed < 65535)
         KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
 }
-
+static DWORD WINAPI SendAltCtrlAlt(LPVOID p)
+{
+    Send_KEY_UD(VK_MENU, KEYEVENTF_KEYDOWN);
+    Send_CTRL();
+    Send_KEY_UD(VK_MENU, KEYEVENTF_KEYUP);
+    return 1;
+}
 /////////////////////////////////////////////////////////////////////////////
 // action cannot be AC_NONE here...
 static int init_movement_and_actions(POINT pt, enum action action, int button)
@@ -3226,9 +3249,8 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
             // This will pop down menu and stuff
             // In case autofocus did not do it.
             // LOGA("SendAltCtrlAlt");
-            Send_KEY_UD(VK_MENU, KEYEVENTF_KEYDOWN);
-            Send_CTRL();
-            Send_KEY_UD(VK_MENU, KEYEVENTF_KEYUP);
+            DWORD lpThreadId; // In new thread because of lag under Win10
+            CloseHandle(CreateThread(NULL, STACK, SendAltCtrlAlt, 0, 0, &lpThreadId));
         }
 
         // Set action statte.
@@ -3255,22 +3277,6 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
 
         // Send WM_ENTERSIZEMOVE
         SendSizeMove(WM_ENTERSIZEMOVE);
-    } else if (action == AC_MENU) {
-        DestroyWindow(g_mchwnd);
-        g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
-        state.sclickhwnd = state.hwnd;
-        state.clickpt = pt;
-        // Send message to Open Action Menu
-        PostMessage(
-            g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd,
-             conf.AggressiveKill  // LP_AGGRKILL
-           | !!(GetWindowLongPtr(state.sclickhwnd, GWL_EXSTYLE)&WS_EX_TOPMOST) << 1 // LP_TOPMOST
-           | !!GetBorderlessFlag(state.sclickhwnd) << 2 // LP_BORDERLESS
-           | IsZoomed(state.sclickhwnd) << 3 // LP_MAXIMIZED
-           | !!(GetRestoreFlag(state.sclickhwnd)&2) << 4 // LP_ROLLED
-        );
-        state.blockmouseup = 1;
-        return 1; // block mouse down
     } else if(button == BT_WHEEL || button == BT_HWHEEL) {
         // Wheel actions, directly return here
         // because maybe the action will not be done

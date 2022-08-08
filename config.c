@@ -702,6 +702,8 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"Minimize",    l10n->input_actions_minimize},
         {L"Maximize",    l10n->input_actions_maximize},
         {L"Lower",       l10n->input_actions_lower},
+        {L"NStacked",    l10n->input_actions_nstacked},
+        {L"PStacked",    l10n->input_actions_pstacked},
         {L"Roll",        l10n->input_actions_roll},
         {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
         {L"Borderless",  l10n->input_actions_borderless},
@@ -733,6 +735,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"Lower",        l10n->input_actions_lower},
         {L"Roll",         l10n->input_actions_roll},
         {L"Maximize",     l10n->input_actions_maximize},
+        {L"NPStacked",    l10n->input_actions_npstacked},
         {L"HScroll",      l10n->input_actions_hscroll},
         {L"Nothing",      l10n->input_actions_nothing},
         {NULL, NULL}

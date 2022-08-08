@@ -188,6 +188,7 @@ static struct config {
 
     UCHAR ZoomFrac;
     UCHAR ZoomFracShift;
+    UCHAR NPStacked;
 
     UCHAR Hotkeys[MAXKEYS+1];
     UCHAR Shiftkeys[MAXKEYS+1];
@@ -2007,6 +2008,7 @@ static void ReallySetForegroundWindow(HWND hwnd)
             // So it is simpler to stick to CTRL.
             Send_CTRL();
         }
+        BringWindowToTop(hwnd);
         SetForegroundWindow(hwnd);
     }
 }
@@ -2112,6 +2114,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                     if (!init_movement_and_actions(pt, action, vkey)) {
                         UnhookMouse();
                     }
+                    state.blockmouseup = 0; // In case.
                 }
             }
         } else if (conf.KeyCombo && !state.alt1 && IsHotkey(vkey)) {
@@ -2167,12 +2170,18 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 // Block ESC if an action was ongoing
                 if (action) return 1;
             }
-        } else if (conf.AggressivePause && state.alt && vkey == VK_PAUSE) {
+        } else if (state.alt && conf.AggressivePause && vkey == VK_PAUSE) {
             POINT pt;
             GetCursorPos(&pt);
             HWND hwnd = WindowFromPoint(pt);
             if (ActionPause(hwnd, state.shift)) return 1;
-        } else if (conf.AggressiveKill && state.alt && state.ctrl && vkey == VK_F4) {
+        } else if (state.alt && conf.NPStacked && (vkey == VK_PRIOR || vkey == VK_NEXT)) {
+            POINT pt;
+            GetCursorPos(&pt);
+            int ret = init_movement_and_actions(pt, VK_PRIOR?AC_PSTACKED:AC_NSTACKED, 0);
+            state.blockmouseup = 0; // Do not block mouseup!
+            if (ret) return 1;
+        } else if (state.alt && conf.AggressiveKill && state.ctrl && vkey == VK_F4) {
             // Kill on Ctrl+Alt+F4
             POINT pt; GetCursorPos(&pt);
             HWND hwnd = WindowFromPoint(pt);
@@ -4063,6 +4072,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {&conf.ScrollLockState, L"Input", "ScrollLockState", 0 },
         {&conf.LongClickMove,   L"Input", "LongClickMove", 0 },
         {&conf.UniKeyHoldMenu,  L"Input", "UniKeyHoldMenu", 0 },
+        {&conf.NPStacked,       L"Input", "NPStacked", 0 },
 
         // [Zones]
         {&conf.UseZones,        L"Zones", "UseZones", 0 },

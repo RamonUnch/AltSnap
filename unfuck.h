@@ -533,7 +533,7 @@ static DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
 /* Helper function to get the Min and Max tracking sizes */
 static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
 {
-    MINMAXINFO mmi = { {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
+    MINMAXINFO mmi;
     mmi.ptMinTrackSize.x = GetSystemMetrics(SM_CXMINTRACK);
     mmi.ptMinTrackSize.y = GetSystemMetrics(SM_CYMINTRACK);
     mmi.ptMaxTrackSize.x = GetSystemMetrics(SM_CXMAXTRACK);
@@ -653,7 +653,11 @@ static int IsInRangeT(int x, int a, int b, int T)
 {
     return (a-T <= x) & (x <= b+T);
 }
-
+static pure int EqualRectT(const RECT *a, const RECT *b, const int T)
+{
+    return IsEqualT(a->left, b->left, T) && IsEqualT(a->right, b->right, T)
+        && IsEqualT(a->top, b->top, T) && IsEqualT(a->bottom, b->bottom, T);
+}
 static pure unsigned AreRectsAlignedT(const RECT *a, const RECT *b, const int tol)
 {
     return IsEqualT(a->left, b->right, tol) << 2

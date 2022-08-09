@@ -473,7 +473,7 @@ static const struct strings en_US = {
  /* Aggressive Kill    */ L"&Kill process on Ctrl+Alt+F4\nAlso adds the kill option to the action menu",
  /* scroll lock state  */ L"Suspend/Resume AltSnap based on &Scroll lock state",
  /* unikeyholdmenu     */ L"Pop&up an extended character menu when holding an alphabetic key down",
- /* npsnaped           */ L"Select the &next/previous window in a stack of windows that have the same dimetions with Alt+Page up/down",
+ /* npsnaped           */ L"Select the &next/previous window in the pointed windows stack with Alt+Page up/down",
  /* keycombo           */ L"Use two keys &combo to activate",
  /* grabwithalt        */ L"&Action without click:",
  /* grabwithaltb       */ L"Acti&on without click (alt):",

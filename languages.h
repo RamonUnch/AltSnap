@@ -121,6 +121,7 @@ struct strings {
   wchar_t *input_actions_nstacked;
   wchar_t *input_actions_pstacked;
   wchar_t *input_actions_npstacked;
+  wchar_t *input_actions_stacklist;
   wchar_t *input_actions_roll;
   wchar_t *input_actions_alwaysontop;
   wchar_t *input_actions_borderless;
@@ -301,6 +302,7 @@ static const char* l10n_inimapping[] = {
     "InputActionLower",
     "InputActionNStacked",
     "InputActionPStacked",
+    "InputActionStackList",
     "InputActionNPStacked",
     "InputActionRoll",
     "InputActionAlwaysOnTop",
@@ -489,6 +491,7 @@ static const struct strings en_US = {
  /* nstack             */ L"Next stacked window",
  /* pstack             */ L"Previous stacked window",
  /* npstacked          */ L"Next/Prev stacked window",
+ /* stacklist          */ L"Stacked windows list",
  /* roll               */ L"&Roll/Unroll window",
  /* alwaysontop        */ L"Toggle always on &top",
  /* borderless         */ L"Toggle &borderless",

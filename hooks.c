@@ -188,6 +188,7 @@ static struct config {
 
     UCHAR ZoomFrac;
     UCHAR ZoomFracShift;
+    UCHAR NPStacked;
 
     UCHAR Hotkeys[MAXKEYS+1];
     UCHAR Shiftkeys[MAXKEYS+1];
@@ -2007,6 +2008,7 @@ static void ReallySetForegroundWindow(HWND hwnd)
             // So it is simpler to stick to CTRL.
             Send_CTRL();
         }
+        BringWindowToTop(hwnd);
         SetForegroundWindow(hwnd);
     }
 }
@@ -2112,6 +2114,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                     if (!init_movement_and_actions(pt, action, vkey)) {
                         UnhookMouse();
                     }
+                    state.blockmouseup = 0; // In case.
                 }
             }
         } else if (conf.KeyCombo && !state.alt1 && IsHotkey(vkey)) {
@@ -2167,12 +2170,18 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 // Block ESC if an action was ongoing
                 if (action) return 1;
             }
-        } else if (conf.AggressivePause && state.alt && vkey == VK_PAUSE) {
+        } else if (state.alt && conf.AggressivePause && vkey == VK_PAUSE) {
             POINT pt;
             GetCursorPos(&pt);
             HWND hwnd = WindowFromPoint(pt);
             if (ActionPause(hwnd, state.shift)) return 1;
-        } else if (conf.AggressiveKill && state.alt && state.ctrl && vkey == VK_F4) {
+        } else if (state.alt && conf.NPStacked && (vkey == VK_PRIOR || vkey == VK_NEXT)) {
+            POINT pt;
+            GetCursorPos(&pt);
+            int ret = init_movement_and_actions(pt, VK_PRIOR?AC_PSTACKED:AC_NSTACKED, 0);
+            state.blockmouseup = 0; // Do not block mouseup!
+            if (ret) return 1;
+        } else if (state.alt && conf.AggressiveKill && state.ctrl && vkey == VK_F4) {
             // Kill on Ctrl+Alt+F4
             POINT pt; GetCursorPos(&pt);
             HWND hwnd = WindowFromPoint(pt);
@@ -2319,6 +2328,26 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
     // Block original scroll event
     return 1;
 }
+// Determine if we should select the window through AltTab equivalents
+// We do not want the desktop window nor taskbar in this list
+// We want usually a window with a taskbar or that has the WS_EX_APPWINDOW
+// extended flag. Another case is the windows that were made borderless.
+// We include all windows that do not have the WS_EX_TOOLWINDOW exstyle
+// De also exclude all windows that are in the Bottommost list.
+static int IsAltTabAble(HWND window)
+{
+    LONG_PTR xstyle;
+    return IsVisible(window)
+       && !IsIconic(window)
+       && ((xstyle=GetWindowLongPtr(window, GWL_EXSTYLE))&WS_EX_NOACTIVATE) != WS_EX_NOACTIVATE
+       && ( // Has a caption or borderless or present in taskbar.
+            (xstyle&WS_EX_TOOLWINDOW) != WS_EX_TOOLWINDOW // Not a tool window
+          ||(GetWindowLongPtr(window, GWL_STYLE)&WS_CAPTION) == WS_CAPTION // or has a caption
+          ||(xstyle&WS_EX_APPWINDOW) == WS_EX_APPWINDOW // Or is forced in taskbar
+          || GetBorderlessFlag(window) // Or we made it borderless
+       )
+       && !blacklisted(window, &BlkLst.Bottommost); // Exclude bottommost windows
+}
 /////////////////////////////////////////////////////////////////////////////
 unsigned hwnds_alloc = 0;
 BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
@@ -2329,14 +2358,38 @@ BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 
     // Only store window if it's visible, not minimized
     // to taskbar and on the same monitor as the cursor
-    if (IsWindowVisible(window) && !IsIconic(window)
-    && (GetWindowLongPtr(window, GWL_STYLE)&WS_CAPTION) == WS_CAPTION
+    if (IsAltTabAble(window)
     && state.origin.monitor == MonitorFromWindow(window, MONITOR_DEFAULTTONULL)) {
         hwnds[numhwnds++] = window;
     }
     return TRUE;
 }
+
 /////////////////////////////////////////////////////////////////////////////
+static pure BOOL StackedRectsT(const RECT *a, const RECT *b, const int T)
+{ // Determine wether or not the windows are stacked...
+    return RectInRectT(a, b, T) ||  RectInRectT(b, a, T);
+}
+// Similar to the EnumAltTabWindows, to be used in AltTab();
+BOOL CALLBACK EnumStackedWindowsProc(HWND hwnd, LPARAM lParam)
+{
+    // Make sure we have enough space allocated
+    hwnds = GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
+    if (!hwnds) return FALSE; // Stop enum, we failed
+
+    // Only store window if it's visible, not minimized to taskbar
+    RECT wnd, refwnd;
+    if (IsAltTabAble(hwnd)
+    && GetWindowRectL(state.hwnd, &refwnd)
+    && GetWindowRectL(hwnd, &wnd)
+    && PtInRect(&wnd, state.prevpt)
+    && (state.shift || StackedRectsT(&refwnd, &wnd, conf.SnapThreshold/2) )
+    ){
+        hwnds[numhwnds++] = hwnd;
+    }
+    return TRUE;
+}
+////////////////////////////////////////////////////////////////////////////
 // Returns the GA_ROOT window if not MDI or MDIblacklist
 static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_)
 {
@@ -2364,7 +2417,7 @@ static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_)
     return hwnd;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int ActionAltTab(POINT pt, int delta)
+static int ActionAltTab(POINT pt, int delta, WNDENUMPROC lpEnumFunc)
 {
     numhwnds = 0;
 
@@ -2382,7 +2435,7 @@ static int ActionAltTab(POINT pt, int delta)
         }
         // Enumerate and then reorder MDI windows
         if (mdiclient) {
-            EnumChildWindows(mdiclient, EnumAltTabWindows, 0);
+            EnumChildWindows(mdiclient, lpEnumFunc, 0);
 
             if (numhwnds > 1) {
                 if (delta > 0) {
@@ -2399,7 +2452,7 @@ static int ActionAltTab(POINT pt, int delta)
     if (numhwnds <= 1) {
         state.origin.monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
         numhwnds = 0;
-        EnumWindows(EnumAltTabWindows, 0);
+        EnumWindows(lpEnumFunc, 0);
         if (numhwnds <= 1) {
             return 0;
         }
@@ -2632,6 +2685,7 @@ static void RollWindow(HWND hwnd, int delta)
               , SWP_NOMOVE|SWP_NOZORDER|SWP_NOSENDCHANGING|SWP_ASYNCWINDOWPOS);
     }
 }
+
 static void SetEdgeAndOffset(const RECT *wnd, POINT pt);
 static int ActionZoom(HWND hwnd, int delta, int center)
 {
@@ -3120,6 +3174,8 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_MUTE)        Send_KEY(VK_VOLUME_MUTE);
     else if (action==AC_SIDESNAP)    SnapToCorner(hwnd);
     else if (action==AC_MENU)        ActionMenu(hwnd);
+    else if (action==AC_NSTACKED)    ActionAltTab(state.prevpt, 1, EnumStackedWindowsProc);
+    else if (action==AC_PSTACKED)    ActionAltTab(state.prevpt, -1, EnumStackedWindowsProc);
 }
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -3131,7 +3187,7 @@ static int DoWheelActions(HWND hwnd, enum action action)
     }
     int ret=1;
 
-    if      (action == AC_ALTTAB)       ret = ActionAltTab(state.prevpt, state.delta);
+    if      (action == AC_ALTTAB)       ActionAltTab(state.prevpt, state.delta, state.shift?EnumStackedWindowsProc:EnumAltTabWindows);
     else if (action == AC_VOLUME)       ActionVolume(state.delta);
     else if (action == AC_TRANSPARENCY) ret = ActionTransparency(hwnd, state.delta);
     else if (action == AC_LOWER)        ActionLower(hwnd, state.delta, state.shift);
@@ -3140,6 +3196,7 @@ static int DoWheelActions(HWND hwnd, enum action action)
     else if (action == AC_HSCROLL)      ret = ScrollPointedWindow(state.prevpt, -state.delta, WM_MOUSEHWHEEL);
     else if (action == AC_ZOOM)         ret = ActionZoom(hwnd, state.delta, 0);
     else if (action == AC_ZOOM2)        ret = ActionZoom(hwnd, state.delta, 1);
+    else if (action == AC_NPSTACKED)    ActionAltTab(state.prevpt, state.delta, EnumStackedWindowsProc);
 //    else if (action == AC_BRIGHTNESS)   ActionBrightness(state.prevpt, state.delta);
     else                                ret = 0; // No action
 
@@ -3171,6 +3228,7 @@ static DWORD WINAPI SendAltCtrlAlt(LPVOID p)
 static int init_movement_and_actions(POINT pt, enum action action, int button)
 {
     RECT wnd;
+    state.prevpt = pt; // in case
 
     // Make sure g_mainhwnd isn't in the way
     HideCursor();
@@ -4013,7 +4071,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {&conf.UseCursor,       L"Advanced", "UseCursor", 1 },
         {&conf.MinAlpha,        L"Advanced", "MinAlpha", 32 },
         {&conf.AlphaDeltaShift, L"Advanced", "AlphaDeltaShift", 8 },
-        {&conf.AlphaDelta,      L"Advanced", "AlphaDelta", 100 },
+        {&conf.AlphaDelta,      L"Advanced", "AlphaDelta", 64 },
         {&conf.ZoomFrac,        L"Advanced", "ZoomFrac", 16 },
         {&conf.ZoomFracShift,   L"Advanced", "ZoomFracShift", 64 },
 
@@ -4040,6 +4098,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {&conf.ScrollLockState, L"Input", "ScrollLockState", 0 },
         {&conf.LongClickMove,   L"Input", "LongClickMove", 0 },
         {&conf.UniKeyHoldMenu,  L"Input", "UniKeyHoldMenu", 0 },
+        {&conf.NPStacked,       L"Input", "NPStacked", 0 },
 
         // [Zones]
         {&conf.UseZones,        L"Zones", "UseZones", 0 },
@@ -4069,7 +4128,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.ZoomFrac      = max(2, conf.ZoomFrac);
     conf.ZoomFracShift = max(2, conf.ZoomFracShift);
     conf.BLCapButtons  = GetPrivateProfileInt(L"Advanced", L"BLCapButtons", 3, inipath);
-    conf.BLUpperBorder  = GetPrivateProfileInt(L"Advanced", L"BLUpperBorder", 3, inipath);
+    conf.BLUpperBorder = GetPrivateProfileInt(L"Advanced", L"BLUpperBorder", 3, inipath);
     conf.AeroMaxSpeed  = GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath);
 
     // [Input]

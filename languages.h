@@ -105,6 +105,7 @@ struct strings {
   wchar_t *input_aggressive_kill;
   wchar_t *input_scrolllockstate;
   wchar_t *input_unikeyholdmenu;
+  wchar_t *input_npstacked;
   wchar_t *input_keycombo;
   wchar_t *input_grabwithalt;
   wchar_t *input_grabwithaltb;
@@ -117,6 +118,9 @@ struct strings {
   wchar_t *input_actions_minimize;
   wchar_t *input_actions_maximize;
   wchar_t *input_actions_lower;
+  wchar_t *input_actions_nstacked;
+  wchar_t *input_actions_pstacked;
+  wchar_t *input_actions_npstacked;
   wchar_t *input_actions_roll;
   wchar_t *input_actions_alwaysontop;
   wchar_t *input_actions_borderless;
@@ -283,6 +287,7 @@ static const char* l10n_inimapping[] = {
     "InputAggressiveKill",
     "InputScrollLockState",
     "InputUniKeyHoldMenu",
+    "InputNPStacked",
     "InputKeyCombo",
     "InputGrabWithAlt",
     "InputGrabWithAltB",
@@ -294,6 +299,9 @@ static const char* l10n_inimapping[] = {
     "InputActionMinimize",
     "InputActionMaximize",
     "InputActionLower",
+    "InputActionNStacked",
+    "InputActionPStacked",
+    "InputActionNPStacked",
     "InputActionRoll",
     "InputActionAlwaysOnTop",
     "InputActionBorderless",
@@ -465,6 +473,7 @@ static const struct strings en_US = {
  /* Aggressive Kill    */ L"&Kill process on Ctrl+Alt+F4\nAlso adds the kill option to the action menu",
  /* scroll lock state  */ L"Suspend/Resume AltSnap based on &Scroll lock state",
  /* unikeyholdmenu     */ L"Pop&up an extended character menu when holding an alphabetic key down",
+ /* npsnaped           */ L"Select the &next/previous window in the pointed windows stack with Alt+Page up/down",
  /* keycombo           */ L"Use two keys &combo to activate",
  /* grabwithalt        */ L"&Action without click:",
  /* grabwithaltb       */ L"Acti&on without click (alt):",
@@ -477,6 +486,9 @@ static const struct strings en_US = {
  /* minimize           */ L"Mi&nimize window",
  /* maximize           */ L"Ma&ximize window",
  /* lower              */ L"&Lower window",
+ /* nstack             */ L"Next stacked window",
+ /* pstack             */ L"Previous stacked window",
+ /* npstacked          */ L"Next/Prev stacked window",
  /* roll               */ L"&Roll/Unroll window",
  /* alwaysontop        */ L"Toggle always on &top",
  /* borderless         */ L"Toggle &borderless",

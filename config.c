@@ -702,6 +702,8 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"Minimize",    l10n->input_actions_minimize},
         {L"Maximize",    l10n->input_actions_maximize},
         {L"Lower",       l10n->input_actions_lower},
+        {L"NStacked",    l10n->input_actions_nstacked},
+        {L"PStacked",    l10n->input_actions_pstacked},
         {L"Roll",        l10n->input_actions_roll},
         {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
         {L"Borderless",  l10n->input_actions_borderless},
@@ -733,6 +735,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"Lower",        l10n->input_actions_lower},
         {L"Roll",         l10n->input_actions_roll},
         {L"Maximize",     l10n->input_actions_maximize},
+        {L"NPStacked",    l10n->input_actions_npstacked},
         {L"HScroll",      l10n->input_actions_hscroll},
         {L"Nothing",      l10n->input_actions_nothing},
         {NULL, NULL}
@@ -900,6 +903,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         { IDC_AGGRESSIVEKILL,   T_BOL, 0, L"Input", "AggressiveKill", 0 },
         { IDC_SCROLLLOCKSTATE,  T_BMK, 0, L"Input", "ScrollLockState", 0},
         { IDC_UNIKEYHOLDMENU,   T_BOL, 0, L"Input", "UniKeyHoldMenu", 0},
+        { IDC_NPSTACKED,        T_BOL, 0, L"Input", "NPStacked", 0},
         { IDC_KEYCOMBO,         T_BOL, 0, L"Input", "KeyCombo", 0 }
     };
 
@@ -958,6 +962,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 { IDC_AGGRESSIVEKILL,  l10n->input_aggressive_kill},
                 { IDC_SCROLLLOCKSTATE, l10n->input_scrolllockstate},
                 { IDC_UNIKEYHOLDMENU,  l10n->input_unikeyholdmenu},
+                { IDC_NPSTACKED,       l10n->input_npstacked},
                 { IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box},
                 { IDC_MODKEY_H,        l10n->input_hotkeys_modkey},
                 { IDC_LEFTALT,         l10n->input_hotkeys_leftalt},

@@ -46,7 +46,6 @@
 #define WM_ADDTRAY        (WM_USER+9)
 #define WM_HIDETRAY       (WM_USER+10)
 #define WM_UNIKEYMENU     (WM_USER+11)
-#define WM_MENUCREATED    (WM_USER+12)
 
 // List of possible actions
 enum action {

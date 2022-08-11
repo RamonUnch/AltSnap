@@ -340,20 +340,39 @@ static int pure IsResizable(HWND hwnd)
 
     return ret;
 }
-static void GetMonitorInfoFromWin(HWND hwnd, MONITORINFO *mi)
+static HMONITOR GetMonitorInfoFromWin(HWND hwnd, MONITORINFO *mi)
 {
     mi->cbSize = sizeof(MONITORINFO);
-    GetMonitorInfo(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), mi);
+    HMONITOR hmon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    GetMonitorInfo(hmon, mi);
+    return hmon;
 }
-static int IsFullscreen(HWND hwnd, const RECT *wnd, const RECT *fmon);
+/////////////////////////////////////////////////////////////////////////////
+static BOOL IsFullscreen(HWND hwnd)
+{
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+
+    if ((style&WS_CAPTION) != WS_CAPTION) {
+        RECT rc;
+        if (GetWindowRect(hwnd, &rc)) {
+            MONITORINFO mi;
+            GetMonitorInfoFromWin(hwnd, &mi);
+            return EqualRect(&rc, &mi.rcMonitor);
+        }
+    }
+    return FALSE;
+}
+static int IsFullscreenF(HWND hwnd, const RECT *wnd, const RECT *fmon)
+{
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+
+    // No caption and fullscreen window
+    return ((style&WS_CAPTION) != WS_CAPTION)
+        && EqualRect(wnd, fmon);
+}
 static int IsFullScreenBL(HWND hwnd)
 {
-    if(conf.FullScreen) return 0;
-    RECT rc;
-    MONITORINFO mi;
-    GetMonitorInfoFromWin(hwnd, &mi);
-    GetWindowRect(hwnd, &rc);
-    return IsFullscreen(hwnd, &rc, &mi.rcMonitor);
+    return conf.FullScreen && IsFullscreen(hwnd);
 }
 /////////////////////////////////////////////////////////////////////////////
 // WM_ENTERSIZEMOVE or WM_EXITSIZEMOVE...
@@ -1598,7 +1617,11 @@ static void RestoreToMonitorSize(HWND hwnd, RECT *wnd)
     GetWindowPlacement(hwnd, &wndpl);
 
     // Set size to origin monitor to prevent flickering
-    CopyRect(wnd, &state.origin.mon);
+    // Get monitor info
+    MONITORINFO mi;
+    GetMonitorInfoFromWin(hwnd, &mi);
+
+    CopyRect(wnd, &mi.rcWork);
     CopyRect(&wndpl.rcNormalPosition, wnd);
 
     if (state.mdiclient) {
@@ -1624,7 +1647,6 @@ static void RestoreToMonitorSize(HWND hwnd, RECT *wnd)
     FixDWMRect(hwnd, &borders);
     OffsetRect(wnd, state.mdipt.x, state.mdipt.y);
     InflateRectBorder(wnd, &borders);
-
 }
 // Call if you need to resize the window.
 // If smart areo is not enabled then, we need to clear the restore date
@@ -2090,6 +2112,7 @@ static void KillAltSnapMenu()
         g_mchwnd = NULL;
     }
 }
+static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_);
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -2182,24 +2205,31 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 // Block ESC if an action was ongoing
                 if (action) return 1;
             }
+
         } else if (conf.AggressivePause && vkey == VK_PAUSE && (GetAsyncKeyState(VK_MENU)&0x8000)) {
-            HWND hwnd = GetForegroundWindow();;
-            if (ActionPause(hwnd, state.shift)) return 1;
-        } else if (conf.AggressiveKill && state.ctrl && vkey == VK_F4 && (GetAsyncKeyState(VK_MENU)&0x8000)) {
-            // Kill on Ctrl+Alt+F4
+            HWND hwnd = GetForegroundWindow();
+            if (ActionPause(hwnd, !!(GetAsyncKeyState(VK_LSHIFT)&0x8000))) return 1;
+        } else if (conf.AggressiveKill && vkey == VK_F4
+        && (GetAsyncKeyState(VK_LCONTROL)&0x8000) && (GetAsyncKeyState(VK_LMENU)&0x8000)) {
+            // Kill on LCtrl+LAlt+F4
             HWND hwnd = GetForegroundWindow();
             if(ActionKill(hwnd)) return 1;
         } else if (conf.NPStacked && (vkey == VK_PRIOR || vkey == VK_NEXT) && (GetAsyncKeyState(VK_MENU)&0x8000)) {
-            //POINT pt;
-            //GetCursorPos(&pt);
-            HWND hwnd = GetForegroundWindow();
-            RECT rc; GetWindowRect(hwnd, &rc);
             POINT pt;
-            pt.x = (rc.left+rc.right)/2;
-            pt.y = (rc.bottom+rc.top)/2;
-            int ret = init_movement_and_actions(pt, VK_PRIOR?AC_PSTACKED:AC_NSTACKED, 0);
+            GetCursorPos(&pt);
+            /*
+            HWND hwnd = GetForegroundWindow();
+            RECT rc;
+            GetWindowRect(hwnd, &rc);
+            if (!PtInRect(&rc, pt)) {
+                // If the ursor
+                pt.x = (rc.left+rc.right)/2;
+                pt.y = (rc.bottom+rc.top)/2;
+            } */
+            int ret = init_movement_and_actions(pt, VK_PRIOR?AC_NSTACKED:AC_PSTACKED, 0);
             state.blockmouseup = 0; // Do not block mouseup!
             if (ret) return 1;
+
         } else if (!state.ctrl && state.alt!=vkey && !IsModKey(vkey)/*vkey != conf.ModKey*/
                && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
             RestrictToCurentMonitor();
@@ -2209,9 +2239,11 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 SetForegroundWindowL(state.hwnd);
             }
         } else if (state.sclickhwnd && g_mchwnd && state.alt && (vkey == VK_LMENU || vkey == VK_RMENU)) {
-            // Block Alt down when the action menu just opened
-            if (IsWindow(state.sclickhwnd)  && IsWindow(g_mchwnd))
+            // Block Alt down when the altsnap's menu just opened
+            if (IsWindow(state.sclickhwnd)  && IsWindow(g_mchwnd) && IsMenu(state.unikeymenu))
                 return 1;
+
+
         } else if ((xxbtidx = XXButtonIndex(vkey)) >=0
         && (GetAction(BT_MMB+xxbtidx) ||  GetActionT(BT_MMB+xxbtidx))) {
             if (!state.xxbutton) {
@@ -2219,17 +2251,22 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 SimulateXButton(WM_XBUTTONDOWN, xxbtidx);
             }
             return 1;
+
+
         } else if (conf.UniKeyHoldMenu
         && (fhwnd=GetForegroundWindow())
         && !IsFullScreenBL(fhwnd)
         && !blacklistedP(fhwnd, &BlkLst.Processes)
         && !blacklisted(fhwnd, &BlkLst.Windows)) {
+            // Key lists used below...
+            static const UCHAR ctrlaltwinkeys[] = 
+                {VK_CONTROL, VK_MENU, VK_LWIN, VK_RWIN, 0};
+            static const UCHAR menupopdownkeys[] =
+                { VK_BACK, VK_TAB, VK_APPS, VK_DELETE, VK_SPACE, VK_LEFT, VK_RIGHT
+                , VK_PRIOR, VK_NEXT, VK_END, VK_HOME, 0};
             if (state.unikeymenu && IsMenu(state.unikeymenu) && !(GetAsyncKeyState(vkey)&0x8000)) {
-
-                // ((0x41 <= vkey && vkey <= 0x5A) || IsHotkeyy(vkey, (UCHAR*)"\r&(") )
                 if (vkey == VK_SNAPSHOT) return CallNextHookEx(NULL, nCode, wParam, lParam);
-                if (vkey == VK_BACK || vkey == VK_TAB || vkey == VK_APPS
-                ||  vkey == VK_DELETE || vkey == VK_SPACE) {
+                if (IsHotkeyy(vkey, menupopdownkeys)) {
                     KillAltSnapMenu();
                     return CallNextHookEx(NULL, nCode, wParam, lParam);
                 }
@@ -2237,15 +2274,11 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 // Forward all keys to the menu...
                 PostMessage(g_mchwnd, WM_KEYDOWN, vkey, 0); // all keys are "directed to the Menu"
                 return 1; // block keydown
-            } else if (!state.ctrl && !state.alt
-            && ((0x41 <= vkey && vkey <= 0x5A)/* || (2 <= scode && scode <= 11)*/)) {
+
+            } else if (!state.ctrl && !state.alt && (0x41 <= vkey && vkey <= 0x5A) && !IsAKeyDown(ctrlaltwinkeys) ) {
                 // handle long A-Z keydown.
-                if (GetAsyncKeyState(vkey)&0x8000) { // autorepeat stuff.
+                if (GetAsyncKeyState(vkey)&0x8000) { // The key is autorepeating.
                     if(!IsMenu(state.unikeymenu)) {
-                        //if (2 <= scode && scode <= 11) {
-                        //    // 1234567890 keys...
-                        //    vkey = 0x5A - 1 + scode;
-                        //}
                         KillAltSnapMenu();
                         g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
                         UCHAR shiftdown = GetAsyncKeyState(VK_SHIFT)&0x8000 || GetKeyState(VK_CAPITAL)&1;
@@ -2284,7 +2317,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             SimulateXButton(WM_XBUTTONUP, xxbtidx);
             return 1;
         }
-
     }
 
     return CallNextHookEx(NULL, nCode, wParam, lParam);
@@ -2398,8 +2430,9 @@ BOOL CALLBACK EnumStackedWindowsProc(HWND hwnd, LPARAM lParam)
     if (IsAltTabAble(hwnd)
     && GetWindowRectL(state.hwnd, &refwnd)
     && GetWindowRectL(hwnd, &wnd)
-    && PtInRect(&wnd, state.prevpt)
     && (state.shift || StackedRectsT(&refwnd, &wnd, conf.SnapThreshold/2) )
+    && InflateRect(&wnd, conf.SnapThreshold, conf.SnapThreshold)
+    && PtInRect(&wnd, state.prevpt)
     ){
         hwnds[numhwnds++] = hwnd;
     }
@@ -2643,9 +2676,8 @@ static void UpdateCursor(POINT pt)
 
 static int IsMXRolled(HWND hwnd, RECT *rc)
 {
-    MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
-    HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-    GetMonitorInfo(monitor, &mi);
+    MONITORINFO mi;
+    GetMonitorInfoFromWin(hwnd, &mi);
     // Consider the window rolled if its height less than a quarter of monitors
     return (rc->bottom - rc->top) < (mi.rcWork.bottom - mi.rcWork.top) / 4;
 }
@@ -3028,16 +3060,6 @@ static void ActionBorderless(HWND hwnd)
                , SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_NOZORDER);
 }
 /////////////////////////////////////////////////////////////////////////////
-static int IsFullscreen(HWND hwnd, const RECT *wnd, const RECT *fmon)
-{
-    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
-
-    // no caption and fullscreen window => LSB to 1
-    return ((style&WS_CAPTION) != WS_CAPTION)
-//        && ((style&WS_SYSMENU) != WS_SYSMENU)
-        && EqualRect(wnd, fmon);
-}
-/////////////////////////////////////////////////////////////////////////////
 static void CenterWindow(HWND hwnd)
 {
     RECT mon;
@@ -3241,7 +3263,7 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_MUTE)        Send_KEY(VK_VOLUME_MUTE);
     else if (action==AC_SIDESNAP)    SnapToCorner(hwnd);
     else if (action==AC_MENU)        ActionMenu(hwnd);
-    else if (action==AC_NSTACKED)    ActionAltTab(state.prevpt, 1, EnumStackedWindowsProc);
+    else if (action==AC_NSTACKED)    ActionAltTab(state.prevpt, +1, EnumStackedWindowsProc);
     else if (action==AC_PSTACKED)    ActionAltTab(state.prevpt, -1, EnumStackedWindowsProc);
     else if (action==AC_STACKLIST)   ActionStackList();
 }
@@ -3292,13 +3314,13 @@ static DWORD WINAPI SendAltCtrlAlt(LPVOID p)
     return 1;
 }
 /////////////////////////////////////////////////////////////////////////////
-// action cannot be AC_NONE here...
+// If the action is AC_NONE it will tell us if we pass the blacklist.
 static int init_movement_and_actions(POINT pt, enum action action, int button)
 {
     RECT wnd;
     state.prevpt = pt; // in case
 
-    // Make sure g_mainhwnd isn't in the way
+    // Make sure nothing is in the way
     HideCursor();
     KillAltSnapMenu();
 
@@ -3337,25 +3359,17 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     || GetWindowPlacement(state.hwnd, &wndpl) == 0
     || GetWindowRect(state.hwnd, &wnd) == 0
     || ((state.origin.maximized = IsZoomed(state.hwnd)) && conf.BLMaximized)
-    || ((state.origin.fullscreen = IsFullscreen(state.hwnd, &wnd, &mi.rcMonitor)) && !conf.FullScreen)
+    || ((state.origin.fullscreen = IsFullscreenF(state.hwnd, &wnd, &mi.rcMonitor)) && !conf.FullScreen)
     ){
         return 0;
     }
 
     // If no action is to be done then we passed all balcklists
-    if(action == AC_NONE) return 1;
+    if (action == AC_NONE) return 1;
 
-    // An action will be performed...
     // Set state
     state.blockaltup = state.alt; // If alt is down...
     // return if window has to be moved/resized and does not respond in 1/4 s.
-    DorQWORD lpdwResult;
-    if (MOUVEMENT(action)
-    && !SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 128, &lpdwResult)) {
-        state.blockmouseup = 1;
-        return 1; // Unresponsive window...
-    }
-
     state.prevpt=pt;
 
     // Set origin width/height by default from current state/wndpl.
@@ -3363,9 +3377,13 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     state.origin.width  = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
     state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
 
-
     // Do things depending on what button was pressed
     if (MOUVEMENT(action)) {
+        DorQWORD lpdwResult;
+        if(!SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 128, &lpdwResult)) {
+            state.blockmouseup = 1;
+            return 1; // Unresponsive window...
+        }
         // AutoFocus on movement/resize.
         if (conf.AutoFocus || state.ctrl) {
             SetForegroundWindowL(state.hwnd);
@@ -3862,6 +3880,7 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                                , 0, 0, 0, GetMessageExtraInfo());
                     state.ignoreclick=0;
                     init_movement_and_actions(pt, AC_MOVE, 0);
+                    // state.blockmouseup=0;
                 }
             }
             KillTimer(g_timerhwnd, GRAB_TIMER);
@@ -3878,7 +3897,7 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 // Window for single click commands
 LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    if (msg == WM_MENUCREATED) {
+    if (msg == WM_INITMENU) {
         state.unikeymenu = (HMENU)wParam;
         // state.sclickhwnd = (HWND)lParam; // Child hwnd that was clicked.
     } else if (msg == WM_COMMAND && wParam > 32) {

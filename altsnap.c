@@ -239,10 +239,8 @@ static void ShowUnikeyMenu(HWND hwnd, LPARAM param)
     if (kl > keylist) {
         POINT pt;
         GetKaretPos(&pt);
-        PostMessage(hwnd, WM_MENUCREATED, (WPARAM)menu, 0);
         TrackPopupMenu(menu, GetSystemMetrics(SM_MENUDROPALIGNMENT), pt.x, pt.y, 0, hwnd, NULL);
     }
-    PostMessage(hwnd, WM_MENUCREATED, 0, 0);
     DestroyMenu(menu);
 }
 /////////////////////////////////////////////////////////////////////////////

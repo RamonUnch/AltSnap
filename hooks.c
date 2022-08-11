@@ -2102,15 +2102,16 @@ static int SimulateXButton(WPARAM wp, WORD xbtidx)
 // Destroy AltSnap's menu
 static void KillAltSnapMenu()
 {
-    if (state.unikeymenu) {
-        EnableWindow(g_mchwnd, FALSE);
-        DestroyMenu(state.unikeymenu);
-        state.unikeymenu = NULL;
-    }
+//    if (state.unikeymenu) {
+//        EnableWindow(g_mchwnd, FALSE);
+//        DestroyMenu(state.unikeymenu);
+//        state.unikeymenu = NULL;
+//    }
     if (g_mchwnd) {
-        PostMessage(g_mchwnd, WM_CLOSE, 0, 0);
+        SendMessage(g_mchwnd, WM_CLOSE, 0, 0);
         g_mchwnd = NULL;
     }
+    state.unikeymenu = NULL;
 }
 static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_);
 ///////////////////////////////////////////////////////////////////////////
@@ -2259,7 +2260,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         && !blacklistedP(fhwnd, &BlkLst.Processes)
         && !blacklisted(fhwnd, &BlkLst.Windows)) {
             // Key lists used below...
-            static const UCHAR ctrlaltwinkeys[] = 
+            static const UCHAR ctrlaltwinkeys[] =
                 {VK_CONTROL, VK_MENU, VK_LWIN, VK_RWIN, 0};
             static const UCHAR menupopdownkeys[] =
                 { VK_BACK, VK_TAB, VK_APPS, VK_DELETE, VK_SPACE, VK_LEFT, VK_RIGHT
@@ -3081,6 +3082,7 @@ static void TogglesAlwaysOnTop(HWND hwnd)
 //    HWND ohwnd = GetWindow(hwnd, GW_OWNER);
 //    if (ohwnd) hwnd = ohwnd;
     LONG_PTR topmost = GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST;
+    if(!topmost) SetForegroundWindow(hwnd);
     SetWindowLevel(hwnd, topmost? HWND_NOTOPMOST: HWND_TOPMOST);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -3238,11 +3240,11 @@ static void ActionMenu(HWND hwnd)
     ReallySetForegroundWindow(g_mainhwnd);
     PostMessage(
         g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd,
-         conf.AggressiveKill  // LP_AGGRKILL
-       | !!(GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST) << 1 // LP_TOPMOST
-       | !!GetBorderlessFlag(hwnd) << 2 // LP_BORDERLESS
-       | IsZoomed(hwnd) << 3 // LP_MAXIMIZED
-       | !!(GetRestoreFlag(hwnd)&2) << 4 // LP_ROLLED
+         conf.AggressiveKill                                     // LP_AGGRKILL
+       | !!(GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST)<<1 // LP_TOPMOST
+       | !!GetBorderlessFlag(hwnd) << 2                        // LP_BORDERLESS
+       | IsZoomed(hwnd) << 3                                    // LP_MAXIMIZED
+       | !!(GetRestoreFlag(hwnd)&2) << 4                           // LP_ROLLED
     );
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -3880,7 +3882,6 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                                , 0, 0, 0, GetMessageExtraInfo());
                     state.ignoreclick=0;
                     init_movement_and_actions(pt, AC_MOVE, 0);
-                    // state.blockmouseup=0;
                 }
             }
             KillTimer(g_timerhwnd, GRAB_TIMER);
@@ -3920,8 +3921,6 @@ LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
     } else if (msg == WM_KILLFOCUS) {
         // Menu gets hiden, be sure to zero-out the clickhwnd
         state.sclickhwnd = NULL;
-        DestroyWindow(g_mchwnd);
-        g_mchwnd = NULL;
     } else if (msg == WM_CLOSE) {
         state.sclickhwnd = NULL;
         state.unikeymenu = NULL;

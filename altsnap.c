@@ -174,7 +174,7 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
         if (!mnlst[i].hide && (ACMenuItems>>i)&1)
             AppendMenu(menu, mnlst[i].mf, mnlst[i].action, mnlst[i].str);
     }
-    SetForegroundWindow(g_hwnd); // Focus AltSnap's main hwnd.
+//    SetForegroundWindow(g_hwnd); // Focus AltSnap's main hwnd.
     TrackPopupMenu(menu, GetSystemMetrics(SM_MENUDROPALIGNMENT), pt.x, pt.y, 0, hwnd, NULL);
     DestroyMenu(menu);
 }

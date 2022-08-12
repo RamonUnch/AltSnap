@@ -106,6 +106,8 @@ static BOOL (WINAPI *myGetMonitorInfoW)(HMONITOR hMonitor, LPMONITORINFO lpmi) =
 static HMONITOR (WINAPI *myMonitorFromPoint)(POINT pt, DWORD dwFlags) = IPTR;
 static HMONITOR (WINAPI *myMonitorFromWindow)(HWND hwnd, DWORD dwFlags) = IPTR;
 static BOOL (WINAPI *myGetGUIThreadInfo)(DWORD idThread, LPGUITHREADINFO lpgui) = IPTR;
+//static int (WINAPI *myGetSystemMetricsForDpi)(int  nIndex, UINT dpi) = IPTR;
+//static UINT (WINAPI *myGetDpiForWindow)(HWND hwnd) = IPTR;
 
 /* DWMAPI.DLL */
 static HRESULT (WINAPI *myDwmGetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c) = IPTR;
@@ -414,6 +416,25 @@ static BOOL IsVisible(HWND hwnd)
     return IsWindowVisible(hwnd) && !IsWindowCloaked(hwnd);
 }
 
+// Gets the original owner of hwnd.
+// stops going back the owner chain if invisible.
+static HWND GetRootOwner(HWND hwnd)
+{
+    HWND parent;
+    int i=0;
+    while (( parent = (GetWindowLongPtr(hwnd, GWL_STYLE)&WS_CHILD)
+           ? GetParent(hwnd) : GetWindow(hwnd, GW_OWNER)
+          )) {
+
+        if (parent == hwnd || i++ > 2048 || !IsVisible(parent))
+            break; // stop if in a loop or if parent is no more visible
+
+        hwnd = parent;
+    }
+
+    return hwnd;
+}
+
 /* Use the DWM api to obtain the rectangel that *should* contain all
  * caption buttons. This is usefull to ensure we are not in one of them.
  */
@@ -632,6 +653,12 @@ static pure BOOL RectInRect(const RECT *big, const RECT *wnd)
 {
     return wnd->left >= big->left && wnd->top >= big->top
         && wnd->right <= big->right && wnd->bottom <= big->bottom;
+}
+
+static pure BOOL RectInRectT(const RECT *big, const RECT *wnd, const int T)
+{
+    return wnd->left+T >= big->left && wnd->top+T >= big->top
+        && wnd->right <= big->right+T && wnd->bottom <= big->bottom+T;
 }
 
 static pure unsigned WhichSideRectInRect(const RECT *mon, const RECT *wnd)

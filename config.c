@@ -704,6 +704,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"Lower",       l10n->input_actions_lower},
         {L"NStacked",    l10n->input_actions_nstacked},
         {L"PStacked",    l10n->input_actions_pstacked},
+        {L"StackList",   l10n->input_actions_stacklist},
         {L"Roll",        l10n->input_actions_roll},
         {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
         {L"Borderless",  l10n->input_actions_borderless},

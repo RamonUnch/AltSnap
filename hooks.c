@@ -24,6 +24,7 @@ static LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 HWND g_transhwnd[4]; // 4 windows to make a hollow window
 HWND g_timerhwnd;    // For various timers
 HWND g_mchwnd;       // For the Action menu messages
+
 static void UnhookMouse();
 static void HookMouse();
 static HWND KreateMsgWin(WNDPROC proc, wchar_t *name);
@@ -339,20 +340,39 @@ static int pure IsResizable(HWND hwnd)
 
     return ret;
 }
-static void GetMonitorInfoFromWin(HWND hwnd, MONITORINFO *mi)
+static HMONITOR GetMonitorInfoFromWin(HWND hwnd, MONITORINFO *mi)
 {
     mi->cbSize = sizeof(MONITORINFO);
-    GetMonitorInfo(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), mi);
+    HMONITOR hmon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    GetMonitorInfo(hmon, mi);
+    return hmon;
 }
-static int IsFullscreen(HWND hwnd, const RECT *wnd, const RECT *fmon);
+/////////////////////////////////////////////////////////////////////////////
+static BOOL IsFullscreen(HWND hwnd)
+{
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+
+    if ((style&WS_CAPTION) != WS_CAPTION) {
+        RECT rc;
+        if (GetWindowRect(hwnd, &rc)) {
+            MONITORINFO mi;
+            GetMonitorInfoFromWin(hwnd, &mi);
+            return EqualRect(&rc, &mi.rcMonitor);
+        }
+    }
+    return FALSE;
+}
+static int IsFullscreenF(HWND hwnd, const RECT *wnd, const RECT *fmon)
+{
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+
+    // No caption and fullscreen window
+    return ((style&WS_CAPTION) != WS_CAPTION)
+        && EqualRect(wnd, fmon);
+}
 static int IsFullScreenBL(HWND hwnd)
 {
-    if(conf.FullScreen) return 0;
-    RECT rc;
-    MONITORINFO mi;
-    GetMonitorInfoFromWin(hwnd, &mi);
-    GetWindowRect(hwnd, &rc);
-    return IsFullscreen(hwnd, &rc, &mi.rcMonitor);
+    return conf.FullScreen && IsFullscreen(hwnd);
 }
 /////////////////////////////////////////////////////////////////////////////
 // WM_ENTERSIZEMOVE or WM_EXITSIZEMOVE...
@@ -1597,7 +1617,11 @@ static void RestoreToMonitorSize(HWND hwnd, RECT *wnd)
     GetWindowPlacement(hwnd, &wndpl);
 
     // Set size to origin monitor to prevent flickering
-    CopyRect(wnd, &state.origin.mon);
+    // Get monitor info
+    MONITORINFO mi;
+    GetMonitorInfoFromWin(hwnd, &mi);
+
+    CopyRect(wnd, &mi.rcWork);
     CopyRect(&wndpl.rcNormalPosition, wnd);
 
     if (state.mdiclient) {
@@ -1623,7 +1647,6 @@ static void RestoreToMonitorSize(HWND hwnd, RECT *wnd)
     FixDWMRect(hwnd, &borders);
     OffsetRect(wnd, state.mdipt.x, state.mdipt.y);
     InflateRectBorder(wnd, &borders);
-
 }
 // Call if you need to resize the window.
 // If smart areo is not enabled then, we need to clear the restore date
@@ -1941,9 +1964,17 @@ static void HotkeyUp()
 static int ActionPause(HWND hwnd, char pause)
 {
     if (!blacklistedP(hwnd, &BlkLst.Pause)) {
-        DWORD pid;
+        DWORD pid=0;
         GetWindowThreadProcessId(hwnd, &pid);
-        HANDLE ProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+
+        #define P1_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0xfff)
+        #define P2_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0xffff)
+        HANDLE ProcessHandle = OpenProcess(P2_ALL_ACCESS, FALSE, pid);
+        if(!ProcessHandle)
+            ProcessHandle = OpenProcess(P1_ALL_ACCESS, FALSE, pid);
+        if(!ProcessHandle)
+            ProcessHandle = OpenProcess(PROCESS_SUSPEND_RESUME, FALSE, pid);
+
         if (ProcessHandle) {
             if (pause) NtSuspendProcess(ProcessHandle);
             else       NtResumeProcess(ProcessHandle);
@@ -2068,14 +2099,21 @@ static int SimulateXButton(WPARAM wp, WORD xbtidx)
     LowLevelMouseProc(HC_ACTION, wp, (LPARAM)&msg);
     return 1;
 }
-static void KillUnikeymenu()
+// Destroy AltSnap's menu
+static void KillAltSnapMenu()
 {
-    if (IsMenu(state.unikeymenu)) {
-        EnableWindow(g_mchwnd, FALSE);
-        DestroyMenu(state.unikeymenu);
-        state.unikeymenu = NULL;
+//    if (state.unikeymenu) {
+//        EnableWindow(g_mchwnd, FALSE);
+//        DestroyMenu(state.unikeymenu);
+//        state.unikeymenu = NULL;
+//    }
+    if (g_mchwnd) {
+        SendMessage(g_mchwnd, WM_CLOSE, 0, 0);
+        g_mchwnd = NULL;
     }
+    state.unikeymenu = NULL;
 }
+static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_);
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -2101,7 +2139,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             //LOGA("\nALT DOWN");
             state.alt = vkey;
             state.blockaltup = 0;
-            KillUnikeymenu(); // Hide unikey menu in case...
+            KillAltSnapMenu(); // Hide unikey menu in case...
 
             // Hook mouse
             HookMouse();
@@ -2148,10 +2186,8 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.ctrl = 0;
             state.shift = 0;
             LastWin.hwnd = NULL;
-            if (state.unikeymenu) {
-                KillUnikeymenu();
-                DestroyWindow(g_mchwnd);
-                g_mchwnd = NULL;
+            if (state.unikeymenu || g_mchwnd) {
+                KillAltSnapMenu();
                 return 1;
             }
 
@@ -2170,22 +2206,31 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 // Block ESC if an action was ongoing
                 if (action) return 1;
             }
-        } else if (state.alt && conf.AggressivePause && vkey == VK_PAUSE) {
+
+        } else if (conf.AggressivePause && vkey == VK_PAUSE && (GetAsyncKeyState(VK_MENU)&0x8000)) {
+            HWND hwnd = GetForegroundWindow();
+            if (ActionPause(hwnd, !!(GetAsyncKeyState(VK_LSHIFT)&0x8000))) return 1;
+        } else if (conf.AggressiveKill && vkey == VK_F4
+        && (GetAsyncKeyState(VK_LCONTROL)&0x8000) && (GetAsyncKeyState(VK_LMENU)&0x8000)) {
+            // Kill on LCtrl+LAlt+F4
+            HWND hwnd = GetForegroundWindow();
+            if(ActionKill(hwnd)) return 1;
+        } else if (conf.NPStacked && (vkey == VK_PRIOR || vkey == VK_NEXT) && (GetAsyncKeyState(VK_MENU)&0x8000)) {
             POINT pt;
             GetCursorPos(&pt);
-            HWND hwnd = WindowFromPoint(pt);
-            if (ActionPause(hwnd, state.shift)) return 1;
-        } else if (state.alt && conf.NPStacked && (vkey == VK_PRIOR || vkey == VK_NEXT)) {
-            POINT pt;
-            GetCursorPos(&pt);
-            int ret = init_movement_and_actions(pt, VK_PRIOR?AC_PSTACKED:AC_NSTACKED, 0);
+            /*
+            HWND hwnd = GetForegroundWindow();
+            RECT rc;
+            GetWindowRect(hwnd, &rc);
+            if (!PtInRect(&rc, pt)) {
+                // If the ursor
+                pt.x = (rc.left+rc.right)/2;
+                pt.y = (rc.bottom+rc.top)/2;
+            } */
+            int ret = init_movement_and_actions(pt, VK_PRIOR?AC_NSTACKED:AC_PSTACKED, 0);
             state.blockmouseup = 0; // Do not block mouseup!
             if (ret) return 1;
-        } else if (state.alt && conf.AggressiveKill && state.ctrl && vkey == VK_F4) {
-            // Kill on Ctrl+Alt+F4
-            POINT pt; GetCursorPos(&pt);
-            HWND hwnd = WindowFromPoint(pt);
-            if(ActionKill(hwnd)) return 1;
+
         } else if (!state.ctrl && state.alt!=vkey && !IsModKey(vkey)/*vkey != conf.ModKey*/
                && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
             RestrictToCurentMonitor();
@@ -2195,43 +2240,48 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 SetForegroundWindowL(state.hwnd);
             }
         } else if (state.sclickhwnd && g_mchwnd && state.alt && (vkey == VK_LMENU || vkey == VK_RMENU)) {
-            // Block Alt down when the action menu just opened
-            if (IsWindow(state.sclickhwnd)  && IsWindow(g_mchwnd))
+            // Block Alt down when the altsnap's menu just opened
+            if (IsWindow(state.sclickhwnd)  && IsWindow(g_mchwnd) && IsMenu(state.unikeymenu))
                 return 1;
-        } else if ((xxbtidx = XXButtonIndex(vkey)) >=0 ) {
+
+
+        } else if ((xxbtidx = XXButtonIndex(vkey)) >=0
+        && (GetAction(BT_MMB+xxbtidx) ||  GetActionT(BT_MMB+xxbtidx))) {
             if (!state.xxbutton) {
                 state.xxbutton = 1; // To Ignore autorepeat...
                 SimulateXButton(WM_XBUTTONDOWN, xxbtidx);
             }
             return 1;
+
+
         } else if (conf.UniKeyHoldMenu
         && (fhwnd=GetForegroundWindow())
         && !IsFullScreenBL(fhwnd)
         && !blacklistedP(fhwnd, &BlkLst.Processes)
         && !blacklisted(fhwnd, &BlkLst.Windows)) {
+            // Key lists used below...
+            static const UCHAR ctrlaltwinkeys[] =
+                {VK_CONTROL, VK_MENU, VK_LWIN, VK_RWIN, 0};
+            static const UCHAR menupopdownkeys[] =
+                { VK_BACK, VK_TAB, VK_APPS, VK_DELETE, VK_SPACE, VK_LEFT, VK_RIGHT
+                , VK_PRIOR, VK_NEXT, VK_END, VK_HOME, 0};
             if (state.unikeymenu && IsMenu(state.unikeymenu) && !(GetAsyncKeyState(vkey)&0x8000)) {
-
-                // ((0x41 <= vkey && vkey <= 0x5A) || IsHotkeyy(vkey, (UCHAR*)"\r&(") )
                 if (vkey == VK_SNAPSHOT) return CallNextHookEx(NULL, nCode, wParam, lParam);
-                if (vkey == VK_BACK || vkey == VK_TAB || vkey == VK_APPS
-                ||  vkey == VK_DELETE || vkey == VK_SPACE) {
-                    KillUnikeymenu();
+                if (IsHotkeyy(vkey, menupopdownkeys)) {
+                    KillAltSnapMenu();
                     return CallNextHookEx(NULL, nCode, wParam, lParam);
                 }
 
                 // Forward all keys to the menu...
                 PostMessage(g_mchwnd, WM_KEYDOWN, vkey, 0); // all keys are "directed to the Menu"
                 return 1; // block keydown
-            } else if (!state.ctrl && !state.alt
-            && ((0x41 <= vkey && vkey <= 0x5A)/* || (2 <= scode && scode <= 11)*/)) {
+
+            } else if (!state.ctrl && !state.alt && (0x41 <= vkey && vkey <= 0x5A) && !IsAKeyDown(ctrlaltwinkeys) ) {
                 // handle long A-Z keydown.
-                if (GetAsyncKeyState(vkey)&0x8000) { // autorepeat stuff.
+                if (GetAsyncKeyState(vkey)&0x8000) { // The key is autorepeating.
                     if(!IsMenu(state.unikeymenu)) {
-                        //if (2 <= scode && scode <= 11) {
-                        //    // 1234567890 keys...
-                        //    vkey = 0x5A - 1 + scode;
-                        //}
-                        if (!g_mchwnd) g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
+                        KillAltSnapMenu();
+                        g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
                         UCHAR shiftdown = GetAsyncKeyState(VK_SHIFT)&0x8000 || GetKeyState(VK_CAPITAL)&1;
                         PostMessage(g_mainhwnd, WM_UNIKEYMENU, (WPARAM)g_mchwnd, vkey|(shiftdown<<8) );
                     }
@@ -2263,14 +2313,11 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.ctrl = 0;
        // If there is no action then Control UP prevents AltDragging...
             if (!state.action) state.alt = 0;
-//        } else if (vkey == conf.ModKey) {
-//            ; // TODO, block modkey with Ctrl when needed...
         } else if ((xxbtidx = XXButtonIndex(vkey)) >=0 ) {
             state.xxbutton = 0;
             SimulateXButton(WM_XBUTTONUP, xxbtidx);
             return 1;
         }
-
     }
 
     return CallNextHookEx(NULL, nCode, wParam, lParam);
@@ -2337,6 +2384,7 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
 static int IsAltTabAble(HWND window)
 {
     LONG_PTR xstyle;
+    wchar_t txt[2];
     return IsVisible(window)
        && !IsIconic(window)
        && ((xstyle=GetWindowLongPtr(window, GWL_EXSTYLE))&WS_EX_NOACTIVATE) != WS_EX_NOACTIVATE
@@ -2346,6 +2394,7 @@ static int IsAltTabAble(HWND window)
           ||(xstyle&WS_EX_APPWINDOW) == WS_EX_APPWINDOW // Or is forced in taskbar
           || GetBorderlessFlag(window) // Or we made it borderless
        )
+       && GetWindowText(window, txt, ARR_SZ(txt)) && txt[0]
        && !blacklisted(window, &BlkLst.Bottommost); // Exclude bottommost windows
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -2382,8 +2431,9 @@ BOOL CALLBACK EnumStackedWindowsProc(HWND hwnd, LPARAM lParam)
     if (IsAltTabAble(hwnd)
     && GetWindowRectL(state.hwnd, &refwnd)
     && GetWindowRectL(hwnd, &wnd)
-    && PtInRect(&wnd, state.prevpt)
     && (state.shift || StackedRectsT(&refwnd, &wnd, conf.SnapThreshold/2) )
+    && InflateRect(&wnd, conf.SnapThreshold, conf.SnapThreshold)
+    && PtInRect(&wnd, state.prevpt)
     ){
         hwnds[numhwnds++] = hwnd;
     }
@@ -2627,9 +2677,8 @@ static void UpdateCursor(POINT pt)
 
 static int IsMXRolled(HWND hwnd, RECT *rc)
 {
-    MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
-    HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-    GetMonitorInfo(monitor, &mi);
+    MONITORINFO mi;
+    GetMonitorInfoFromWin(hwnd, &mi);
     // Consider the window rolled if its height less than a quarter of monitors
     return (rc->bottom - rc->top) < (mi.rcWork.bottom - mi.rcWork.top) / 4;
 }
@@ -3012,16 +3061,6 @@ static void ActionBorderless(HWND hwnd)
                , SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_NOZORDER);
 }
 /////////////////////////////////////////////////////////////////////////////
-static int IsFullscreen(HWND hwnd, const RECT *wnd, const RECT *fmon)
-{
-    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
-
-    // no caption and fullscreen window => LSB to 1
-    return ((style&WS_CAPTION) != WS_CAPTION)
-//        && ((style&WS_SYSMENU) != WS_SYSMENU)
-        && EqualRect(wnd, fmon);
-}
-/////////////////////////////////////////////////////////////////////////////
 static void CenterWindow(HWND hwnd)
 {
     RECT mon;
@@ -3043,6 +3082,7 @@ static void TogglesAlwaysOnTop(HWND hwnd)
 //    HWND ohwnd = GetWindow(hwnd, GW_OWNER);
 //    if (ohwnd) hwnd = ohwnd;
     LONG_PTR topmost = GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST;
+    if(!topmost) SetForegroundWindow(hwnd);
     SetWindowLevel(hwnd, topmost? HWND_NOTOPMOST: HWND_TOPMOST);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -3141,19 +3181,70 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
     }
 }
 
+//
+static DWORD WINAPI ActionStackListThread(LPVOID p)
+{
+
+    // Fill up hwnds[] with the stacked windows.
+    KillAltSnapMenu();
+    g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
+    numhwnds = 0;
+    HWND mdiclient = state.mdiclient;
+    if (mdiclient) {
+        EnumChildWindows(mdiclient, EnumStackedWindowsProc, 0);
+    } else {
+        EnumDesktopWindows(NULL, EnumStackedWindowsProc, 0);
+    }
+
+    state.sclickhwnd = state.hwnd;
+    numhwnds = min(numhwnds, 36); // Max 36 stacked windows
+
+    HMENU menu = CreatePopupMenu();
+    unsigned i;
+    wchar_t txt[80];
+    for (i=0; i<numhwnds; i++) {
+        GetWindowText(hwnds[i], txt+3, ARR_SZ(txt)-4);
+        txt[0] = L'&';
+        txt[1] = i<26? L'A'+i: L'0'+i-26;
+        txt[2] = L'\t';
+        AppendMenu(menu, MF_STRING, i, txt);
+    }
+    POINT pt;
+    GetCursorPos(&pt);
+    ReallySetForegroundWindow(g_mchwnd);
+    i = (unsigned)TrackPopupMenu(menu,
+        TPM_RETURNCMD|TPM_NONOTIFY|GetSystemMetrics(SM_MENUDROPALIGNMENT)
+        , pt.x, pt.y, 0, g_mchwnd, NULL);
+    state.sclickhwnd = NULL;
+    state.mdiclient = mdiclient;
+    SetForegroundWindowL(hwnds[i]);
+
+    DestroyMenu(menu);
+    DestroyWindow(g_mchwnd);
+    g_mchwnd = NULL;
+
+    return 0;
+}
+static void ActionStackList()
+{
+    DWORD lpThreadId;
+    CloseHandle(CreateThread(NULL, STACK, ActionStackListThread, 0, 0, &lpThreadId));
+}
+
 static void ActionMenu(HWND hwnd)
 {
-    if (g_mchwnd) DestroyWindow(g_mchwnd);
+    KillAltSnapMenu();
     g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
     state.sclickhwnd = hwnd;
     // Send message to Open Action Menu
+    ReallySetForegroundWindow(g_mainhwnd);
     PostMessage(
         g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd,
-         conf.AggressiveKill  // LP_AGGRKILL
-       | !!(GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST) << 1 // LP_TOPMOST
-       | !!GetBorderlessFlag(hwnd) << 2 // LP_BORDERLESS
-       | IsZoomed(hwnd) << 3 // LP_MAXIMIZED
-       | !!(GetRestoreFlag(hwnd)&2) << 4 // LP_ROLLED
+         conf.AggressiveKill                                     // LP_AGGRKILL
+       | !!(GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST)<<1 // LP_TOPMOST
+       | !!GetBorderlessFlag(hwnd) << 2                        // LP_BORDERLESS
+       | IsZoomed(hwnd) << 3                                    // LP_MAXIMIZED
+       | !!(GetRestoreFlag(hwnd)&2) << 4                           // LP_ROLLED
     );
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -3174,8 +3265,9 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_MUTE)        Send_KEY(VK_VOLUME_MUTE);
     else if (action==AC_SIDESNAP)    SnapToCorner(hwnd);
     else if (action==AC_MENU)        ActionMenu(hwnd);
-    else if (action==AC_NSTACKED)    ActionAltTab(state.prevpt, 1, EnumStackedWindowsProc);
+    else if (action==AC_NSTACKED)    ActionAltTab(state.prevpt, +1, EnumStackedWindowsProc);
     else if (action==AC_PSTACKED)    ActionAltTab(state.prevpt, -1, EnumStackedWindowsProc);
+    else if (action==AC_STACKLIST)   ActionStackList();
 }
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -3224,14 +3316,15 @@ static DWORD WINAPI SendAltCtrlAlt(LPVOID p)
     return 1;
 }
 /////////////////////////////////////////////////////////////////////////////
-// action cannot be AC_NONE here...
+// If the action is AC_NONE it will tell us if we pass the blacklist.
 static int init_movement_and_actions(POINT pt, enum action action, int button)
 {
     RECT wnd;
     state.prevpt = pt; // in case
 
-    // Make sure g_mainhwnd isn't in the way
+    // Make sure nothing is in the way
     HideCursor();
+    KillAltSnapMenu();
 
     // Get window
     state.mdiclient = NULL;
@@ -3268,25 +3361,17 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     || GetWindowPlacement(state.hwnd, &wndpl) == 0
     || GetWindowRect(state.hwnd, &wnd) == 0
     || ((state.origin.maximized = IsZoomed(state.hwnd)) && conf.BLMaximized)
-    || ((state.origin.fullscreen = IsFullscreen(state.hwnd, &wnd, &mi.rcMonitor)) && !conf.FullScreen)
+    || ((state.origin.fullscreen = IsFullscreenF(state.hwnd, &wnd, &mi.rcMonitor)) && !conf.FullScreen)
     ){
         return 0;
     }
 
     // If no action is to be done then we passed all balcklists
-    if(action == AC_NONE) return 1;
+    if (action == AC_NONE) return 1;
 
-    // An action will be performed...
     // Set state
     state.blockaltup = state.alt; // If alt is down...
     // return if window has to be moved/resized and does not respond in 1/4 s.
-    DorQWORD lpdwResult;
-    if (MOUVEMENT(action)
-    && !SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 128, &lpdwResult)) {
-        state.blockmouseup = 1;
-        return 1; // Unresponsive window...
-    }
-
     state.prevpt=pt;
 
     // Set origin width/height by default from current state/wndpl.
@@ -3294,9 +3379,13 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     state.origin.width  = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
     state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
 
-
     // Do things depending on what button was pressed
     if (MOUVEMENT(action)) {
+        DorQWORD lpdwResult;
+        if(!SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 128, &lpdwResult)) {
+            state.blockmouseup = 1;
+            return 1; // Unresponsive window...
+        }
         // AutoFocus on movement/resize.
         if (conf.AutoFocus || state.ctrl) {
             SetForegroundWindowL(state.hwnd);
@@ -3809,7 +3898,7 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 // Window for single click commands
 LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    if (msg == WM_MENUCREATED) {
+    if (msg == WM_INITMENU) {
         state.unikeymenu = (HMENU)wParam;
         // state.sclickhwnd = (HWND)lParam; // Child hwnd that was clicked.
     } else if (msg == WM_COMMAND && wParam > 32) {
@@ -3829,9 +3918,12 @@ LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         state.sclickhwnd = NULL;
         state.unikeymenu = NULL;
         return 0;
-    } else if(msg == WM_KILLFOCUS) {
+    } else if (msg == WM_KILLFOCUS) {
         // Menu gets hiden, be sure to zero-out the clickhwnd
         state.sclickhwnd = NULL;
+    } else if (msg == WM_CLOSE) {
+        state.sclickhwnd = NULL;
+        state.unikeymenu = NULL;
     }
     // LOGA("msg=%X, wParam=%X, lParam=%lX", msg, wParam, lParam);
     return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -3853,7 +3945,7 @@ __declspec(dllexport) void Unload()
     conf.keepMousehook = 0;
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
     DestroyWindow(g_timerhwnd);
-    DestroyWindow(g_mchwnd);
+    KillAltSnapMenu();
     if (conf.TransWinOpacity) {
         DestroyWindow(g_transhwnd[0]);
     } else {

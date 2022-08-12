@@ -106,8 +106,8 @@ static BOOL (WINAPI *myGetMonitorInfoW)(HMONITOR hMonitor, LPMONITORINFO lpmi) =
 static HMONITOR (WINAPI *myMonitorFromPoint)(POINT pt, DWORD dwFlags) = IPTR;
 static HMONITOR (WINAPI *myMonitorFromWindow)(HWND hwnd, DWORD dwFlags) = IPTR;
 static BOOL (WINAPI *myGetGUIThreadInfo)(DWORD idThread, LPGUITHREADINFO lpgui) = IPTR;
-//static int (WINAPI *myGetSystemMetricsForDpi)(int  nIndex, UINT dpi) = IPTR;
-//static UINT (WINAPI *myGetDpiForWindow)(HWND hwnd) = IPTR;
+static int (WINAPI *myGetSystemMetricsForDpi)(int  nIndex, UINT dpi) = IPTR;
+static UINT (WINAPI *myGetDpiForWindow)(HWND hwnd) = IPTR;
 
 /* DWMAPI.DLL */
 static HRESULT (WINAPI *myDwmGetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c) = IPTR;
@@ -331,6 +331,34 @@ static BOOL GetGUIThreadInfoL(DWORD pid, LPGUITHREADINFO lpgui)
     return FALSE;
 }
 
+static int GetSystemMetricsForDpiL(int  nIndex, UINT dpi)
+{
+    if (dpi) {
+        if (myGetSystemMetricsForDpi == IPTR) { /* First time */
+            myGetSystemMetricsForDpi=LoadDLLProc("USER32.DLL", "GetSystemMetricsForDpi");
+        }
+        if (myGetSystemMetricsForDpi) { /* We know we have the function */
+            return myGetSystemMetricsForDpi(nIndex, dpi);
+        }
+    }
+    /* Use non dpi stuff if dpi == 0 or if it does not exist. */
+    return GetSystemMetrics(nIndex);
+}
+static UINT GetDpiForWindowL(HWND hwnd)
+{
+    if (myGetDpiForWindow == IPTR) { /* First time */
+        myGetDpiForWindow=LoadDLLProc("USER32.DLL", "GetDpiForWindow");
+    }
+    if (myGetDpiForWindow) { /* We know we have the function */
+        return myGetDpiForWindow(hwnd);
+    }
+    return 0; /* Not handeled */
+}
+/* Helper function */
+static int GetSystemMetricsForWindow(int nIndex, HWND hwnd)
+{
+    return GetSystemMetricsForDpiL(nIndex, GetDpiForWindowL(hwnd));
+}
 static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 {
     if (myDwmGetWindowAttribute == IPTR) { /* First time */

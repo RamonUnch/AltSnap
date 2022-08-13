@@ -1132,11 +1132,11 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 SetDlgItemText(page, IDC_RECT, RectToStr(&rc, txt));
             }
             // IDC_WINHANDLES
-            wcscpy(txt, L"hwnd: "); wcscat(txt, _itow((DWORD)(DorQWORD)window, tt,16));
-            wcscat(txt, L", Parent: "); wcscat(txt, _itow((DWORD)(DorQWORD)GetParent(window), tt,16));
+            wcscpy(txt, L"Hwnd: "); wcscat(txt, _itow((DWORD)(DorQWORD)nwindow, tt,16));
+            wcscat(txt, L", Root: "); wcscat(txt, _itow((DWORD)(DorQWORD)window, tt,16));
+            // wcscat(txt, L", Parent: "); wcscat(txt, _itow((DWORD)(DorQWORD)GetParent(window), tt,16));
             wcscat(txt, L", Owner: "); wcscat(txt, _itow((DWORD)(DorQWORD)GetWindow(window, GW_OWNER), tt,16));
             SetDlgItemText(page, IDC_WINHANDLES, txt);
-
         }
         // Show icon again
         ShowWindowAsync(GetDlgItem(page, IDC_FINDWINDOW), SW_SHOW);
@@ -1348,6 +1348,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         { IDC_NORESTORE,        T_BMK, 2, L"General",  "SmartAero", 0 },  // bit 2
         { IDC_MAXWITHLCLICK,    T_BMK, 0, L"General",  "MMMaximize", 1 }, // bit 0
         { IDC_RESTOREONCLICK,   T_BMK, 1, L"General",  "MMMaximize", 0 }, // bit 1
+        { IDC_TOPMOSTINDICATOR, T_BOL, 0, L"Advanced", "TopmostIndicator", 0},
 
         { IDC_CENTERFRACTION,   T_STR, 0, L"General",  "CenterFraction",L"24" },
         { IDC_AEROHOFFSET,      T_STR, 0, L"General",  "AeroHoffset",   L"50" },
@@ -1406,7 +1407,8 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 { IDC_FULLSCREEN,       l10n->advanced_fullscreen },
                 { IDC_BLMAXIMIZED,      l10n->advanced_blmaximized },
                 { IDC_FANCYZONE,        l10n->advanced_fancyzone },
-                { IDC_NORESTORE,        l10n->advanced_norestore }
+                { IDC_NORESTORE,        l10n->advanced_norestore },
+                { IDC_TOPMOSTINDICATOR, l10n->advanced_topmostindicator },
             };
             UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
 

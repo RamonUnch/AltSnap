@@ -182,13 +182,13 @@ static struct config {
     UCHAR UseZones;
     char InterZone;
     char SnapGap;
-
     UCHAR PiercingClick;
+
     UCHAR AeroSpeedTau;
     UCHAR RezTimer;
     UCHAR DragSendsAltCtrl;
-
     UCHAR ZoomFrac;
+
     UCHAR ZoomFracShift;
     UCHAR NPStacked;
     UCHAR TopmostIndicator;
@@ -2116,6 +2116,7 @@ static void KillAltSnapMenu()
     }
     state.unikeymenu = NULL;
 }
+static void TogglesAlwaysOnTop(HWND hwnd);
 static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_);
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
@@ -2233,6 +2234,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             int ret = init_movement_and_actions(pt, VK_PRIOR?AC_NSTACKED:AC_PSTACKED, 0);
             state.blockmouseup = 0; // Do not block mouseup!
             if (ret) return 1;
+
 
         } else if (!state.ctrl && state.alt!=vkey && !IsModKey(vkey)/*vkey != conf.ModKey*/
                && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
@@ -2598,7 +2600,6 @@ static void SetBottomMost(HWND hwnd)
     if (lowhwnd) SetWindowLevel(hwnd, lowhwnd);
 }
 /////////////////////////////////////////////////////////////////////////////
-static void TogglesAlwaysOnTop(HWND hwnd);
 static int xpure IsAeraCapbutton(int area);
 static void ActionLower(HWND hwnd, int delta, UCHAR shift)
 {
@@ -3106,76 +3107,96 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
     switch(msg) {
     case WM_CREATE: {
-        SetTimer(hwnd, 1, conf.PinRate, NULL);        
+        SetTimer(hwnd, 1, conf.PinRate, NULL);
+    } break;
+    case WM_SETTINGCHANGE: {
+        // Free and resets the windows data.
+        if (wp == SPI_SETNONCLIENTMETRICS) {
+            free((void *)GetWindowLongPtr(hwnd, GWLP_USERDATA));
+            SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
+        }
     } break;
     case WM_TIMER: {
         HWND ow;
         if (!(ow=GetWindow(hwnd, GW_OWNER))) {
-                // Owner no longer exists!
-                // We have no reasons to be anymore.
-                DestroyWindow(hwnd);
-        } else {
-            // Destroy the pin if the owner is no longer topmost
-            // or no longer exists
-            LONG_PTR xstyle;
-            if(!IsWindow(ow) 
-            || !IsWindowVisible(ow) 
-            || !(xstyle = GetWindowLongPtr(ow, GWL_EXSTYLE)&WS_EX_TOPMOST))
-                DestroyWindow(hwnd);
-
-            RECT rc; // Owner rect.
-            GetWindowRect(ow, &rc);
-            LONG_PTR style  = GetWindowLongPtr(ow, GWL_STYLE);
-            struct pinwindata *data;
-            if ((data = (struct pinwindata *)GetWindowLongPtr(hwnd, GWLP_USERDATA)) && data->OldOwStyle == style) {
-                // the data were saved for the correct style!!!
-                SetWindowPos(hwnd, NULL
-                    , rc.right-data->rightoffset, rc.top+data->topoffset, 0, 0
-                    , SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOSIZE);    
-            } else {
-                // Calculate offsets, sets window position and save data
-                // to the GWLP_USERDATA stuff!
-                int CapButtonWidth, PinW, PinH;
-                PinW = GetSystemMetrics(SM_CXSIZE);
-                PinH = GetSystemMetrics(SM_CYSIZE);
-    
-                RECT btrc;
-                if (GetCaptionButtonsRect(ow, &btrc)) {
-                    CapButtonWidth = btrc.right - btrc.left;
-                } else {
-                    UCHAR btnum=0; // Number of caption buttons.
-                    if ((style&(WS_SYSMENU|WS_CAPTION)) == (WS_SYSMENU|WS_CAPTION)) {
-                        btnum++;
-                        btnum += !!(style&WS_MINIMIZEBOX);
-                        btnum += !!(style&WS_MAXIMIZEBOX);
-                        btnum += !!(xstyle&WS_EX_CONTEXTHELP);
-                    }
-                    CapButtonWidth = btnum * PinW;
-                }
-                // Adjust PinW and PinH to have nice stuff.
-                int bdx=0, bdy=0;
-                if (style&WS_THICKFRAME) {
-                    bdx = GetSystemMetrics(SM_CXSIZEFRAME);
-                    bdy = GetSystemMetrics(SM_CYSIZEFRAME);
-                } else if (style&WS_CAPTION) { // Caption or border
-                    bdx = GetSystemMetrics(SM_CXFIXEDFRAME);
-                    bdy = GetSystemMetrics(SM_CYFIXEDFRAME);
-                }
-                PinW -= 2;
-                PinH -= 2;
-                data = calloc(1, sizeof(*data));
-                data->OldOwStyle = style;
-                data->rightoffset = CapButtonWidth+PinW+bdx+4;
-                data->topoffset = bdy+1;
-                // Cache local hwnd storage...
-                SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)data);
-                // Move and size the window...
-                SetWindowPos(hwnd, NULL
-                    , rc.right-data->rightoffset, rc.top+data->topoffset, PinW, PinH
-                    , SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOOWNERZORDER);
-            }
+            // Owner no longer exists!
+            // We have no reasons to be anymore.
+            DestroyWindow(hwnd);
+            return 0;
         }
-    } return 0;
+        // Destroy the pin if the owner is no longer topmost
+        // or no longer exists
+        LONG_PTR xstyle;
+        if(!IsWindow(ow)
+        || !IsWindowVisible(ow)
+        || !((xstyle = GetWindowLongPtr(ow, GWL_EXSTYLE))&WS_EX_TOPMOST)) {
+            DestroyWindow(hwnd);
+            return 0;
+        }
+
+        RECT rc; // Owner rect.
+        GetWindowRect(ow, &rc);
+        LONG_PTR style  = GetWindowLongPtr(ow, GWL_STYLE);
+        struct pinwindata *data;
+        if ((data = (struct pinwindata *)GetWindowLongPtr(hwnd, GWLP_USERDATA)) && data->OldOwStyle == style) {
+            // the data were saved for the correct style!!!
+            SetWindowPos(hwnd, NULL
+                , rc.right-data->rightoffset, rc.top+data->topoffset, 0, 0
+                , SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOSIZE);
+            return 0;
+        }
+        // Calculate offsets, sets window position and save data
+        // to the GWLP_USERDATA stuff!
+        int CapButtonWidth, PinW, PinH;
+        PinW = GetSystemMetrics(SM_CXSIZE);
+        PinH = GetSystemMetrics(SM_CYSIZE);
+
+        RECT btrc;
+        if (GetCaptionButtonsRect(ow, &btrc)) {
+            CapButtonWidth = btrc.right - btrc.left;
+        } else {
+            UCHAR btnum=0; // Number of caption buttons.
+            if ((style&(WS_SYSMENU|WS_CAPTION)) == (WS_SYSMENU|WS_CAPTION)) {
+                btnum++;    // WS_SYSMENU => Close button [X]
+                btnum += !!(style&WS_MINIMIZEBOX);     // [_]
+                btnum += !!(style&WS_MAXIMIZEBOX);     // [O]
+                btnum += !!(xstyle&WS_EX_CONTEXTHELP); // [?]
+            }
+            btnum =  min(btnum, 3); // Maximum 3 button.
+            CapButtonWidth = btnum * PinW;
+        }
+        // Adjust PinW and PinH to have nice stuff.
+        int bdx=0, bdy=0;
+        if (style&WS_THICKFRAME) {
+            bdx = GetSystemMetrics(SM_CXSIZEFRAME);
+            bdy = GetSystemMetrics(SM_CYSIZEFRAME);
+        } else if (style&WS_CAPTION) { // Caption or border
+            bdx = GetSystemMetrics(SM_CXFIXEDFRAME);
+            bdy = GetSystemMetrics(SM_CYFIXEDFRAME);
+        }
+        PinW -= 2;
+        PinH -= 2;
+        data = calloc(1, sizeof(*data));
+        data->OldOwStyle = style;
+        data->rightoffset = CapButtonWidth+PinW+bdx+4;
+        data->topoffset = bdy+1;
+        // Cache local hwnd storage...
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)data);
+        // Move and size the window...
+        SetWindowPos(hwnd, NULL
+            , rc.right-data->rightoffset, rc.top+data->topoffset, PinW, PinH
+            , SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOOWNERZORDER);
+        return 0;
+    } break;
+    case WM_PAINT : {
+        PAINTSTRUCT ps;
+        RECT cr;
+        GetClientRect(hwnd, &cr);
+        BeginPaint(hwnd, &ps);
+        SetBkMode(ps.hdc, TRANSPARENT);
+        DrawTextW(ps.hdc, L"T", 1, &cr, DT_VCENTER|DT_CENTER|DT_SINGLELINE);
+        EndPaint(hwnd, &ps);
+    } break;
     case WM_LBUTTONDOWN: {
         DestroyWindow(hwnd);
         return 0;

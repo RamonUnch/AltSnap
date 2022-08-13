@@ -190,6 +190,7 @@ struct strings {
   wchar_t *advanced_blmaximized;
   wchar_t *advanced_fancyzone;
   wchar_t *advanced_norestore;
+  wchar_t *advanced_topmostindicator;
   // about
   wchar_t *about_box;
   wchar_t *about_version;
@@ -369,6 +370,7 @@ static const char* l10n_inimapping[] = {
     "AdvancedBLMaximized",
     "AdvancedFancyZone",
     "AdvancedNoRestore",
+    "AdvancedTopmostIndicator",
 
     "AboutBox",
     "AboutVersion",
@@ -560,6 +562,7 @@ static const struct strings en_US = {
  /* blmaximized      */   L"&Disable AltSnap on Maximized windows",
  /* fancyzone        */   L"Restore Fancy&Zones snapped windows",
  /* norestore        */   L"Never restore AltSna&pped windows",
+ /* topmostindicator */   L"Show an i&ndicator on always on top windows",
 
  /* about tab */
  /* box                */ L"About "APP_NAME,

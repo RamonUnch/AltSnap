@@ -172,3 +172,4 @@
 #define IDC_SNAPGAP                     2091
 #define IDC_SNAPGAP_H                   2092
 #define IDC_NPSTACKED                   2093
+#define IDC_TOPMOSTINDICATOR            2094

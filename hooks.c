@@ -125,6 +125,7 @@ unsigned numhwnds = 0;
 static struct config {
     DWORD BLCapButtons;
     DWORD BLUpperBorder;
+    int PinColor;
 
     UCHAR AutoFocus;
     UCHAR AutoSnap;
@@ -181,15 +182,17 @@ static struct config {
     UCHAR UseZones;
     char InterZone;
     char SnapGap;
-
     UCHAR PiercingClick;
+
     UCHAR AeroSpeedTau;
     UCHAR RezTimer;
     UCHAR DragSendsAltCtrl;
-
     UCHAR ZoomFrac;
+
     UCHAR ZoomFracShift;
     UCHAR NPStacked;
+    UCHAR TopmostIndicator;
+    UCHAR PinRate;
 
     UCHAR Hotkeys[MAXKEYS+1];
     UCHAR Shiftkeys[MAXKEYS+1];
@@ -2113,6 +2116,7 @@ static void KillAltSnapMenu()
     }
     state.unikeymenu = NULL;
 }
+static void TogglesAlwaysOnTop(HWND hwnd);
 static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_);
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
@@ -2230,6 +2234,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             int ret = init_movement_and_actions(pt, VK_PRIOR?AC_NSTACKED:AC_PSTACKED, 0);
             state.blockmouseup = 0; // Do not block mouseup!
             if (ret) return 1;
+
 
         } else if (!state.ctrl && state.alt!=vkey && !IsModKey(vkey)/*vkey != conf.ModKey*/
                && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
@@ -2413,6 +2418,20 @@ BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
     }
     return TRUE;
 }
+BOOL CALLBACK EnumTopMostWindows(HWND window, LPARAM lParam)
+{
+    // Make sure we have enough space allocated
+    hwnds = GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
+    if (!hwnds) return FALSE; // Stop enum, we failed
+
+    // Only store window if it's visible, not minimized
+    // to taskbar and on the same monitor as the cursor
+    if (IsAltTabAble(window)
+    && GetWindowLongPtr(window, GWL_EXSTYLE)&WS_EX_TOPMOST) {
+        hwnds[numhwnds++] = window;
+    }
+    return TRUE;
+}
 
 /////////////////////////////////////////////////////////////////////////////
 static pure BOOL StackedRectsT(const RECT *a, const RECT *b, const int T)
@@ -2581,7 +2600,6 @@ static void SetBottomMost(HWND hwnd)
     if (lowhwnd) SetWindowLevel(hwnd, lowhwnd);
 }
 /////////////////////////////////////////////////////////////////////////////
-static void TogglesAlwaysOnTop(HWND hwnd);
 static int xpure IsAeraCapbutton(int area);
 static void ActionLower(HWND hwnd, int delta, UCHAR shift)
 {
@@ -3075,15 +3093,171 @@ static void CenterWindow(HWND hwnd)
         , state.origin.width
         , state.origin.height);
 }
+
+/////////////////////////////////////////////////////////////////////////////
+// Pin window callback function
+struct pinwindata {
+    LONG_PTR OldOwStyle;
+    short rightoffset;
+    short topoffset;
+};
+
+static void TrackMenuOfWindows(HWND menuhwnd, WNDENUMPROC EnumProc);
+static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+{
+    switch(msg) {
+    case WM_CREATE: {
+        SetTimer(hwnd, 1, conf.PinRate, NULL);
+    } break;
+    case WM_SETTINGCHANGE: {
+        // Free and resets the windows data.
+        if (wp == SPI_SETNONCLIENTMETRICS) {
+            free((void *)GetWindowLongPtr(hwnd, GWLP_USERDATA));
+            SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
+        }
+    } break;
+    case WM_TIMER: {
+        HWND ow;
+        if (!(ow=GetWindow(hwnd, GW_OWNER))) {
+            // Owner no longer exists!
+            // We have no reasons to be anymore.
+            DestroyWindow(hwnd);
+            return 0;
+        }
+        // Destroy the pin if the owner is no longer topmost
+        // or no longer exists
+        LONG_PTR xstyle;
+        if(!IsWindow(ow)
+        || !IsWindowVisible(ow)
+        || !((xstyle = GetWindowLongPtr(ow, GWL_EXSTYLE))&WS_EX_TOPMOST)) {
+            DestroyWindow(hwnd);
+            return 0;
+        }
+
+        RECT rc; // Owner rect.
+        GetWindowRect(ow, &rc);
+        LONG_PTR style  = GetWindowLongPtr(ow, GWL_STYLE);
+        struct pinwindata *data;
+        if ((data = (struct pinwindata *)GetWindowLongPtr(hwnd, GWLP_USERDATA)) && data->OldOwStyle == style) {
+            // the data were saved for the correct style!!!
+            SetWindowPos(hwnd, NULL
+                , rc.right-data->rightoffset, rc.top+data->topoffset, 0, 0
+                , SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOSIZE);
+            return 0;
+        }
+        // Calculate offsets, sets window position and save data
+        // to the GWLP_USERDATA stuff!
+        int CapButtonWidth, PinW, PinH;
+        PinW = GetSystemMetrics(SM_CXSIZE);
+        PinH = GetSystemMetrics(SM_CYSIZE);
+
+        RECT btrc;
+        if (GetCaptionButtonsRect(ow, &btrc)) {
+            CapButtonWidth = btrc.right - btrc.left;
+        } else {
+            UCHAR btnum=0; // Number of caption buttons.
+            if ((style&(WS_SYSMENU|WS_CAPTION)) == (WS_SYSMENU|WS_CAPTION)) {
+                btnum++;    // WS_SYSMENU => Close button [X]
+                btnum += !!(style&WS_MINIMIZEBOX);     // [_]
+                btnum += !!(style&WS_MAXIMIZEBOX);     // [O]
+                btnum += !!(xstyle&WS_EX_CONTEXTHELP); // [?]
+            }
+            btnum =  min(btnum, 3); // Maximum 3 button.
+            CapButtonWidth = btnum * PinW;
+        }
+        // Adjust PinW and PinH to have nice stuff.
+        int bdx=0, bdy=0;
+        if (style&WS_THICKFRAME) {
+            bdx = GetSystemMetrics(SM_CXSIZEFRAME);
+            bdy = GetSystemMetrics(SM_CYSIZEFRAME);
+        } else if (style&WS_CAPTION) { // Caption or border
+            bdx = GetSystemMetrics(SM_CXFIXEDFRAME);
+            bdy = GetSystemMetrics(SM_CYFIXEDFRAME);
+        }
+        PinW -= 2;
+        PinH -= 2;
+        data = calloc(1, sizeof(*data));
+        data->OldOwStyle = style;
+        data->rightoffset = CapButtonWidth+PinW+bdx+4;
+        data->topoffset = bdy+1;
+        // Cache local hwnd storage...
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)data);
+        // Move and size the window...
+        SetWindowPos(hwnd, NULL
+            , rc.right-data->rightoffset, rc.top+data->topoffset, PinW, PinH
+            , SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOOWNERZORDER);
+        return 0;
+    } break;
+    case WM_PAINT : {
+        PAINTSTRUCT ps;
+        RECT cr;
+        GetClientRect(hwnd, &cr);
+        BeginPaint(hwnd, &ps);
+        SetBkMode(ps.hdc, TRANSPARENT);
+        DrawTextW(ps.hdc, L"T", 1, &cr, DT_VCENTER|DT_CENTER|DT_SINGLELINE);
+        EndPaint(hwnd, &ps);
+    } break;
+    case WM_LBUTTONDOWN: {
+        DestroyWindow(hwnd);
+        return 0;
+    } break;
+    case WM_RBUTTONDOWN: {
+        state.mdiclient = NULL; // In case...
+        TrackMenuOfWindows(hwnd, EnumTopMostWindows);
+        return 0;
+    } break;
+//    case WM_GETPINNEDHWND: {
+//        // Returns the handle to the topmost window
+//        HWND ow = GetWindow(hwnd, GW_OWNER);
+//        if(IsWindow(ow) && IsVisible(ow)) return (LRESULT)ow;
+//    } break;
+    case WM_DESTROY: {
+        // Free PinWin local data...
+        free((void *)GetWindowLongPtr(hwnd, GWLP_USERDATA));
+        KillTimer(hwnd, 1);
+        // Remove topmost flag if the pin gets destroyed.
+        HWND ow;
+        if((ow=GetWindow(hwnd, GW_OWNER)) 
+        && (GetWindowLongPtr(ow, GWL_EXSTYLE)&WS_EX_TOPMOST) )
+            SetWindowLevel(ow, HWND_NOTOPMOST);
+    } break;
+    }
+    return DefWindowProc(hwnd, msg, wp, lp);
+}
+static HWND CreatePinWindow()
+{
+    WNDCLASSEX wnd;
+    if(!GetClassInfoEx(hinstDLL, APP_NAME"-Pin", &wnd)) {
+        // Register the class if no already created.
+        memset(&wnd, 0, sizeof(wnd));
+        wnd.cbSize = sizeof(WNDCLASSEX);
+        wnd.style = CS_NOCLOSE;
+        wnd.lpfnWndProc = PinWindowProc;
+        wnd.cbWndExtra = sizeof(void*);
+        wnd.hInstance = hinstDLL;
+        wnd.hCursor = LoadCursor(NULL, IDC_ARROW);
+        wnd.hbrBackground = CreateSolidBrush(conf.PinColor); //(HBRUSH)(COLOR_HIGHLIGHTTEXT+1);
+        wnd.lpszClassName =  APP_NAME"-Pin";
+        RegisterClassEx(&wnd);
+    }
+    return CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST
+                      , wnd.lpszClassName, NULL
+                      , WS_POPUP /* Start invisible */
+                      , 0, 0, 0, 0, NULL, NULL, hinstDLL, NULL);
+}
 /////////////////////////////////////////////////////////////////////////////
 static void TogglesAlwaysOnTop(HWND hwnd)
 {
-// WIP: Check the owner window?
-//    HWND ohwnd = GetWindow(hwnd, GW_OWNER);
-//    if (ohwnd) hwnd = ohwnd;
+    // Use the Root owner
+    hwnd = GetRootOwner(hwnd);
     LONG_PTR topmost = GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST;
     if(!topmost) SetForegroundWindow(hwnd);
     SetWindowLevel(hwnd, topmost? HWND_NOTOPMOST: HWND_TOPMOST);
+    if(conf.TopmostIndicator) {
+        HWND pw = CreatePinWindow();
+        SetWindowLongPtr(pw, GWLP_HWNDPARENT, (LONG_PTR)hwnd);
+        ShowWindowAsync(pw, SW_SHOWNA);
+    }
 }
 /////////////////////////////////////////////////////////////////////////////
 static void ActionMaximize(HWND hwnd)
@@ -3181,19 +3355,16 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
     }
 }
 
-//
-static DWORD WINAPI ActionStackListThread(LPVOID p)
+// Make a menu filled with the windows that are enumed through EnumProc
+// And Track it!!!!
+static void TrackMenuOfWindows(HWND menuhwnd, WNDENUMPROC EnumProc) 
 {
-
-    // Fill up hwnds[] with the stacked windows.
-    KillAltSnapMenu();
-    g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
     numhwnds = 0;
     HWND mdiclient = state.mdiclient;
     if (mdiclient) {
-        EnumChildWindows(mdiclient, EnumStackedWindowsProc, 0);
+        EnumChildWindows(mdiclient, EnumProc, 0);
     } else {
-        EnumDesktopWindows(NULL, EnumStackedWindowsProc, 0);
+        EnumDesktopWindows(NULL, EnumProc, 0);
     }
 
     state.sclickhwnd = state.hwnd;
@@ -3211,15 +3382,24 @@ static DWORD WINAPI ActionStackListThread(LPVOID p)
     }
     POINT pt;
     GetCursorPos(&pt);
-    ReallySetForegroundWindow(g_mchwnd);
+    ReallySetForegroundWindow(menuhwnd);
     i = (unsigned)TrackPopupMenu(menu,
         TPM_RETURNCMD|TPM_NONOTIFY|GetSystemMetrics(SM_MENUDROPALIGNMENT)
-        , pt.x, pt.y, 0, g_mchwnd, NULL);
+        , pt.x, pt.y, 0, menuhwnd, NULL);
     state.sclickhwnd = NULL;
     state.mdiclient = mdiclient;
     SetForegroundWindowL(hwnds[i]);
 
     DestroyMenu(menu);
+}
+static DWORD WINAPI ActionStackListThread(LPVOID p)
+{
+    // Fill up hwnds[] with the stacked windows.
+    KillAltSnapMenu();
+    g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
+
+    TrackMenuOfWindows(g_mchwnd, EnumStackedWindowsProc);
+
     DestroyWindow(g_mchwnd);
     g_mchwnd = NULL;
 
@@ -3355,6 +3535,7 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     // or if the window is fullscreen.
     if (!state.hwnd
     || blacklistedP(state.hwnd, &BlkLst.Processes)
+    || isClassName(state.hwnd, APP_NAME"-Pin")
     ||(blacklisted(state.hwnd, &BlkLst.Windows)
        && !state.hittest && button != BT_WHEEL && button != BT_HWHEEL
       )// does not apply in titlebar, nor for the wheel action...
@@ -3938,6 +4119,13 @@ static void freeblacklists()
         list++;
     }
 }
+static BOOL WINAPI DestroyPinWindowsProc(HWND hwnd, LPARAM lp)
+{
+    if(isClassName(hwnd, APP_NAME"-Pin"))
+        DestroyWindow(hwnd);
+    
+    return TRUE; // Next hwnd
+}
 /////////////////////////////////////////////////////////////////////////////
 // To be called before Free Library. Ideally it should free everything
 __declspec(dllexport) void Unload()
@@ -3952,9 +4140,11 @@ __declspec(dllexport) void Unload()
         int i;
         for (i=0; i<4; i++) DestroyWindow(g_transhwnd[i]);
     }
+    EnumWindows(DestroyPinWindowsProc, 0);
     UnregisterClass(APP_NAME"-Timers", hinstDLL);
     UnregisterClass(APP_NAME"-SClick", hinstDLL);
     UnregisterClass(APP_NAME"-Trans",  hinstDLL);
+    UnregisterClass(APP_NAME"-Pin",    hinstDLL);
 
     freeblacklists();
 
@@ -4173,6 +4363,8 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {&conf.ShiftSnaps,      L"Advanced", "ShiftSnaps", 1 },
         {&conf.PiercingClick,   L"Advanced", "PiercingClick", 0 },
         {&conf.DragSendsAltCtrl,L"Advanced", "DragSendsAltCtrl", 0 },
+        {&conf.TopmostIndicator,L"Advanced", "TopmostIndicator", 0 },
+        {&conf.PinRate,         L"Advanced", "PinRate", 32 },
 
         // [Performance]
         {&conf.FullWin,         L"Performance", "FullWin", 2 },
@@ -4222,6 +4414,11 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.BLCapButtons  = GetPrivateProfileInt(L"Advanced", L"BLCapButtons", 3, inipath);
     conf.BLUpperBorder = GetPrivateProfileInt(L"Advanced", L"BLUpperBorder", 3, inipath);
     conf.AeroMaxSpeed  = GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath);
+    if (conf.TopmostIndicator) {
+        int color[4];
+        readhotkeys(inipath, "PinColor",  L"FF FF 00", (UCHAR *)&color[0]);
+        conf.PinColor = color[0];
+    }
 
     // [Input]
     readbuttonactions(inipath);

@@ -862,6 +862,7 @@ static LRESULT WINAPI PickShortcutWinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
     static const UCHAR vkbl[] = {
         VK_CONTROL, VK_LCONTROL, VK_RCONTROL,
         VK_SHIFT, VK_LSHIFT, VK_RSHIFT,
+        VK_MENU, VK_LMENU, VK_RMENU,
         VK_LWIN, VK_RWIN
         , '\0'
     };
@@ -873,7 +874,7 @@ static LRESULT WINAPI PickShortcutWinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
     case WM_SYSDEADCHAR:
     case WM_SYSCHAR:
         break;
-    case WM_KEYUP:
+    case WM_KEYUP: {
         if (!IsHotkeyy((UCHAR)wp, vkbl)) {
             wchar_t txt[16];
             HWND phwnd = GetParent(hwnd);
@@ -883,20 +884,25 @@ static LRESULT WINAPI PickShortcutWinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
             Button_SetCheck(GetDlgItem(phwnd, IDC_CONTROL),GetKeyState(VK_CONTROL)&0x8000? BST_CHECKED: BST_UNCHECKED);
             Button_SetCheck(GetDlgItem(phwnd, IDC_WINKEY), GetKeyState(VK_LWIN)&0x8000||GetKeyState(VK_RWIN)&0x8000? BST_CHECKED: BST_UNCHECKED);
             Button_SetCheck(GetDlgItem(phwnd, IDC_ALT),    GetKeyState(VK_MENU)&0x8000? BST_CHECKED: BST_UNCHECKED);
+            DestroyWindow(hwnd);
         }
+    } break;
     case WM_LBUTTONDOWN:
     case WM_HOTKEY:
-    case WM_KILLFOCUS:
+    case WM_KILLFOCUS: {
         DestroyWindow(hwnd);
+    } break;
+
     case WM_DESTROY: {
         HWND phwnd = GetParent(hwnd);
         Button_Enable(GetDlgItem(phwnd, IDC_SHORTCUTS_PICK), 1);
         EnumChildWindows(phwnd, EnableAllControlsProc, 1);
         NMHDR lpn;
-        lpn.code = PSN_SETACTIVE;
+        lpn.hwndFrom = NULL; lpn.code = PSN_SETACTIVE;
         SendMessage(phwnd, WM_NOTIFY, 0, (LPARAM)&lpn);
-        EnableWindow(GetDlgItem(phwnd, IDC_SHORTCUTS_SET), TRUE);
-
+        HWND sethwnd = GetDlgItem(phwnd, IDC_SHORTCUTS_SET);
+        EnableWindow(sethwnd, TRUE);
+        SetFocus(sethwnd);
     } break;
     default:
         return DefWindowProc(hwnd, msg, wp, lp);
@@ -936,7 +942,6 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {NULL, NULL}
     };
     struct actiondl kbshortcut_actions[] = {
-        {L"",           l10n->input_actions_nothing},
 //        {L"Close",       l10n->input_actions_close},
         {L"Kill",        l10n->input_actions_kill},
         {L"Pause",       l10n->input_actions_pause},
@@ -1013,7 +1018,8 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetDlgItemText(hwnd, IDC_SHORTCUTS, keyname);
 
             Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 1);
-        } else if (event == EN_UPDATE || event == CBN_SELCHANGE) {
+        } else if ((event == 0 || event == EN_UPDATE || event == CBN_SELCHANGE)
+            && (IDC_SHORTCUTS > id || id > IDC_SHORTCUTS_CLEAR)) {
             PropSheet_Changed(g_cfgwnd, hwnd);
             have_to_apply = 1;
         }
@@ -1051,6 +1057,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             if (kbshortcut_actions[i].action && kbshortcut_actions[i].action[0] != '\0')
                 WritePrivateProfileString(L"KBShortcuts", kbshortcut_actions[i].action, _itow(shortcut, txt, 10), inipath);
             Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 0);
+            SetFocus(GetDlgItem(hwnd, IDC_SHORTCUTS_AC));
         }
         if (id == IDC_SHORTCUTS_PICK) {
             HWND pickhwnd;
@@ -1080,12 +1087,12 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             EnableWindow(pickhwnd, TRUE);
             SetFocus(pickhwnd);
             SetActiveWindow(pickhwnd);
-            SetForegroundWindow(pickhwnd);
+            // SetDlgItemText(hwnd, IDC_SHORTCUTS, L"Press Keys...");
             Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_PICK), 0);
             UpdateSettings(); // Also here...
         }
         if (id == IDC_SHORTCUTS_CLEAR) {
-
+            // We must clear the current shotrcut
             Button_SetCheck(GetDlgItem(hwnd, IDC_SHIFT), BST_UNCHECKED);
             Button_SetCheck(GetDlgItem(hwnd, IDC_CONTROL), BST_UNCHECKED);
             Button_SetCheck(GetDlgItem(hwnd, IDC_WINKEY),BST_UNCHECKED);
@@ -1109,6 +1116,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             FillActionDropListS(hwnd, IDC_SHORTCUTS_AC, NULL, kbshortcut_actions);
             ComboBox_SetCurSel(GetDlgItem(hwnd, IDC_SHORTCUTS_AC), edit_shortcut_idx);
             Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 0);
+            if(pnmh->hwndFrom != NULL)PostMessage(hwnd, WM_COMMAND, IDC_SHORTCUTS_AC|CBN_SELCHANGE<<16, 0);
 
             // ModKey init
             HWND control = GetDlgItem(hwnd, IDC_MODKEY);
@@ -1132,11 +1140,8 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             // Update text
             const struct dialogstring strlst[] = {
                 { IDC_KEYBOARD_BOX,    l10n->tab_keyboard},
-//                { IDC_AGGRESSIVEPAUSE, l10n->input_aggressive_pause},
-//                { IDC_AGGRESSIVEKILL,  l10n->input_aggressive_kill},
                 { IDC_SCROLLLOCKSTATE, l10n->input_scrolllockstate},
                 { IDC_UNIKEYHOLDMENU,  l10n->input_unikeyholdmenu},
-//                { IDC_NPSTACKED,       l10n->input_npstacked},
                 { IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box},
                 { IDC_MODKEY_H,        l10n->input_hotkeys_modkey},
 

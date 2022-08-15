@@ -942,12 +942,11 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {NULL, NULL}
     };
     struct actiondl kbshortcut_actions[] = {
-//        {L"Close",       l10n->input_actions_close},
         {L"Kill",        l10n->input_actions_kill},
         {L"Pause",       l10n->input_actions_pause},
         {L"Resume",      l10n->input_actions_resume},
-        {L"Minimize",    l10n->input_actions_minimize},
-        {L"Maximize",    l10n->input_actions_maximize},
+//        {L"Minimize",    l10n->input_actions_minimize},
+//        {L"Maximize",    l10n->input_actions_maximize},
         {L"Lower",       l10n->input_actions_lower},
         {L"NStacked",    l10n->input_actions_nstacked},
         {L"NStacked2",   l10n->input_actions_nstacked2},
@@ -958,9 +957,8 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
         {L"Borderless",  l10n->input_actions_borderless},
         {L"Center",      l10n->input_actions_center},
-        {L"MaximizeHV",  l10n->input_actions_maximizehv},
-        {L"SideSnap",    l10n->input_actions_sidesnap},
-        {L"MinAllOther", l10n->input_actions_minallother},
+//        {L"MaximizeHV",  l10n->input_actions_maximizehv},
+//        {L"MinAllOther", l10n->input_actions_minallother},
         {L"Mute",        l10n->input_actions_mute},
         {L"Menu",        l10n->input_actions_menu},
         {NULL, NULL}
@@ -1058,6 +1056,9 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 WritePrivateProfileString(L"KBShortcuts", kbshortcut_actions[i].action, _itow(shortcut, txt, 10), inipath);
             Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 0);
             SetFocus(GetDlgItem(hwnd, IDC_SHORTCUTS_AC));
+            PropSheet_Changed(g_cfgwnd, hwnd);
+            have_to_apply = 1;
+            UpdateSettings();
         }
         if (id == IDC_SHORTCUTS_PICK) {
             HWND pickhwnd;
@@ -1089,7 +1090,6 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetActiveWindow(pickhwnd);
             // SetDlgItemText(hwnd, IDC_SHORTCUTS, L"Press Keys...");
             Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_PICK), 0);
-            UpdateSettings(); // Also here...
         }
         if (id == IDC_SHORTCUTS_CLEAR) {
             // We must clear the current shotrcut
@@ -1145,10 +1145,14 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 { IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box},
                 { IDC_MODKEY_H,        l10n->input_hotkeys_modkey},
 
+                { IDC_ALT,             l10n->input_hotkeys_alt},                
                 { IDC_SHIFT,           l10n->input_hotkeys_shift},
                 { IDC_CONTROL,         l10n->input_hotkeys_ctrl},
                 { IDC_WINKEY,          l10n->input_hotkeys_winkey},
-                { IDC_ALT,             l10n->input_hotkeys_alt},
+                { IDC_SHORTCUTS_H,     l10n->input_hotkeys_shortcuts},
+                { IDC_SHORTCUTS_PICK,  l10n->input_hotkeys_shortcutspick},
+                { IDC_SHORTCUTS_CLEAR, l10n->input_hotkeys_shortcutsclear},
+                { IDC_SHORTCUTS_SET,   l10n->input_hotkeys_shortcutset},                
 
                 { IDC_LEFTALT,         l10n->input_hotkeys_leftalt},
                 { IDC_RIGHTALT,        l10n->input_hotkeys_rightalt},

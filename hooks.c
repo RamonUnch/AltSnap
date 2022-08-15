@@ -124,59 +124,40 @@ unsigned numhwnds = 0;
 // Settings
 #define MAXKEYS 15
 static struct config {
-    DWORD BLCapButtons;
-    DWORD BLUpperBorder;
-    int PinColor;
-
     UCHAR AutoFocus;
     UCHAR AutoSnap;
     UCHAR AutoRemaximize;
     UCHAR Aero;
-
     UCHAR MDI;
     UCHAR InactiveScroll;
     UCHAR TTBActions;
     UCHAR ResizeCenter;
-
     UCHAR MoveRate;
     UCHAR ResizeRate;
     UCHAR SnapThreshold;
     UCHAR AeroThreshold;
-
     UCHAR AVoff;
     UCHAR AHoff;
     UCHAR FullWin;
     UCHAR ResizeAll;
-
-//    UCHAR AggressivePause;
     UCHAR AeroTopMaximizes;
     UCHAR UseCursor;
     UCHAR CenterFraction;
-
     UCHAR RefreshRate;
     UCHAR MMMaximize;
     UCHAR MinAlpha;
     UCHAR MoveTrans;
-
-    char AlphaDelta;
-    char AlphaDeltaShift;
-    WORD AeroMaxSpeed;
-
+    UCHAR StickyResize;
     UCHAR keepMousehook;
     UCHAR KeyCombo;
     UCHAR FullScreen;
-//    UCHAR AggressiveKill;
-
     UCHAR SmartAero;
-    UCHAR StickyResize;
-    UCHAR ScrollLockState;
     UCHAR ShiftSnaps;
-
     UCHAR BLMaximized;
+    UCHAR ScrollLockState;
     UCHAR LongClickMove;
     UCHAR UniKeyHoldMenu;
     UCHAR TransWinOpacity;
-
   # ifdef WIN64
     UCHAR FancyZone;
   #endif
@@ -184,16 +165,20 @@ static struct config {
     char InterZone;
     char SnapGap;
     UCHAR PiercingClick;
-
     UCHAR AeroSpeedTau;
     UCHAR RezTimer;
     UCHAR DragSendsAltCtrl;
     UCHAR ZoomFrac;
-
     UCHAR ZoomFracShift;
-//    UCHAR NPStacked;
     UCHAR TopmostIndicator;
     UCHAR PinRate;
+
+    char AlphaDelta;
+    char AlphaDeltaShift;
+    WORD AeroMaxSpeed;
+    DWORD BLCapButtons;
+    DWORD BLUpperBorder;
+    int PinColor;
 
     UCHAR Hotkeys[MAXKEYS+1];
     UCHAR Shiftkeys[MAXKEYS+1];
@@ -1083,9 +1068,10 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
     lw->end = 0;
 }
 
+/* MOVEASYNC |SWP_DEFERERASE ??*/
 #define RESIZEFLAG        SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE
 #define MOVETHICKBORDERS  SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE
-#define MOVEASYNC         SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS|SWP_DEFERERASE
+#define MOVEASYNC         SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS
 static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
     struct windowRR *lw = (struct windowRR *)LastWinV;
@@ -1392,19 +1378,6 @@ static enum action GetActionT(const enum button button)
     }
 }
 
-///////////////////////////////////////////////////////////////////////////
-// Check if key is assigned in the HKlist
-static int pure IsHotkeyy(unsigned char key, const UCHAR *HKlist)
-{
-    const UCHAR *pos=&HKlist[0];
-    while (*pos) {
-        if (key == *pos) {
-            return 1;
-        }
-        pos++;
-    }
-    return 0;
-}
 #define IsHotkey(a)   IsHotkeyy(a, conf.Hotkeys)
 #define IsHotclick(a) IsHotkeyy(a, conf.Hotclick)
 static int pure IsKillkey(unsigned char a)
@@ -3162,13 +3135,16 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         return 0;
     } break;
     case WM_PAINT : {
-        PAINTSTRUCT ps;
-        RECT cr;
-        GetClientRect(hwnd, &cr);
-        BeginPaint(hwnd, &ps);
-        SetBkMode(ps.hdc, TRANSPARENT);
-        DrawTextW(ps.hdc, L"T", 1, &cr, DT_VCENTER|DT_CENTER|DT_SINGLELINE);
-        EndPaint(hwnd, &ps);
+        wchar_t Topchar = HIBYTE(HIWORD(conf.PinColor&0xFF000000));
+        if (Topchar) {
+	        PAINTSTRUCT ps;
+	        RECT cr;
+	        GetClientRect(hwnd, &cr);
+	        BeginPaint(hwnd, &ps);
+	        SetBkMode(ps.hdc, TRANSPARENT);
+	        DrawTextW(ps.hdc, &Topchar, 1, &cr, DT_VCENTER|DT_CENTER|DT_SINGLELINE);
+	        EndPaint(hwnd, &ps);
+      }
     } break;
     case WM_LBUTTONDOWN: {
         DestroyWindow(hwnd);
@@ -3209,7 +3185,7 @@ static HWND CreatePinWindow()
         wnd.cbWndExtra = sizeof(void*);
         wnd.hInstance = hinstDLL;
         wnd.hCursor = LoadCursor(NULL, IDC_ARROW);
-        wnd.hbrBackground = CreateSolidBrush(conf.PinColor); //(HBRUSH)(COLOR_HIGHLIGHTTEXT+1);
+        wnd.hbrBackground = CreateSolidBrush(conf.PinColor&0x00FFFFFF);
         wnd.lpszClassName =  APP_NAME"-Pin";
         RegisterClassEx(&wnd);
     }
@@ -4418,7 +4394,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AeroMaxSpeed  = GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath);
     if (conf.TopmostIndicator) {
         int color[4];
-        readhotkeys(inipath, "PinColor",  L"FF FF 00", (UCHAR *)&color[0]);
+        readhotkeys(inipath, "PinColor",  L"FF FF 00 54", (UCHAR *)&color[0]);
         conf.PinColor = color[0];
     }
 
@@ -4517,15 +4493,15 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     // Read All shortcuts in the [KBShortcuts] section.
     static const char *action_names[] = ACTION_MAP;
     unsigned ac;
-    for (ac=2; ac < ARR_SZ(action_names); ac++) {
-        //WORD HK[8];
-        //readhotkeys(inipath, str,  L"00 00", (UCHAR *)&HK[0]);
+    for (ac=AC_MENU; ac < ARR_SZ(action_names); ac++) {
         wchar_t txt[32];
         str2wide(txt, action_names[ac]);
         WORD HK = GetPrivateProfileInt(L"KBShortcuts", txt, 0, inipath);
         if(LOBYTE(HK) && HIBYTE(HK)) {
             // Lobyte is the virtual key code and hibyte is the mod_key
-            RegisterHotKey(g_hkhwnd, 0xC000 + ac, HIBYTE(HK), LOBYTE(HK));
+            if(!RegisterHotKey(g_hkhwnd, 0xC000 + ac, HIBYTE(HK), LOBYTE(HK))) {
+                LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
+            }
         }
     }
 

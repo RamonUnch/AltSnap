@@ -135,8 +135,7 @@ void ToggleState()
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-// if param&1 -> Add Kill action
-// if param&2 -> Add Size Option
+//
 void ShowSClickMenu(HWND hwnd, LPARAM param)
 {
     POINT pt;
@@ -145,33 +144,32 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
 
     #define CHK(LP_FLAG) MF_STRING|(param&LP_FLAG?MF_CHECKED:MF_UNCHECKED)
 
-    #define K !(param&LP_AGGRKILL)
     const struct {
-        const UCHAR hide; const enum action action; const WORD mf; const wchar_t * const str;
+        const enum action action; const WORD mf; const wchar_t * const str;
     } mnlst[] = {
        /* hide, action,      MF_FLAG/CHECKED,    menu string */
-        { 0, AC_ALWAYSONTOP, CHK(LP_TOPMOST),    l10n->input_actions_alwaysontop },
-        { 0, AC_BORDERLESS,  CHK(LP_BORDERLESS), l10n->input_actions_borderless },
-        { 0, AC_CENTER,      MF_STRING,          l10n->input_actions_center},
-        { 0, AC_ROLL,        CHK(LP_ROLLED),     l10n->input_actions_roll},
-        { 0, AC_LOWER,       MF_STRING,          l10n->input_actions_lower},
-        { 0, AC_MAXHV,       MF_STRING,          l10n->input_actions_maximizehv},
-        { 0, AC_MINALL,      MF_STRING,          l10n->input_actions_minallother},
-        { 0, AC_SIDESNAP,    MF_STRING,          l10n->input_actions_sidesnap},
-        { 0, 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
-        { 0, AC_MAXIMIZE,    CHK(LP_MAXIMIZED),  l10n->input_actions_maximize},
-        { 0, AC_MINIMIZE,    MF_STRING,          l10n->input_actions_minimize},
-        { 0, AC_CLOSE,       MF_STRING,          l10n->input_actions_close},
-        { K, 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
-        { K, AC_KILL,        MF_STRING,          l10n->input_actions_kill},
-        { 0, 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
-        { 0, AC_NONE,        MF_STRING,          l10n->input_actions_nothing},
+        { AC_ALWAYSONTOP, CHK(LP_TOPMOST),    l10n->input_actions_alwaysontop },
+        { AC_BORDERLESS,  CHK(LP_BORDERLESS), l10n->input_actions_borderless },
+        { AC_CENTER,      MF_STRING,          l10n->input_actions_center},
+        { AC_ROLL,        CHK(LP_ROLLED),     l10n->input_actions_roll},
+        { AC_LOWER,       MF_STRING,          l10n->input_actions_lower},
+        { AC_MAXHV,       MF_STRING,          l10n->input_actions_maximizehv},
+        { AC_MINALL,      MF_STRING,          l10n->input_actions_minallother},
+        { AC_SIDESNAP,    MF_STRING,          l10n->input_actions_sidesnap},
+        { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
+        { AC_MAXIMIZE,    CHK(LP_MAXIMIZED),  l10n->input_actions_maximize},
+        { AC_MINIMIZE,    MF_STRING,          l10n->input_actions_minimize},
+        { AC_CLOSE,       MF_STRING,          l10n->input_actions_close},
+        { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
+        { AC_KILL,        MF_STRING,          l10n->input_actions_kill},
+        { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
+        { AC_NONE,        MF_STRING,          l10n->input_actions_nothing},
     };
     #undef CHK
     #undef K
     unsigned i;
     for (i=0; i < ARR_SZ(mnlst); i++) {
-        if (!mnlst[i].hide && (ACMenuItems>>i)&1)
+        if ( (ACMenuItems>>i)&1 )
             AppendMenu(menu, mnlst[i].mf, mnlst[i].action, mnlst[i].str);
     }
 //    SetForegroundWindow(g_hwnd); // Focus AltSnap's main hwnd.

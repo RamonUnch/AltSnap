@@ -52,22 +52,39 @@
 enum action {
     AC_NONE=0, AC_MOVE, AC_RESIZE, AC_MENU, AC_MINIMIZE, AC_MAXIMIZE
   , AC_CENTER , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_BORDERLESS
-  , AC_KILL, AC_MAXHV, AC_MINALL, AC_MUTE, AC_SIDESNAP
-  , AC_NSTACKED, AC_PSTACKED, AC_STACKLIST
+  , AC_KILL, AC_PAUSE, AC_RESUME, AC_MAXHV, AC_MINALL, AC_MUTE
+  , AC_SIDESNAP, AC_NSTACKED, AC_NSTACKED2, AC_PSTACKED, AC_PSTACKED2
+  , AC_STACKLIST
   , AC_ROLL, AC_ALTTAB, AC_VOLUME, AC_TRANSPARENCY, AC_HSCROLL
   , AC_ZOOM, AC_ZOOM2, AC_NPSTACKED
+  , AC_MAXVALUE
 };
 // List of actions strings, keep the SAME ORDER than above
 #define ACTION_MAP { \
     "Nothing", "Move", "Resize", "Menu", "Minimize", "Maximize"    \
   , "Center", "AlwaysOnTop", "Close", "Lower", "Borderless"        \
-  , "Kill" , "MaximizeHV", "MinAllOther", "Mute", "SideSnap"       \
-  , "NStacked", "PStacked", "StackList"                            \
+  , "Kill", "Pause", "Resume", "MaximizeHV", "MinAllOther", "Mute" \
+  , "SideSnap", "NStacked", "NStacked2", "PStacked", "PStacked2"   \
+  , "StackList"                                                    \
   , "Roll", "AltTab", "Volume", "Transparency", "HScroll"          \
   , "Zoom", "Zoom2", "NPStacked",                                  \
 }
 
 #define MOUVEMENT(action) (action <= AC_RESIZE)
+
+///////////////////////////////////////////////////////////////////////////
+// Check if key is assigned in the HKlist
+static int pure IsHotkeyy(unsigned char key, const unsigned char *HKlist)
+{
+    const UCHAR *pos=&HKlist[0];
+    while (*pos) {
+        if (key == *pos) {
+            return 1;
+        }
+        pos++;
+    }
+    return 0;
+}
 
 // Convert zone number to ini name entry
 static wchar_t *ZidxToZonestr(int idx, wchar_t *zname)

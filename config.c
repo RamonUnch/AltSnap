@@ -664,7 +664,8 @@ static void FillActionDropListS(HWND hwnd, int idc, wchar_t *inioption, struct a
     HWND control = GetDlgItem(hwnd, idc);
     wchar_t txt[64];
     ComboBox_ResetContent(control);
-    GetPrivateProfileString(L"Input", inioption, L"Nothing", txt, ARR_SZ(txt), inipath);
+    if (inioption)
+        GetPrivateProfileString(L"Input", inioption, L"Nothing", txt, ARR_SZ(txt), inipath);
     unsigned sel = 0, j;
     for (j = 0; actions[j].action; j++) {
         wchar_t action_name[256];
@@ -712,7 +713,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"MaximizeHV",  l10n->input_actions_maximizehv},
         {L"SideSnap",    l10n->input_actions_sidesnap},
         {L"MinAllOther", l10n->input_actions_minallother},
-        {L"mute",        l10n->input_actions_mute},
+        {L"Mute",        l10n->input_actions_mute},
         {L"Menu",        l10n->input_actions_menu},
         {L"Nothing",     l10n->input_actions_nothing},
         {NULL, NULL}
@@ -849,10 +850,64 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     return FALSE;
 }
 
+static BOOL CALLBACK EnableAllControlsProc(HWND hwnd, LPARAM lp)
+{
+    if (IsWindowVisible(hwnd)) {
+        EnableWindow(hwnd, lp);
+    }
+    return TRUE;
+}
+static LRESULT WINAPI PickShortcutWinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+{
+    static const UCHAR vkbl[] = {
+        VK_CONTROL, VK_LCONTROL, VK_RCONTROL,
+        VK_SHIFT, VK_LSHIFT, VK_RSHIFT,
+        VK_LWIN, VK_RWIN
+        , '\0'
+    };
+
+    switch (msg) {
+    case WM_CHAR:
+    case WM_SYSKEYDOWN:
+    case WM_SYSKEYUP:
+    case WM_SYSDEADCHAR:
+    case WM_SYSCHAR:
+        break;
+    case WM_KEYUP:
+        if (!IsHotkeyy((UCHAR)wp, vkbl)) {
+            wchar_t txt[16];
+            HWND phwnd = GetParent(hwnd);
+            SetDlgItemText(phwnd, IDC_SHORTCUTS_VK, _itow(wp, txt, 16));
+
+            Button_SetCheck(GetDlgItem(phwnd, IDC_SHIFT),  GetKeyState(VK_SHIFT)&0x8000? BST_CHECKED: BST_UNCHECKED);
+            Button_SetCheck(GetDlgItem(phwnd, IDC_CONTROL),GetKeyState(VK_CONTROL)&0x8000? BST_CHECKED: BST_UNCHECKED);
+            Button_SetCheck(GetDlgItem(phwnd, IDC_WINKEY), GetKeyState(VK_LWIN)&0x8000||GetKeyState(VK_RWIN)&0x8000? BST_CHECKED: BST_UNCHECKED);
+            Button_SetCheck(GetDlgItem(phwnd, IDC_ALT),    GetKeyState(VK_MENU)&0x8000? BST_CHECKED: BST_UNCHECKED);
+        }
+    case WM_LBUTTONDOWN:
+    case WM_HOTKEY:
+    case WM_KILLFOCUS:
+        DestroyWindow(hwnd);
+    case WM_DESTROY: {
+        HWND phwnd = GetParent(hwnd);
+        Button_Enable(GetDlgItem(phwnd, IDC_SHORTCUTS_PICK), 1);
+        EnumChildWindows(phwnd, EnableAllControlsProc, 1);
+        NMHDR lpn;
+        lpn.code = PSN_SETACTIVE;
+        SendMessage(phwnd, WM_NOTIFY, 0, (LPARAM)&lpn);
+        EnableWindow(GetDlgItem(phwnd, IDC_SHORTCUTS_SET), TRUE);
+
+    } break;
+    default:
+        return DefWindowProc(hwnd, msg, wp, lp);
+    }
+    return 0;
+}
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     static int have_to_apply = 0;
+    static int edit_shortcut_idx = 0;
     // Hotkeys
     static const struct hk_struct hotkeys[] = {
         { IDC_LEFTALT,     VK_LMENU    },
@@ -878,6 +933,31 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {L"MinAllOther", l10n->input_actions_minallother},
         {L"Menu",        l10n->input_actions_menu},
         {L"Nothing",     l10n->input_actions_nothing},
+        {NULL, NULL}
+    };
+    struct actiondl kbshortcut_actions[] = {
+        {L"",           l10n->input_actions_nothing},
+//        {L"Close",       l10n->input_actions_close},
+        {L"Kill",        l10n->input_actions_kill},
+        {L"Pause",       l10n->input_actions_pause},
+        {L"Resume",      l10n->input_actions_resume},
+        {L"Minimize",    l10n->input_actions_minimize},
+        {L"Maximize",    l10n->input_actions_maximize},
+        {L"Lower",       l10n->input_actions_lower},
+        {L"NStacked",    l10n->input_actions_nstacked},
+        {L"NStacked2",   l10n->input_actions_nstacked2},
+        {L"PStacked",    l10n->input_actions_pstacked},
+        {L"PStacked2",   l10n->input_actions_pstacked2},
+        {L"StackList",   l10n->input_actions_stacklist},
+        {L"Roll",        l10n->input_actions_roll},
+        {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
+        {L"Borderless",  l10n->input_actions_borderless},
+        {L"Center",      l10n->input_actions_center},
+        {L"MaximizeHV",  l10n->input_actions_maximizehv},
+        {L"SideSnap",    l10n->input_actions_sidesnap},
+        {L"MinAllOther", l10n->input_actions_minallother},
+        {L"Mute",        l10n->input_actions_mute},
+        {L"Menu",        l10n->input_actions_menu},
         {NULL, NULL}
     };
     // Hotkeys
@@ -909,6 +989,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
     };
 
     if (msg == WM_INITDIALOG) {
+        edit_shortcut_idx = 0;
         ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
         // Agressive Pause
         CheckConfigHotKeys(hotkeys, hwnd, L"Hotkeys", L"A4 A5");
@@ -920,10 +1001,99 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 
     } else if (msg == WM_COMMAND) {
         int event = HIWORD(wParam);
-        if (event == 0 || event == CBN_SELCHANGE) {
+        int id = LOWORD(wParam);
+        if (id == IDC_ALT ||  id == IDC_WINKEY || id == IDC_CONTROL || id == IDC_SHIFT) {
+            Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 1);
+        } else if (event == EN_UPDATE && id == IDC_SHORTCUTS_VK) {
+            wchar_t txt[4];
+            Edit_GetText(GetDlgItem(hwnd, IDC_SHORTCUTS_VK), txt, 3);
+            BYTE vKey = whex2u(txt);
+            wchar_t keyname[32]; keyname[0] = L'\0';
+            GetKeyNameText(MapVirtualKey(vKey, 0)<<16, keyname, ARR_SZ(keyname)-8);
+            SetDlgItemText(hwnd, IDC_SHORTCUTS, keyname);
+
+            Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 1);
+        } else if (event == EN_UPDATE || event == CBN_SELCHANGE) {
             PropSheet_Changed(g_cfgwnd, hwnd);
             have_to_apply = 1;
         }
+
+        // KEYBOARD SHORTCUTS HANDLING
+        // READ Keyboard Shortcut
+        if (id == IDC_SHORTCUTS_AC && event == CBN_SELCHANGE) {
+            // Update the shortcut with the current one.
+            int i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_SHORTCUTS_AC));
+            edit_shortcut_idx = i;
+            WORD shortcut= GetPrivateProfileInt(L"KBShortcuts", kbshortcut_actions[i].action, 0, inipath);
+            BYTE vKey = LOBYTE(shortcut);
+            BYTE mod = HIBYTE(shortcut);
+            wchar_t txt[8];
+            SetDlgItemText(hwnd, IDC_SHORTCUTS_VK, _itow(vKey, txt, 16));
+
+            Button_SetCheck(GetDlgItem(hwnd, IDC_CONTROL),(mod&MOD_CONTROL)? BST_CHECKED: BST_UNCHECKED);
+            Button_SetCheck(GetDlgItem(hwnd, IDC_SHIFT),  (mod&MOD_SHIFT)? BST_CHECKED: BST_UNCHECKED);
+            Button_SetCheck(GetDlgItem(hwnd, IDC_WINKEY), (mod&MOD_WIN)? BST_CHECKED: BST_UNCHECKED);
+            Button_SetCheck(GetDlgItem(hwnd, IDC_ALT),    (mod&MOD_ALT)? BST_CHECKED: BST_UNCHECKED);
+            Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 0);
+        }
+        // WRITE Current Keyboard Shortcut
+        if (id == IDC_SHORTCUTS_SET) {
+            wchar_t txt[8];
+            // MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
+            Edit_GetText(GetDlgItem(hwnd, IDC_SHORTCUTS_VK), txt, 3);
+            BYTE vKey = whex2u(txt);
+            BYTE mod =  IsChecked(IDC_ALT)
+                     | (IsChecked(IDC_CONTROL)<<1)
+                     | (IsChecked(IDC_SHIFT)<<2)
+                     | (IsChecked(IDC_WINKEY)<<3);
+            WORD shortcut = vKey | (mod << 8);
+            int i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_SHORTCUTS_AC));
+            if (kbshortcut_actions[i].action && kbshortcut_actions[i].action[0] != '\0')
+                WritePrivateProfileString(L"KBShortcuts", kbshortcut_actions[i].action, _itow(shortcut, txt, 10), inipath);
+            Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 0);
+        }
+        if (id == IDC_SHORTCUTS_PICK) {
+            HWND pickhwnd;
+            WNDCLASSEX wnd;
+            if (!GetClassInfoEx(g_hinst, APP_NAME"-PickShortcut", &wnd)) {
+                WNDCLASSEX wndd = {
+                    sizeof(WNDCLASSEX)
+                  , CS_PARENTDC
+                  , PickShortcutWinProc
+                  , 0, 0, g_hinst
+                  , NULL //LoadIconA(g_hinst, iconstr[1])
+                  , NULL //LoadCursor(NULL, IDC_ARROW)
+                  , NULL //(HBRUSH)(COLOR_HIGHLIGHT+1)
+                  , NULL, APP_NAME"-PickShortcut", NULL
+                };
+                RegisterClassEx(&wndd);
+            }
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            pickhwnd = CreateWindowEx(WS_EX_TOPMOST
+                 , APP_NAME"-PickShortcut", NULL
+                 , WS_CHILD|WS_VISIBLE
+                 , rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top
+                 , hwnd , NULL, g_hinst, NULL);
+            // Disable all other child windows
+            EnumChildWindows(hwnd, EnableAllControlsProc, 0);
+            EnableWindow(pickhwnd, TRUE);
+            SetFocus(pickhwnd);
+            SetActiveWindow(pickhwnd);
+            SetForegroundWindow(pickhwnd);
+            Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_PICK), 0);
+            UpdateSettings(); // Also here...
+        }
+        if (id == IDC_SHORTCUTS_CLEAR) {
+
+            Button_SetCheck(GetDlgItem(hwnd, IDC_SHIFT), BST_UNCHECKED);
+            Button_SetCheck(GetDlgItem(hwnd, IDC_CONTROL), BST_UNCHECKED);
+            Button_SetCheck(GetDlgItem(hwnd, IDC_WINKEY),BST_UNCHECKED);
+            Button_SetCheck(GetDlgItem(hwnd, IDC_ALT),   BST_UNCHECKED);
+            SetDlgItemText(hwnd, IDC_SHORTCUTS_VK, L"");
+            Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 1);
+        }
+
     } else if (msg == WM_NOTIFY) {
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
@@ -936,6 +1106,9 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 
             FillActionDropListS(hwnd, IDC_GRABWITHALT, L"GrabWithAlt", kb_actions);
             FillActionDropListS(hwnd, IDC_GRABWITHALTB, L"GrabWithAltB", kb_actions);
+            FillActionDropListS(hwnd, IDC_SHORTCUTS_AC, NULL, kbshortcut_actions);
+            ComboBox_SetCurSel(GetDlgItem(hwnd, IDC_SHORTCUTS_AC), edit_shortcut_idx);
+            Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 0);
 
             // ModKey init
             HWND control = GetDlgItem(hwnd, IDC_MODKEY);
@@ -959,13 +1132,19 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             // Update text
             const struct dialogstring strlst[] = {
                 { IDC_KEYBOARD_BOX,    l10n->tab_keyboard},
-                { IDC_AGGRESSIVEPAUSE, l10n->input_aggressive_pause},
-                { IDC_AGGRESSIVEKILL,  l10n->input_aggressive_kill},
+//                { IDC_AGGRESSIVEPAUSE, l10n->input_aggressive_pause},
+//                { IDC_AGGRESSIVEKILL,  l10n->input_aggressive_kill},
                 { IDC_SCROLLLOCKSTATE, l10n->input_scrolllockstate},
                 { IDC_UNIKEYHOLDMENU,  l10n->input_unikeyholdmenu},
-                { IDC_NPSTACKED,       l10n->input_npstacked},
+//                { IDC_NPSTACKED,       l10n->input_npstacked},
                 { IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box},
                 { IDC_MODKEY_H,        l10n->input_hotkeys_modkey},
+
+                { IDC_SHIFT,           l10n->input_hotkeys_shift},
+                { IDC_CONTROL,         l10n->input_hotkeys_ctrl},
+                { IDC_WINKEY,          l10n->input_hotkeys_winkey},
+                { IDC_ALT,             l10n->input_hotkeys_alt},
+
                 { IDC_LEFTALT,         l10n->input_hotkeys_leftalt},
                 { IDC_RIGHTALT,        l10n->input_hotkeys_rightalt},
                 { IDC_LEFTWINKEY,      l10n->input_hotkeys_leftwinkey},
@@ -1201,13 +1380,16 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_KEYUP:
     case WM_SYSKEYUP:
     case WM_SYSKEYDOWN: {
-        wchar_t txt[10];
+        wchar_t txt[32];
         wcscpy(lastkey, L"vKey = ");
         wcscat(lastkey, _itow(wParam, txt, 16));
         wcscat(lastkey, L", sCode = ");
         wcscat(lastkey, _itow(HIWORD(lParam)&0x00FF, txt, 16));
         wcscat(lastkey, L", Data = " );
         wcscat(lastkey, _itow(lParam, txt, 16));
+        txt[0] = L','; txt[1] = L' ';
+        GetKeyNameText(lParam, txt+2, ARR_SZ(txt)-2);
+        wcscat(lastkey, txt);
         RECT crc;
         GetClientRect(hwnd, &crc);
         long splitheight = crc.bottom-GetSystemMetrics(SM_CYCAPTION);
@@ -1307,19 +1489,19 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 static HWND NewTestWindow()
 {
-    static char registered=0;
     HWND testwnd;
-    if (!registered) {
-	    WNDCLASSEX wnd = {
-	        sizeof(WNDCLASSEX)
-	      , CS_HREDRAW|CS_VREDRAW|CS_BYTEALIGNCLIENT
-	      , TestWindowProc
-	      , 0, 0, g_hinst, LoadIconA(g_hinst, iconstr[1])
-	      , LoadCursor(NULL, IDC_ARROW)
-	      , (HBRUSH)(COLOR_BACKGROUND+1)
-	      , NULL, APP_NAME"-Test", NULL
-	    };
-	    registered=!!RegisterClassEx(&wnd);
+    WNDCLASSEX wnd;
+    if (!GetClassInfoEx(g_hinst, APP_NAME"-Test", &wnd)) {
+        WNDCLASSEX wndd = {
+            sizeof(WNDCLASSEX)
+          , CS_HREDRAW|CS_VREDRAW|CS_BYTEALIGNCLIENT
+          , TestWindowProc
+          , 0, 0, g_hinst, LoadIconA(g_hinst, iconstr[1])
+          , LoadCursor(NULL, IDC_ARROW)
+          , (HBRUSH)(COLOR_BACKGROUND+1)
+          , NULL, APP_NAME"-Test", NULL
+        };
+        RegisterClassEx(&wndd);
     }
     wchar_t wintitle[256];
     wcscpy_noaccel(wintitle, l10n->advanced_testwindow, ARR_SZ(wintitle));

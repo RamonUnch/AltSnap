@@ -126,3 +126,61 @@ static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *heig
     *width = rc.right - rc.left;
     *height = rc.bottom - rc.top;
 }
+//static void MoveWindowToTouchingZonePT(HWND hwnd)
+//{
+//    RECT rc;
+//    GetWindowRect(hwnd, &rc);
+//    SetEdgeAndOffset(&rc, state.prevpt); // state.resize.x/y & state.offset.x/y
+//    direction1 =
+//}
+static void SetOriginFromRestoreData(HWND hnwd, enum action action);
+static HMONITOR GetMonitorInfoFromWin(HWND hwnd, MONITORINFO *mi);
+static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
+{
+    if(!(conf.UseZones&1) || state.mdiclient || !state.resizable) // Zones disabled
+        return;
+
+    SetOriginFromRestoreData(hwnd, AC_MOVE);
+    // 1st get current window position.
+    RECT rc;
+    GetWindowRectL(hwnd, &rc);
+    POINT pt;
+    int offset = Iabs(conf.InterZone)+16;
+
+    if        (direction == 0) { // LEFT
+        pt.x = rc.left - offset; // Mid Left segment
+        pt.y = (rc.top+rc.bottom)/2;
+    } else if (direction == 1) { // TOP
+        pt.x = (rc.right+rc.left)/2; // Mid Top segment
+        pt.y = rc.top - offset;
+    } else if (direction == 2) { // RIGHT
+        pt.x = rc.right + offset; // Mid Right segment
+        pt.y = (rc.top+rc.bottom)/2;
+    } else if (direction == 3) { // BOTTOM
+        pt.x = (rc.right+rc.left)/2; // Mid Bottom segment
+        pt.y = rc.bottom + offset;
+    }
+    // Clamp point inside monitor
+    MONITORINFO mi;
+    GetMonitorInfoFromWin(hwnd, &mi);
+    ClampPointInRect(&mi.rcWork, &pt);
+
+    RECT zrc;
+    unsigned ret = GetZoneFromPoint(pt, &zrc);
+    if (!ret) return; // Outside of a rect
+
+    RECT fr; // final rect...
+    if (extend) { // extend the zone instead.
+        UnionRect(&fr, &rc, &zrc); // Union of original and new rect
+    } else {
+        CopyRect(&fr, &zrc);
+    }
+    LastWin.end = 0;
+    LastWin.moveonly = 0; // We are resizing the window.
+    RECT bd;
+    FixDWMRect(hwnd, &bd);
+    InflateRectBorder(&fr, &bd);
+
+    SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED|SNZONE);
+    MoveWindowAsync(hwnd, fr.left, fr.top, CLAMPW(fr.right-fr.left), CLAMPH(fr.bottom-fr.top));
+}

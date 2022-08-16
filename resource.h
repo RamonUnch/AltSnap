@@ -173,3 +173,15 @@
 #define IDC_SNAPGAP_H                   2092
 #define IDC_NPSTACKED                   2093
 #define IDC_TOPMOSTINDICATOR            2094
+
+#define IDC_SHORTCUTS                   2095
+#define IDC_SHORTCUTS_H                 2096
+#define IDC_SHORTCUTS_AC                2097
+#define IDC_SHORTCUTS_SET               2098
+#define IDC_SHORTCUTS_PICK              2099
+#define IDC_ALT                         2100
+#define IDC_WINKEY                      2101
+#define IDC_CONTROL                     2102
+#define IDC_SHIFT                       2103
+#define IDC_SHORTCUTS_VK                2104
+#define IDC_SHORTCUTS_CLEAR             2105

@@ -101,11 +101,11 @@ struct strings {
   wchar_t *input_mouse_mb5_hc;
   wchar_t *input_mouse_longclickmove;
 
-  wchar_t *input_aggressive_pause;
-  wchar_t *input_aggressive_kill;
+//  wchar_t *input_aggressive_pause;
+//  wchar_t *input_aggressive_kill;
   wchar_t *input_scrolllockstate;
   wchar_t *input_unikeyholdmenu;
-  wchar_t *input_npstacked;
+//  wchar_t *input_npstacked;
   wchar_t *input_keycombo;
   wchar_t *input_grabwithalt;
   wchar_t *input_grabwithaltb;
@@ -115,11 +115,15 @@ struct strings {
   wchar_t *input_actions_resize;
   wchar_t *input_actions_close;
   wchar_t *input_actions_kill;
+  wchar_t *input_actions_pause;
+  wchar_t *input_actions_resume;
   wchar_t *input_actions_minimize;
   wchar_t *input_actions_maximize;
   wchar_t *input_actions_lower;
   wchar_t *input_actions_nstacked;
+  wchar_t *input_actions_nstacked2;
   wchar_t *input_actions_pstacked;
+  wchar_t *input_actions_pstacked2;
   wchar_t *input_actions_npstacked;
   wchar_t *input_actions_stacklist;
   wchar_t *input_actions_roll;
@@ -144,10 +148,16 @@ struct strings {
   wchar_t *input_hotkeys_modkey;
   wchar_t *input_hotclicks_box;
   wchar_t *input_hotclicks_more;
+
   wchar_t *input_hotkeys_alt;
   wchar_t *input_hotkeys_winkey;
   wchar_t *input_hotkeys_ctrl;
   wchar_t *input_hotkeys_shift;
+  wchar_t *input_hotkeys_shortcuts;
+  wchar_t *input_hotkeys_shortcutspick;
+  wchar_t *input_hotkeys_shortcutsclear;
+  wchar_t *input_hotkeys_shortcutset;
+
   wchar_t *input_hotkeys_leftalt;
   wchar_t *input_hotkeys_rightalt;
   wchar_t *input_hotkeys_leftwinkey;
@@ -285,11 +295,11 @@ static const char* l10n_inimapping[] = {
     "InputMouseMB5HC",
     "InputMouseLongClickMove",
 
-    "InputAggressivePause",
-    "InputAggressiveKill",
+//    "InputAggressivePause",
+//    "InputAggressiveKill",
     "InputScrollLockState",
     "InputUniKeyHoldMenu",
-    "InputNPStacked",
+//    "InputNPStacked",
     "InputKeyCombo",
     "InputGrabWithAlt",
     "InputGrabWithAltB",
@@ -298,11 +308,15 @@ static const char* l10n_inimapping[] = {
     "InputActionResize",
     "InputActionClose",
     "InputActionKill",
+    "InputActionPause",
+    "InputActionResume",
     "InputActionMinimize",
     "InputActionMaximize",
     "InputActionLower",
     "InputActionNStacked",
+    "InputActionNStacked2",
     "InputActionPStacked",
+    "InputActionPStacked2",
     "InputActionStackList",
     "InputActionNPStacked",
     "InputActionRoll",
@@ -330,6 +344,10 @@ static const char* l10n_inimapping[] = {
     "InputHotkeysWinkey",
     "InputHotkeysCtrl",
     "InputHotkeysShift",
+    "InputHotkeysShortcuts",    
+    "InputHotkeysShortcutsPick",    
+    "InputHotkeysShortcutsClear",    
+    "InputHotkeysShortcutsSet",    
     "InputHotkeysLeftAlt",
     "InputHotkeysRightAlt",
     "InputHotkeysLeftWinkey",
@@ -473,11 +491,11 @@ static const struct strings en_US = {
  /* mb5_hc             */ L"Mo&use button 5",
  /* longclickmove      */ L"Mo&ve windows with a long left-click",
 
- /* Aggressive Pause   */ L"&Pause process on Alt+Shift+Pause (Alt+Pause to resume)",
- /* Aggressive Kill    */ L"&Kill process on Ctrl+Alt+F4\nAlso adds the kill option to the action menu",
+// /* Aggressive Pause   */ L"&Pause process on Alt+Shift+Pause (Alt+Pause to resume)",
+// /* Aggressive Kill    */ L"&Kill process on Ctrl+Alt+F4\nAlso adds the kill option to the action menu",
  /* scroll lock state  */ L"Suspend/Resume AltSnap based on &Scroll lock state",
  /* unikeyholdmenu     */ L"Pop&up an extended character menu when holding an alphabetic key down",
- /* npsnaped           */ L"Select the &next/previous window in the pointed windows stack with Alt+Page up/down",
+// /* npsnaped           */ L"Select the &next/previous window in the pointed windows stack with Alt+Page up/down",
  /* keycombo           */ L"Use two keys &combo to activate",
  /* grabwithalt        */ L"&Action without click:",
  /* grabwithaltb       */ L"Acti&on without click (alt):",
@@ -487,11 +505,15 @@ static const struct strings en_US = {
  /* resize             */ L"Resize window",
  /* close              */ L"&Close window",
  /* kill               */ L"&Kill program",
+ /* pause              */ L"Pause program",
+ /* resume             */ L"Resume program",
  /* minimize           */ L"Mi&nimize window",
  /* maximize           */ L"Ma&ximize window",
  /* lower              */ L"&Lower window",
- /* nstack             */ L"Next stacked window",
- /* pstack             */ L"Previous stacked window",
+ /* nstacked           */ L"Next stacked window",
+ /* nstacked           */ L"Next stacked window 2",
+ /* pstacked           */ L"Previous stacked window",
+ /* pstacked           */ L"Previous stacked window 2",
  /* npstacked          */ L"Next/Prev stacked window",
  /* stacklist          */ L"Stacked windows list",
  /* roll               */ L"&Roll/Unroll window",
@@ -520,6 +542,10 @@ static const struct strings en_US = {
  /* winkey             */ L"Winkey",
  /* ctrl               */ L"Ctrl",
  /* shift              */ L"Shift",
+ /* shortcuts          */ L"S&hortcut for action:",
+ /* shortcutspick      */ L"Pick &keys",
+ /* shortcutsClear     */ L"Clear ke&ys",
+ /* shortcutsSet       */ L"Sa&ve",
  /* leftalt            */ L"L&eft Alt",
  /* rightalt           */ L"&Right Alt",
  /* leftwinkey         */ L"Left &Winkey",

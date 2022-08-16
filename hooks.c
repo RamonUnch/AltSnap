@@ -21,9 +21,10 @@ static LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 
 #define STACK 0x1000
 
-HWND g_transhwnd[4]; // 4 windows to make a hollow window
-HWND g_timerhwnd;    // For various timers
-HWND g_mchwnd;       // For the Action menu messages
+static HWND g_transhwnd[4]; // 4 windows to make a hollow window
+static HWND g_timerhwnd;    // For various timers
+static HWND g_mchwnd;       // For the Action menu messages
+static HWND g_hkhwnd;       // For the hotkeys message window.
 
 static void UnhookMouse();
 static void HookMouse();
@@ -39,7 +40,7 @@ enum button { BT_NONE=0, BT_LMB=0x02, BT_RMB=0x03, BT_MMB=0x04, BT_MB4=0x05
 enum resize { RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER };
 enum buttonstate {STATE_NONE, STATE_DOWN, STATE_UP};
 
-static int init_movement_and_actions(POINT pt, enum action action, int button);
+static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, int button);
 static void FinishMovement();
 static void MoveTransWin(int x, int y, int w, int h);
 
@@ -123,59 +124,40 @@ unsigned numhwnds = 0;
 // Settings
 #define MAXKEYS 15
 static struct config {
-    DWORD BLCapButtons;
-    DWORD BLUpperBorder;
-    int PinColor;
-
     UCHAR AutoFocus;
     UCHAR AutoSnap;
     UCHAR AutoRemaximize;
     UCHAR Aero;
-
     UCHAR MDI;
     UCHAR InactiveScroll;
     UCHAR TTBActions;
     UCHAR ResizeCenter;
-
     UCHAR MoveRate;
     UCHAR ResizeRate;
     UCHAR SnapThreshold;
     UCHAR AeroThreshold;
-
     UCHAR AVoff;
     UCHAR AHoff;
     UCHAR FullWin;
     UCHAR ResizeAll;
-
-    UCHAR AggressivePause;
     UCHAR AeroTopMaximizes;
     UCHAR UseCursor;
     UCHAR CenterFraction;
-
     UCHAR RefreshRate;
     UCHAR MMMaximize;
     UCHAR MinAlpha;
     UCHAR MoveTrans;
-
-    char AlphaDelta;
-    char AlphaDeltaShift;
-    WORD AeroMaxSpeed;
-
+    UCHAR StickyResize;
     UCHAR keepMousehook;
     UCHAR KeyCombo;
     UCHAR FullScreen;
-    UCHAR AggressiveKill;
-
     UCHAR SmartAero;
-    UCHAR StickyResize;
-    UCHAR ScrollLockState;
     UCHAR ShiftSnaps;
-
     UCHAR BLMaximized;
+    UCHAR ScrollLockState;
     UCHAR LongClickMove;
     UCHAR UniKeyHoldMenu;
     UCHAR TransWinOpacity;
-
   # ifdef WIN64
     UCHAR FancyZone;
   #endif
@@ -183,16 +165,20 @@ static struct config {
     char InterZone;
     char SnapGap;
     UCHAR PiercingClick;
-
     UCHAR AeroSpeedTau;
     UCHAR RezTimer;
     UCHAR DragSendsAltCtrl;
     UCHAR ZoomFrac;
-
     UCHAR ZoomFracShift;
-    UCHAR NPStacked;
     UCHAR TopmostIndicator;
     UCHAR PinRate;
+
+    char AlphaDelta;
+    char AlphaDeltaShift;
+    WORD AeroMaxSpeed;
+    DWORD BLCapButtons;
+    DWORD BLUpperBorder;
+    int PinColor;
 
     UCHAR Hotkeys[MAXKEYS+1];
     UCHAR Shiftkeys[MAXKEYS+1];
@@ -1082,9 +1068,10 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
     lw->end = 0;
 }
 
+/* MOVEASYNC |SWP_DEFERERASE ??*/
 #define RESIZEFLAG        SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE
 #define MOVETHICKBORDERS  SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE
-#define MOVEASYNC         SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS|SWP_DEFERERASE
+#define MOVEASYNC         SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS
 static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
     struct windowRR *lw = (struct windowRR *)LastWinV;
@@ -1391,19 +1378,6 @@ static enum action GetActionT(const enum button button)
     }
 }
 
-///////////////////////////////////////////////////////////////////////////
-// Check if key is assigned in the HKlist
-static int pure IsHotkeyy(unsigned char key, const UCHAR *HKlist)
-{
-    const UCHAR *pos=&HKlist[0];
-    while (*pos) {
-        if (key == *pos) {
-            return 1;
-        }
-        pos++;
-    }
-    return 0;
-}
 #define IsHotkey(a)   IsHotkeyy(a, conf.Hotkeys)
 #define IsHotclick(a) IsHotkeyy(a, conf.Hotclick)
 static int pure IsKillkey(unsigned char a)
@@ -2153,7 +2127,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 if (action) {
                     state.blockmouseup = 0; // In case.
                     GetCursorPos(&pt);
-                    if (!init_movement_and_actions(pt, action, vkey)) {
+                    if (!init_movement_and_actions(pt, NULL, action, vkey)) {
                         UnhookMouse();
                     }
                     state.blockmouseup = 0; // In case.
@@ -2210,32 +2184,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 // Block ESC if an action was ongoing
                 if (action) return 1;
             }
-
-        } else if (conf.AggressivePause && vkey == VK_PAUSE && (GetAsyncKeyState(VK_MENU)&0x8000)) {
-            HWND hwnd = GetForegroundWindow();
-            if (ActionPause(hwnd, !!(GetAsyncKeyState(VK_LSHIFT)&0x8000))) return 1;
-        } else if (conf.AggressiveKill && vkey == VK_F4
-        && (GetAsyncKeyState(VK_LCONTROL)&0x8000) && (GetAsyncKeyState(VK_LMENU)&0x8000)) {
-            // Kill on LCtrl+LAlt+F4
-            HWND hwnd = GetForegroundWindow();
-            if(ActionKill(hwnd)) return 1;
-        } else if (conf.NPStacked && (vkey == VK_PRIOR || vkey == VK_NEXT) && (GetAsyncKeyState(VK_MENU)&0x8000)) {
-            POINT pt;
-            GetCursorPos(&pt);
-            /*
-            HWND hwnd = GetForegroundWindow();
-            RECT rc;
-            GetWindowRect(hwnd, &rc);
-            if (!PtInRect(&rc, pt)) {
-                // If the ursor
-                pt.x = (rc.left+rc.right)/2;
-                pt.y = (rc.bottom+rc.top)/2;
-            } */
-            int ret = init_movement_and_actions(pt, VK_PRIOR?AC_NSTACKED:AC_PSTACKED, 0);
-            state.blockmouseup = 0; // Do not block mouseup!
-            if (ret) return 1;
-
-
         } else if (!state.ctrl && state.alt!=vkey && !IsModKey(vkey)/*vkey != conf.ModKey*/
                && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
             RestrictToCurentMonitor();
@@ -2248,8 +2196,6 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             // Block Alt down when the altsnap's menu just opened
             if (IsWindow(state.sclickhwnd)  && IsWindow(g_mchwnd) && IsMenu(state.unikeymenu))
                 return 1;
-
-
         } else if ((xxbtidx = XXButtonIndex(vkey)) >=0
         && (GetAction(BT_MMB+xxbtidx) ||  GetActionT(BT_MMB+xxbtidx))) {
             if (!state.xxbutton) {
@@ -3189,13 +3135,16 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         return 0;
     } break;
     case WM_PAINT : {
-        PAINTSTRUCT ps;
-        RECT cr;
-        GetClientRect(hwnd, &cr);
-        BeginPaint(hwnd, &ps);
-        SetBkMode(ps.hdc, TRANSPARENT);
-        DrawTextW(ps.hdc, L"T", 1, &cr, DT_VCENTER|DT_CENTER|DT_SINGLELINE);
-        EndPaint(hwnd, &ps);
+        wchar_t Topchar = HIBYTE(HIWORD(conf.PinColor&0xFF000000));
+        if (Topchar) {
+	        PAINTSTRUCT ps;
+	        RECT cr;
+	        GetClientRect(hwnd, &cr);
+	        BeginPaint(hwnd, &ps);
+	        SetBkMode(ps.hdc, TRANSPARENT);
+	        DrawTextW(ps.hdc, &Topchar, 1, &cr, DT_VCENTER|DT_CENTER|DT_SINGLELINE);
+	        EndPaint(hwnd, &ps);
+      }
     } break;
     case WM_LBUTTONDOWN: {
         DestroyWindow(hwnd);
@@ -3217,7 +3166,7 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         KillTimer(hwnd, 1);
         // Remove topmost flag if the pin gets destroyed.
         HWND ow;
-        if((ow=GetWindow(hwnd, GW_OWNER)) 
+        if((ow=GetWindow(hwnd, GW_OWNER))
         && (GetWindowLongPtr(ow, GWL_EXSTYLE)&WS_EX_TOPMOST) )
             SetWindowLevel(ow, HWND_NOTOPMOST);
     } break;
@@ -3236,7 +3185,7 @@ static HWND CreatePinWindow()
         wnd.cbWndExtra = sizeof(void*);
         wnd.hInstance = hinstDLL;
         wnd.hCursor = LoadCursor(NULL, IDC_ARROW);
-        wnd.hbrBackground = CreateSolidBrush(conf.PinColor); //(HBRUSH)(COLOR_HIGHLIGHTTEXT+1);
+        wnd.hbrBackground = CreateSolidBrush(conf.PinColor&0x00FFFFFF);
         wnd.lpszClassName =  APP_NAME"-Pin";
         RegisterClassEx(&wnd);
     }
@@ -3357,7 +3306,7 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
 
 // Make a menu filled with the windows that are enumed through EnumProc
 // And Track it!!!!
-static void TrackMenuOfWindows(HWND menuhwnd, WNDENUMPROC EnumProc) 
+static void TrackMenuOfWindows(HWND menuhwnd, WNDENUMPROC EnumProc)
 {
     numhwnds = 0;
     HWND mdiclient = state.mdiclient;
@@ -3420,7 +3369,7 @@ static void ActionMenu(HWND hwnd)
     ReallySetForegroundWindow(g_mainhwnd);
     PostMessage(
         g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd,
-         conf.AggressiveKill                                     // LP_AGGRKILL
+         1 /*conf.AggressiveKill*/                               // LP_AGGRKILL
        | !!(GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST)<<1 // LP_TOPMOST
        | !!GetBorderlessFlag(hwnd) << 2                        // LP_BORDERLESS
        | IsZoomed(hwnd) << 3                                    // LP_MAXIMIZED
@@ -3439,6 +3388,8 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_LOWER)       ActionLower(hwnd, 0, state.shift);
     else if (action==AC_BORDERLESS)  ActionBorderless(hwnd);
     else if (action==AC_KILL)        ActionKill(hwnd);
+    else if (action==AC_PAUSE)       ActionPause(hwnd, 1);
+    else if (action==AC_RESUME)      ActionPause(hwnd, 0);
     else if (action==AC_ROLL)        RollWindow(hwnd, 0);
     else if (action==AC_MAXHV)       MaximizeHV(hwnd, state.shift);
     else if (action==AC_MINALL)      MinimizeAllOtherWindows(hwnd, state.shift);
@@ -3446,7 +3397,9 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_SIDESNAP)    SnapToCorner(hwnd);
     else if (action==AC_MENU)        ActionMenu(hwnd);
     else if (action==AC_NSTACKED)    ActionAltTab(state.prevpt, +1, EnumStackedWindowsProc);
+    else if (action==AC_NSTACKED2)   {state.shift = 1; ActionAltTab(state.prevpt, +1, EnumStackedWindowsProc); state.shift = 0;}
     else if (action==AC_PSTACKED)    ActionAltTab(state.prevpt, -1, EnumStackedWindowsProc);
+    else if (action==AC_PSTACKED2)   { state.shift = 1; ActionAltTab(state.prevpt, -1, EnumStackedWindowsProc); state.shift = 0;}
     else if (action==AC_STACKLIST)   ActionStackList();
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -3497,7 +3450,7 @@ static DWORD WINAPI SendAltCtrlAlt(LPVOID p)
 }
 /////////////////////////////////////////////////////////////////////////////
 // If the action is AC_NONE it will tell us if we pass the blacklist.
-static int init_movement_and_actions(POINT pt, enum action action, int button)
+static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, int button)
 {
     RECT wnd;
     state.prevpt = pt; // in case
@@ -3506,10 +3459,11 @@ static int init_movement_and_actions(POINT pt, enum action action, int button)
     HideCursor();
     KillAltSnapMenu();
 
-    // Get window
-    state.mdiclient = NULL;
-    state.hwnd = WindowFromPoint(pt);
+    // Get window from point or use the given one.
+    state.hwnd = hwnd? hwnd: WindowFromPoint(pt);
+
     // Get MDI chlild hwnd or root hwnd if not MDI!
+    state.mdiclient = NULL;
     state.hwnd = MDIorNOT(state.hwnd, &state.mdiclient);
 
     if (!state.hwnd || state.hwnd == LastWin.hwnd) {
@@ -3672,7 +3626,7 @@ static int TitleBarActions(POINT pt, enum action action, enum button button)
     state.hittest = 0; // Cursor in titlebar?
     if (!conf.TTBActions) return -1; // fall through
     if ((state.hittest = InTitlebar(pt, action, button))) {
-        return init_movement_and_actions(pt, action, button);
+        return init_movement_and_actions(pt, NULL, action, button);
     }
     return -1; // Fall through
 }
@@ -3931,7 +3885,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             return CALLNEXTHOOK; //CallNextHookEx(NULL, nCode, wParam, lParam);
         }
         // Start an action (alt is down)
-        int ret = init_movement_and_actions(pt, action, button);
+        int ret = init_movement_and_actions(pt, NULL, action, button);
         if (!ret) return CALLNEXTHOOK;//CallNextHookEx(NULL, nCode, wParam, lParam);
         else      return 1; // block mousedown
 
@@ -4056,13 +4010,13 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             &&!IsAreaLongClikcable(HitTestTimeoutbl(ptwnd, pt))) {
                 // Determine if we should actually move the Window by probing with AC_NONE
                 state.hittest = 0; // No specific hittest here.
-                int ret = init_movement_and_actions(pt, AC_NONE, 0);
+                int ret = init_movement_and_actions(pt, NULL, AC_NONE, 0);
                 if (ret) { // Release mouse click if we have to move.
                     state.ignoreclick=1;
                     mouse_event(buttonswaped?MOUSEEVENTF_RIGHTUP:MOUSEEVENTF_LEFTUP
                                , 0, 0, 0, GetMessageExtraInfo());
                     state.ignoreclick=0;
-                    init_movement_and_actions(pt, AC_MOVE, 0);
+                    init_movement_and_actions(pt, NULL, AC_MOVE, 0);
                 }
             }
             KillTimer(g_timerhwnd, GRAB_TIMER);
@@ -4109,6 +4063,23 @@ LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
     // LOGA("msg=%X, wParam=%X, lParam=%lX", msg, wParam, lParam);
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
+LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    if (msg == WM_HOTKEY) {
+        int action = wParam - 0xC000; // Remove the Offset
+        if (action > AC_RESIZE) { // Exclude resize action in case...
+            POINT pt;
+            GetCursorPos(&pt);
+            HWND fhwnd = GetForegroundWindow();
+            state.shift = state.ctrl = 0; // In case...
+            init_movement_and_actions(pt, fhwnd, action, 0);
+            state.blockmouseup = 0;
+            return 0;
+        }
+    }
+    return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+
 static void freeblacklists()
 {
     struct blacklist *list = (void *)&BlkLst;
@@ -4123,7 +4094,7 @@ static BOOL WINAPI DestroyPinWindowsProc(HWND hwnd, LPARAM lp)
 {
     if(isClassName(hwnd, APP_NAME"-Pin"))
         DestroyWindow(hwnd);
-    
+
     return TRUE; // Next hwnd
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -4140,11 +4111,18 @@ __declspec(dllexport) void Unload()
         int i;
         for (i=0; i<4; i++) DestroyWindow(g_transhwnd[i]);
     }
+
+    unsigned ac;
+    for(ac=AC_MENU; ac<AC_MAXVALUE; ac++)
+        UnregisterHotKey(g_hkhwnd, 0xC000+ac);
+    DestroyWindow(g_hkhwnd);
+
     EnumWindows(DestroyPinWindowsProc, 0);
     UnregisterClass(APP_NAME"-Timers", hinstDLL);
     UnregisterClass(APP_NAME"-SClick", hinstDLL);
     UnregisterClass(APP_NAME"-Trans",  hinstDLL);
     UnregisterClass(APP_NAME"-Pin",    hinstDLL);
+    UnregisterClass(APP_NAME"-HotKeys",    hinstDLL);
 
     freeblacklists();
 
@@ -4376,13 +4354,13 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
         // [Input]
         {&conf.TTBActions,      L"Input", "TTBActions", 0 },
-        {&conf.AggressivePause, L"Input", "AggressivePause", 0 },
-        {&conf.AggressiveKill,  L"Input", "AggressiveKill", 0 },
+//        {&conf.AggressivePause, L"Input", "AggressivePause", 0 },
+//        {&conf.AggressiveKill,  L"Input", "AggressiveKill", 0 },
         {&conf.KeyCombo,        L"Input", "KeyCombo", 0 },
         {&conf.ScrollLockState, L"Input", "ScrollLockState", 0 },
         {&conf.LongClickMove,   L"Input", "LongClickMove", 0 },
         {&conf.UniKeyHoldMenu,  L"Input", "UniKeyHoldMenu", 0 },
-        {&conf.NPStacked,       L"Input", "NPStacked", 0 },
+//        {&conf.NPStacked,       L"Input", "NPStacked", 0 },
 
         // [Zones]
         {&conf.UseZones,        L"Zones", "UseZones", 0 },
@@ -4416,7 +4394,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     conf.AeroMaxSpeed  = GetPrivateProfileInt(L"Advanced", L"AeroMaxSpeed", 65535, inipath);
     if (conf.TopmostIndicator) {
         int color[4];
-        readhotkeys(inipath, "PinColor",  L"FF FF 00", (UCHAR *)&color[0]);
+        readhotkeys(inipath, "PinColor",  L"FF FF 00 54", (UCHAR *)&color[0]);
         conf.PinColor = color[0];
     }
 
@@ -4508,6 +4486,25 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     if (conf.keepMousehook || conf.AeroMaxSpeed < 65535) {
         g_timerhwnd = KreateMsgWin(TimerWindowProc, APP_NAME"-Timers");
     }
+
+    g_hkhwnd = KreateMsgWin(HotKeysWinProc, APP_NAME"-HotKeys");
+    // MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
+    // RegisterHotKey(g_hkhwnd, 0xC000 + AC_KILL,   MOD_ALT|MOD_CONTROL, VK_F4); // F4=73h
+    // Read All shortcuts in the [KBShortcuts] section.
+    static const char *action_names[] = ACTION_MAP;
+    unsigned ac;
+    for (ac=AC_MENU; ac < ARR_SZ(action_names); ac++) {
+        wchar_t txt[32];
+        str2wide(txt, action_names[ac]);
+        WORD HK = GetPrivateProfileInt(L"KBShortcuts", txt, 0, inipath);
+        if(LOBYTE(HK) && HIBYTE(HK)) {
+            // Lobyte is the virtual key code and hibyte is the mod_key
+            if(!RegisterHotKey(g_hkhwnd, 0xC000 + ac, HIBYTE(HK), LOBYTE(HK))) {
+                LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
+            }
+        }
+    }
+
     // Hook mouse if a permanent hook is needed
     if (conf.keepMousehook) {
         HookMouse();

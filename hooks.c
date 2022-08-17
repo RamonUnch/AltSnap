@@ -28,6 +28,7 @@ static HWND g_hkhwnd;       // For the hotkeys message window.
 
 static void UnhookMouse();
 static void HookMouse();
+static void UnhookMouseOnly();
 static HWND KreateMsgWin(WNDPROC proc, wchar_t *name);
 
 // Enumerators
@@ -171,6 +172,7 @@ static struct config {
     UCHAR ZoomFracShift;
     UCHAR TopmostIndicator;
     UCHAR PinRate;
+    UCHAR NumberMenuItems;
 
     char AlphaDelta;
     char AlphaDeltaShift;
@@ -1046,6 +1048,19 @@ static void MaximizeRestore_atpt(HWND hwnd, UINT sw_cmd)
                       , mi.rcMonitor.right-mi.rcMonitor.left
                       , mi.rcMonitor.bottom-mi.rcMonitor.top);
     }
+}
+static void RestoreWindowToRect(HWND hwnd, const RECT *rc)
+{
+    WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
+    GetWindowPlacement(hwnd, &wndpl);
+    wndpl.showCmd = SW_RESTORE;
+    CopyRect(&wndpl.rcNormalPosition, rc);
+    SetWindowPlacement(hwnd, &wndpl);
+}
+static void RestoreWindowTo(HWND hwnd, int x, int y, int w, int h)
+{
+    RECT rc = {x, y, x+w, y+h };
+    RestoreWindowToRect(hwnd, &rc);
 }
 /////////////////////////////////////////////////////////////////////////////
 // Move the windows in a thread in case it is very slow to resize
@@ -2933,8 +2948,10 @@ static void SnapToCorner(HWND hwnd)
         posx -= bd.left; posy -= bd.top;
         wndwidth += bd.left+bd.right; wndheight += bd.top+bd.bottom;
     }
-    if (IsZoomed(state.hwnd)) MaximizeRestore_atpt(state.hwnd, SW_RESTORE);
-    MoveWindowAsync(hwnd, posx, posy, wndwidth, wndheight);
+    if (IsZoomed(state.hwnd))
+        RestoreWindowTo(state.hwnd, posx, posy, wndwidth, wndheight);
+    else
+        MoveWindowAsync(hwnd, posx, posy, wndwidth, wndheight);
     // Save data to the window...
     SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED|restore);
 }
@@ -3047,7 +3064,8 @@ struct pinwindata {
     short topoffset;
 };
 
-static void TrackMenuOfWindows(HWND menuhwnd, WNDENUMPROC EnumProc);
+//static void TrackMenuOfWindows(HWND menuhwnd, WNDENUMPROC EnumProc);
+static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc);
 static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
     switch(msg) {
@@ -3093,8 +3111,9 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         // Calculate offsets, sets window position and save data
         // to the GWLP_USERDATA stuff!
         int CapButtonWidth, PinW, PinH;
-        PinW = GetSystemMetrics(SM_CXSIZE);
-        PinH = GetSystemMetrics(SM_CYSIZE);
+        UINT dpi = GetDpiForWindow(ow); // Use parent window...
+        PinW = GetSystemMetricsForDpi(SM_CXSIZE, dpi);
+        PinH = GetSystemMetricsForDpi(SM_CYSIZE, dpi);
 
         RECT btrc;
         if (GetCaptionButtonsRect(ow, &btrc)) {
@@ -3113,11 +3132,11 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         // Adjust PinW and PinH to have nice stuff.
         int bdx=0, bdy=0;
         if (style&WS_THICKFRAME) {
-            bdx = GetSystemMetrics(SM_CXSIZEFRAME);
-            bdy = GetSystemMetrics(SM_CYSIZEFRAME);
+            bdx = GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi);
+            bdy = GetSystemMetricsForDpi(SM_CYSIZEFRAME, dpi);
         } else if (style&WS_CAPTION) { // Caption or border
-            bdx = GetSystemMetrics(SM_CXFIXEDFRAME);
-            bdy = GetSystemMetrics(SM_CYFIXEDFRAME);
+            bdx = GetSystemMetricsForDpi(SM_CXFIXEDFRAME, dpi);
+            bdy = GetSystemMetricsForDpi(SM_CYFIXEDFRAME, dpi);
         }
         PinW -= 2;
         PinH -= 2;
@@ -3136,13 +3155,13 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_PAINT : {
         wchar_t Topchar = HIBYTE(HIWORD(conf.PinColor&0xFF000000));
         if (Topchar) {
-	        PAINTSTRUCT ps;
-	        RECT cr;
-	        GetClientRect(hwnd, &cr);
-	        BeginPaint(hwnd, &ps);
-	        SetBkMode(ps.hdc, TRANSPARENT);
-	        DrawTextW(ps.hdc, &Topchar, 1, &cr, DT_VCENTER|DT_CENTER|DT_SINGLELINE);
-	        EndPaint(hwnd, &ps);
+            PAINTSTRUCT ps;
+            RECT cr;
+            GetClientRect(hwnd, &cr);
+            BeginPaint(hwnd, &ps);
+            SetBkMode(ps.hdc, TRANSPARENT);
+            DrawTextW(ps.hdc, &Topchar, 1, &cr, DT_VCENTER|DT_CENTER|DT_SINGLELINE);
+            EndPaint(hwnd, &ps);
       }
     } break;
     case WM_LBUTTONDOWN: {
@@ -3151,7 +3170,7 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     } break;
     case WM_RBUTTONDOWN: {
         state.mdiclient = NULL; // In case...
-        TrackMenuOfWindows(hwnd, EnumTopMostWindows);
+        TrackMenuOfWindows((LPVOID)EnumTopMostWindows);
         return 0;
     } break;
 //    case WM_GETPINNEDHWND: {
@@ -3305,8 +3324,26 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
 
 // Make a menu filled with the windows that are enumed through EnumProc
 // And Track it!!!!
-static void TrackMenuOfWindows(HWND menuhwnd, WNDENUMPROC EnumProc)
+static wchar_t Int2Accel(int i)
 {
+    if (conf.NumberMenuItems)
+        return i<9? L'0'+i: L'A'+i-9;
+    else
+        return i<26? L'A'+i: L'0'+i-26;
+}
+#include <oleacc.h>
+struct menuitemdata {
+    MSAAMENUINFO msaa;
+    wchar_t txt[80];
+    HICON icon;
+};
+static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc)
+{
+    WNDENUMPROC EnumProc = (WNDENUMPROC)ppEnumProc;
+    KillAltSnapMenu();
+    g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
+
+    // Fill up hwnds[] with the stacked windows.
     numhwnds = 0;
     HWND mdiclient = state.mdiclient;
     if (mdiclient) {
@@ -3319,36 +3356,46 @@ static void TrackMenuOfWindows(HWND menuhwnd, WNDENUMPROC EnumProc)
     numhwnds = min(numhwnds, 36); // Max 36 stacked windows
 
     HMENU menu = CreatePopupMenu();
+    state.unikeymenu = menu;
     unsigned i;
-    wchar_t txt[80];
+
+    struct menuitemdata *data = calloc(numhwnds, sizeof(struct menuitemdata));
     for (i=0; i<numhwnds; i++) {
-        GetWindowText(hwnds[i], txt+3, ARR_SZ(txt)-4);
+        wchar_t *txt = data[i].txt;
+        GetWindowText(hwnds[i], txt+5, 80-6);
         txt[0] = L'&';
-        txt[1] = i<26? L'A'+i: L'0'+i-26;
-        txt[2] = L'\t';
-        AppendMenu(menu, MF_STRING, i, txt);
+        txt[1] = Int2Accel(i);
+        txt[2] = L' '; txt[3] = L'-'; txt[4] = L' ';
+
+        // Fill up MSAA structure for screen readers.
+        data[i].msaa.dwMSAASignature = MSAA_MENU_SIG;
+        data[i].msaa.cchWText = wcslen(txt);
+        data[i].msaa.pszWText = txt;
+
+        data[i].icon = GetWindowIcon(hwnds[i]);
+        MENUITEMINFO lpmi= { sizeof(MENUITEMINFO) };
+        lpmi.fMask = MIIM_DATA|MIIM_TYPE|MIIM_ID;
+        lpmi.fType = MFT_OWNERDRAW; /*MFT_STRING*/
+        lpmi.wID = i;
+        lpmi.dwItemData = (ULONG_PTR)&data[i];
+        lpmi.dwTypeData = (LPWSTR)&data[i].msaa;
+        lpmi.cch = sizeof(MSAAMENUINFO);
+        InsertMenuItem(menu, i, FALSE, &lpmi);
     }
     POINT pt;
     GetCursorPos(&pt);
-    ReallySetForegroundWindow(menuhwnd);
+    ReallySetForegroundWindow(g_mchwnd);
     i = (unsigned)TrackPopupMenu(menu,
         TPM_RETURNCMD|TPM_NONOTIFY|GetSystemMetrics(SM_MENUDROPALIGNMENT)
-        , pt.x, pt.y, 0, menuhwnd, NULL);
+        , pt.x, pt.y, 0, g_mchwnd, NULL);
     state.sclickhwnd = NULL;
     state.mdiclient = mdiclient;
     SetForegroundWindowL(hwnds[i]);
 
     DestroyMenu(menu);
-}
-static DWORD WINAPI ActionStackListThread(LPVOID p)
-{
-    // Fill up hwnds[] with the stacked windows.
-    KillAltSnapMenu();
-    g_mchwnd = KreateMsgWin(SClickWindowProc, APP_NAME"-SClick");
-
-    TrackMenuOfWindows(g_mchwnd, EnumStackedWindowsProc);
-
+    state.unikeymenu = NULL;
     DestroyWindow(g_mchwnd);
+    free(data);
     g_mchwnd = NULL;
 
     return 0;
@@ -3356,9 +3403,8 @@ static DWORD WINAPI ActionStackListThread(LPVOID p)
 static void ActionStackList()
 {
     DWORD lpThreadId;
-    CloseHandle(CreateThread(NULL, STACK, ActionStackListThread, 0, 0, &lpThreadId));
+    CloseHandle(CreateThread(NULL, STACK, TrackMenuOfWindows, (LPVOID)EnumStackedWindowsProc, 0, &lpThreadId));
 }
-
 static void ActionMenu(HWND hwnd)
 {
     KillAltSnapMenu();
@@ -3368,8 +3414,7 @@ static void ActionMenu(HWND hwnd)
     ReallySetForegroundWindow(g_mainhwnd);
     PostMessage(
         g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd,
-         1 /*conf.AggressiveKill*/                               // LP_AGGRKILL
-       | !!(GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST)<<1 // LP_TOPMOST
+         !!(GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST)<<1 // LP_TOPMOST
        | !!GetBorderlessFlag(hwnd) << 2                        // LP_BORDERLESS
        | IsZoomed(hwnd) << 3                                    // LP_MAXIMIZED
        | !!(GetRestoreFlag(hwnd)&2) << 4                           // LP_ROLLED
@@ -3818,6 +3863,8 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     if (buttonstate == STATE_UP && state.blockmouseup) {
         // block mouse up and decrement counter.
         state.blockmouseup--;
+        if(!state.blockmouseup && !state.action && !state.alt)
+            UnhookMouseOnly(); // We no longer need the hook.
         return 1;
     }
 
@@ -3950,6 +3997,16 @@ static void HookMouse()
         return ;
 }
 /////////////////////////////////////////////////////////////////////////////
+static void UnhookMouseOnly()
+{
+    // Do not unhook if not hooked or if the hook is still used for something
+    if (!mousehook || conf.keepMousehook || state.blockmouseup)
+        return;
+
+    // Remove mouse hook
+    UnhookWindowsHookEx(mousehook);
+    mousehook = NULL;
+}
 static void UnhookMouse()
 {
     // Stop action
@@ -3966,13 +4023,7 @@ static void UnhookMouse()
     // Release cursor trapping in case...
     ClipCursorOnce(NULL);
 
-    // Do not unhook if not hooked or if the hook is still used for something
-    if (!mousehook || conf.keepMousehook)
-        return;
-
-    // Remove mouse hook
-    UnhookWindowsHookEx(mousehook);
-    mousehook = NULL;
+    UnhookMouseOnly();
 }
 static xpure int IsAreaLongClikcable(int area)
 {
@@ -4038,8 +4089,43 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
+static HFONT GetNCMenuFont(UINT dpi)
+{
+  struct OLDNONCLIENTMETRICSW {
+    UINT cbSize;
+    int iBorderWidth;
+    int iScrollWidth;
+    int iScrollHeight;
+    int iCaptionWidth;
+    int iCaptionHeight;
+    LOGFONTW lfCaptionFont;
+    int iSmCaptionWidth;
+    int iSmCaptionHeight;
+    LOGFONTW lfSmCaptionFont;
+    int iMenuWidth;
+    int iMenuHeight;
+    LOGFONTW lfMenuFont;
+    LOGFONTW lfStatusFont;
+    LOGFONTW lfMessageFont;
+  };
+
+  NONCLIENTMETRICS ncm;
+
+    memset(&ncm, 0, sizeof(NONCLIENTMETRICS));
+    ncm.cbSize = sizeof(NONCLIENTMETRICS);
+//    SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &ncm, 0);
+    BOOL ret = SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &ncm, 0, dpi);
+    if(!ret) { // Old Windows versions...
+        ncm.cbSize = sizeof(struct OLDNONCLIENTMETRICSW);
+        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &ncm, 0);
+    }
+    //LOGA("fontheight = %ld", ncm.lfMenuFont.lfHeight);
+//    ncm.lfMenuFont.lfHeight = -MulDiv(8, 96, 72);
+    return CreateFontIndirect(&ncm.lfMessageFont);
+}
+
 /////////////////////////////////////////////////////////////////////////////
-// Window for single click commands
+// Window for single click commands for menu
 LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_INITMENU) {
@@ -4062,6 +4148,122 @@ LRESULT CALLBACK SClickWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
         state.sclickhwnd = NULL;
         state.unikeymenu = NULL;
         return 0;
+    // OWNER DRAWN MENU !!!!!
+    } else if (msg == WM_MEASUREITEM) {
+        LPMEASUREITEMSTRUCT lpmi = (LPMEASUREITEMSTRUCT)lParam;
+        if(!lpmi) return FALSE;
+        struct menuitemdata *data = (struct menuitemdata *)lpmi->itemData;
+        if(!data) return FALSE;
+        wchar_t *text = data->txt;
+        //LOGA("WM_MEASUREITEM: id=%u, txt=%S", lpmi->itemID, data->txt);
+
+        HDC dc = GetDC(hwnd);
+        UINT dpi = GetDpiForWindow(hwnd);
+
+        // Select proper font.
+        HFONT mfont = GetNCMenuFont(dpi);
+        HFONT oldfont=SelectObject(dc, mfont);
+
+        int xmargin = GetSystemMetricsForDpi(SM_CXFIXEDFRAME, dpi);
+        int ymargin = GetSystemMetricsForDpi(SM_CYFIXEDFRAME, dpi);
+        int xicosz =  GetSystemMetricsForDpi(SM_CXSMICON, dpi);
+        int yicosz =  GetSystemMetricsForDpi(SM_CYSMICON, dpi);
+
+        SIZE sz;
+        GetTextExtentPoint32(dc, text, wcslen(text), &sz);
+//        LOGA("WM_MEASUREITEM: txtXY=%u, %u, txt=%S", (UINT)sz.cx, (UINT)sz.cy, data->txt);
+
+        // Text width + icon width + 4 margins
+        lpmi->itemWidth = sz.cx + xicosz + 4*xmargin;
+//        lpmi->itemWidth = (lpmi->itemWidth*72)/96;
+
+        // Text height/Icon height + margin
+        lpmi->itemHeight = max(sz.cy, yicosz) + ymargin;
+
+        SelectObject(dc, oldfont); // restore old font
+        DeleteObject(mfont); // Delete menufont.
+        ReleaseDC(hwnd, dc);
+        return TRUE;
+
+    } else if (msg == WM_DRAWITEM) {
+        LPDRAWITEMSTRUCT di = (LPDRAWITEMSTRUCT)lParam;
+        if (!di) return FALSE;
+        struct menuitemdata *data = (struct menuitemdata *)di->itemData;
+        if (!data) return FALSE;
+
+        UINT dpi = GetDpiForWindow(hwnd);
+        int xmargin = GetSystemMetricsForDpi(SM_CXFIXEDFRAME, dpi);
+//        int ymargin = GetSystemMetricsForDpi(SM_CYFIXEDFRAME, dpi);
+        int xicosz =  GetSystemMetricsForDpi(SM_CXSMICON, dpi);
+        int yicosz =  GetSystemMetricsForDpi(SM_CYSMICON, dpi);
+
+//        LOGA("WM_DRAWITEM: id=%u, txt=%S", di->itemID, data->txt);
+
+        int bgcol, txcol;
+        if(di->itemState & ODS_SELECTED) {
+            bgcol = COLOR_HIGHLIGHT ;
+            txcol = COLOR_HIGHLIGHTTEXT ;
+        } else {
+            bgcol = COLOR_MENU ;
+            txcol = COLOR_MENUTEXT ;
+        }
+        HBRUSH bgbrush = GetSysColorBrush(bgcol);
+        // Set
+        SetBkColor(di->hDC, GetSysColor(bgcol));
+        SetTextColor(di->hDC, GetSysColor(txcol));
+
+        // menu highlight rectangle
+        HPEN oldpen=SelectObject(di->hDC, GetStockObject(NULL_PEN));
+        HBRUSH oldbrush=SelectObject(di->hDC, bgbrush);
+        Rectangle(di->hDC, di->rcItem.left, di->rcItem.top, di->rcItem.right+1, di->rcItem.bottom+1);
+        int totheight = di->rcItem.bottom - di->rcItem.top; // total menuitem height
+
+        HFONT mfont = GetNCMenuFont(dpi);
+        HFONT oldfont=SelectObject(di->hDC, mfont);
+
+        SIZE sz;
+        GetTextExtentPoint32(di->hDC, data->txt, wcslen(data->txt), &sz);
+//        LOGA("WM_DRAWITEM: txtXY=%u, %u, txt=%S", (UINT)sz.cx, (UINT)sz.cy, data->txt);
+
+        int yicooffset = (totheight - yicosz)/2; // Center icon vertically
+        int ytxtoffset = (totheight - sz.cy)/2;   // Center text vertically
+
+        DrawIconEx(di->hDC
+            , di->rcItem.left+xmargin
+            , di->rcItem.top + yicooffset
+            , data->icon, xicosz, yicosz
+            , 0, 0, DI_NORMAL);
+        // Adjust x offset for Text drawing...
+        di->rcItem.left += xicosz + xmargin*3;
+        di->rcItem.top += ytxtoffset;
+//        LOGA("menuitemheight = %ld", di->rcItem.bottom-di->rcItem.top);
+        DrawText(di->hDC, data->txt, -1, &di->rcItem, 0); // Menuitem Text
+
+        // restore dc context
+        SelectObject(di->hDC, oldfont); // restore old font
+        DeleteObject(mfont); // Delete menufont.
+        SelectObject(di->hDC, oldpen);
+        SelectObject(di->hDC, oldbrush);
+        return TRUE;
+
+    } else if (msg == WM_MENUCHAR) {
+//        LOGA("WM_MENUCHAR: %X", wParam);
+        // Turn the input character into a menu identifier.
+        TCHAR c = (TCHAR) LOWORD(wParam);
+        WORD item;
+        if (conf.NumberMenuItems) {
+            item = ('0' <= c && c <= '9')? c-'0'
+                 : ('a' <= c && c <= 'z')? c-'a'+10
+                 : ('A' <= c && c <= 'Z')? c-'A'+10
+                 : 0;
+        } else {
+            item = ('a' <= c && c <= 'z')? c-'a'
+                 : ('A' <= c && c <= 'Z')? c-'A'
+                 : ('0' <= c && c <= '9')? c-'0'+26
+                 : 0 ;
+        }
+        // Execute item.
+        if (item) return item|MNC_EXECUTE<<16;
     } else if (msg == WM_KILLFOCUS) {
         // Menu gets hiden, be sure to zero-out the clickhwnd
         state.sclickhwnd = NULL;
@@ -4343,6 +4545,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {&conf.AlphaDelta,      L"Advanced", "AlphaDelta", 64 },
         {&conf.ZoomFrac,        L"Advanced", "ZoomFrac", 16 },
         {&conf.ZoomFracShift,   L"Advanced", "ZoomFracShift", 64 },
+        {&conf.NumberMenuItems, L"Advanced", "NumberMenuItems", 0},
 
         /* AeroMaxSpeed not here... */
         {&conf.AeroSpeedTau,    L"Advanced", "AeroSpeedTau", 64 },

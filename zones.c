@@ -133,6 +133,7 @@ static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *heig
 //    SetEdgeAndOffset(&rc, state.prevpt); // state.resize.x/y & state.offset.x/y
 //    direction1 =
 //}
+static void RestoreWindowTo(HWND hwnd, int x, int y, int w, int h);
 static void SetOriginFromRestoreData(HWND hnwd, enum action action);
 static HMONITOR GetMonitorInfoFromWin(HWND hwnd, MONITORINFO *mi);
 static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
@@ -160,6 +161,9 @@ static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
         pt.x = (rc.right+rc.left)/2; // Mid Bottom segment
         pt.y = rc.bottom + offset;
     }
+    int zoomed;
+    if ((zoomed = IsZoomed(hwnd)) && extend) return;
+
     // Clamp point inside monitor
     MONITORINFO mi;
     GetMonitorInfoFromWin(hwnd, &mi);
@@ -182,5 +186,8 @@ static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
     InflateRectBorder(&fr, &bd);
 
     SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED|SNZONE);
-    MoveWindowAsync(hwnd, fr.left, fr.top, CLAMPW(fr.right-fr.left), CLAMPH(fr.bottom-fr.top));
+    if (zoomed)
+        RestoreWindowTo(hwnd, fr.left, fr.top, CLAMPW(fr.right-fr.left), CLAMPH(fr.bottom-fr.top));
+    else
+        MoveWindowAsync(hwnd, fr.left, fr.top, CLAMPW(fr.right-fr.left), CLAMPH(fr.bottom-fr.top));
 }

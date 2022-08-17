@@ -55,6 +55,8 @@ enum action {
   , AC_KILL, AC_PAUSE, AC_RESUME, AC_MAXHV, AC_MINALL, AC_MUTE
   , AC_SIDESNAP, AC_NSTACKED, AC_NSTACKED2, AC_PSTACKED, AC_PSTACKED2
   , AC_STACKLIST
+  , AC_MLZONE, AC_MTZONE, AC_MRZONE, AC_MBZONE
+  , AC_XLZONE, AC_XTZONE, AC_XRZONE, AC_XBZONE
   , AC_ROLL, AC_ALTTAB, AC_VOLUME, AC_TRANSPARENCY, AC_HSCROLL
   , AC_ZOOM, AC_ZOOM2, AC_NPSTACKED
   , AC_MAXVALUE
@@ -66,6 +68,8 @@ enum action {
   , "Kill", "Pause", "Resume", "MaximizeHV", "MinAllOther", "Mute" \
   , "SideSnap", "NStacked", "NStacked2", "PStacked", "PStacked2"   \
   , "StackList"                                                    \
+  , "MLZone", "MTZone", "MRZone", "MBZone"                         \
+  , "XLZone", "XTZone", "XRZone", "XBZone"                         \
   , "Roll", "AltTab", "Volume", "Transparency", "HScroll"          \
   , "Zoom", "Zoom2", "NPStacked",                                  \
 }

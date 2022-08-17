@@ -77,13 +77,12 @@ static struct {
     short delta;
     unsigned Speed;
     HMENU unikeymenu;
-
+    volatile LONG ignorekey;
+    volatile LONG ignoreclick;
     UCHAR alt;
     UCHAR alt1;
     UCHAR blockaltup;
-    UCHAR ignorekey;
 
-    UCHAR ignoreclick;
     UCHAR ctrl;
     UCHAR shift;
     UCHAR snap;
@@ -249,6 +248,12 @@ HHOOK mousehook = NULL;
 #undef GetWindowRectL
 #define GetWindowRectL(hwnd, rect) GetWindowRectLL(hwnd, rect, conf.SnapGap)
 
+// To clamp width and height of windows
+static pure int CLAMPW(int width)  { return CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x); }
+static pure int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state.mmi.Max.y); }
+static pure int ISCLAMPEDW(int x)  { return state.mmi.Min.x <= x && x <= state.mmi.Max.x; }
+static pure int ISCLAMPEDH(int y)  { return state.mmi.Min.y <= y && y <= state.mmi.Max.y; }
+
 // Specific includes
 #include "snap.c"
 #include "zones.c"
@@ -310,13 +315,6 @@ static int isClassName(HWND hwnd, const wchar_t *str)
     return GetClassName(hwnd, classname, ARR_SZ(classname))
         && !wcscmp(classname, str);
 }
-
-// To clamp width and height of windows
-static pure int CLAMPW(int width)  { return CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x); }
-static pure int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state.mmi.Max.y); }
-static pure int ISCLAMPEDW(int x)  { return state.mmi.Min.x <= x && x <= state.mmi.Max.x; }
-static pure int ISCLAMPEDH(int y)  { return state.mmi.Min.y <= y && y <= state.mmi.Max.y; }
-
 /////////////////////////////////////////////////////////////////////////////
 // The second bit (&2) will always correspond to the WS_THICKFRAME flag
 static int pure IsResizable(HWND hwnd)
@@ -1820,9 +1818,9 @@ static void Send_KEY(unsigned char vkey)
     INPUT input[2];
     input[0].type = input[1].type = INPUT_KEYBOARD;
     input[0].ki = ctrl[0]; input[1].ki = ctrl[1];
-    state.ignorekey = 1;
+    InterlockedIncrement(&state.ignorekey);
     SendInput(2, input, sizeof(INPUT));
-    state.ignorekey = 0;
+    InterlockedDecrement(&state.ignorekey);
 }
 #define KEYEVENTF_KEYDOWN 0
 // Call with or KEYEVENTF_KEYDOWN/KEYEVENTF_KEYUP
@@ -1835,9 +1833,9 @@ static void Send_KEY_UD(unsigned char vkey, WORD flags)
     INPUT input;
     input.type = INPUT_KEYBOARD;
     input.ki = ctrl;
-    state.ignorekey = 1;
+    InterlockedIncrement(&state.ignorekey);
     SendInput(1, &input, sizeof(INPUT));
-    state.ignorekey = 0;
+    InterlockedDecrement(&state.ignorekey);
 }
 #define Send_CTRL() Send_KEY(VK_CONTROL)
 
@@ -1868,9 +1866,9 @@ static void Send_Click(enum button button)
     input[0].type = input[1].type = INPUT_MOUSE;
     input[0].mi = click[0]; input[1].mi = click[1];
 
-    state.ignoreclick = 1;
+    InterlockedIncrement(&state.ignoreclick);
     SendInput(2, input, sizeof(INPUT));
-    state.ignoreclick = 0;
+    InterlockedDecrement(&state.ignoreclick);
 }
 /////////////////////////////////////////////////////////////////////////////
 // Sends an unicode character to the system.
@@ -1892,9 +1890,9 @@ static void SendUnicodeKey(WORD w)
     input[0].type = input[1].type = INPUT_KEYBOARD;
     input[0].ki = ctrl[0]; input[1].ki = ctrl[1];
 
-    state.ignorekey = 1; // Not intercepted by AltSnap...
+    InterlockedIncrement(&state.ignorekey);
     SendInput(2, input, sizeof(INPUT));
-    state.ignorekey = 0;
+    InterlockedDecrement(&state.ignorekey);
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -2164,6 +2162,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.ctrl = 0;
             state.shift = 0;
             LastWin.hwnd = NULL;
+            state.ignorekey = 0; // In case ...
             if (state.unikeymenu || g_mchwnd) {
                 KillAltSnapMenu();
                 return 1;
@@ -3401,6 +3400,14 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_PSTACKED)    ActionAltTab(state.prevpt, -1, EnumStackedWindowsProc);
     else if (action==AC_PSTACKED2)   { state.shift = 1; ActionAltTab(state.prevpt, -1, EnumStackedWindowsProc); state.shift = 0;}
     else if (action==AC_STACKLIST)   ActionStackList();
+    else if (action==AC_MLZONE)      MoveWindowToTouchingZone(hwnd, 0, 0); // mLeft
+    else if (action==AC_MTZONE)      MoveWindowToTouchingZone(hwnd, 1, 0); // mTop
+    else if (action==AC_MRZONE)      MoveWindowToTouchingZone(hwnd, 2, 0); // mBottom
+    else if (action==AC_MBZONE)      MoveWindowToTouchingZone(hwnd, 3, 0); // mBight
+    else if (action==AC_XLZONE)      MoveWindowToTouchingZone(hwnd, 0, 1); // xLeft
+    else if (action==AC_XTZONE)      MoveWindowToTouchingZone(hwnd, 1, 1); // xTop
+    else if (action==AC_XRZONE)      MoveWindowToTouchingZone(hwnd, 2, 1); // xBottom
+    else if (action==AC_XBZONE)      MoveWindowToTouchingZone(hwnd, 3, 1); // xBight
 }
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -3444,8 +3451,9 @@ static void StopSpeedMes()
 static DWORD WINAPI SendAltCtrlAlt(LPVOID p)
 {
     Send_KEY_UD(VK_MENU, KEYEVENTF_KEYDOWN);
-    Send_CTRL();
+    Send_KEY(VK_CONTROL);
     Send_KEY_UD(VK_MENU, KEYEVENTF_KEYUP);
+
     return 1;
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -3514,6 +3522,8 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     state.origin.width  = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
     state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
 
+    GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
+
     // Do things depending on what button was pressed
     if (MOUVEMENT(action)) {
         DorQWORD lpdwResult;
@@ -3541,7 +3551,6 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
         // Wether or not we will use the zones
         state.usezones = ((conf.UseZones&9) == 9)^state.shift;
 
-        GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
         SetWindowTrans(state.hwnd);
         state.enumed = 0; // Reset enum stuff
         StartSpeedMes(); // Speed timer
@@ -4012,10 +4021,10 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 state.hittest = 0; // No specific hittest here.
                 int ret = init_movement_and_actions(pt, NULL, AC_NONE, 0);
                 if (ret) { // Release mouse click if we have to move.
-                    state.ignoreclick=1;
+                    InterlockedIncrement(&state.ignoreclick);
                     mouse_event(buttonswaped?MOUSEEVENTF_RIGHTUP:MOUSEEVENTF_LEFTUP
                                , 0, 0, 0, GetMessageExtraInfo());
-                    state.ignoreclick=0;
+                    InterlockedIncrement(&state.ignoreclick);
                     init_movement_and_actions(pt, NULL, AC_MOVE, 0);
                 }
             }
@@ -4354,13 +4363,10 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
         // [Input]
         {&conf.TTBActions,      L"Input", "TTBActions", 0 },
-//        {&conf.AggressivePause, L"Input", "AggressivePause", 0 },
-//        {&conf.AggressiveKill,  L"Input", "AggressiveKill", 0 },
         {&conf.KeyCombo,        L"Input", "KeyCombo", 0 },
         {&conf.ScrollLockState, L"Input", "ScrollLockState", 0 },
         {&conf.LongClickMove,   L"Input", "LongClickMove", 0 },
         {&conf.UniKeyHoldMenu,  L"Input", "UniKeyHoldMenu", 0 },
-//        {&conf.NPStacked,       L"Input", "NPStacked", 0 },
 
         // [Zones]
         {&conf.UseZones,        L"Zones", "UseZones", 0 },

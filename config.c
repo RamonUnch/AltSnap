@@ -991,7 +991,8 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         { IDC_SCROLLLOCKSTATE,  T_BMK, 0, L"Input", "ScrollLockState", 0},
         { IDC_UNIKEYHOLDMENU,   T_BOL, 0, L"Input", "UniKeyHoldMenu", 0},
         { IDC_NPSTACKED,        T_BOL, 0, L"Input", "NPStacked", 0},
-        { IDC_KEYCOMBO,         T_BOL, 0, L"Input", "KeyCombo", 0 }
+        { IDC_KEYCOMBO,         T_BOL, 0, L"Input", "KeyCombo", 0 },
+        { IDC_USEPTWINDOW,      T_BOL, 0, L"KBShortcuts", "UsePtWindow", 0},
     };
 
     if (msg == WM_INITDIALOG) {
@@ -1148,15 +1149,15 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 { IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box},
                 { IDC_MODKEY_H,        l10n->input_hotkeys_modkey},
 
-                { IDC_ALT,             l10n->input_hotkeys_alt},                
+                { IDC_ALT,             l10n->input_hotkeys_alt},
                 { IDC_SHIFT,           l10n->input_hotkeys_shift},
                 { IDC_CONTROL,         l10n->input_hotkeys_ctrl},
                 { IDC_WINKEY,          l10n->input_hotkeys_winkey},
                 { IDC_SHORTCUTS_H,     l10n->input_hotkeys_shortcuts},
                 { IDC_SHORTCUTS_PICK,  l10n->input_hotkeys_shortcutspick},
                 { IDC_SHORTCUTS_CLEAR, l10n->input_hotkeys_shortcutsclear},
-                { IDC_SHORTCUTS_SET,   l10n->input_hotkeys_shortcutset},                
-
+                { IDC_SHORTCUTS_SET,   l10n->input_hotkeys_shortcutset},
+                { IDC_USEPTWINDOW,     l10n->input_hotkeys_useptwindow},
                 { IDC_LEFTALT,         l10n->input_hotkeys_leftalt},
                 { IDC_RIGHTALT,        l10n->input_hotkeys_rightalt},
                 { IDC_LEFTWINKEY,      l10n->input_hotkeys_leftwinkey},

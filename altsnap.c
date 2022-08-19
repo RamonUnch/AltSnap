@@ -139,7 +139,18 @@ void ToggleState()
 void ShowSClickMenu(HWND hwnd, LPARAM param)
 {
     POINT pt;
-    GetCursorPos(&pt);
+    if(param&LP_CURSORPOS) {
+        // Use cursor position to place menu.
+        GetCursorPos(&pt);
+    } else {
+        // Use the pointed window
+        RECT rc;
+        HWND clickhwnd = (HWND)SendMessage(hwnd, WM_GETCLICKHWND, 0, 0);
+        GetWindowRect(clickhwnd, &rc);
+        pt.x = rc.left + GetSystemMetricsForWin(SM_CXSIZEFRAME, clickhwnd);
+        pt.y = rc.top + GetSystemMetricsForWin(SM_CYSIZEFRAME, clickhwnd)
+                      + GetSystemMetricsForWin(SM_CYCAPTION, clickhwnd);
+    }
     HMENU menu = CreatePopupMenu();
 
     #define CHK(LP_FLAG) MF_STRING|(param&LP_FLAG?MF_CHECKED:MF_UNCHECKED)
@@ -172,9 +183,9 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
         if ( (ACMenuItems>>i)&1 )
             AppendMenu(menu, mnlst[i].mf, mnlst[i].action, mnlst[i].str);
     }
-//    SetForegroundWindow(g_hwnd); // Focus AltSnap's main hwnd.
     TrackPopupMenu(menu, GetSystemMetrics(SM_MENUDROPALIGNMENT), pt.x, pt.y, 0, hwnd, NULL);
     DestroyMenu(menu);
+    PostMessage(hwnd, WM_CLOSE, 0, 0);
 }
 // To get the caret position in screen coordinate.
 // We first try to get the carret rect
@@ -269,6 +280,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         // Reload hooks
         if (ENABLED()) {
             UnhookSystem();
+            Sleep(16);
             HookSystem();
         }
     } else if (msg == WM_ADDTRAY) {

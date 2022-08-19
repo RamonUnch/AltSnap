@@ -1,7 +1,7 @@
 *=========================================================================*
 *            ALTSNAP for Windows NT4/2000/XP/Vista/7/8.x/10/11            *
 *  Modified by Raymond Gillibert from original AltDrag by Stefan Sundin   *
-*                      release 1.54 (August 2, 2022)                      *
+*                     release 1.55 (August 20, 2022)                      *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltSnap/releases/         *
@@ -183,6 +183,82 @@ Note that this version has some more feature.
 
 ===========================================================================
 == CHANGELOG ==
+
+== AltSnap 1.55 ==
+
+  + New action, you can now pop up a **Stacked window list** that will show
+    the list of windows that are stacked with the pointed window. You can
+    then select the window you want and it will be set to the foreground.
+    Shift extends the stack to all windows that are under the mouse pointer.
+
+  + New action: **Next/Prev stacked window**, available as mouse action and
+    as wheel action. Again add shift to extend the stack.
+
+  + New: Now an indicator for windows that were set AlwaysOnTop can be set.
+    Check  the **Show an indicator on always on top windows** option in the
+    Advanced tab. The indicator will also show a list of other AlwaysOnTop
+    windows when right-clicked. You can also set the `PinColor` option in
+    the [Input] section of the .ini and the `PinRate` option in the
+    [Performance] section of the .ini can be used to set the color of the
+    indicator and the rate at which it gets refreshed.
+
+  + New: You can now setup any keyboard shortcut for any action.
+    Note that this creates system level keyboard shortcuts and you will be
+    unable to setup a shortcut that already existed (chick is a good thing).
+    Go to the Keyboard tab of the config dialog, select the option for which
+    you want to setup a shortcut, then edit it manually or click the
+    Pick keys button and press your shortcut, then hit the Save button.
+    You can decide wether those keyboard-only actions should apply to the
+    pointed or to the focused window. #264, #268
+    You will need to reconfigure Kill on Ctrl+Alt+F4 and such.
+
+  + New keyboard-only actions to move/extend the window to the surrounding
+    zones in the snap layout.
+
+  + New: Now you can set up `MoveUpT` and `ResizeUpT` actions to be
+    performed when the click was performed inside the titlebar.
+    CHECK YOUR CONFIG, as those options did not exist before and
+    will defalut to Nothing. The options were also added to the GUI.
+
+  + New: Two Zoom window action that can be setup for a mouse wheel.
+    The first one will resize only vertically/horizontally when the
+    mouse points at the pure side sectors, and the second one will
+    always zoom proportionally instead. #239
+
+  + New: To fix menu not getting canceled in some cases, you can add the
+    `DragSendsAltCtrl` option in the [Advanced] section of the ini. #255
+
+  + New now you can set the value of `BLUpperBorder` in the `[Advanced]`
+    section of the .ini file and it will select in the same fashion than
+    `BLCapButtons` but this time only for the top resizing border. Default
+    value is also 3 to prevent left and right button to trigger AltSnap in
+    the top resizing borders. `BLCapButtons` now conserns only the caption
+    buttons and no longer the top resizing border.
+
+  + Now you can customize the action menu by adding or removing menu items
+    using the `ACMenuItems` option in the `[Advanced]` section of the .ini
+    file. Default value is -1 for all menu entry. #240
+
+  * GUI: Now the `SnapGap` option is available through the GUI. #200
+
+  * Fixed #150: The top owner window is now used for the always on top
+    action. This avoids some parts of the program not being affected.
+
+  * Fixed #235: Inconsistent focusing of windows.
+
+  * Fixed #274: The window is now refocused when the action menu is canceled.
+
+  * Fixed: More relyable prevention of menu activation and/or start menu
+    poping up problems.
+
+  * Fixed: Window maximum and minimum sized would be ignored in center
+    resizing mode, leading to window running outside the screen when
+    resizing it beyond their maximum size.
+
+  * Fixed: Focus windows when dragging not working in some cases. #250
+
+  * Fixed: The titlebar Action menu not disapearing on defocusing in some
+    cases. #263.
 
 == AltSnap 1.54 ==
 

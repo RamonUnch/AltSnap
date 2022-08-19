@@ -167,6 +167,7 @@ struct strings {
   wchar_t *input_hotkeys_shortcutspick;
   wchar_t *input_hotkeys_shortcutsclear;
   wchar_t *input_hotkeys_shortcutset;
+  wchar_t *input_hotkeys_useptwindow;
 
   wchar_t *input_hotkeys_leftalt;
   wchar_t *input_hotkeys_rightalt;
@@ -362,10 +363,11 @@ static const char* l10n_inimapping[] = {
     "InputHotkeysWinkey",
     "InputHotkeysCtrl",
     "InputHotkeysShift",
-    "InputHotkeysShortcuts",    
-    "InputHotkeysShortcutsPick",    
-    "InputHotkeysShortcutsClear",    
-    "InputHotkeysShortcutsSet",    
+    "InputHotkeysShortcuts",
+    "InputHotkeysShortcutsPick",
+    "InputHotkeysShortcutsClear",
+    "InputHotkeysShortcutsSet",
+    "InputHotkeysUsePtWindow",
     "InputHotkeysLeftAlt",
     "InputHotkeysRightAlt",
     "InputHotkeysLeftWinkey",
@@ -572,6 +574,7 @@ static const struct strings en_US = {
  /* shortcutspick      */ L"Pick &keys",
  /* shortcutsClear     */ L"Clear ke&ys",
  /* shortcutsSet       */ L"Sa&ve",
+ /* useptwindow        */ L"Apply to the &pointed window",
  /* leftalt            */ L"L&eft Alt",
  /* rightalt           */ L"&Right Alt",
  /* leftwinkey         */ L"Left &Winkey",

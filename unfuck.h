@@ -361,10 +361,10 @@ static UINT GetDpiForWindowL(HWND hwnd)
 #define GetDpiForWindow GetDpiForWindowL
 
 /* Helper function */
-//static int GetSystemMetricsForWindow(int nIndex, HWND hwnd)
-//{
-//    return GetSystemMetricsForDpiL(nIndex, GetDpiForWindowL(hwnd));
-//}
+static int GetSystemMetricsForWin(int nIndex, HWND hwnd)
+{
+    return GetSystemMetricsForDpiL(nIndex, GetDpiForWindowL(hwnd));
+}
 static BOOL SystemParametersInfoForDpiL(UINT uiAction, UINT uiParam, PVOID pvParam, UINT  fWinIni, UINT dpi)
 {
     if (dpi) {
@@ -608,8 +608,8 @@ static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
     mmi.ptMinTrackSize.y = GetSystemMetrics(SM_CYMINTRACK);
     mmi.ptMaxTrackSize.x = GetSystemMetrics(SM_CXMAXTRACK);
     mmi.ptMaxTrackSize.y = GetSystemMetrics(SM_CYMAXTRACK);
-
-    SendMessage(hwnd, WM_GETMINMAXINFO, 0, (LPARAM)&mmi);
+    DWORD_PTR ret;
+    SendMessageTimeout(hwnd, WM_GETMINMAXINFO, 0, (LPARAM)&mmi, SMTO_ABORTIFHUNG, 32, &ret);
     *Min = mmi.ptMinTrackSize;
     *Max = mmi.ptMaxTrackSize;
 }
@@ -630,6 +630,60 @@ static HICON GetWindowIcon(HWND hwnd)
     if ((icon = (HICON)GetClassLongPtr(hwnd, GCLP_HICON))) return icon;
     return LoadIcon(NULL, IDI_WINLOGO);
     #undef TIMEOUT
+}
+/* Helper function to get the current system menu font.
+ * We need to use the newer NONCLIENTMETRICS for Window 8+ dpi aware
+ * SystemParametersInfoForDpi() and We must ude the old NONCLIENTMETRICS
+ * structure when using Windows XP or lower.
+ * (vistal added the iPaddedBorderWidth int element */
+static HFONT GetNCMenuFont(UINT dpi)
+{
+  struct OLDNONCLIENTMETRICSW {
+    UINT cbSize;
+    int iBorderWidth;
+    int iScrollWidth;
+    int iScrollHeight;
+    int iCaptionWidth;
+    int iCaptionHeight;
+    LOGFONTW lfCaptionFont;
+    int iSmCaptionWidth;
+    int iSmCaptionHeight;
+    LOGFONTW lfSmCaptionFont;
+    int iMenuWidth;
+    int iMenuHeight;
+    LOGFONTW lfMenuFont;
+    LOGFONTW lfStatusFont;
+    LOGFONTW lfMessageFont;
+  };
+  struct NEWNONCLIENTMETRICSW {
+    UINT cbSize;
+    int iBorderWidth;
+    int iScrollWidth;
+    int iScrollHeight;
+    int iCaptionWidth;
+    int iCaptionHeight;
+    LOGFONTW lfCaptionFont;
+    int iSmCaptionWidth;
+    int iSmCaptionHeight;
+    LOGFONTW lfSmCaptionFont;
+    int iMenuWidth;
+    int iMenuHeight;
+    LOGFONTW lfMenuFont;
+    LOGFONTW lfStatusFont;
+    LOGFONTW lfMessageFont;
+    int iPaddedBorderWidth; /* New in Window Vista */
+  };
+
+    struct NEWNONCLIENTMETRICSW ncm;
+
+    memset(&ncm, 0, sizeof(struct NEWNONCLIENTMETRICSW));
+    ncm.cbSize = sizeof(struct NEWNONCLIENTMETRICSW);
+    BOOL ret = SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(struct NEWNONCLIENTMETRICSW), &ncm, 0, dpi);
+    if (!ret) { /* Old Windows versions... XP and below */
+        ncm.cbSize = sizeof(struct OLDNONCLIENTMETRICSW);
+        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &ncm, 0);
+    }
+    return CreateFontIndirect(&ncm.lfMessageFont);
 }
 
 /* Helper function to call SetWindowPos with the SWP_ASYNCWINDOWPOS flag */

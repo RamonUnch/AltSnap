@@ -126,6 +126,16 @@ struct strings {
   wchar_t *input_actions_pstacked2;
   wchar_t *input_actions_npstacked;
   wchar_t *input_actions_stacklist;
+
+  wchar_t *input_actions_mlzone;
+  wchar_t *input_actions_mtzone;
+  wchar_t *input_actions_mrzone;
+  wchar_t *input_actions_mbzone;
+  wchar_t *input_actions_xlzone;
+  wchar_t *input_actions_xtzone;
+  wchar_t *input_actions_xrzone;
+  wchar_t *input_actions_xbzone;
+
   wchar_t *input_actions_roll;
   wchar_t *input_actions_alwaysontop;
   wchar_t *input_actions_borderless;
@@ -318,6 +328,14 @@ static const char* l10n_inimapping[] = {
     "InputActionPStacked",
     "InputActionPStacked2",
     "InputActionStackList",
+    "InputActionMLZone",
+    "InputActionMTZone",
+    "InputActionMRZone",
+    "InputActionMBZone",
+    "InputActionXLZone",
+    "InputActionXTZone",
+    "InputActionXRZone",
+    "InputActionXBZone",
     "InputActionNPStacked",
     "InputActionRoll",
     "InputActionAlwaysOnTop",
@@ -516,6 +534,14 @@ static const struct strings en_US = {
  /* pstacked           */ L"Previous stacked window 2",
  /* npstacked          */ L"Next/Prev stacked window",
  /* stacklist          */ L"Stacked windows list",
+ /* mlzone             */ L"Move to the left zone",
+ /* mtzone             */ L"Move to the top zone",
+ /* mrzone             */ L"Move to the right zone",
+ /* mbzone             */ L"Move to the bottom zone",
+ /* xlzone             */ L"Extend to the left zone",
+ /* xtzone             */ L"Extend to the top zone",
+ /* xrzone             */ L"Extend to the right zone",
+ /* xbzone             */ L"Extend to the bottom zone",
  /* roll               */ L"&Roll/Unroll window",
  /* alwaysontop        */ L"Toggle always on &top",
  /* borderless         */ L"Toggle &borderless",

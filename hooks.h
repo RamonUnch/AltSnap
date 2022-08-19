@@ -17,7 +17,6 @@
 #endif
 
 // Extra messages for Action Menu
-#define LP_AGGRKILL   (1)
 #define LP_TOPMOST    (1<<1)
 #define LP_BORDERLESS (1<<2)
 #define LP_MAXIMIZED  (1<<3)

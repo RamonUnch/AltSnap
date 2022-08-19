@@ -888,7 +888,6 @@ static LRESULT WINAPI PickShortcutWinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
         }
     } break;
     case WM_LBUTTONDOWN:
-    case WM_HOTKEY:
     case WM_KILLFOCUS: {
         DestroyWindow(hwnd);
     } break;
@@ -945,22 +944,26 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {L"Kill",        l10n->input_actions_kill},
         {L"Pause",       l10n->input_actions_pause},
         {L"Resume",      l10n->input_actions_resume},
-//        {L"Minimize",    l10n->input_actions_minimize},
-//        {L"Maximize",    l10n->input_actions_maximize},
         {L"Lower",       l10n->input_actions_lower},
+        {L"Roll",        l10n->input_actions_roll},
+        {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
+        {L"Borderless",  l10n->input_actions_borderless},
+        {L"Center",      l10n->input_actions_center},
+        {L"Mute",        l10n->input_actions_mute},
+        {L"Menu",        l10n->input_actions_menu},
         {L"NStacked",    l10n->input_actions_nstacked},
         {L"NStacked2",   l10n->input_actions_nstacked2},
         {L"PStacked",    l10n->input_actions_pstacked},
         {L"PStacked2",   l10n->input_actions_pstacked2},
         {L"StackList",   l10n->input_actions_stacklist},
-        {L"Roll",        l10n->input_actions_roll},
-        {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
-        {L"Borderless",  l10n->input_actions_borderless},
-        {L"Center",      l10n->input_actions_center},
-//        {L"MaximizeHV",  l10n->input_actions_maximizehv},
-//        {L"MinAllOther", l10n->input_actions_minallother},
-        {L"Mute",        l10n->input_actions_mute},
-        {L"Menu",        l10n->input_actions_menu},
+        {L"MLZone",      l10n->input_actions_mlzone},
+        {L"MTZone",      l10n->input_actions_mtzone},
+        {L"MRZone",      l10n->input_actions_mrzone},
+        {L"MBZone",      l10n->input_actions_mbzone},
+        {L"XLZone",      l10n->input_actions_xlzone},
+        {L"XTZone",      l10n->input_actions_xtzone},
+        {L"XRZone",      l10n->input_actions_xrzone},
+        {L"XBZone",      l10n->input_actions_xbzone},
         {NULL, NULL}
     };
     // Hotkeys

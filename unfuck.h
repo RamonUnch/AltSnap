@@ -108,6 +108,8 @@ static HMONITOR (WINAPI *myMonitorFromWindow)(HWND hwnd, DWORD dwFlags) = IPTR;
 static BOOL (WINAPI *myGetGUIThreadInfo)(DWORD idThread, LPGUITHREADINFO lpgui) = IPTR;
 static int (WINAPI *myGetSystemMetricsForDpi)(int  nIndex, UINT dpi) = IPTR;
 static UINT (WINAPI *myGetDpiForWindow)(HWND hwnd) = IPTR;
+static BOOL (WINAPI *mySystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT  fWinIni, UINT  dpi) = IPTR;
+
 
 /* DWMAPI.DLL */
 static HRESULT (WINAPI *myDwmGetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c) = IPTR;
@@ -344,6 +346,8 @@ static int GetSystemMetricsForDpiL(int  nIndex, UINT dpi)
     /* Use non dpi stuff if dpi == 0 or if it does not exist. */
     return GetSystemMetrics(nIndex);
 }
+#define GetSystemMetricsForDpi GetSystemMetricsForDpiL
+
 static UINT GetDpiForWindowL(HWND hwnd)
 {
     if (myGetDpiForWindow == IPTR) { /* First time */
@@ -354,11 +358,28 @@ static UINT GetDpiForWindowL(HWND hwnd)
     }
     return 0; /* Not handeled */
 }
+#define GetDpiForWindow GetDpiForWindowL
+
 /* Helper function */
-static int GetSystemMetricsForWindow(int nIndex, HWND hwnd)
+//static int GetSystemMetricsForWindow(int nIndex, HWND hwnd)
+//{
+//    return GetSystemMetricsForDpiL(nIndex, GetDpiForWindowL(hwnd));
+//}
+static BOOL SystemParametersInfoForDpiL(UINT uiAction, UINT uiParam, PVOID pvParam, UINT  fWinIni, UINT dpi)
 {
-    return GetSystemMetricsForDpiL(nIndex, GetDpiForWindowL(hwnd));
+    if (dpi) {
+        if (mySystemParametersInfoForDpi == IPTR) { /* First time */
+            mySystemParametersInfoForDpi=LoadDLLProc("USER32.DLL", "SystemParametersInfoForDpi");
+        }
+        if (mySystemParametersInfoForDpi) { /* We know we have the function */
+            return mySystemParametersInfoForDpi(uiAction, uiParam, pvParam, fWinIni, dpi);
+        }
+    }
+    /* Not handeled */
+    return SystemParametersInfo(uiAction, uiParam, pvParam, fWinIni);
 }
+#define SystemParametersInfoForDpi SystemParametersInfoForDpiL
+
 static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 {
     if (myDwmGetWindowAttribute == IPTR) { /* First time */
@@ -592,6 +613,24 @@ static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
     *Min = mmi.ptMinTrackSize;
     *Max = mmi.ptMaxTrackSize;
 }
+/* Function to retreave the best possible small icon associated with a window */
+static HICON GetWindowIcon(HWND hwnd)
+{
+    #define TIMEOUT 64
+    HICON icon;
+    if (SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL, 0, SMTO_ABORTIFHUNG, TIMEOUT, (PDWORD_PTR)&icon)) {
+        /* The message failed without */
+        if (icon) return icon; // Sucess
+        /* Try again with the big icon if we were unable to retreave the small one. */
+        if (SendMessageTimeout(hwnd, WM_GETICON, ICON_BIG, 0, SMTO_ABORTIFHUNG, TIMEOUT, (PDWORD_PTR)&icon) && icon)
+            return icon;
+    }
+    // Try the Class icon if nothing can be get through
+    if ((icon = (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM))) return icon;
+    if ((icon = (HICON)GetClassLongPtr(hwnd, GCLP_HICON))) return icon;
+    return LoadIcon(NULL, IDI_WINLOGO);
+    #undef TIMEOUT
+}
 
 /* Helper function to call SetWindowPos with the SWP_ASYNCWINDOWPOS flag */
 static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height)
@@ -763,6 +802,11 @@ static void CenterRectInRect(RECT *__restrict__ wnd, const RECT *mon)
     wnd->bottom = wnd->top  + height;
 }
 
+static void ClampPointInRect(const RECT *rc, POINT *__restrict__ pt)
+{
+    pt->x = CLAMP(rc->left, pt->x, rc->right-1);
+    pt->y = CLAMP(rc->top, pt->y, rc->bottom-1);
+}
 static void RectFromPts(RECT *rc, const POINT a, const POINT b)
 {
     rc->left = min(a.x, b.x);

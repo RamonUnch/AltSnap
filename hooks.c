@@ -1049,7 +1049,7 @@ static void MaximizeRestore_atpt(HWND hwnd, UINT sw_cmd)
             CenterRectInRect(&wndpl.rcNormalPosition, &mi.rcWork);
         }
     }
-
+//    wndpl.flags |= WPF_ASYNCWINDOWPLACEMENT;
     SetWindowPlacement(hwnd, &wndpl);
     if (sw_cmd == SW_FULLSCREEN) {
         MoveWindowAsync(hwnd, mi.rcMonitor.left , mi.rcMonitor.top
@@ -1728,9 +1728,8 @@ static void MouseMove(POINT pt)
             // Update wndwidth and wndheight
             wndwidth  = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
             wndheight = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
+//            wndpl.flags |= WPF_ASYNCWINDOWPLACEMENT;
             SetWindowPlacement(state.hwnd, &wndpl);
-            // TODO: use a thread for sloooow windows.
-//            SetWindowPlacementThread(state.hwnd, &wndpl);
         }
 
     } else if (state.action == AC_RESIZE) {
@@ -4118,7 +4117,7 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                     InterlockedIncrement(&state.ignoreclick);
                     mouse_event(buttonswaped?MOUSEEVENTF_RIGHTUP:MOUSEEVENTF_LEFTUP
                                , 0, 0, 0, GetMessageExtraInfo());
-                    InterlockedIncrement(&state.ignoreclick);
+                    InterlockedDecrement(&state.ignoreclick);
                     init_movement_and_actions(pt, NULL, AC_MOVE, 0);
                 }
             }

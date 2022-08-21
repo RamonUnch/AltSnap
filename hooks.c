@@ -3616,6 +3616,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
         DorQWORD lpdwResult;
         if(!SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 128, &lpdwResult)) {
             state.blockmouseup = 1;
+            state.hwnd = LastWin.hwnd = state.sclickhwnd = NULL;
             return 1; // Unresponsive window...
         }
         // AutoFocus on movement/resize.

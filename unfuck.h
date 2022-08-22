@@ -613,14 +613,32 @@ static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
     *Min = mmi.ptMinTrackSize;
     *Max = mmi.ptMaxTrackSize;
 }
-/* Function to retreave the best possible small icon associated with a window */
+/* Function to get the best possible small icon associated with a window
+ * We always use SendMessageTimeout to ensure we do not get  locked
+ * We start with ICON_SMALL, then ICON_SMALL2, then ICON_BIG and finally
+ * we try to get the icon from the window class if everything failed or
+ * if the first message timed out (freezing program).
+ * Note that ICON_SMALL2 was introduced by Windows XP (I think) */
 static HICON GetWindowIcon(HWND hwnd)
 {
     #define TIMEOUT 64
     HICON icon;
     if (SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL, 0, SMTO_ABORTIFHUNG, TIMEOUT, (PDWORD_PTR)&icon)) {
-        /* The message failed without */
+        /* The message failed without timeout */
         if (icon) return icon; // Sucess
+
+        // ICON_SMALL2 exists since Windows XP only
+        static BYTE WINXP_PLUS=0xFF;
+        if (WINXP_PLUS == 0xFF) {
+            WORD WinVer = LOWORD(GetVersion());
+            BYTE ver = LOBYTE(WinVer);
+            BYTE min = LOBYTE(WinVer);
+            WINXP_PLUS = ver > 5 || (ver == 5 && min > 0); // XP is NT 5.1
+        }
+        if (WINXP_PLUS
+        &&  SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL2, 0, SMTO_ABORTIFHUNG, TIMEOUT, (PDWORD_PTR)&icon) && icon)
+            return icon;
+
         /* Try again with the big icon if we were unable to retreave the small one. */
         if (SendMessageTimeout(hwnd, WM_GETICON, ICON_BIG, 0, SMTO_ABORTIFHUNG, TIMEOUT, (PDWORD_PTR)&icon) && icon)
             return icon;

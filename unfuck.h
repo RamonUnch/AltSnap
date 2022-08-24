@@ -701,7 +701,8 @@ static HFONT GetNCMenuFont(UINT dpi)
         ncm.cbSize = sizeof(struct OLDNONCLIENTMETRICSW);
         SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &ncm, 0);
     }
-    return CreateFontIndirect(&ncm.lfMessageFont);
+//    LOGA("Menu Font: %ld, %S", ncm.lfMenuFont.lfHeight, ncm.lfMenuFont.lfFaceName);
+    return CreateFontIndirect(&ncm.lfMenuFont);
 }
 
 /* Helper function to call SetWindowPos with the SWP_ASYNCWINDOWPOS flag */

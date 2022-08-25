@@ -111,6 +111,25 @@ static const char *strchrL(const char *__restrict__ str, const char c)
 }
 #define strchr strchrL
 
+
+static int atoiL(const char *s)
+{
+    long int v=0;
+    int sign=1;
+    while (*s == ' ') s++; /*  ||  (unsigned int)(*s - 9) < 5u */
+
+    switch (*s) {
+    case '-': sign=-1; /* fall through */
+    case '+': ++s;
+    }
+    while ((unsigned)(*s - '0') < 10u) {
+        v = v * 10 + (*s - '0');
+        ++s;
+    }
+    return sign*v;
+}
+#define atoi atoiL
+
 static int wtoiL(const wchar_t *s)
 {
     long int v=0;
@@ -250,6 +269,27 @@ static char *strcpyL(char *__restrict__ dest, const char *__restrict__ in)
     return ret;
 }
 #define strcpy strcpyL
+
+static int stricmpL(const char* s1, const char* s2)
+{
+    unsigned x1, x2;
+
+    while (1) {
+        x2 = *s2 - 'A';
+        x2 |= (x2 < 26u) << 5; /* Add 32 if UPPERCASE. */
+
+        x1 = *s1 - 'A';
+        x1 |= (x1 < 26u) << 5;
+
+        s1++; s2++;
+        if (x2 != x1)
+            break;
+        if (x1 == (unsigned)-'A')
+            break;
+    }
+    return x1 - x2;
+}
+#define stricmp stricmpL
 
 static int wcsicmpL(const wchar_t* s1, const wchar_t* s2)
 {

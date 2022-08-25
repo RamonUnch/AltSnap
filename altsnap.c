@@ -174,14 +174,16 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
         { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
         { AC_KILL,        MF_STRING,          l10n->input_actions_kill},
         { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
+        { AC_MOVEONOFF,   CHK(LP_MOVEONOFF),  l10n->input_actions_moveonoff},
+        { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
         { AC_NONE,        MF_STRING,          l10n->input_actions_nothing},
     };
     #undef CHK
     #undef K
     unsigned i;
     for (i=0; i < ARR_SZ(mnlst); i++) {
-        if ( (ACMenuItems>>i)&1 )
-            AppendMenu(menu, mnlst[i].mf, mnlst[i].action, mnlst[i].str);
+        if ( (ACMenuItems>>i)&1 ) // Put the action in the HIWORD of wParam
+            AppendMenu(menu, mnlst[i].mf, mnlst[i].action<<16, mnlst[i].str);
     }
     TrackPopupMenu(menu, GetSystemMetrics(SM_MENUDROPALIGNMENT), pt.x, pt.y, 0, hwnd, NULL);
     DestroyMenu(menu);
@@ -383,8 +385,20 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     // Look for previous instance
     if (!multi && !GetPrivateProfileInt(L"Advanced", L"MultipleInstances", 0, inipath)){
         if (quiet) return 0;
-        HWND previnst = FindWindow(APP_NAME, NULL);
+
+        HWND previnst = FindWindow(APP_NAME, L"");
         if (previnst) {
+            // Ask old HotKey window to perform an action.
+            const char *actionstr = strstr(params, "-a");
+            if (actionstr && actionstr[2] && actionstr[3] && actionstr[4]) {
+                enum action action = MapActionA(&actionstr[3]);
+                HWND msghwnd;
+                if ((msghwnd = FindWindow( APP_NAME"-HotKeys", L""))) {
+                    PostMessage(msghwnd, WM_HOTKEY, (actionstr[2] == 'p')*0x1000+action, 0);
+                    return 0;
+                }
+            }
+            // Update old instance if no action to be made.
             LOG("Previous instance found and no -multi mode")
             if(hide)   PostMessage(previnst, WM_CLOSECONFIG, 0, 0);
             if(config) PostMessage(previnst, WM_OPENCONFIG, 0, 0);
@@ -458,6 +472,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
         }
     }
 
+    UnhookSystem();
     DestroyWindow(g_hwnd);
     LOG("GOOD NORMAL EXIT");
     return msg.wParam;

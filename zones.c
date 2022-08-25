@@ -116,7 +116,6 @@ static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *heig
     if (!ret) return; // Outside of a rect
 
     LastWin.end = 0;
-    LastWin.moveonly = 0; // We are resizing the window.
     FixDWMRect(state.hwnd, &bd);
     InflateRectBorder(&rc, &bd);
 
@@ -180,7 +179,6 @@ static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
         CopyRect(&fr, &zrc);
     }
     LastWin.end = 0;
-    LastWin.moveonly = 0; // We are resizing the window.
     RECT bd;
     FixDWMRect(hwnd, &bd);
     InflateRectBorder(&fr, &bd);

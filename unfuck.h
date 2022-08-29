@@ -32,6 +32,12 @@ enum DWMWINDOWATTRIBUTE {
   DWMWA_PASSIVE_UPDATE_MODE,
   DWMWA_LAST
 };
+enum MONITOR_DPI_TYPE {
+  MDT_EFFECTIVE_DPI = 0,
+  MDT_ANGULAR_DPI = 1,
+  MDT_RAW_DPI = 2,
+  MDT_DEFAULT = MDT_EFFECTIVE_DPI
+};
 
 /* Invalid pointer with which we initialize
  * all dynamically imported functions */
@@ -63,6 +69,10 @@ enum DWMWINDOWATTRIBUTE {
 
 #ifndef NIIF_USER
 #define NIIF_USER 0x00000004
+#endif
+
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
 #endif
 
 #ifndef SUBCLASSPROC
@@ -115,9 +125,31 @@ static BOOL (WINAPI *mySystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, 
 static HRESULT (WINAPI *myDwmGetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c) = IPTR;
 static HRESULT (WINAPI *myDwmIsCompositionEnabled)(BOOL *pfEnabled) = IPTR;
 
+/* SHCORE.DLL */
+static HRESULT (WINAPI *myGetDpiForMonitor)(HMONITOR hmonitor, int dpiType, UINT *dpiX, UINT *dpiY) = IPTR;
+
 /* NTDLL.DLL */
 static LONG (NTAPI *myNtSuspendProcess)(HANDLE ProcessHandle) = IPTR;
 static LONG (NTAPI *myNtResumeProcess )(HANDLE ProcessHandle) = IPTR;
+
+/* Helper function to pop a message bow with error code*/
+static void ErrorBox(TCHAR *title)
+{
+    LPVOID lpMsgBuf;
+    FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER |
+        FORMAT_MESSAGE_FROM_SYSTEM |
+        FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        GetLastError(),
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), /* Default language */
+        (LPTSTR) &lpMsgBuf,
+        0, NULL
+    );
+    MessageBox( NULL, (LPCTSTR)lpMsgBuf, title, MB_OK | MB_ICONWARNING );
+    /* Free the buffer using LocalFree. */
+    LocalFree( lpMsgBuf );
+}
 
 /* Removes the trailing file name from a path */
 static BOOL PathRemoveFileSpecL(LPTSTR p)
@@ -348,6 +380,18 @@ static int GetSystemMetricsForDpiL(int  nIndex, UINT dpi)
 }
 #define GetSystemMetricsForDpi GetSystemMetricsForDpiL
 
+static LRESULT GetDpiForMonitorL(HMONITOR hmonitor, int dpiType, UINT *dpiX, UINT *dpiY)
+{
+    if (myGetDpiForMonitor == IPTR) { /* First time */
+        myGetDpiForMonitor=LoadDLLProc("SHCORE.DLL", "GetDpiForMonitor");
+    }
+    if (myGetDpiForMonitor) { /* We know we have the function */
+        return myGetDpiForMonitor(hmonitor, dpiType, dpiX, dpiY);
+    }
+    return 666; // Fail with 666 error
+}
+
+/* Supported wince Windows 10, version 1607 [desktop apps only] */
 static UINT GetDpiForWindowL(HWND hwnd)
 {
     if (myGetDpiForWindow == IPTR) { /* First time */
@@ -356,7 +400,16 @@ static UINT GetDpiForWindowL(HWND hwnd)
     if (myGetDpiForWindow) { /* We know we have the function */
         return myGetDpiForWindow(hwnd);
     }
-    return 0; /* Not handeled */
+
+    /* Windows 8.1 / Server2012 R2 Fallback */
+    UINT dpiX=0, dpiY=0;
+    HMONITOR hmon;
+    if ((hmon = MonitorFromWindowL(hwnd, MONITOR_DEFAULTTONEAREST))
+    && S_OK == GetDpiForMonitorL(hmon, MDT_DEFAULT, &dpiX, &dpiY)) {
+        return dpiX;
+    }
+
+    return 0; /* Not handled */
 }
 #define GetDpiForWindow GetDpiForWindowL
 
@@ -705,13 +758,6 @@ static HFONT GetNCMenuFont(UINT dpi)
     return CreateFontIndirect(&ncm.lfMenuFont);
 }
 
-/* Helper function to call SetWindowPos with the SWP_ASYNCWINDOWPOS flag */
-static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height)
-{
-    /* flag = (!flag) * SWP_NOREDRAW; */
-    return SetWindowPos(hwnd, NULL, posx, posy, width, height
-               , SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOZORDER|SWP_ASYNCWINDOWPOS);
-}
 static void MaximizeWindow(HWND hwnd)
 {
     PostMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);

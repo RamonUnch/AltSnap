@@ -9,6 +9,7 @@
 #include "hooks.h"
 #define LONG_CLICK_MOVE
 #define COBJMACROS
+static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height);
 static BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
 static LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 // Timer messages
@@ -382,6 +383,18 @@ static void SendSizeMove(DWORD msg)
         PostMessage(state.hwnd, msg, 0, 0);
     }
 }
+/* Helper function to call SetWindowPos with the SWP_ASYNCWINDOWPOS flag */
+static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height)
+{
+    /* flag = (!flag) * SWP_NOREDRAW; */
+//    SendSizeMove(WM_ENTERSIZEMOVE);
+    BOOL ret = SetWindowPos(hwnd, NULL, posx, posy, width, height
+               , SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOZORDER|SWP_ASYNCWINDOWPOS);
+//    Sleep(1);
+//    SendSizeMove(WM_EXITSIZEMOVE);
+    return ret;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Overloading of the Hittest function to include a whitelist
 // x and y are in screen coordinate.
@@ -1089,7 +1102,11 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
         // Use Restore
         RestoreWindowTo(hwnd, lw->x, lw->y, lw->width, lw->height);
     } else {
+//        RECT rc = { lw->x, lw->y, lw->x + lw->width, lw->y + lw->height };
+//        PostMessage(hwnd, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(state.prevpt.x, state.prevpt.y));
+//        if(!(flag&SWP_NOSIZE)) SendMessage(hwnd, WM_SIZING, WMSZ_BOTTOMRIGHT, (LPARAM)&rc);
         SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
+
         // Send WM_SYNCPAINT in case to wait for the end of movement
         // And to avoid windows to "slide through" the whole WM_MOVE queue
         if(flag&SWP_ASYNCWINDOWPOS) SendMessage(hwnd, WM_SYNCPAINT, 0, 0);
@@ -2053,7 +2070,9 @@ static void ReallySetForegroundWindow(HWND hwnd)
     // Check existing foreground Window.
     HWND  fore = GetForegroundWindow();
     if (fore != hwnd) {
-        if (state.alt != VK_MENU &&  state.alt != VK_CONTROL) {
+        if (state.alt != VK_MENU &&  state.alt != VK_CONTROL
+        && !(GetAsyncKeyState(VK_CONTROL)&0x8000)
+        && !(GetAsyncKeyState(VK_MENU)&0x8000)) {
             // If the physical Alt or Ctrl keys are not down
             // We need to activate the window with key input.
             // CTRL seems to work. Also Alt works but trigers the menu
@@ -2460,9 +2479,9 @@ static pure BOOL StackedRectsT(const RECT *a, const RECT *b, const int T)
 BOOL CALLBACK EnumStackedWindowsProc(HWND hwnd, LPARAM lasermode)
 {
     // Make sure we have enough space allocated
+
     hwnds = GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
     if (!hwnds) return FALSE; // Stop enum, we failed
-
     // Only store window if it's visible, not minimized to taskbar
     RECT wnd, refwnd;
     if (IsAltTabAble(hwnd)
@@ -3131,9 +3150,16 @@ struct TrackMenuOfWindowsparam {
 };
 static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
+    static UINT dpi;
     switch(msg) {
     case WM_CREATE: {
+        dpi = GetDpiForWindow(hwnd); // Use pin's hwnd
         SetTimer(hwnd, 1, conf.PinRate, NULL);
+    } break;
+    case WM_DPICHANGED: {
+        dpi = LOWORD(wp); // X and Y dpi should be same.
+        free((void *)GetWindowLongPtr(hwnd, GWLP_USERDATA));
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
     } break;
     case WM_SETTINGCHANGE: {
         // Free and resets the windows data.
@@ -3164,19 +3190,20 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         GetWindowRect(ow, &rc);
         LONG_PTR style  = GetWindowLongPtr(ow, GWL_STYLE);
         struct pinwindata *data;
-        if ((data = (struct pinwindata *)GetWindowLongPtr(hwnd, GWLP_USERDATA)) && data->OldOwStyle == style) {
+        if ((data = (struct pinwindata *)GetWindowLongPtr(hwnd, GWLP_USERDATA))
+        && data->OldOwStyle == style) {
             // the data were saved for the correct style!!!
             SetWindowPos(hwnd, NULL
                 , rc.right-data->rightoffset, rc.top+data->topoffset, 0, 0
                 , SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOSIZE);
-            return 0;
+            return 0; // DONE!
         }
+
         // Calculate offsets, sets window position and save data
         // to the GWLP_USERDATA stuff!
         int CapButtonWidth, PinW, PinH;
-        UINT dpi = GetDpiForWindow(ow); // Use parent window...
-        PinW = GetSystemMetricsForDpi(SM_CXSIZE, dpi);
-        PinH = GetSystemMetricsForDpi(SM_CYSIZE, dpi);
+        PinW = GetSystemMetricsForDpi(SM_CXSIZE, dpi); // Caption button width
+        PinH = GetSystemMetricsForDpi(SM_CYSIZE, dpi); // Caption button height
 
         RECT btrc;
         if (GetCaptionButtonsRect(ow, &btrc)) {
@@ -3184,12 +3211,11 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         } else {
             UCHAR btnum=0; // Number of caption buttons.
             if ((style&(WS_SYSMENU|WS_CAPTION)) == (WS_SYSMENU|WS_CAPTION)) {
-                btnum++;    // WS_SYSMENU => Close button [X]
-                btnum += !!(style&WS_MINIMIZEBOX);     // [_]
-                btnum += !!(style&WS_MAXIMIZEBOX);     // [O]
-                btnum += !!(xstyle&WS_EX_CONTEXTHELP); // [?]
+                btnum++;                         // WS_SYSMENU => Close button [X]
+                btnum += 2 * !!(style&(WS_MINIMIZEBOX|WS_MAXIMIZEBOX)); // [O] [_]
+                btnum += ( (xstyle&WS_EX_CONTEXTHELP)                      // [?]
+                          && (style&(WS_MINIMIZEBOX|WS_MAXIMIZEBOX)) != (WS_MINIMIZEBOX|WS_MAXIMIZEBOX) );
             }
-            btnum =  min(btnum, 3); // Maximum 3 button.
             CapButtonWidth = btnum * PinW;
         }
         // Adjust PinW and PinH to have nice stuff.
@@ -3215,7 +3241,7 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             , SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOOWNERZORDER);
         return 0;
     } break;
-    case WM_PAINT : {
+    case WM_PAINT: {
         wchar_t Topchar = HIBYTE(HIWORD(conf.PinColor&0xFF000000));
         if (Topchar) {
             PAINTSTRUCT ps;
@@ -3396,9 +3422,10 @@ static wchar_t Int2Accel(int i)
         return i<26? L'A'+i: L'0'+i-26;
 }
 #include <oleacc.h>
+#define MITTLEN 80
 struct menuitemdata {
     MSAAMENUINFO msaa;
-    wchar_t txt[80];
+    wchar_t txt[MITTLEN];
     HICON icon;
 };
 static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc)
@@ -3416,6 +3443,8 @@ static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc)
     } else {
         EnumDesktopWindows(NULL, param->EnumProc, param->lp);
     }
+    LOG("Number of stacked windows = %u", numhwnds);
+    if(numhwnds == 0) return 0;
 
     state.sclickhwnd = state.hwnd;
     numhwnds = min(numhwnds, 36); // Max 36 stacked windows
@@ -3427,7 +3456,7 @@ static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc)
     struct menuitemdata *data = calloc(numhwnds, sizeof(struct menuitemdata));
     for (i=0; i<numhwnds; i++) {
         wchar_t *txt = data[i].txt;
-        GetWindowText(hwnds[i], txt+5, 80-6);
+        GetWindowText(hwnds[i], txt+5, MITTLEN-6);
         txt[0] = L'&';
         txt[1] = Int2Accel(i);
         txt[2] = L' '; txt[3] = L'-'; txt[4] = L' ';
@@ -3454,6 +3483,7 @@ static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc)
         TPM_RETURNCMD|TPM_NONOTIFY|GetSystemMetrics(SM_MENUDROPALIGNMENT)
         , pt.x, pt.y, 0, g_mchwnd, NULL);
     state.mdiclient = mdiclient;
+    LOG("menu=%u", i);
     SetForegroundWindowL(hwnds[i]);
 
     DestroyMenu(menu);
@@ -3471,6 +3501,7 @@ static void ActionStackList(LPARAM lasermode)
     struct TrackMenuOfWindowsparam param;
     param.EnumProc = EnumStackedWindowsProc;
     param.lp = lasermode;
+//    param.hwnd = state.hwnd;
     CloseHandle(CreateThread(NULL, STACK, TrackMenuOfWindows, (LPVOID)&param, 0, &lpThreadId));
 }
 static void ActionASOnOff()
@@ -3604,7 +3635,6 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     // Get MDI chlild hwnd or root hwnd if not MDI!
     state.mdiclient = NULL;
     state.hwnd = hwnd? hwnd: MDIorNOT(WindowFromPoint(pt), &state.mdiclient);
-
     if (!state.hwnd || state.hwnd == LastWin.hwnd) {
         return 0;
     }
@@ -4186,7 +4216,7 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
 ///////////////////////////////////////////////////////////////////////////
 // Function to calculate the necessary dimentions for the menuitem.
 // In response to the WM_MEASUREITEM message
-static LPARAM MeasureMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam)
+static LPARAM MeasureMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi)
 {
     LPMEASUREITEMSTRUCT lpmi = (LPMEASUREITEMSTRUCT)lParam;
     if(!lpmi) return FALSE;
@@ -4196,7 +4226,6 @@ static LPARAM MeasureMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam)
     //LOGA("WM_MEASUREITEM: id=%u, txt=%S", lpmi->itemID, data->txt);
 
     HDC dc = GetDC(hwnd);
-    UINT dpi = GetDpiForWindow(hwnd);
 
     // Select proper font.
     HFONT mfont = GetNCMenuFont(dpi);
@@ -4225,7 +4254,7 @@ static LPARAM MeasureMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam)
 // Function to custom draw the menu item, in response to WM_DRAWITEM.
 // We must both draw he small icon and the menu text.
 // We must also draw the selected menu with the highligh color.
-static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam)
+static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi)
 {
     LPDRAWITEMSTRUCT di = (LPDRAWITEMSTRUCT)lParam;
     if (!di) return FALSE;
@@ -4233,7 +4262,6 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam)
     if (!data) return FALSE;
 
     // Try to be dpi-aware as good as we can...
-    UINT dpi = GetDpiForWindow(hwnd);
     int xmargin = GetSystemMetricsForDpi(SM_CXFIXEDFRAME, dpi);
     int xicosz =  GetSystemMetricsForDpi(SM_CXSMICON, dpi);
     int yicosz =  GetSystemMetricsForDpi(SM_CYSMICON, dpi);
@@ -4294,11 +4322,14 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam)
 // Window for single click commands for menu
 LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+    static UINT dpi;
     static HWND fhwndori = NULL;
     if (msg == WM_CREATE) {
         // Save the original foreground window.
+        dpi = GetDpiForWindow(hwnd);
         fhwndori = GetForegroundWindow();
-
+    } else if (msg == WM_DPICHANGED) {
+        dpi = LOWORD(wParam); // Update dpi value if changed...
     } else if (msg == WM_INITMENU) {
         state.unikeymenu = (HMENU)wParam;
         // state.sclickhwnd = (HWND)lParam; // Child hwnd that was clicked.
@@ -4306,6 +4337,7 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return (LRESULT)state.sclickhwnd;
     } else if (msg == WM_COMMAND && LOWORD(wParam)) {
         // UNIKEY MENU (LOWORD of wParam munst be non NULL.
+        LOG("Unikey menu WM_COMMAND, wp=%X, lp=%X", (UINT)wParam, (UINT)lParam);
         Send_KEY(VK_BACK); // Errase old char...
 
         // Send UCS-2 or Lower+Upper UTF-16 surrogates of the UNICODE char.
@@ -4315,6 +4347,7 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         state.sclickhwnd = NULL;
     } else if (msg == WM_COMMAND && IsWindow(state.sclickhwnd) && HIWORD(wParam) && !LOWORD(wParam)) {
         // ACTION MENU
+        LOG("Action Menu WM_COMMAND, wp=%X, lp=%X", (UINT)wParam, (UINT)lParam);
         enum action action = HIWORD(wParam);
         if (action) {
             state.prevpt = state.clickpt;
@@ -4332,10 +4365,10 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return 0;
     // OWNER DRAWN MENU !!!!!
     } else if (msg == WM_MEASUREITEM) {
-        return MeasureMenuItem(hwnd, wParam, lParam);
+        return MeasureMenuItem(hwnd, wParam, lParam, dpi);
     } else if (msg == WM_DRAWITEM) {
         // WE MUST DRAW THE MENU ITEM HERE
-        return DrawMenuItem(hwnd, wParam, lParam);
+        return DrawMenuItem(hwnd, wParam, lParam, dpi);
     } else if (msg == WM_MENUCHAR) {
 //        LOGA("WM_MENUCHAR: %X", wParam);
         // Turn the input character into a menu identifier.
@@ -4359,6 +4392,7 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         // Menu gets hiden, be sure to zero-out the clickhwnd
         state.sclickhwnd = NULL;
     } else if (msg == WM_DESTROY) {
+        LOG("Destroying Menu window!");
         if (state.sclickhwnd == fhwndori && IsWindow(fhwndori)) {
             // Restore the old foreground window
             SetForegroundWindow(fhwndori);
@@ -4380,6 +4414,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             // The user Pressed a hotkey.
             action = wParam - 0xC000; // Remove the Offset
             ptwindow = conf.UsePtWindow;
+            LOG("Hotkey Pressed, action = %d", action);
         } else if (0x0000 < wParam && wParam < 0x1000) {
             // The user called AltSnap.exe -afACTION
             action = wParam - 0x0000; // Remove the Offset
@@ -4407,8 +4442,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             } else {
                 state.shift = state.ctrl = 0; // In case...
                 init_movement_and_actions(pt, ptwindow? NULL: GetForegroundWindow(), action, 0);
-                state.blockmouseup = 0;
-                state.hwnd=NULL;
+                state.blockmouseup = 0; // We must not block mouseup in this case...
             }
             return 0;
         }
@@ -4840,7 +4874,11 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         if(LOBYTE(HK) && HIBYTE(HK)) {
             // Lobyte is the virtual key code and hibyte is the mod_key
             if(!RegisterHotKey(g_hkhwnd, 0xC000 + ac, HIBYTE(HK), LOBYTE(HK))) {
-                LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
+                // LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
+                wchar_t title[256];
+                wcscpy(title, APP_NAME": unable to register hotkey for action ");
+                wcscat(title, txt);
+                ErrorBox(title);
             }
         }
     }

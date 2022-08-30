@@ -2493,6 +2493,7 @@ BOOL CALLBACK EnumStackedWindowsProc(HWND hwnd, LPARAM lasermode)
     ){
         hwnds[numhwnds++] = hwnd;
     }
+    LOG("EnumStackedWindowsProc");
     return TRUE;
 }
 ////////////////////////////////////////////////////////////////////////////
@@ -3259,7 +3260,7 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     } break;
     case WM_RBUTTONDOWN: {
         state.mdiclient = NULL; // In case...
-        struct TrackMenuOfWindowsparam param = { EnumTopMostWindows, 0 };
+        static const struct TrackMenuOfWindowsparam param = { EnumTopMostWindows, 0 };
         TrackMenuOfWindows((LPVOID)&param);
         return 0;
     } break;
@@ -3434,7 +3435,7 @@ static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc)
     state.sclickhwnd = NULL;
     KillAltSnapMenu();
     g_mchwnd = KreateMsgWin(MenuWindowProc, APP_NAME"-SClick");
-
+    if(!g_mchwnd) return 0; // Failed to create g_mchwnd...
     // Fill up hwnds[] with the stacked windows.
     numhwnds = 0;
     HWND mdiclient = state.mdiclient;
@@ -3470,11 +3471,11 @@ static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc)
         MENUITEMINFO lpmi= { sizeof(MENUITEMINFO) };
         lpmi.fMask = MIIM_DATA|MIIM_TYPE|MIIM_ID;
         lpmi.fType = MFT_OWNERDRAW; /*MFT_STRING*/
-        lpmi.wID = i;
+        lpmi.wID = i+1; // Id starts at 1 because 0 is for ESCAPE.
         lpmi.dwItemData = (ULONG_PTR)&data[i];
         lpmi.dwTypeData = (LPWSTR)&data[i].msaa;
         lpmi.cch = sizeof(MSAAMENUINFO);
-        InsertMenuItem(menu, i, FALSE, &lpmi);
+        InsertMenuItem(menu, i+1, FALSE, &lpmi);
     }
     POINT pt;
     GetCursorPos(&pt);
@@ -3484,13 +3485,13 @@ static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc)
         , pt.x, pt.y, 0, g_mchwnd, NULL);
     state.mdiclient = mdiclient;
     LOG("menu=%u", i);
-    SetForegroundWindowL(hwnds[i]);
+    // if the return value is in the range..
+    if (0 < i && i <= numhwnds)
+        SetForegroundWindowL(hwnds[i-1]);
 
     DestroyMenu(menu);
-    state.unikeymenu = NULL;
     DestroyWindow(g_mchwnd);
     g_mchwnd = NULL;
-    state.sclickhwnd = NULL;
     free(data);
 
     return 0;
@@ -3498,7 +3499,7 @@ static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc)
 static void ActionStackList(LPARAM lasermode)
 {
     DWORD lpThreadId;
-    struct TrackMenuOfWindowsparam param;
+    static struct TrackMenuOfWindowsparam param;
     param.EnumProc = EnumStackedWindowsProc;
     param.lp = lasermode;
 //    param.hwnd = state.hwnd;
@@ -3539,6 +3540,7 @@ static void ActionMenu(HWND hwnd)
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
 {
+    LOG("Going to perform action %d", (int)action);
     if      (action==AC_MINIMIZE)    MinimizeWindow(hwnd);
     else if (action==AC_MAXIMIZE)    ActionMaximize(hwnd);
     else if (action==AC_CENTER)      CenterWindow(hwnd);
@@ -4373,6 +4375,7 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 //        LOGA("WM_MENUCHAR: %X", wParam);
         // Turn the input character into a menu identifier.
         WORD cc = LOWORD(wParam);
+        if (cc==VK_ESCAPE) return MNC_CLOSE<<16;
         // Lower case the input character.
         TCHAR c = (TCHAR)( cc  |  ((cc - 'A' < 26)<<5) );
         WORD item;
@@ -4393,7 +4396,7 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         state.sclickhwnd = NULL;
     } else if (msg == WM_DESTROY) {
         LOG("Destroying Menu window!");
-        if (state.sclickhwnd == fhwndori && IsWindow(fhwndori)) {
+        if (fhwndori && state.sclickhwnd == fhwndori && IsWindow(fhwndori)) {
             // Restore the old foreground window
             SetForegroundWindow(fhwndori);
         }
@@ -4824,6 +4827,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         WNDCLASSEX wnd;
         memset(&wnd, 0, sizeof(wnd));
         wnd.cbSize = sizeof(WNDCLASSEX);
+//        wnd.style = CS_OWNDC|CS_SAVEBITS; //conf.TransWinOpacity?0:CS_SAVEBITS;
         wnd.lpfnWndProc = DefWindowProc;
         wnd.hInstance = hinstDLL;
         wnd.hbrBackground = CreateSolidBrush(color[0]);
@@ -4875,7 +4879,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
             // Lobyte is the virtual key code and hibyte is the mod_key
             if(!RegisterHotKey(g_hkhwnd, 0xC000 + ac, HIBYTE(HK), LOBYTE(HK))) {
                 // LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
-                wchar_t title[256];
+                wchar_t title[128];
                 wcscpy(title, APP_NAME": unable to register hotkey for action ");
                 wcscat(title, txt);
                 ErrorBox(title);

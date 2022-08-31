@@ -867,8 +867,13 @@ static LRESULT WINAPI PickShortcutWinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
         VK_LWIN, VK_RWIN
         , '\0'
     };
+//    static int was_enabled;
 
     switch (msg) {
+//    case WM_CREATE: {
+//        was_enabled = ENABLED();
+//        if (was_enabled) UnhookSystem();
+//    } break;
     case WM_CHAR:
     case WM_SYSKEYDOWN:
     case WM_SYSKEYUP:
@@ -903,6 +908,7 @@ static LRESULT WINAPI PickShortcutWinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
         HWND sethwnd = GetDlgItem(phwnd, IDC_SHORTCUTS_SET);
         EnableWindow(sethwnd, TRUE);
         SetFocus(sethwnd);
+//        if (was_enabled) HookSystem();
     } break;
     default:
         return DefWindowProc(hwnd, msg, wp, lp);
@@ -1416,10 +1422,12 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     } break;
 
     case WM_PAINT: {
+        /* We must keep track of pens and delete them.*/
         RECT wRect;
-        HPEN pen = (HPEN) CreatePen(PS_SOLID, 2, GetSysColor(COLOR_BTNTEXT));
+        const HPEN pen = (HPEN) CreatePen(PS_SOLID, 2, GetSysColor(COLOR_BTNTEXT));
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
+        int SavedCD = SaveDC(hdc);
 
         GetWindowRect(hwnd, &wRect);
         POINT Offset = { wRect.left, wRect.top };
@@ -1444,16 +1452,16 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             , width
             , (height+height*centerfrac/100)/2 + Offset.y);
         if (centermode == 3) {
-            HPEN rcpen = (HPEN) CreatePen(PS_SOLID, 2, GetSysColor(COLOR_BTNFACE));
-            SelectObject(hdc, rcpen);
+            HPEN bgpen = (HPEN) CreatePen(PS_SOLID, 2, GetSysColor(COLOR_BTNFACE));
+            HPEN prevpen = SelectObject(hdc, bgpen);
             Rectangle(hdc
                 , Offset.x+(width-width*centerfrac/100)/2
                 , Offset.y+(height-height*centerfrac/100)/2
                 , (width+width*centerfrac/100)/2 + Offset.x
                 , (height+height*centerfrac/100)/2 + Offset.y);
-            DeleteObject(rcpen);
-
-            SelectObject(hdc, pen);
+            SelectObject(hdc, prevpen); // restore pen
+            DeleteObject(bgpen); // delete bgpen.
+            // Draw diagonal lines
             POINT pta[2] = {{Offset.x+(width-width*centerfrac/100)/2, Offset.y+(height-height*centerfrac/100)/2},
                           { (width+width*centerfrac/100)/2 + Offset.x, (height+height*centerfrac/100)/2 + Offset.y}
                          };
@@ -1463,18 +1471,17 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                          };
             Polyline(hdc, ptb, 2);
 
-            rcpen = (HPEN) CreatePen(PS_DOT, 1, GetSysColor(COLOR_BTNTEXT));
-            SelectObject(hdc, rcpen);
+            HPEN dotpen = (HPEN) CreatePen(PS_DOT, 1, GetSysColor(COLOR_BTNTEXT));
+            prevpen = SelectObject(hdc, dotpen);
             SetBkColor(hdc, GetSysColor(COLOR_BTNFACE));
             Rectangle(hdc
                 , Offset.x+(width-width*centerfrac/100)/2
                 , Offset.y+(height-height*centerfrac/100)/2
                 , (width+width*centerfrac/100)/2 + Offset.x
                 , (height+height*centerfrac/100)/2 + Offset.y);
-            DeleteObject(rcpen);
+            SelectObject(hdc, prevpen); // restore pen
+            DeleteObject(dotpen); // so we can delete this one...
         }
-
-        DeleteObject(pen);
 
         // Draw textual info....
         SetBkMode(hdc, TRANSPARENT);
@@ -1489,7 +1496,12 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             RECT trc2 = {5, 5, crc.right, splitheight};
             DrawText(hdc, str, wcslen(str), &trc2, DT_NOCLIP|DT_TABSTOP);
         }
+
+        RestoreDC(hdc, SavedCD);
         EndPaint(hwnd, &ps);
+
+        DeleteObject(pen); // delete pen
+
         return 0;
     } break;
 

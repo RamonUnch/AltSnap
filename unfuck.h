@@ -388,7 +388,7 @@ static LRESULT GetDpiForMonitorL(HMONITOR hmonitor, int dpiType, UINT *dpiX, UIN
     if (myGetDpiForMonitor) { /* We know we have the function */
         return myGetDpiForMonitor(hmonitor, dpiType, dpiX, dpiY);
     }
-    return 666; // Fail with 666 error
+    return 666; /* Fail with 666 error */
 }
 
 /* Supported wince Windows 10, version 1607 [desktop apps only] */
@@ -518,8 +518,8 @@ static BOOL IsVisible(HWND hwnd)
     return IsWindowVisible(hwnd) && !IsWindowCloaked(hwnd);
 }
 
-// Gets the original owner of hwnd.
-// stops going back the owner chain if invisible.
+/* Gets the original owner of hwnd.
+ * stops going back the owner chain if invisible. */
 static HWND GetRootOwner(HWND hwnd)
 {
     HWND parent;
@@ -528,9 +528,13 @@ static HWND GetRootOwner(HWND hwnd)
            ? GetParent(hwnd) : GetWindow(hwnd, GW_OWNER)
           )) {
 
-        if (parent == hwnd || i++ > 2048 || !IsVisible(parent))
-            break; // stop if in a loop or if parent is no more visible
-
+        RECT prc;
+        if (parent == hwnd || i++ > 2048 || !IsVisible(parent)
+        || !GetWindowRect(parent, &prc) || IsRectEmpty(&prc)) {
+            /* Stop if in a loop or if parent is not visible
+             * or if the parent rect is empty */
+            break;
+        }
         hwnd = parent;
     }
 
@@ -678,15 +682,15 @@ static HICON GetWindowIcon(HWND hwnd)
     HICON icon;
     if (SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL, 0, SMTO_ABORTIFHUNG, TIMEOUT, (PDWORD_PTR)&icon)) {
         /* The message failed without timeout */
-        if (icon) return icon; // Sucess
+        if (icon) return icon; /* Sucess */
 
-        // ICON_SMALL2 exists since Windows XP only
+        /* ICON_SMALL2 exists since Windows XP only */
         static BYTE WINXP_PLUS=0xFF;
         if (WINXP_PLUS == 0xFF) {
             WORD WinVer = LOWORD(GetVersion());
             BYTE ver = LOBYTE(WinVer);
             BYTE min = LOBYTE(WinVer);
-            WINXP_PLUS = ver > 5 || (ver == 5 && min > 0); // XP is NT 5.1
+            WINXP_PLUS = ver > 5 || (ver == 5 && min > 0); /* XP is NT 5.1 */
         }
         if (WINXP_PLUS
         &&  SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL2, 0, SMTO_ABORTIFHUNG, TIMEOUT, (PDWORD_PTR)&icon) && icon)
@@ -696,10 +700,11 @@ static HICON GetWindowIcon(HWND hwnd)
         if (SendMessageTimeout(hwnd, WM_GETICON, ICON_BIG, 0, SMTO_ABORTIFHUNG, TIMEOUT, (PDWORD_PTR)&icon) && icon)
             return icon;
     }
-    // Try the Class icon if nothing can be get through
+    /* Try the Class icon if nothing can be get */
     if ((icon = (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM))) return icon;
     if ((icon = (HICON)GetClassLongPtr(hwnd, GCLP_HICON))) return icon;
-    return LoadIcon(NULL, IDI_WINLOGO);
+
+    return LoadIcon(NULL, IDI_WINLOGO); /* Default to generic window icon */
     #undef TIMEOUT
 }
 /* Helper function to get the current system menu font.
@@ -752,9 +757,8 @@ static HFONT GetNCMenuFont(UINT dpi)
     BOOL ret = SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(struct NEWNONCLIENTMETRICSW), &ncm, 0, dpi);
     if (!ret) { /* Old Windows versions... XP and below */
         ncm.cbSize = sizeof(struct OLDNONCLIENTMETRICSW);
-        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &ncm, 0);
+        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(struct OLDNONCLIENTMETRICSW), &ncm, 0);
     }
-//    LOGA("Menu Font: %ld, %S", ncm.lfMenuFont.lfHeight, ncm.lfMenuFont.lfFaceName);
     return CreateFontIndirect(&ncm.lfMenuFont);
 }
 

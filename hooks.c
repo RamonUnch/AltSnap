@@ -1102,9 +1102,11 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
         // Use Restore
         RestoreWindowTo(hwnd, lw->x, lw->y, lw->width, lw->height);
     } else {
-//        RECT rc = { lw->x, lw->y, lw->x + lw->width, lw->y + lw->height };
 //        PostMessage(hwnd, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(state.prevpt.x, state.prevpt.y));
-//        if(!(flag&SWP_NOSIZE)) SendMessage(hwnd, WM_SIZING, WMSZ_BOTTOMRIGHT, (LPARAM)&rc);
+//        if(!(flag&SWP_NOSIZE)) {
+//            RECT rc = { lw->x, lw->y, lw->x + lw->width, lw->y + lw->height };
+//            SendMessage(hwnd, WM_SIZING, WMSZ_BOTTOMRIGHT, (LPARAM)&rc);
+//        }
         SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
 
         // Send WM_SYNCPAINT in case to wait for the end of movement
@@ -3239,7 +3241,7 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         // Move and size the window...
         SetWindowPos(hwnd, NULL
             , rc.right-data->rightoffset, rc.top+data->topoffset, PinW, PinH
-            , SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOOWNERZORDER);
+            , SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOCOPYBITS);
         return 0;
     } break;
     case WM_PAINT: {
@@ -3249,8 +3251,9 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             RECT cr;
             GetClientRect(hwnd, &cr);
             BeginPaint(hwnd, &ps);
-            SetBkMode(ps.hdc, TRANSPARENT);
+            int oldBkMode = SetBkMode(ps.hdc, TRANSPARENT);
             DrawTextW(ps.hdc, &Topchar, 1, &cr, DT_VCENTER|DT_CENTER|DT_SINGLELINE);
+            SetBkMode(ps.hdc, oldBkMode); // restore BkMode
             EndPaint(hwnd, &ps);
       }
     } break;
@@ -4827,7 +4830,6 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         WNDCLASSEX wnd;
         memset(&wnd, 0, sizeof(wnd));
         wnd.cbSize = sizeof(WNDCLASSEX);
-//        wnd.style = CS_OWNDC|CS_SAVEBITS; //conf.TransWinOpacity?0:CS_SAVEBITS;
         wnd.lpfnWndProc = DefWindowProc;
         wnd.hInstance = hinstDLL;
         wnd.hbrBackground = CreateSolidBrush(color[0]);

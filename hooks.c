@@ -30,7 +30,7 @@ static HWND g_hkhwnd;       // For the hotkeys message window.
 static void UnhookMouse();
 static void HookMouse();
 static void UnhookMouseOnly();
-static HWND KreateMsgWin(WNDPROC proc, wchar_t *name);
+static HWND KreateMsgWin(WNDPROC proc, const wchar_t *name, LONG_PTR userdata);
 
 // Enumerators
 enum button { BT_NONE=0, BT_LMB=0x02, BT_RMB=0x03, BT_MMB=0x04, BT_MB4=0x05
@@ -161,6 +161,7 @@ static struct config {
     UCHAR PiercingClick;
     UCHAR DragSendsAltCtrl;
     UCHAR TopmostIndicator;
+    UCHAR RCCloseMItem;
     // [Performance]
     UCHAR FullWin;
     UCHAR TransWinOpacity;
@@ -2325,7 +2326,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 if (GetAsyncKeyState(vkey)&0x8000) { // The key is autorepeating.
                     if(!IsMenu(state.unikeymenu)) {
                         KillAltSnapMenu();
-                        g_mchwnd = KreateMsgWin(MenuWindowProc, APP_NAME"-SClick");
+                        g_mchwnd = KreateMsgWin(MenuWindowProc, APP_NAME"-SClick", 2);
                         UCHAR shiftdown = GetAsyncKeyState(VK_SHIFT)&0x8000 || GetKeyState(VK_CAPITAL)&1;
                         PostMessage(g_mainhwnd, WM_UNIKEYMENU, (WPARAM)g_mchwnd, vkey|(shiftdown<<8) );
                     }
@@ -3216,7 +3217,7 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             if ((style&(WS_SYSMENU|WS_CAPTION)) == (WS_SYSMENU|WS_CAPTION)) {
                 btnum++;                         // WS_SYSMENU => Close button [X]
                 btnum += 2 * !!(style&(WS_MINIMIZEBOX|WS_MAXIMIZEBOX)); // [O] [_]
-                btnum += ( (xstyle&WS_EX_CONTEXTHELP)                      // [?]
+                btnum += ( (xstyle&WS_EX_CONTEXTHELP)                       // [?]
                           && (style&(WS_MINIMIZEBOX|WS_MAXIMIZEBOX)) != (WS_MINIMIZEBOX|WS_MAXIMIZEBOX) );
             }
             CapButtonWidth = btnum * PinW;
@@ -3285,7 +3286,7 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     }
     return DefWindowProc(hwnd, msg, wp, lp);
 }
-static HWND CreatePinWindow()
+static HWND CreatePinWindow(const HWND parent)
 {
     WNDCLASSEX wnd;
     if(!GetClassInfoEx(hinstDLL, APP_NAME"-Pin", &wnd)) {
@@ -3302,9 +3303,10 @@ static HWND CreatePinWindow()
         RegisterClassEx(&wnd);
     }
     return CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST
-                      , wnd.lpszClassName, NULL
-                      , WS_POPUP /* Start invisible */
-                      , 0, 0, 0, 0, NULL, NULL, hinstDLL, NULL);
+                      , APP_NAME"-Pin", NULL
+                      , WS_POPUP|WS_VISIBLE/*|WS_BORDER *//* Start Visible */
+                      , 0, 0, 0, 0
+                      , parent, NULL, hinstDLL, NULL);
 }
 /////////////////////////////////////////////////////////////////////////////
 static void TogglesAlwaysOnTop(HWND hwnd)
@@ -3314,10 +3316,10 @@ static void TogglesAlwaysOnTop(HWND hwnd)
     LONG_PTR topmost = GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST;
     if(!topmost) SetForegroundWindow(hwnd);
     SetWindowLevel(hwnd, topmost? HWND_NOTOPMOST: HWND_TOPMOST);
-    if(conf.TopmostIndicator) {
-        HWND pw = CreatePinWindow();
-        SetWindowLongPtr(pw, GWLP_HWNDPARENT, (LONG_PTR)hwnd);
-        ShowWindowAsync(pw, SW_SHOWNA);
+    if(conf.TopmostIndicator && !topmost) {
+        CreatePinWindow(hwnd);
+//        SetWindowLongPtr(pw, GWLP_HWNDPARENT, (LONG_PTR)hwnd);
+//        ShowWindowAsync(pw, SW_SHOWNA);
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -3437,7 +3439,7 @@ static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc)
     struct TrackMenuOfWindowsparam *param = (struct TrackMenuOfWindowsparam *)ppEnumProc;
     state.sclickhwnd = NULL;
     KillAltSnapMenu();
-    g_mchwnd = KreateMsgWin(MenuWindowProc, APP_NAME"-SClick");
+    g_mchwnd = KreateMsgWin(MenuWindowProc, APP_NAME"-SClick", 3);
     if(!g_mchwnd) return 0; // Failed to create g_mchwnd...
     // Fill up hwnds[] with the stacked windows.
     numhwnds = 0;
@@ -3484,7 +3486,7 @@ static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc)
     GetCursorPos(&pt);
     ReallySetForegroundWindow(g_mchwnd);
     i = (unsigned)TrackPopupMenu(menu,
-        TPM_RETURNCMD|TPM_NONOTIFY|GetSystemMetrics(SM_MENUDROPALIGNMENT)
+        TPM_RETURNCMD/*|TPM_NONOTIFY*/|GetSystemMetrics(SM_MENUDROPALIGNMENT)
         , pt.x, pt.y, 0, g_mchwnd, NULL);
     state.mdiclient = mdiclient;
     LOG("menu=%u", i);
@@ -3525,7 +3527,7 @@ static void ActionMenu(HWND hwnd)
 {
     state.sclickhwnd = NULL;
     KillAltSnapMenu();
-    g_mchwnd = KreateMsgWin(MenuWindowProc, APP_NAME"-SClick");
+    g_mchwnd = KreateMsgWin(MenuWindowProc, APP_NAME"-SClick", 1);
     state.sclickhwnd = hwnd;
     // Send message to Open Action Menu
     ReallySetForegroundWindow(g_mainhwnd);
@@ -3700,7 +3702,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
             return 0; // Movement was disabled for this window.
         }
         DorQWORD lpdwResult;
-        if(!SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 128, &lpdwResult)) {
+        if(!SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_ABORTIFHUNG|SMTO_BLOCK, 128, &lpdwResult)) {
             state.blockmouseup = 1;
             state.hwnd = LastWin.hwnd = state.sclickhwnd = NULL;
             return 1; // Unresponsive window...
@@ -4283,6 +4285,10 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi)
         bgcol = COLOR_MENU ;
         txcol = COLOR_MENUTEXT ;
     }
+    if(di->itemState & ODS_GRAYED) {
+        txcol = COLOR_GRAYTEXT;
+    }
+
     HBRUSH bgbrush = GetSysColorBrush(bgcol);
     // Set
     SetBkColor(di->hDC, GetSysColor(bgcol));
@@ -4292,7 +4298,6 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi)
     HPEN oldpen=SelectObject(di->hDC, GetStockObject(NULL_PEN));
     HBRUSH oldbrush=SelectObject(di->hDC, bgbrush);
     Rectangle(di->hDC, di->rcItem.left, di->rcItem.top, di->rcItem.right+1, di->rcItem.bottom+1);
-    int totheight = di->rcItem.bottom - di->rcItem.top; // total menuitem height
 
     HFONT mfont = GetNCMenuFont(dpi);
     HFONT oldfont=SelectObject(di->hDC, mfont);
@@ -4301,14 +4306,16 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi)
     GetTextExtentPoint32(di->hDC, data->txt, wcslen(data->txt), &sz);
     //LOGA("WM_DRAWITEM: txtXY=%u, %u, txt=%S", (UINT)sz.cx, (UINT)sz.cy, data->txt);
 
+    int totheight = di->rcItem.bottom - di->rcItem.top; // total menuitem height
     int yicooffset = (totheight - yicosz)/2; // Center icon vertically
     int ytxtoffset = (totheight - sz.cy)/2;   // Center text vertically
 
     DrawIconEx(di->hDC
         , di->rcItem.left+xmargin
         , di->rcItem.top + yicooffset
-        , data->icon, xicosz, yicosz
-        , 0, 0, DI_NORMAL);
+        , (di->itemState & ODS_GRAYED)?LoadIcon(NULL, IDI_HAND):data->icon
+        , xicosz, yicosz
+        , 0, NULL, DI_NORMAL);
     // Adjust x offset for Text drawing...
     di->rcItem.left += xicosz + xmargin*3;
     di->rcItem.top += ytxtoffset;
@@ -4342,7 +4349,7 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return (LRESULT)state.sclickhwnd;
     } else if (msg == WM_COMMAND && LOWORD(wParam)) {
         // UNIKEY MENU (LOWORD of wParam munst be non NULL.
-        LOG("Unikey menu WM_COMMAND, wp=%X, lp=%X", (UINT)wParam, (UINT)lParam);
+        // LOG("Unikey menu WM_COMMAND, wp=%X, lp=%X", (UINT)wParam, (UINT)lParam);
         Send_KEY(VK_BACK); // Errase old char...
 
         // Send UCS-2 or Lower+Upper UTF-16 surrogates of the UNICODE char.
@@ -4368,6 +4375,16 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         state.unikeymenu = NULL;
         DestroyWindow(hwnd); // Done!
         return 0;
+    } else if (msg == WM_MENURBUTTONUP) {
+        // The user released the right button.
+        // We must close the corresponding Window in the windows list
+        if (conf.RCCloseMItem
+        && wParam < numhwnds
+        && GetWindowLongPtr(hwnd, GWLP_USERDATA) == 3) {
+            PostMessage(hwnds[wParam], WM_SYSCOMMAND, SC_CLOSE, 0);
+            EnableMenuItem((HMENU)lParam, wParam, MF_BYPOSITION|MF_GRAYED);
+
+        }
     // OWNER DRAWN MENU !!!!!
     } else if (msg == WM_MEASUREITEM) {
         return MeasureMenuItem(hwnd, wParam, lParam, dpi);
@@ -4650,7 +4667,7 @@ static void readbuttonactions(const wchar_t *inipath)
 }
 ///////////////////////////////////////////////////////////////////////////
 // Create a window for msessages handeling timers, menu etc.
-static HWND KreateMsgWin(WNDPROC proc, wchar_t *name)
+static HWND KreateMsgWin(WNDPROC proc, const wchar_t *name, LONG_PTR userdata)
 {
     WNDCLASSEX wnd;
     if(!GetClassInfoEx(hinstDLL, name, &wnd)) {
@@ -4662,8 +4679,46 @@ static HWND KreateMsgWin(WNDPROC proc, wchar_t *name)
         wnd.lpszClassName = name;
         RegisterClassEx(&wnd);
     }
-    return CreateWindowEx(0, wnd.lpszClassName, NULL, 0
-                     , 0, 0, 0, 0, g_mainhwnd, NULL, hinstDLL, NULL);
+    HWND hwnd = CreateWindowEx(0, wnd.lpszClassName, NULL, 0
+                     , 0, 0, 0, 0, NULL, NULL, hinstDLL, NULL);
+    if (hwnd && userdata)
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, userdata);
+    return hwnd;
+}
+///////////////////////////////////////////////////////////////////////////
+static void CreateTransWin(const wchar_t *inipath)
+{
+    int color[4]; // 16 bytes to be sure no overfows
+    // Read the color for the TransWin from ini file
+    readhotkeys(inipath, "FrameColor",  L"80 00 80", (UCHAR *)&color[0]);
+    WNDCLASSEX wnd;
+    memset(&wnd, 0, sizeof(wnd));
+    wnd.cbSize = sizeof(WNDCLASSEX);
+    wnd.lpfnWndProc = DefWindowProc;
+    wnd.hInstance = hinstDLL;
+    wnd.hbrBackground = CreateSolidBrush(color[0]);
+    wnd.lpszClassName = APP_NAME"-Trans";
+    RegisterClassEx(&wnd);
+    g_transhwnd[0] = NULL;
+    if (conf.TransWinOpacity) {
+        int xflags = conf.TransWinOpacity==255
+                   ? WS_EX_TOPMOST|WS_EX_TOOLWINDOW
+                   : WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_LAYERED;
+        g_transhwnd[0] = CreateWindowEx(xflags
+                             , wnd.lpszClassName, NULL, WS_POPUP
+                             , 0, 0, 0, 0, NULL, NULL, hinstDLL, NULL);
+        if(conf.TransWinOpacity != 255)
+            SetLayeredWindowAttributes(g_transhwnd[0], 0, conf.TransWinOpacity, LWA_ALPHA);
+    }
+    if (!g_transhwnd[0]) {
+        int i;
+        for (i=0; i<4; i++) { // the transparent window is made with 4 thin windows
+            g_transhwnd[i] = CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW  //|WS_EX_NOACTIVATE|
+                             , wnd.lpszClassName, NULL, WS_POPUP
+                             , 0, 0, 0, 0, NULL, NULL, hinstDLL, NULL);
+            LOG("CreateWindowEx[i] = %lX", (DWORD)(DorQWORD)g_transhwnd[i]);
+        }
+    }
 }
 ///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.
@@ -4722,7 +4777,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {L"Advanced", "PiercingClick", 0 },
         {L"Advanced", "DragSendsAltCtrl", 0 },
         {L"Advanced", "TopmostIndicator", 0 },
-
+        {L"Advanced", "RCCloseMItem", 1 },
         // [Performance]
         {L"Performance", "FullWin", 2 },
         {L"Performance", "TransWinOpacity", 0 },
@@ -4824,36 +4879,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     // Prepare the transparent window
     if (!conf.FullWin) {
-        int color[4]; // 16 bytes to be sure no overfows
-        // Read the color for the TransWin from ini file
-        readhotkeys(inipath, "FrameColor",  L"80 00 80", (UCHAR *)&color[0]);
-        WNDCLASSEX wnd;
-        memset(&wnd, 0, sizeof(wnd));
-        wnd.cbSize = sizeof(WNDCLASSEX);
-        wnd.lpfnWndProc = DefWindowProc;
-        wnd.hInstance = hinstDLL;
-        wnd.hbrBackground = CreateSolidBrush(color[0]);
-        wnd.lpszClassName = APP_NAME"-Trans";
-        RegisterClassEx(&wnd);
-        g_transhwnd[0] = NULL;
-        if (conf.TransWinOpacity) {
-            int xflags = conf.TransWinOpacity==255
-                       ? WS_EX_TOPMOST|WS_EX_TOOLWINDOW
-                       : WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_LAYERED;
-            g_transhwnd[0] = CreateWindowEx(xflags
-                                 , wnd.lpszClassName, NULL, WS_POPUP
-                                 , 0, 0, 0, 0, NULL, NULL, hinstDLL, NULL);
-            if(conf.TransWinOpacity != 255)
-                SetLayeredWindowAttributes(g_transhwnd[0], 0, conf.TransWinOpacity, LWA_ALPHA);
-        }
-        if (!g_transhwnd[0]) {
-            for (i=0; i<4; i++) { // the transparent window is made with 4 thin windows
-                g_transhwnd[i] = CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW  //|WS_EX_NOACTIVATE|
-                                 , wnd.lpszClassName, NULL, WS_POPUP
-                                 , 0, 0, 0, 0, NULL, NULL, hinstDLL, NULL);
-                LOG("CreateWindowEx[i] = %lX", (DWORD)(DorQWORD)g_transhwnd[i]);
-            }
-        }
+        CreateTransWin(inipath);
     }
 
     conf.keepMousehook = ((conf.TTBActions&1) // titlebar action w/o Alt
@@ -4864,10 +4890,10 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     g_mainhwnd = mainhwnd;
 
     if (conf.keepMousehook || conf.AeroMaxSpeed < 65535) {
-        g_timerhwnd = KreateMsgWin(TimerWindowProc, APP_NAME"-Timers");
+        g_timerhwnd = KreateMsgWin(TimerWindowProc, APP_NAME"-Timers", 0);
     }
 
-    g_hkhwnd = KreateMsgWin(HotKeysWinProc, APP_NAME"-HotKeys");
+    g_hkhwnd = KreateMsgWin(HotKeysWinProc, APP_NAME"-HotKeys", 0);
     // MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
     // RegisterHotKey(g_hkhwnd, 0xC000 + AC_KILL,   MOD_ALT|MOD_CONTROL, VK_F4); // F4=73h
     // Read All shortcuts in the [KBShortcuts] section.

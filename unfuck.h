@@ -32,6 +32,12 @@ enum DWMWINDOWATTRIBUTE {
   DWMWA_PASSIVE_UPDATE_MODE,
   DWMWA_LAST
 };
+enum MONITOR_DPI_TYPE {
+  MDT_EFFECTIVE_DPI = 0,
+  MDT_ANGULAR_DPI = 1,
+  MDT_RAW_DPI = 2,
+  MDT_DEFAULT = MDT_EFFECTIVE_DPI
+};
 
 /* Invalid pointer with which we initialize
  * all dynamically imported functions */
@@ -63,6 +69,10 @@ enum DWMWINDOWATTRIBUTE {
 
 #ifndef NIIF_USER
 #define NIIF_USER 0x00000004
+#endif
+
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
 #endif
 
 #ifndef SUBCLASSPROC
@@ -115,9 +125,31 @@ static BOOL (WINAPI *mySystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, 
 static HRESULT (WINAPI *myDwmGetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c) = IPTR;
 static HRESULT (WINAPI *myDwmIsCompositionEnabled)(BOOL *pfEnabled) = IPTR;
 
+/* SHCORE.DLL */
+static HRESULT (WINAPI *myGetDpiForMonitor)(HMONITOR hmonitor, int dpiType, UINT *dpiX, UINT *dpiY) = IPTR;
+
 /* NTDLL.DLL */
 static LONG (NTAPI *myNtSuspendProcess)(HANDLE ProcessHandle) = IPTR;
 static LONG (NTAPI *myNtResumeProcess )(HANDLE ProcessHandle) = IPTR;
+
+/* Helper function to pop a message bow with error code*/
+static void ErrorBox(TCHAR *title)
+{
+    LPVOID lpMsgBuf;
+    FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER |
+        FORMAT_MESSAGE_FROM_SYSTEM |
+        FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        GetLastError(),
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), /* Default language */
+        (LPTSTR) &lpMsgBuf,
+        0, NULL
+    );
+    MessageBox( NULL, (LPCTSTR)lpMsgBuf, title, MB_OK | MB_ICONWARNING );
+    /* Free the buffer using LocalFree. */
+    LocalFree( lpMsgBuf );
+}
 
 /* Removes the trailing file name from a path */
 static BOOL PathRemoveFileSpecL(LPTSTR p)
@@ -348,6 +380,18 @@ static int GetSystemMetricsForDpiL(int  nIndex, UINT dpi)
 }
 #define GetSystemMetricsForDpi GetSystemMetricsForDpiL
 
+static LRESULT GetDpiForMonitorL(HMONITOR hmonitor, int dpiType, UINT *dpiX, UINT *dpiY)
+{
+    if (myGetDpiForMonitor == IPTR) { /* First time */
+        myGetDpiForMonitor=LoadDLLProc("SHCORE.DLL", "GetDpiForMonitor");
+    }
+    if (myGetDpiForMonitor) { /* We know we have the function */
+        return myGetDpiForMonitor(hmonitor, dpiType, dpiX, dpiY);
+    }
+    return 666; /* Fail with 666 error */
+}
+
+/* Supported wince Windows 10, version 1607 [desktop apps only] */
 static UINT GetDpiForWindowL(HWND hwnd)
 {
     if (myGetDpiForWindow == IPTR) { /* First time */
@@ -356,7 +400,16 @@ static UINT GetDpiForWindowL(HWND hwnd)
     if (myGetDpiForWindow) { /* We know we have the function */
         return myGetDpiForWindow(hwnd);
     }
-    return 0; /* Not handeled */
+
+    /* Windows 8.1 / Server2012 R2 Fallback */
+    UINT dpiX=0, dpiY=0;
+    HMONITOR hmon;
+    if ((hmon = MonitorFromWindowL(hwnd, MONITOR_DEFAULTTONEAREST))
+    && S_OK == GetDpiForMonitorL(hmon, MDT_DEFAULT, &dpiX, &dpiY)) {
+        return dpiX;
+    }
+
+    return 0; /* Not handled */
 }
 #define GetDpiForWindow GetDpiForWindowL
 
@@ -465,8 +518,8 @@ static BOOL IsVisible(HWND hwnd)
     return IsWindowVisible(hwnd) && !IsWindowCloaked(hwnd);
 }
 
-// Gets the original owner of hwnd.
-// stops going back the owner chain if invisible.
+/* Gets the original owner of hwnd.
+ * stops going back the owner chain if invisible. */
 static HWND GetRootOwner(HWND hwnd)
 {
     HWND parent;
@@ -475,9 +528,13 @@ static HWND GetRootOwner(HWND hwnd)
            ? GetParent(hwnd) : GetWindow(hwnd, GW_OWNER)
           )) {
 
-        if (parent == hwnd || i++ > 2048 || !IsVisible(parent))
-            break; // stop if in a loop or if parent is no more visible
-
+        RECT prc;
+        if (parent == hwnd || i++ > 2048 || !IsVisible(parent)
+        || !GetWindowRect(parent, &prc) || IsRectEmpty(&prc)) {
+            /* Stop if in a loop or if parent is not visible
+             * or if the parent rect is empty */
+            break;
+        }
         hwnd = parent;
     }
 
@@ -625,15 +682,15 @@ static HICON GetWindowIcon(HWND hwnd)
     HICON icon;
     if (SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL, 0, SMTO_ABORTIFHUNG, TIMEOUT, (PDWORD_PTR)&icon)) {
         /* The message failed without timeout */
-        if (icon) return icon; // Sucess
+        if (icon) return icon; /* Sucess */
 
-        // ICON_SMALL2 exists since Windows XP only
+        /* ICON_SMALL2 exists since Windows XP only */
         static BYTE WINXP_PLUS=0xFF;
         if (WINXP_PLUS == 0xFF) {
             WORD WinVer = LOWORD(GetVersion());
             BYTE ver = LOBYTE(WinVer);
             BYTE min = LOBYTE(WinVer);
-            WINXP_PLUS = ver > 5 || (ver == 5 && min > 0); // XP is NT 5.1
+            WINXP_PLUS = ver > 5 || (ver == 5 && min > 0); /* XP is NT 5.1 */
         }
         if (WINXP_PLUS
         &&  SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL2, 0, SMTO_ABORTIFHUNG, TIMEOUT, (PDWORD_PTR)&icon) && icon)
@@ -643,10 +700,11 @@ static HICON GetWindowIcon(HWND hwnd)
         if (SendMessageTimeout(hwnd, WM_GETICON, ICON_BIG, 0, SMTO_ABORTIFHUNG, TIMEOUT, (PDWORD_PTR)&icon) && icon)
             return icon;
     }
-    // Try the Class icon if nothing can be get through
+    /* Try the Class icon if nothing can be get */
     if ((icon = (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM))) return icon;
     if ((icon = (HICON)GetClassLongPtr(hwnd, GCLP_HICON))) return icon;
-    return LoadIcon(NULL, IDI_WINLOGO);
+
+    return LoadIcon(NULL, IDI_WINLOGO); /* Default to generic window icon */
     #undef TIMEOUT
 }
 /* Helper function to get the current system menu font.
@@ -699,19 +757,11 @@ static HFONT GetNCMenuFont(UINT dpi)
     BOOL ret = SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(struct NEWNONCLIENTMETRICSW), &ncm, 0, dpi);
     if (!ret) { /* Old Windows versions... XP and below */
         ncm.cbSize = sizeof(struct OLDNONCLIENTMETRICSW);
-        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &ncm, 0);
+        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(struct OLDNONCLIENTMETRICSW), &ncm, 0);
     }
-//    LOGA("Menu Font: %ld, %S", ncm.lfMenuFont.lfHeight, ncm.lfMenuFont.lfFaceName);
     return CreateFontIndirect(&ncm.lfMenuFont);
 }
 
-/* Helper function to call SetWindowPos with the SWP_ASYNCWINDOWPOS flag */
-static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height)
-{
-    /* flag = (!flag) * SWP_NOREDRAW; */
-    return SetWindowPos(hwnd, NULL, posx, posy, width, height
-               , SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOZORDER|SWP_ASYNCWINDOWPOS);
-}
 static void MaximizeWindow(HWND hwnd)
 {
     PostMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);

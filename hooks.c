@@ -9,6 +9,7 @@
 #include "hooks.h"
 #define LONG_CLICK_MOVE
 #define COBJMACROS
+static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height);
 static BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
 static LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 // Timer messages
@@ -87,6 +88,7 @@ static struct {
     UCHAR ctrl;
     UCHAR shift;
     UCHAR snap;
+    UCHAR altsnaponoff;
 
     UCHAR moving;
     UCHAR blockmouseup;
@@ -381,6 +383,18 @@ static void SendSizeMove(DWORD msg)
         PostMessage(state.hwnd, msg, 0, 0);
     }
 }
+/* Helper function to call SetWindowPos with the SWP_ASYNCWINDOWPOS flag */
+static BOOL MoveWindowAsync(HWND hwnd, int posx, int posy, int width, int height)
+{
+    /* flag = (!flag) * SWP_NOREDRAW; */
+//    SendSizeMove(WM_ENTERSIZEMOVE);
+    BOOL ret = SetWindowPos(hwnd, NULL, posx, posy, width, height
+               , SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOZORDER|SWP_ASYNCWINDOWPOS);
+//    Sleep(1);
+//    SendSizeMove(WM_EXITSIZEMOVE);
+    return ret;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Overloading of the Hittest function to include a whitelist
 // x and y are in screen coordinate.
@@ -1030,7 +1044,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight, UCHA
 /////////////////////////////////////////////////////////////////////////////
 // Call with SW_MAXIMIZE or SW_RESTORE or below.
 #define SW_FULLSCREEN 28
-static void MaximizeRestore_atpt(HWND hwnd, UINT sw_cmd)
+static void MaximizeRestore_atpt(HWND hwnd, UINT sw_cmd, int origin)
 {
     WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
     GetWindowPlacement(hwnd, &wndpl);
@@ -1042,6 +1056,12 @@ static void MaximizeRestore_atpt(HWND hwnd, UINT sw_cmd)
         HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         HMONITOR monitor = MonitorFromPoint(state.prevpt, MONITOR_DEFAULTTONEAREST);
 
+        if (origin&1) {
+            // set normal windpw plasement to origin.
+            wndpl.rcNormalPosition.right = wndpl.rcNormalPosition.left + state.origin.width;
+            wndpl.rcNormalPosition.bottom = wndpl.rcNormalPosition.top + state.origin.height;
+        }
+
         GetMonitorInfo(monitor, &mi);
 
         // Center window on monitor, if needed
@@ -1049,7 +1069,7 @@ static void MaximizeRestore_atpt(HWND hwnd, UINT sw_cmd)
             CenterRectInRect(&wndpl.rcNormalPosition, &mi.rcWork);
         }
     }
-//    wndpl.flags |= WPF_ASYNCWINDOWPLACEMENT;
+    if (origin&2) wndpl.flags |= WPF_ASYNCWINDOWPLACEMENT;
     SetWindowPlacement(hwnd, &wndpl);
     if (sw_cmd == SW_FULLSCREEN) {
         MoveWindowAsync(hwnd, mi.rcMonitor.left , mi.rcMonitor.top
@@ -1078,13 +1098,22 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
     hwnd = lw->hwnd;
 
     if (lw->end && conf.FullWin) Sleep(8); // At the End of movement...
+    if (lw->end && !lw->maximize && (IsZoomed(hwnd) || IsWindowSnapped(hwnd))) {
+        // Use Restore
+        RestoreWindowTo(hwnd, lw->x, lw->y, lw->width, lw->height);
+    } else {
+//        PostMessage(hwnd, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(state.prevpt.x, state.prevpt.y));
+//        if(!(flag&SWP_NOSIZE)) {
+//            RECT rc = { lw->x, lw->y, lw->x + lw->width, lw->y + lw->height };
+//            SendMessage(hwnd, WM_SIZING, WMSZ_BOTTOMRIGHT, (LPARAM)&rc);
+//        }
+        SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
 
-    SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
-    // Send WM_SYNCPAINT in case to wait for the end of movement
-    // And to avoid windows to "slide through" the whole WM_MOVE queue
-    if(flag&SWP_ASYNCWINDOWPOS) SendMessage(hwnd, WM_SYNCPAINT, 0, 0);
+        // Send WM_SYNCPAINT in case to wait for the end of movement
+        // And to avoid windows to "slide through" the whole WM_MOVE queue
+        if(flag&SWP_ASYNCWINDOWPOS) SendMessage(hwnd, WM_SYNCPAINT, 0, 0);
     if (conf.RefreshRate) ASleep(conf.RefreshRate); // Accurate!!!
-
+    }
     lw->hwnd = NULL;
     lw->end = 0;
 }
@@ -1096,7 +1125,11 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
 static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
     struct windowRR *lw = (struct windowRR *)LastWinV;
-    UINT flag = !lw->moveonly? RESIZEFLAG: state.resizable&2 ? MOVETHICKBORDERS: MOVEASYNC;
+    RECT rc;
+    int notsamesize = 0;
+    if(GetWindowRect(lw->hwnd, &rc))
+        notsamesize = rc.right-rc.left != lw->width || rc.bottom-rc.top != lw->height;
+    UINT flag = notsamesize? RESIZEFLAG: state.resizable&2 ? MOVETHICKBORDERS: MOVEASYNC;
 
     MoveResizeWindowThread(lw, flag);
     return 0;
@@ -1207,8 +1240,6 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     int Right = pRight  - AERO_TH ;
     int Top   = pTop    + AERO_TH ;
     int Bottom= pBottom - AERO_TH ;
-    LastWin.moveonly = 0; // We are resizing the window.
-
     // Move window
     if (pt.y < Top && pt.x < Left) {
         // Top left
@@ -1243,7 +1274,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         if (!state.shift ^ !(conf.AeroTopMaximizes&1)
         && (state.Speed < conf.AeroMaxSpeed)) {
              if (conf.FullWin) {
-                MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE);
+                MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE, 1);
                 LastWin.hwnd = NULL;
                 state.moving = 2;
                 return 1;
@@ -1293,7 +1324,6 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
             restore = 0;
             *wndwidth = state.origin.width;
             *wndheight = state.origin.height;
-            LastWin.moveonly = 0; // Restored => resize
         }
     }
 
@@ -1314,14 +1344,16 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         // If we go too fast then do not move the window
         if (state.Speed > conf.AeroMaxSpeed) return 1;
         if (conf.FullWin) {
-            if (IsZoomed(state.hwnd)) MaximizeRestore_atpt(state.hwnd, SW_RESTORE);
+            if (IsZoomed(state.hwnd)) {
+                // Avoids flickering
+                RestoreWindowTo(state.hwnd, *posx, *posy, *wndwidth, *wndheight);
+            }
             int mmthreadend = !LastWin.hwnd;
             LastWin.hwnd = state.hwnd;
             LastWin.x = *posx;
             LastWin.y = *posy;
             LastWin.width = *wndwidth;
             LastWin.height = *wndheight;
-            LastWin.moveonly = 0; // Snap => resize
             LastWin.snap = 1;
             if (mmthreadend) {
                 MoveWindowInThread(&LastWin);
@@ -1448,7 +1480,7 @@ static int NumKeysDown()
 /////////////////////////////////////////////////////////////////////////////
 // index 1 => normal restore on any move restore & 1
 // restore & 3 => Both 1 & 2 ie: Maximized then rolled.
-static void RestoreOldWin(const POINT pt, unsigned was_snapped)
+static void RestoreOldWin(const POINT pt, unsigned was_snapped, RECT *ownd)
 {
     // Restore old width/height?
     unsigned restore = 0;
@@ -1457,7 +1489,7 @@ static void RestoreOldWin(const POINT pt, unsigned was_snapped)
 
     if (((rdata_flag & SNAPPED) && !(state.origin.maximized&&rdata_flag&2))) {
         // Set origin width and height to the saved values
-        if(!state.usezones){
+        if (!state.usezones) {
             restore = rdata_flag;
             state.origin.width = rwidth;
             state.origin.height = rheight;
@@ -1477,7 +1509,7 @@ static void RestoreOldWin(const POINT pt, unsigned was_snapped)
                    / max(wnd.bottom-wnd.top,1);
 
     if (rdata_flag&ROLLED) {
-        if (state.origin.maximized || was_snapped){
+        if (state.origin.maximized || was_snapped) {
             // if we restore a  Rolled Maximized/snapped window...
             state.offset.y = GetSystemMetrics(SM_CYMIN)/2;
         } else {
@@ -1487,11 +1519,15 @@ static void RestoreOldWin(const POINT pt, unsigned was_snapped)
     }
 
     if (restore) {
-        SetWindowPos(state.hwnd, NULL
-                , pt.x - state.offset.x - state.mdipt.x
-                , pt.y - state.offset.y - state.mdipt.y
-                , state.origin.width, state.origin.height
-                , SWP_NOZORDER);
+//        SetWindowPos(state.hwnd, NULL
+//                , pt.x - state.offset.x - state.mdipt.x
+//                , pt.y - state.offset.y - state.mdipt.y
+//                , state.origin.width, state.origin.height
+//                , SWP_NOZORDER);
+        ownd->left = pt.x - state.offset.x - state.mdipt.x;
+        ownd->top =  pt.y - state.offset.y - state.mdipt.y;
+        ownd->right = ownd->left + state.origin.width;
+        ownd->bottom = ownd->top + state.origin.height;
         ClearRestoreData(state.hwnd);
     }
 }
@@ -1547,14 +1583,14 @@ static BOOL GetMDInfo(POINT *mdicpt, RECT *wnd)
 }
 ///////////////////////////////////////////////////////////////////////////
 //
-static void SetOriginFromRestoreData(HWND hnwd, enum action action)
+static void SetOriginFromRestoreData(HWND hwnd, enum action action)
 {
     // Set Origin width and height needed for AC_MOVE/RESIZE/CENTER/MAXHV
     int rwidth=0, rheight=0;
-    unsigned rdata_flag = GetRestoreData(state.hwnd, &rwidth, &rheight);
+    unsigned rdata_flag = GetRestoreData(hwnd, &rwidth, &rheight);
     // Clear snapping info if asked.
     if (rdata_flag&SNCLEAR || (conf.SmartAero&4 && action == AC_MOVE)) {
-        ClearRestoreData(state.hwnd);
+        ClearRestoreData(hwnd);
         rdata_flag=0;
     }
     // Replace origin width/height if available in the restore Data.
@@ -1672,19 +1708,20 @@ static void MouseMove(POINT pt)
 
     if (state.moving == CURSOR_ONLY) return; // Movement was blocked...
 
+    static RECT wnd; // wnd will be updated and is initialized once.
+    if (!state.moving && !GetWindowRect(state.hwnd, &wnd)) return;
+    int posx=0, posy=0, wndwidth=0, wndheight=0;
+
     // Restore Aero snapped window when movement starts
     UCHAR was_snapped = 0;
     if (!state.moving) {
         SetOriginFromRestoreData(state.hwnd, state.action);
         if (state.action == AC_MOVE) {
             was_snapped = IsWindowSnapped(state.hwnd);
-            RestoreOldWin(pt, was_snapped);
+            RestoreOldWin(pt, was_snapped, &wnd);
         }
     }
 
-    static RECT wnd; // wnd will be updated and is initialized once.
-    if (!state.moving && !GetWindowRect(state.hwnd, &wnd)) return;
-    int posx=0, posy=0, wndwidth=0, wndheight=0;
 
     // Convert pt in MDI coordinates.
     // state.mdipt is global!
@@ -1695,10 +1732,8 @@ static void MouseMove(POINT pt)
 
     // Get new position for window
     LastWin.end = 0;
-    LastWin.moveonly = 0;
     if (state.action == AC_MOVE) {
         // SWP_NOSIZE to SetWindowPos
-        LastWin.moveonly = 1;
 
         posx = pt.x-state.offset.x;
         posy = pt.y-state.offset.y;
@@ -1712,8 +1747,7 @@ static void MouseMove(POINT pt)
         MoveSnapToZone(pt, &posx, &posy, &wndwidth, &wndheight);
 
         // Restore window if maximized when starting
-        if (was_snapped || IsZoomed(state.hwnd)) {
-            LastWin.moveonly = 0;
+        if ((was_snapped || IsZoomed(state.hwnd)) && !LastWin.snap) {
             WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
             GetWindowPlacement(state.hwnd, &wndpl);
             // Restore original width and height in case we are restoring
@@ -1721,6 +1755,8 @@ static void MouseMove(POINT pt)
             wndpl.showCmd = SW_RESTORE;
             unsigned restore = GetRestoreFlag(state.hwnd);
             if (!(restore&ROLLED)) { // Not if window is rolled!
+                wndpl.rcNormalPosition.left = posx;
+                wndpl.rcNormalPosition.top = posy;
                 wndpl.rcNormalPosition.right = wndpl.rcNormalPosition.left + state.origin.width;
                 wndpl.rcNormalPosition.bottom= wndpl.rcNormalPosition.top +  state.origin.height;
             }
@@ -1728,8 +1764,12 @@ static void MouseMove(POINT pt)
             // Update wndwidth and wndheight
             wndwidth  = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
             wndheight = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
-//            wndpl.flags |= WPF_ASYNCWINDOWPLACEMENT;
-            SetWindowPlacement(state.hwnd, &wndpl);
+            if (!conf.FullWin) {
+                wndpl.flags |= WPF_ASYNCWINDOWPLACEMENT;
+                SetWindowPlacement(state.hwnd, &wndpl);
+            } else {
+                LastWin.end=1;
+            }
         }
 
     } else if (state.action == AC_RESIZE) {
@@ -1748,7 +1788,7 @@ static void MouseMove(POINT pt)
             posx = wnd.left - (pt.x - state.offset.x) - state.mdipt.x;
             posy = wnd.top  - (pt.y - state.offset.y) - state.mdipt.y;
 
-            // Keep the window it perfectly centered.
+            // Keep the window perfectly centered.
             // even when going out of min or max sizes
             int W = CLAMPW(wndwidth);
             int dW = wndwidth - W;
@@ -2032,7 +2072,9 @@ static void ReallySetForegroundWindow(HWND hwnd)
     // Check existing foreground Window.
     HWND  fore = GetForegroundWindow();
     if (fore != hwnd) {
-        if (state.alt != VK_MENU &&  state.alt != VK_CONTROL) {
+        if (state.alt != VK_MENU &&  state.alt != VK_CONTROL
+        && !(GetAsyncKeyState(VK_CONTROL)&0x8000)
+        && !(GetAsyncKeyState(VK_MENU)&0x8000)) {
             // If the physical Alt or Ctrl keys are not down
             // We need to activate the window with key input.
             // CTRL seems to work. Also Alt works but trigers the menu
@@ -2057,8 +2099,10 @@ static void SetForegroundWindowL(HWND hwnd)
 // otherwise it is enabled by Scroll lock.
 static int ScrollLockState()
 {
-    return (conf.ScrollLockState&1) &&
-        !( !(GetKeyState(VK_SCROLL)&1) ^ !(conf.ScrollLockState&2) );
+    return state.altsnaponoff// AltSnap was disabled by AC_ASONOFF
+         || ( (conf.ScrollLockState&1)
+            && !( !(GetKeyState(VK_SCROLL)&1) ^ !(conf.ScrollLockState&2) )
+            );
 }
 static void LogState(const char *Title)
 {
@@ -2084,7 +2128,6 @@ static void LogState(const char *Title)
        "lwhwnd=%lx\n"
        "lwend=%d\n"
        "lwmaximize=%d\n"
-       "lwmoveonly=%d\n"
        "lwsnap=%d\n"
        "blockaltup=%d\n"
        "blockmouseup=%d\n"
@@ -2094,7 +2137,6 @@ static void LogState(const char *Title)
     , (DWORD)(DorQWORD)LastWin.hwnd
     , (int)LastWin.end
     , (int)LastWin.maximize
-    , (int)LastWin.moveonly
     , (int)LastWin.snap
     , (int)state.blockaltup
     , (int)state.blockmouseup
@@ -2436,23 +2478,24 @@ static pure BOOL StackedRectsT(const RECT *a, const RECT *b, const int T)
     return RectInRectT(a, b, T) ||  RectInRectT(b, a, T);
 }
 // Similar to the EnumAltTabWindows, to be used in AltTab();
-BOOL CALLBACK EnumStackedWindowsProc(HWND hwnd, LPARAM lParam)
+BOOL CALLBACK EnumStackedWindowsProc(HWND hwnd, LPARAM lasermode)
 {
     // Make sure we have enough space allocated
+
     hwnds = GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
     if (!hwnds) return FALSE; // Stop enum, we failed
-
     // Only store window if it's visible, not minimized to taskbar
     RECT wnd, refwnd;
     if (IsAltTabAble(hwnd)
     && GetWindowRectL(state.hwnd, &refwnd)
     && GetWindowRectL(hwnd, &wnd)
-    && (state.shift || StackedRectsT(&refwnd, &wnd, conf.SnapThreshold/2) )
+    && (lasermode || StackedRectsT(&refwnd, &wnd, conf.SnapThreshold/2) )
     && InflateRect(&wnd, conf.SnapThreshold, conf.SnapThreshold)
     && PtInRect(&wnd, state.prevpt)
     ){
         hwnds[numhwnds++] = hwnd;
     }
+    LOG("EnumStackedWindowsProc");
     return TRUE;
 }
 ////////////////////////////////////////////////////////////////////////////
@@ -2985,12 +3028,13 @@ static void SnapToCorner(HWND hwnd)
         posx -= bd.left; posy -= bd.top;
         wndwidth += bd.left+bd.right; wndheight += bd.top+bd.bottom;
     }
-    if (IsZoomed(state.hwnd))
-        RestoreWindowTo(state.hwnd, posx, posy, wndwidth, wndheight);
+    if (IsZoomed(hwnd))
+        RestoreWindowTo(hwnd, posx, posy, wndwidth, wndheight);
     else
         MoveWindowAsync(hwnd, posx, posy, wndwidth, wndheight);
     // Save data to the window...
-    SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED|restore);
+    if ( !(GetRestoreFlag(hwnd)&SNAPPED) )
+        SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED|restore);
 }
 /////////////////////////////////////////////////////////////////////////////
 static int ActionResize(POINT pt, const RECT *wnd, int button)
@@ -3103,11 +3147,22 @@ struct pinwindata {
 
 //static void TrackMenuOfWindows(HWND menuhwnd, WNDENUMPROC EnumProc);
 static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc);
+struct TrackMenuOfWindowsparam {
+    WNDENUMPROC EnumProc;
+    LPARAM lp;
+};
 static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
+    static UINT dpi;
     switch(msg) {
     case WM_CREATE: {
+        dpi = GetDpiForWindow(hwnd); // Use pin's hwnd
         SetTimer(hwnd, 1, conf.PinRate, NULL);
+    } break;
+    case WM_DPICHANGED: {
+        dpi = LOWORD(wp); // X and Y dpi should be same.
+        free((void *)GetWindowLongPtr(hwnd, GWLP_USERDATA));
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
     } break;
     case WM_SETTINGCHANGE: {
         // Free and resets the windows data.
@@ -3138,19 +3193,20 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         GetWindowRect(ow, &rc);
         LONG_PTR style  = GetWindowLongPtr(ow, GWL_STYLE);
         struct pinwindata *data;
-        if ((data = (struct pinwindata *)GetWindowLongPtr(hwnd, GWLP_USERDATA)) && data->OldOwStyle == style) {
+        if ((data = (struct pinwindata *)GetWindowLongPtr(hwnd, GWLP_USERDATA))
+        && data->OldOwStyle == style) {
             // the data were saved for the correct style!!!
             SetWindowPos(hwnd, NULL
                 , rc.right-data->rightoffset, rc.top+data->topoffset, 0, 0
                 , SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOSIZE);
-            return 0;
+            return 0; // DONE!
         }
+
         // Calculate offsets, sets window position and save data
         // to the GWLP_USERDATA stuff!
         int CapButtonWidth, PinW, PinH;
-        UINT dpi = GetDpiForWindow(ow); // Use parent window...
-        PinW = GetSystemMetricsForDpi(SM_CXSIZE, dpi);
-        PinH = GetSystemMetricsForDpi(SM_CYSIZE, dpi);
+        PinW = GetSystemMetricsForDpi(SM_CXSIZE, dpi); // Caption button width
+        PinH = GetSystemMetricsForDpi(SM_CYSIZE, dpi); // Caption button height
 
         RECT btrc;
         if (GetCaptionButtonsRect(ow, &btrc)) {
@@ -3158,12 +3214,11 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         } else {
             UCHAR btnum=0; // Number of caption buttons.
             if ((style&(WS_SYSMENU|WS_CAPTION)) == (WS_SYSMENU|WS_CAPTION)) {
-                btnum++;    // WS_SYSMENU => Close button [X]
-                btnum += !!(style&WS_MINIMIZEBOX);     // [_]
-                btnum += !!(style&WS_MAXIMIZEBOX);     // [O]
-                btnum += !!(xstyle&WS_EX_CONTEXTHELP); // [?]
+                btnum++;                         // WS_SYSMENU => Close button [X]
+                btnum += 2 * !!(style&(WS_MINIMIZEBOX|WS_MAXIMIZEBOX)); // [O] [_]
+                btnum += ( (xstyle&WS_EX_CONTEXTHELP)                      // [?]
+                          && (style&(WS_MINIMIZEBOX|WS_MAXIMIZEBOX)) != (WS_MINIMIZEBOX|WS_MAXIMIZEBOX) );
             }
-            btnum =  min(btnum, 3); // Maximum 3 button.
             CapButtonWidth = btnum * PinW;
         }
         // Adjust PinW and PinH to have nice stuff.
@@ -3186,18 +3241,19 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         // Move and size the window...
         SetWindowPos(hwnd, NULL
             , rc.right-data->rightoffset, rc.top+data->topoffset, PinW, PinH
-            , SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOOWNERZORDER);
+            , SWP_NOZORDER|SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOCOPYBITS);
         return 0;
     } break;
-    case WM_PAINT : {
+    case WM_PAINT: {
         wchar_t Topchar = HIBYTE(HIWORD(conf.PinColor&0xFF000000));
         if (Topchar) {
             PAINTSTRUCT ps;
             RECT cr;
             GetClientRect(hwnd, &cr);
             BeginPaint(hwnd, &ps);
-            SetBkMode(ps.hdc, TRANSPARENT);
+            int oldBkMode = SetBkMode(ps.hdc, TRANSPARENT);
             DrawTextW(ps.hdc, &Topchar, 1, &cr, DT_VCENTER|DT_CENTER|DT_SINGLELINE);
+            SetBkMode(ps.hdc, oldBkMode); // restore BkMode
             EndPaint(hwnd, &ps);
       }
     } break;
@@ -3207,7 +3263,8 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     } break;
     case WM_RBUTTONDOWN: {
         state.mdiclient = NULL; // In case...
-        TrackMenuOfWindows((LPVOID)EnumTopMostWindows);
+        static const struct TrackMenuOfWindowsparam param = { EnumTopMostWindows, 0 };
+        TrackMenuOfWindows((LPVOID)&param);
         return 0;
     } break;
 //    case WM_GETPINNEDHWND: {
@@ -3283,7 +3340,7 @@ static void MaximizeHV(HWND hwnd, int horizontal)
     POINT pt;
     GetCursorPos(&pt);
     GetMonitorRect(&pt, 0, &mon);
-    SetOriginFromRestoreData(state.hwnd, AC_MOVE);
+    SetOriginFromRestoreData(hwnd, AC_MOVE);
 
     SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED);
     FixDWMRect(hwnd, &bd);
@@ -3369,26 +3426,29 @@ static wchar_t Int2Accel(int i)
         return i<26? L'A'+i: L'0'+i-26;
 }
 #include <oleacc.h>
+#define MITTLEN 80
 struct menuitemdata {
     MSAAMENUINFO msaa;
-    wchar_t txt[80];
+    wchar_t txt[MITTLEN];
     HICON icon;
 };
 static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc)
 {
-    WNDENUMPROC EnumProc = (WNDENUMPROC)ppEnumProc;
+    struct TrackMenuOfWindowsparam *param = (struct TrackMenuOfWindowsparam *)ppEnumProc;
     state.sclickhwnd = NULL;
     KillAltSnapMenu();
     g_mchwnd = KreateMsgWin(MenuWindowProc, APP_NAME"-SClick");
-
+    if(!g_mchwnd) return 0; // Failed to create g_mchwnd...
     // Fill up hwnds[] with the stacked windows.
     numhwnds = 0;
     HWND mdiclient = state.mdiclient;
     if (mdiclient) {
-        EnumChildWindows(mdiclient, EnumProc, 0);
+        EnumChildWindows(mdiclient, param->EnumProc, param->lp);
     } else {
-        EnumDesktopWindows(NULL, EnumProc, 0);
+        EnumDesktopWindows(NULL, param->EnumProc, param->lp);
     }
+    LOG("Number of stacked windows = %u", numhwnds);
+    if(numhwnds == 0) return 0;
 
     state.sclickhwnd = state.hwnd;
     numhwnds = min(numhwnds, 36); // Max 36 stacked windows
@@ -3400,7 +3460,7 @@ static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc)
     struct menuitemdata *data = calloc(numhwnds, sizeof(struct menuitemdata));
     for (i=0; i<numhwnds; i++) {
         wchar_t *txt = data[i].txt;
-        GetWindowText(hwnds[i], txt+5, 80-6);
+        GetWindowText(hwnds[i], txt+5, MITTLEN-6);
         txt[0] = L'&';
         txt[1] = Int2Accel(i);
         txt[2] = L' '; txt[3] = L'-'; txt[4] = L' ';
@@ -3414,11 +3474,11 @@ static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc)
         MENUITEMINFO lpmi= { sizeof(MENUITEMINFO) };
         lpmi.fMask = MIIM_DATA|MIIM_TYPE|MIIM_ID;
         lpmi.fType = MFT_OWNERDRAW; /*MFT_STRING*/
-        lpmi.wID = i;
+        lpmi.wID = i+1; // Id starts at 1 because 0 is for ESCAPE.
         lpmi.dwItemData = (ULONG_PTR)&data[i];
         lpmi.dwTypeData = (LPWSTR)&data[i].msaa;
         lpmi.cch = sizeof(MSAAMENUINFO);
-        InsertMenuItem(menu, i, FALSE, &lpmi);
+        InsertMenuItem(menu, i+1, FALSE, &lpmi);
     }
     POINT pt;
     GetCursorPos(&pt);
@@ -3427,21 +3487,39 @@ static DWORD WINAPI TrackMenuOfWindows(LPVOID ppEnumProc)
         TPM_RETURNCMD|TPM_NONOTIFY|GetSystemMetrics(SM_MENUDROPALIGNMENT)
         , pt.x, pt.y, 0, g_mchwnd, NULL);
     state.mdiclient = mdiclient;
-    SetForegroundWindowL(hwnds[i]);
+    LOG("menu=%u", i);
+    // if the return value is in the range..
+    if (0 < i && i <= numhwnds)
+        SetForegroundWindowL(hwnds[i-1]);
 
     DestroyMenu(menu);
-    state.unikeymenu = NULL;
     DestroyWindow(g_mchwnd);
     g_mchwnd = NULL;
-    state.sclickhwnd = NULL;
     free(data);
 
     return 0;
 }
-static void ActionStackList()
+static void ActionStackList(LPARAM lasermode)
 {
     DWORD lpThreadId;
-    CloseHandle(CreateThread(NULL, STACK, TrackMenuOfWindows, (LPVOID)EnumStackedWindowsProc, 0, &lpThreadId));
+    static struct TrackMenuOfWindowsparam param;
+    param.EnumProc = EnumStackedWindowsProc;
+    param.lp = lasermode;
+//    param.hwnd = state.hwnd;
+    CloseHandle(CreateThread(NULL, STACK, TrackMenuOfWindows, (LPVOID)&param, 0, &lpThreadId));
+}
+static void ActionASOnOff()
+{
+    state.altsnaponoff = !GetPropA(g_mainhwnd, APP_ASONOFF);
+    SetPropA(g_mainhwnd, APP_ASONOFF, (HANDLE)(DorQWORD)state.altsnaponoff);
+    PostMessage(g_mainhwnd, WM_UPDATETRAY, 0, 0);
+}
+static void ActionMoveOnOff(HWND hwnd)
+{
+    if (GetPropA(hwnd, APP_MOVEONOFF))
+        RemovePropA(hwnd, APP_MOVEONOFF);
+    else
+        SetPropA(hwnd, APP_MOVEONOFF, (HANDLE)1);
 }
 static void ActionMenu(HWND hwnd)
 {
@@ -3458,12 +3536,14 @@ static void ActionMenu(HWND hwnd)
        | !!GetBorderlessFlag(hwnd) << 2                        // LP_BORDERLESS
        | IsZoomed(hwnd) << 3                                    // LP_MAXIMIZED
        | !!(GetRestoreFlag(hwnd)&2) << 4                           // LP_ROLLED
+       | !!GetPropA(state.hwnd, APP_MOVEONOFF) << 5             // LP_MOVEONOFF
     );
 }
 /////////////////////////////////////////////////////////////////////////////
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
 {
+    LOG("Going to perform action %d", (int)action);
     if      (action==AC_MINIMIZE)    MinimizeWindow(hwnd);
     else if (action==AC_MAXIMIZE)    ActionMaximize(hwnd);
     else if (action==AC_CENTER)      CenterWindow(hwnd);
@@ -3484,7 +3564,8 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_NSTACKED2)   {state.shift = 1; ActionAltTab(state.prevpt, +1, EnumStackedWindowsProc); state.shift = 0;}
     else if (action==AC_PSTACKED)    ActionAltTab(state.prevpt, -1, EnumStackedWindowsProc);
     else if (action==AC_PSTACKED2)   { state.shift = 1; ActionAltTab(state.prevpt, -1, EnumStackedWindowsProc); state.shift = 0;}
-    else if (action==AC_STACKLIST)   ActionStackList();
+    else if (action==AC_STACKLIST)   ActionStackList(state.shift);
+    else if (action==AC_STACKLIST2)  ActionStackList(!state.shift);
     else if (action==AC_MLZONE)      MoveWindowToTouchingZone(hwnd, 0, 0); // mLeft
     else if (action==AC_MTZONE)      MoveWindowToTouchingZone(hwnd, 1, 0); // mTop
     else if (action==AC_MRZONE)      MoveWindowToTouchingZone(hwnd, 2, 0); // mBottom
@@ -3493,6 +3574,8 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_XTZONE)      MoveWindowToTouchingZone(hwnd, 1, 1); // xTop
     else if (action==AC_XRZONE)      MoveWindowToTouchingZone(hwnd, 2, 1); // xBottom
     else if (action==AC_XBZONE)      MoveWindowToTouchingZone(hwnd, 3, 1); // xBight
+    else if (action==AC_ASONOFF)     ActionASOnOff();
+    else if (action==AC_MOVEONOFF)   ActionMoveOnOff(hwnd);
 }
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -3557,7 +3640,6 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     // Get MDI chlild hwnd or root hwnd if not MDI!
     state.mdiclient = NULL;
     state.hwnd = hwnd? hwnd: MDIorNOT(WindowFromPoint(pt), &state.mdiclient);
-
     if (!state.hwnd || state.hwnd == LastWin.hwnd) {
         return 0;
     }
@@ -3613,6 +3695,10 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
 
     // Do things depending on what button was pressed
     if (MOUVEMENT(action)) {
+        if (GetPropA(state.hwnd, APP_MOVEONOFF)) {
+            state.action = AC_NONE;
+            return 0; // Movement was disabled for this window.
+        }
         DorQWORD lpdwResult;
         if(!SendMessageTimeout(state.hwnd, 0, 0, 0, SMTO_NORMAL, 128, &lpdwResult)) {
             state.blockmouseup = 1;
@@ -3740,7 +3826,7 @@ static void FinishMovement()
         }
         if (IsWindow(LastWin.hwnd) && !LastWin.snap){
             if (LastWin.maximize) {
-                MaximizeRestore_atpt(LastWin.hwnd, SW_MAXIMIZE);
+                MaximizeRestore_atpt(LastWin.hwnd, SW_MAXIMIZE, 3);
                 LastWin.hwnd = NULL;
             } else {
                 LastWin.end = 1;
@@ -3765,10 +3851,10 @@ static void FinishMovement()
             WaitMovementEnd(); // extra waiting in case...
 
             if (state.origin.maximized) {
-                MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE);
+                MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE, 2);
             }
             if (state.origin.fullscreen) {
-                MaximizeRestore_atpt(state.hwnd, SW_FULLSCREEN);
+                MaximizeRestore_atpt(state.hwnd, SW_FULLSCREEN, 2);
             }
         }
     }
@@ -3813,7 +3899,7 @@ static void ClickComboActions(enum action action)
                 state.action = AC_NONE;
                 state.moving = 0;
             }
-            MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE);
+            MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE, 2);
         }
         state.blockmouseup = 1;
     } else if (state.action == AC_RESIZE && action == AC_MOVE && !state.moving) {
@@ -4132,22 +4218,131 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
+///////////////////////////////////////////////////////////////////////////
+// Function to calculate the necessary dimentions for the menuitem.
+// In response to the WM_MEASUREITEM message
+static LPARAM MeasureMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi)
+{
+    LPMEASUREITEMSTRUCT lpmi = (LPMEASUREITEMSTRUCT)lParam;
+    if(!lpmi) return FALSE;
+    struct menuitemdata *data = (struct menuitemdata *)lpmi->itemData;
+    if(!data) return FALSE;
+    wchar_t *text = data->txt;
+    //LOGA("WM_MEASUREITEM: id=%u, txt=%S", lpmi->itemID, data->txt);
 
+    HDC dc = GetDC(hwnd);
+
+    // Select proper font.
+    HFONT mfont = GetNCMenuFont(dpi);
+    HFONT oldfont=SelectObject(dc, mfont);
+
+    int xmargin = GetSystemMetricsForDpi(SM_CXFIXEDFRAME, dpi);
+    int ymargin = GetSystemMetricsForDpi(SM_CYFIXEDFRAME, dpi);
+    int xicosz =  GetSystemMetricsForDpi(SM_CXSMICON, dpi);
+    int yicosz =  GetSystemMetricsForDpi(SM_CYSMICON, dpi);
+
+    SIZE sz; // Get text size in both dimentions
+    GetTextExtentPoint32(dc, text, wcslen(text), &sz);
+
+    // Text width + icon width + 4 margins
+    lpmi->itemWidth = sz.cx + xicosz + 4*xmargin;
+
+    // Text height/Icon height + margin
+    lpmi->itemHeight = max(sz.cy, yicosz) + ymargin;
+
+    SelectObject(dc, oldfont); // restore old font
+    DeleteObject(mfont); // Delete menufont.
+    ReleaseDC(hwnd, dc);
+    return TRUE;
+}
+///////////////////////////////////////////////////////////////////////////
+// Function to custom draw the menu item, in response to WM_DRAWITEM.
+// We must both draw he small icon and the menu text.
+// We must also draw the selected menu with the highligh color.
+static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi)
+{
+    LPDRAWITEMSTRUCT di = (LPDRAWITEMSTRUCT)lParam;
+    if (!di) return FALSE;
+    struct menuitemdata *data = (struct menuitemdata *)di->itemData;
+    if (!data) return FALSE;
+
+    // Try to be dpi-aware as good as we can...
+    int xmargin = GetSystemMetricsForDpi(SM_CXFIXEDFRAME, dpi);
+    int xicosz =  GetSystemMetricsForDpi(SM_CXSMICON, dpi);
+    int yicosz =  GetSystemMetricsForDpi(SM_CYSMICON, dpi);
+
+    //LOGA("WM_DRAWITEM: id=%u, txt=%S", di->itemID, data->txt);
+
+    int bgcol, txcol;
+    if(di->itemState & ODS_SELECTED) {
+        // Item is highlited
+        bgcol = COLOR_HIGHLIGHT ;
+        txcol = COLOR_HIGHLIGHTTEXT ;
+    } else {
+        // normal
+        bgcol = COLOR_MENU ;
+        txcol = COLOR_MENUTEXT ;
+    }
+    HBRUSH bgbrush = GetSysColorBrush(bgcol);
+    // Set
+    SetBkColor(di->hDC, GetSysColor(bgcol));
+    SetTextColor(di->hDC, GetSysColor(txcol));
+
+    // Highlight menu entry
+    HPEN oldpen=SelectObject(di->hDC, GetStockObject(NULL_PEN));
+    HBRUSH oldbrush=SelectObject(di->hDC, bgbrush);
+    Rectangle(di->hDC, di->rcItem.left, di->rcItem.top, di->rcItem.right+1, di->rcItem.bottom+1);
+    int totheight = di->rcItem.bottom - di->rcItem.top; // total menuitem height
+
+    HFONT mfont = GetNCMenuFont(dpi);
+    HFONT oldfont=SelectObject(di->hDC, mfont);
+
+    SIZE sz;
+    GetTextExtentPoint32(di->hDC, data->txt, wcslen(data->txt), &sz);
+    //LOGA("WM_DRAWITEM: txtXY=%u, %u, txt=%S", (UINT)sz.cx, (UINT)sz.cy, data->txt);
+
+    int yicooffset = (totheight - yicosz)/2; // Center icon vertically
+    int ytxtoffset = (totheight - sz.cy)/2;   // Center text vertically
+
+    DrawIconEx(di->hDC
+        , di->rcItem.left+xmargin
+        , di->rcItem.top + yicooffset
+        , data->icon, xicosz, yicosz
+        , 0, 0, DI_NORMAL);
+    // Adjust x offset for Text drawing...
+    di->rcItem.left += xicosz + xmargin*3;
+    di->rcItem.top += ytxtoffset;
+    //LOGA("menuitemheight = %ld", di->rcItem.bottom-di->rcItem.top);
+    DrawText(di->hDC, data->txt, -1, &di->rcItem, 0); // Menuitem Text
+
+    // Restore dc context
+    SelectObject(di->hDC, oldfont); // restore old font
+    DeleteObject(mfont); // Delete menufont.
+    SelectObject(di->hDC, oldpen);
+    SelectObject(di->hDC, oldbrush);
+
+    return TRUE;
+}
 /////////////////////////////////////////////////////////////////////////////
 // Window for single click commands for menu
 LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+    static UINT dpi;
     static HWND fhwndori = NULL;
     if (msg == WM_CREATE) {
         // Save the original foreground window.
+        dpi = GetDpiForWindow(hwnd);
         fhwndori = GetForegroundWindow();
-
+    } else if (msg == WM_DPICHANGED) {
+        dpi = LOWORD(wParam); // Update dpi value if changed...
     } else if (msg == WM_INITMENU) {
         state.unikeymenu = (HMENU)wParam;
         // state.sclickhwnd = (HWND)lParam; // Child hwnd that was clicked.
     } else if (msg == WM_GETCLICKHWND) {
         return (LRESULT)state.sclickhwnd;
-    } else if (msg == WM_COMMAND && wParam > 32) {
+    } else if (msg == WM_COMMAND && LOWORD(wParam)) {
+        // UNIKEY MENU (LOWORD of wParam munst be non NULL.
+        LOG("Unikey menu WM_COMMAND, wp=%X, lp=%X", (UINT)wParam, (UINT)lParam);
         Send_KEY(VK_BACK); // Errase old char...
 
         // Send UCS-2 or Lower+Upper UTF-16 surrogates of the UNICODE char.
@@ -4155,9 +4350,10 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         if(HIWORD(wParam)) SendUnicodeKey(HIWORD(wParam)); // Upper surrogate
 
         state.sclickhwnd = NULL;
-    } else if (msg == WM_COMMAND && IsWindow(state.sclickhwnd)) {
+    } else if (msg == WM_COMMAND && IsWindow(state.sclickhwnd) && HIWORD(wParam) && !LOWORD(wParam)) {
         // ACTION MENU
-        enum action action = wParam;
+        LOG("Action Menu WM_COMMAND, wp=%X, lp=%X", (UINT)wParam, (UINT)lParam);
+        enum action action = HIWORD(wParam);
         if (action) {
             state.prevpt = state.clickpt;
             SClickActions(state.sclickhwnd, action);
@@ -4174,107 +4370,15 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return 0;
     // OWNER DRAWN MENU !!!!!
     } else if (msg == WM_MEASUREITEM) {
-        LPMEASUREITEMSTRUCT lpmi = (LPMEASUREITEMSTRUCT)lParam;
-        if(!lpmi) return FALSE;
-        struct menuitemdata *data = (struct menuitemdata *)lpmi->itemData;
-        if(!data) return FALSE;
-        wchar_t *text = data->txt;
-        //LOGA("WM_MEASUREITEM: id=%u, txt=%S", lpmi->itemID, data->txt);
-
-        HDC dc = GetDC(hwnd);
-        UINT dpi = GetDpiForWindow(hwnd);
-
-        // Select proper font.
-        HFONT mfont = GetNCMenuFont(dpi);
-        HFONT oldfont=SelectObject(dc, mfont);
-
-        int xmargin = GetSystemMetricsForDpi(SM_CXFIXEDFRAME, dpi);
-        int ymargin = GetSystemMetricsForDpi(SM_CYFIXEDFRAME, dpi);
-        int xicosz =  GetSystemMetricsForDpi(SM_CXSMICON, dpi);
-        int yicosz =  GetSystemMetricsForDpi(SM_CYSMICON, dpi);
-
-        SIZE sz; // Get text size in both dimentions
-        GetTextExtentPoint32(dc, text, wcslen(text), &sz);
-
-        // Text width + icon width + 4 margins
-        lpmi->itemWidth = sz.cx + xicosz + 4*xmargin;
-
-        // Text height/Icon height + margin
-        lpmi->itemHeight = max(sz.cy, yicosz) + ymargin;
-
-        SelectObject(dc, oldfont); // restore old font
-        DeleteObject(mfont); // Delete menufont.
-        ReleaseDC(hwnd, dc);
-        return TRUE;
-
+        return MeasureMenuItem(hwnd, wParam, lParam, dpi);
     } else if (msg == WM_DRAWITEM) {
         // WE MUST DRAW THE MENU ITEM HERE
-        LPDRAWITEMSTRUCT di = (LPDRAWITEMSTRUCT)lParam;
-        if (!di) return FALSE;
-        struct menuitemdata *data = (struct menuitemdata *)di->itemData;
-        if (!data) return FALSE;
-
-        // Try to be dpi-aware as good as we can...
-        UINT dpi = GetDpiForWindow(hwnd);
-        int xmargin = GetSystemMetricsForDpi(SM_CXFIXEDFRAME, dpi);
-        int xicosz =  GetSystemMetricsForDpi(SM_CXSMICON, dpi);
-        int yicosz =  GetSystemMetricsForDpi(SM_CYSMICON, dpi);
-
-//        LOGA("WM_DRAWITEM: id=%u, txt=%S", di->itemID, data->txt);
-
-        int bgcol, txcol;
-        if(di->itemState & ODS_SELECTED) {
-            // Item is highlited
-            bgcol = COLOR_HIGHLIGHT ;
-            txcol = COLOR_HIGHLIGHTTEXT ;
-        } else {
-            // normal
-            bgcol = COLOR_MENU ;
-            txcol = COLOR_MENUTEXT ;
-        }
-        HBRUSH bgbrush = GetSysColorBrush(bgcol);
-        // Set
-        SetBkColor(di->hDC, GetSysColor(bgcol));
-        SetTextColor(di->hDC, GetSysColor(txcol));
-
-        // Highlight menu entry
-        HPEN oldpen=SelectObject(di->hDC, GetStockObject(NULL_PEN));
-        HBRUSH oldbrush=SelectObject(di->hDC, bgbrush);
-        Rectangle(di->hDC, di->rcItem.left, di->rcItem.top, di->rcItem.right+1, di->rcItem.bottom+1);
-        int totheight = di->rcItem.bottom - di->rcItem.top; // total menuitem height
-
-        HFONT mfont = GetNCMenuFont(dpi);
-        HFONT oldfont=SelectObject(di->hDC, mfont);
-
-        SIZE sz;
-        GetTextExtentPoint32(di->hDC, data->txt, wcslen(data->txt), &sz);
-//        LOGA("WM_DRAWITEM: txtXY=%u, %u, txt=%S", (UINT)sz.cx, (UINT)sz.cy, data->txt);
-
-        int yicooffset = (totheight - yicosz)/2; // Center icon vertically
-        int ytxtoffset = (totheight - sz.cy)/2;   // Center text vertically
-
-        DrawIconEx(di->hDC
-            , di->rcItem.left+xmargin
-            , di->rcItem.top + yicooffset
-            , data->icon, xicosz, yicosz
-            , 0, 0, DI_NORMAL);
-        // Adjust x offset for Text drawing...
-        di->rcItem.left += xicosz + xmargin*3;
-        di->rcItem.top += ytxtoffset;
-//        LOGA("menuitemheight = %ld", di->rcItem.bottom-di->rcItem.top);
-        DrawText(di->hDC, data->txt, -1, &di->rcItem, 0); // Menuitem Text
-
-        // restore dc context
-        SelectObject(di->hDC, oldfont); // restore old font
-        DeleteObject(mfont); // Delete menufont.
-        SelectObject(di->hDC, oldpen);
-        SelectObject(di->hDC, oldbrush);
-        return TRUE;
-
+        return DrawMenuItem(hwnd, wParam, lParam, dpi);
     } else if (msg == WM_MENUCHAR) {
 //        LOGA("WM_MENUCHAR: %X", wParam);
         // Turn the input character into a menu identifier.
         WORD cc = LOWORD(wParam);
+        if (cc==VK_ESCAPE) return MNC_CLOSE<<16;
         // Lower case the input character.
         TCHAR c = (TCHAR)( cc  |  ((cc - 'A' < 26)<<5) );
         WORD item;
@@ -4294,8 +4398,9 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         // Menu gets hiden, be sure to zero-out the clickhwnd
         state.sclickhwnd = NULL;
     } else if (msg == WM_DESTROY) {
-        if (state.sclickhwnd == fhwndori && IsWindow(fhwndori)) {
-            // Restore the foreground window
+        LOG("Destroying Menu window!");
+        if (fhwndori && state.sclickhwnd == fhwndori && IsWindow(fhwndori)) {
+            // Restore the old foreground window
             SetForegroundWindow(fhwndori);
         }
         fhwndori = NULL;
@@ -4305,25 +4410,45 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     // LOGA("msg=%X, wParam=%X, lParam=%lX", msg, wParam, lParam);
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
+
 LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_HOTKEY) {
-        int action = wParam - 0xC000; // Remove the Offset
+        int action = 0;
+        int ptwindow = 0;
+        if(wParam > 0xC000) { // HOTKEY
+            // The user Pressed a hotkey.
+            action = wParam - 0xC000; // Remove the Offset
+            ptwindow = conf.UsePtWindow;
+            LOG("Hotkey Pressed, action = %d", action);
+        } else if (0x0000 < wParam && wParam < 0x1000) {
+            // The user called AltSnap.exe -afACTION
+            action = wParam - 0x0000; // Remove the Offset
+            ptwindow = 0;
+        } else if (0x1000 < wParam && wParam < 0x2000) {
+            // The user called AltSnap.exe -afACTION
+            action = wParam - 0x1000; // Remove the Offset
+            ptwindow = 1;
+        }
+
         if (action > AC_RESIZE) { // Exclude resize action in case...
-            // Some actions pass directly through the default blacklists...
             POINT pt;
             GetCursorPos(&pt);
-            if (!conf.UsePtWindow
+            if (!ptwindow
             && (action == AC_MENU)) {
                 pt.x = MAXLONG;
             }
-            if (action == AC_KILL || action == AC_PAUSE || action == AC_RESUME) {
-                SClickActions(conf.UsePtWindow? WindowFromPoint(pt): GetForegroundWindow(), action);
+            static const enum action noinitactions[] = { AC_KILL, AC_PAUSE, AC_RESUME, AC_ASONOFF, 0 };
+            if (IsActionInList(action, noinitactions)) {
+                // Some actions pass directly through the default blacklists...
+                HWND targethwnd = ptwindow? WindowFromPoint(pt): GetForegroundWindow();
+                if (IsWindow(targethwnd)) {
+                    SClickActions(targethwnd, action);
+                }
             } else {
                 state.shift = state.ctrl = 0; // In case...
-                init_movement_and_actions(pt, conf.UsePtWindow? NULL: GetForegroundWindow(), action, 0);
-                state.blockmouseup = 0;
-                state.hwnd=NULL;
+                init_movement_and_actions(pt, ptwindow? NULL: GetForegroundWindow(), action, 0);
+                state.blockmouseup = 0; // We must not block mouseup in this case...
             }
             return 0;
         }
@@ -4472,17 +4597,21 @@ static void readhotkeys(const wchar_t *inipath, const char *name, const wchar_t 
     keys[i] = 0;
 }
 // Map action string to actual action enum
-static enum action readaction(const wchar_t *inipath, const wchar_t *key)
+static enum action MapAction(wchar_t *txt)
 {
-    wchar_t txt[32];
-    GetPrivateProfileString(L"Input", key, L"Nothing", txt, ARR_SZ(txt), inipath);
-
     static const char *action_map[] = ACTION_MAP;
     enum action ac;
     for (ac=0; ac < ARR_SZ(action_map); ac++) {
         if(!wscsicmp(txt, action_map[ac])) return ac;
     }
     return AC_NONE;
+}
+static enum action readaction(const wchar_t *inipath, const wchar_t *key)
+{
+    wchar_t txt[32];
+    GetPrivateProfileString(L"Input", key, L"Nothing", txt, ARR_SZ(txt), inipath);
+
+    return MapAction(txt);
 }
 // Read all buttons actions from inipath
 static void readbuttonactions(const wchar_t *inipath)
@@ -4751,7 +4880,11 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         if(LOBYTE(HK) && HIBYTE(HK)) {
             // Lobyte is the virtual key code and hibyte is the mod_key
             if(!RegisterHotKey(g_hkhwnd, 0xC000 + ac, HIBYTE(HK), LOBYTE(HK))) {
-                LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
+                // LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
+                wchar_t title[128];
+                wcscpy(title, APP_NAME": unable to register hotkey for action ");
+                wcscat(title, txt);
+                ErrorBox(title);
             }
         }
     }

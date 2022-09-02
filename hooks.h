@@ -22,16 +22,19 @@
 #define LP_BORDERLESS (1<<2)
 #define LP_MAXIMIZED  (1<<3)
 #define LP_ROLLED     (1<<4)
+#define LP_MOVEONOFF  (1<<5)
 
 // App
 #define APP_NAME       L"AltSnap"
 #define APP_NAMEA      "AltSnap"
-#define APP_VERSION    "1.56"
+#define APP_VERSION    "1.57"
 #define APP_PROPPT     APP_NAMEA"-RDim"
 #define APP_PROPFL     APP_NAMEA"-RFlag"
 #define APP_PROPOFFSET APP_NAMEA"-ROffset"
 #define APP_PRBDLESS   APP_NAMEA"-RStyle"
 #define APP_ROLLED     APP_NAMEA"-Rolled"
+#define APP_ASONOFF    APP_NAMEA"-ASOnOff"
+#define APP_MOVEONOFF  APP_NAMEA"-MoveOnOff"
 #define FZ_PROPPT      "FancyZones_RestoreSize"
 #define FZ_PROPZONES   "FancyZones_zones"
 
@@ -47,7 +50,6 @@
 #define WM_HIDETRAY       (WM_USER+10)
 #define WM_UNIKEYMENU     (WM_USER+11)
 #define WM_GETCLICKHWND   (WM_USER+12)
-//#define WM_GETPINNEDHWND  (WM_USER+13)
 
 // List of possible actions
 enum action {
@@ -55,7 +57,7 @@ enum action {
   , AC_CENTER , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_BORDERLESS
   , AC_KILL, AC_PAUSE, AC_RESUME, AC_MAXHV, AC_MINALL, AC_MUTE
   , AC_SIDESNAP, AC_NSTACKED, AC_NSTACKED2, AC_PSTACKED, AC_PSTACKED2
-  , AC_STACKLIST
+  , AC_STACKLIST, AC_STACKLIST2, AC_ASONOFF, AC_MOVEONOFF
   , AC_MLZONE, AC_MTZONE, AC_MRZONE, AC_MBZONE
   , AC_XLZONE, AC_XTZONE, AC_XRZONE, AC_XBZONE
   , AC_ROLL, AC_ALTTAB, AC_VOLUME, AC_TRANSPARENCY, AC_HSCROLL
@@ -68,7 +70,7 @@ enum action {
   , "Center", "AlwaysOnTop", "Close", "Lower", "Borderless"        \
   , "Kill", "Pause", "Resume", "MaximizeHV", "MinAllOther", "Mute" \
   , "SideSnap", "NStacked", "NStacked2", "PStacked", "PStacked2"   \
-  , "StackList"                                                    \
+  , "StackList", "StackList2", "ASOnOff", "MoveOnOff"              \
   , "MLZone", "MTZone", "MRZone", "MBZone"                         \
   , "XLZone", "XTZone", "XRZone", "XBZone"                         \
   , "Roll", "AltTab", "Volume", "Transparency", "HScroll"          \
@@ -90,6 +92,10 @@ static int pure IsHotkeyy(unsigned char key, const unsigned char *HKlist)
     }
     return 0;
 }
+static int pure IsActionInList(const enum action ac, const enum action *aclst)
+{
+    return IsHotkeyy(ac, aclst);
+}
 
 // Convert zone number to ini name entry
 static wchar_t *ZidxToZonestr(int idx, wchar_t *zname)
@@ -102,4 +108,15 @@ static wchar_t *ZidxToZonestr(int idx, wchar_t *zname)
     return zname;
 }
 
+static enum action MapActionA(const char *txt)
+{
+    static const char *action_map[] = ACTION_MAP;
+    enum action ac;
+    for (ac=0; ac < ARR_SZ(action_map); ac++) {
+        if(!stricmp(txt, action_map[ac])) return ac;
+    }
+    return AC_NONE;
+
+}
 #endif /* ALTDRAG_RPC_H */
+

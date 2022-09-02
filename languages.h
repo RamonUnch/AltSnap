@@ -117,6 +117,8 @@ struct strings {
   wchar_t *input_actions_kill;
   wchar_t *input_actions_pause;
   wchar_t *input_actions_resume;
+  wchar_t *input_actions_asonoff;
+  wchar_t *input_actions_moveonoff;
   wchar_t *input_actions_minimize;
   wchar_t *input_actions_maximize;
   wchar_t *input_actions_lower;
@@ -126,6 +128,7 @@ struct strings {
   wchar_t *input_actions_pstacked2;
   wchar_t *input_actions_npstacked;
   wchar_t *input_actions_stacklist;
+  wchar_t *input_actions_stacklist2;
 
   wchar_t *input_actions_mlzone;
   wchar_t *input_actions_mtzone;
@@ -318,6 +321,8 @@ static const char* l10n_inimapping[] = {
     "InputActionKill",
     "InputActionPause",
     "InputActionResume",
+    "InputActionASOnOff",
+    "InputActionMoveOnOff",
     "InputActionMinimize",
     "InputActionMaximize",
     "InputActionLower",
@@ -327,6 +332,7 @@ static const char* l10n_inimapping[] = {
     "InputActionPStacked2",
     "InputActionNPStacked",
     "InputActionStackList",
+    "InputActionStackList2",
     "InputActionMLZone",
     "InputActionMTZone",
     "InputActionMRZone",
@@ -508,11 +514,8 @@ static const struct strings en_US = {
  /* mb5_hc             */ L"Mo&use button 5",
  /* longclickmove      */ L"Mo&ve windows with a long left-click",
 
-// /* Aggressive Pause   */ L"&Pause process on Alt+Shift+Pause (Alt+Pause to resume)",
-// /* Aggressive Kill    */ L"&Kill process on Ctrl+Alt+F4\nAlso adds the kill option to the action menu",
  /* scroll lock state  */ L"Suspend/Resume AltSnap based on &Scroll lock state",
  /* unikeyholdmenu     */ L"Pop&up an extended character menu when holding an alphabetic key down",
-// /* npsnaped           */ L"Select the &next/previous window in the pointed windows stack with Alt+Page up/down",
  /* keycombo           */ L"Use two keys &combo to activate",
  /* grabwithalt        */ L"&Action without click:",
  /* grabwithaltb       */ L"Acti&on without click (alt):",
@@ -524,6 +527,8 @@ static const struct strings en_US = {
  /* kill               */ L"&Kill program",
  /* pause              */ L"Pause program",
  /* resume             */ L"Resume program",
+ /* asonoff            */ L"S&uspend/Resume AltSnap",
+ /* moveonoff          */ L"Movement dis&abled",
  /* minimize           */ L"Mi&nimize window",
  /* maximize           */ L"Ma&ximize window",
  /* lower              */ L"&Lower window",
@@ -533,6 +538,7 @@ static const struct strings en_US = {
  /* pstacked 2         */ L"Previous laser stacked window",
  /* npstacked          */ L"Next/Prev stacked window",
  /* stacklist          */ L"Stacked windows list",
+ /* stacklist          */ L"Laser stacked windows list",
  /* mlzone             */ L"Move to the left zone",
  /* mtzone             */ L"Move to the top zone",
  /* mrzone             */ L"Move to the right zone",

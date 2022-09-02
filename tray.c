@@ -57,9 +57,12 @@ static int InitTray()
 static int UpdateTray()
 {
     int Index = !!ENABLED();
-    if (Index && (ScrollLockState&1))
-        Index += !( !(GetKeyState(VK_SCROLL)&1) ^ !(ScrollLockState&2) );
-
+    if (Index) {
+        if ((ScrollLockState&1))
+            Index = !( !(GetKeyState(VK_SCROLL)&1) ^ !(ScrollLockState&2) );
+        else if (GetPropA(g_hwnd, APP_ASONOFF))
+            Index=2;
+    }
     // Load info tool tip and tray icon
     strcpy(tray.szTip, traystr[Index]);
     tray.hIcon = LoadIconA(g_hinst, iconstr[Index]);
@@ -172,26 +175,25 @@ static void ShowContextMenu(HWND hwnd)
     GetCursorPos(&pt);
     HMENU menu = CreatePopupMenu();
 
-    InsertMenu(menu, -1, MF_BYPOSITION, SWM_TOGGLE, (ENABLED()?l10n->menu_disable:l10n->menu_enable));
-    InsertMenu(menu, -1, MF_BYPOSITION, SWM_HIDE, l10n->menu_hide);
+    AppendMenu(menu, MF_STRING, SWM_TOGGLE, (ENABLED()?l10n->menu_disable:l10n->menu_enable));
+    AppendMenu(menu, MF_STRING, SWM_HIDE, l10n->menu_hide);
     if(VISTA)
         InsertMenu(menu, -1, elevated?MF_BYPOSITION|MF_GRAYED:MF_BYPOSITION
                  , SWM_ELEVATE, (elevated? l10n->general_elevated: l10n->general_elevate));
 
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
-    InsertMenu(menu, -1, MF_BYPOSITION, SWM_CONFIG, l10n->menu_config);
-    InsertMenu(menu, -1, MF_BYPOSITION, SWM_ABOUT, l10n->menu_about);
+    AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+    AppendMenu(menu, MF_STRING, SWM_CONFIG, l10n->menu_config);
+    AppendMenu(menu, MF_STRING, SWM_ABOUT, l10n->menu_about);
 
     if (UseZones&1) { // Zones section
-        InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
-        InsertMenu(menu, -1, MF_BYPOSITION, SWM_TESTWIN,  l10n->advanced_testwindow);
-        InsertMenu(menu, -1, FindWindow(APP_NAME"-test", NULL)? MF_BYPOSITION:MF_BYPOSITION|MF_GRAYED
+        AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+        AppendMenu(menu, MF_STRING, SWM_TESTWIN,  l10n->advanced_testwindow);
+        AppendMenu(menu, FindWindow(APP_NAME"-test", NULL)? MF_STRING :MF_STRING|MF_GRAYED
                   , SWM_SAVEZONES, l10n->menu_savezones);
     }
 
-    InsertMenu(menu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
-
-    InsertMenu(menu, -1, MF_BYPOSITION, SWM_EXIT, l10n->menu_exit);
+    AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+    AppendMenu(menu, MF_STRING, SWM_EXIT, l10n->menu_exit);
 
     // Track menu
     SetForegroundWindow(hwnd);

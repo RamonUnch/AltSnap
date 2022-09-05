@@ -412,7 +412,8 @@ static void *callocL(size_t sz, size_t mult)
 
 static BOOL freeL(void *mem)
 {
-    return HeapFree(GetProcessHeap(), 0, mem);
+    if(mem) return HeapFree(GetProcessHeap(), 0, mem);
+    return FALSE;
 }
 #define free freeL
 

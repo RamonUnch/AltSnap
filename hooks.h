@@ -6,7 +6,6 @@
 #define _WIN32_WINNT 0x0600
 #define WINVER 0x0600
 #include <windows.h>
-
 #include "unfuck.h"
 
 // Undecorated entry name in x64 mode
@@ -50,10 +49,12 @@
 #define WM_HIDETRAY       (WM_USER+10)
 #define WM_UNIKEYMENU     (WM_USER+11)
 #define WM_GETCLICKHWND   (WM_USER+12)
+#define WM_STACKLIST      (WM_USER+13)
 
 // List of possible actions
 enum action {
-    AC_NONE=0, AC_MOVE, AC_RESIZE, AC_MENU, AC_MINIMIZE, AC_MAXIMIZE
+    AC_NONE=0, AC_MOVE, AC_RESIZE, AC_RESTORE
+  , AC_MENU, AC_MINIMIZE, AC_MAXIMIZE
   , AC_CENTER , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_BORDERLESS
   , AC_KILL, AC_PAUSE, AC_RESUME, AC_MAXHV, AC_MINALL, AC_MUTE
   , AC_SIDESNAP, AC_NSTACKED, AC_NSTACKED2, AC_PSTACKED, AC_PSTACKED2
@@ -66,7 +67,8 @@ enum action {
 };
 // List of actions strings, keep the SAME ORDER than above
 #define ACTION_MAP { \
-    "Nothing", "Move", "Resize", "Menu", "Minimize", "Maximize"    \
+    "Nothing", "Move", "Resize", "Restore"                         \
+  , "Menu", "Minimize", "Maximize"                                 \
   , "Center", "AlwaysOnTop", "Close", "Lower", "Borderless"        \
   , "Kill", "Pause", "Resume", "MaximizeHV", "MinAllOther", "Mute" \
   , "SideSnap", "NStacked", "NStacked2", "PStacked", "PStacked2"   \
@@ -96,11 +98,10 @@ static int pure IsActionInList(const enum action ac, const enum action *aclst)
 {
     return IsHotkeyy(ac, aclst);
 }
-
 // Convert zone number to ini name entry
 static wchar_t *ZidxToZonestr(int idx, wchar_t *zname)
 {
-    wchar_t txt[8];
+    wchar_t txt[16];
     zname[0] = '\0';
     wcscat(zname, L"Zone");
     wcscat(zname, itowL(idx, txt, 10)); // Zone Name from zone number

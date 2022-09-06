@@ -124,6 +124,7 @@ static BOOL (WINAPI *mySystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, 
 /* DWMAPI.DLL */
 static HRESULT (WINAPI *myDwmGetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c) = IPTR;
 static HRESULT (WINAPI *myDwmIsCompositionEnabled)(BOOL *pfEnabled) = IPTR;
+/*static BOOL (WINAPI *myDwmDefWindowProc)(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam, LRESULT *plResult)=IPTR;*/
 
 /* SHCORE.DLL */
 static HRESULT (WINAPI *myGetDpiForMonitor)(HMONITOR hmonitor, int dpiType, UINT *dpiX, UINT *dpiY) = IPTR;
@@ -611,7 +612,18 @@ static BOOL HaveDWM()
 
     return have_dwm;
 }
-
+#if 0
+static BOOL DwmDefWindowProcL(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam, LRESULT *plResult)
+{
+    if (myDwmDefWindowProc == IPTR) { /* First time */
+        myDwmDefWindowProc=LoadDLLProc("DWMAPI.DLL", "DwmDefWindowProc");
+    }
+    if (myDwmDefWindowProc) { /* We know we have the function */
+        return myDwmDefWindowProc(hWnd, msg, wParam, lParam, plResult);
+    }
+    return FALSE;
+}
+#endif
 /* PSAPI.DLL */
 static DWORD (WINAPI *myGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize) = IPTR;
 static DWORD GetModuleFileNameExL(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize)
@@ -787,6 +799,9 @@ static BOOL SetWindowLevel(HWND hwnd, HWND hafter)
 static int HitTestTimeoutL(HWND hwnd, LPARAM lParam)
 {
     DorQWORD area=0;
+
+//    if(DwmDefWindowProcL(hwnd, WM_NCHITTEST, 0, lParam, (LRESULT*)&area))
+//        return area;
 
     while(hwnd && SendMessageTimeout(hwnd, WM_NCHITTEST, 0, lParam, SMTO_NORMAL, 255, &area)){
         if((int)area == HTTRANSPARENT)

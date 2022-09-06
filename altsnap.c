@@ -39,8 +39,7 @@ static BYTE WinVer = 0;
 #define VISTA (WinVer >= 6)
 #define WIN10 (WinVer >= 10)
 
-#define HOOK_TORESUME  ((HHOOK)1)
-static int ENABLED() { return keyhook && keyhook != HOOK_TORESUME; }
+#define ENABLED() (!!keyhook)
 #define GetWindowRectL(hwnd, rect) GetWindowRectLL(hwnd, rect, SnapGap)
 
 // Include stuff
@@ -60,7 +59,7 @@ int HookSystem()
         GetModuleFileName(NULL, path, ARR_SZ(path));
         PathRemoveFileSpecL(path);
         wcscat(path, L"\\hooks.dll");
-        hinstDLL = LoadLibraryA("HOOKS.DLL");
+        hinstDLL = LoadLibrary(path);
         if (!hinstDLL) {
             LOG("Could not load HOOKS.DLL!!!");
             return 1;

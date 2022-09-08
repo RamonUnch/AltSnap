@@ -504,7 +504,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
             UpdateSettings();
             // Update Test windows in if open.
-            EnumDesktopWindows(NULL, RefreshTestWin, 0);
+            EnumThreadWindows(GetCurrentThreadId(), RefreshTestWin, 0);
 
             have_to_apply = 0;
         }
@@ -666,7 +666,7 @@ static void FillActionDropListS(HWND hwnd, int idc, wchar_t *inioption, struct a
     ComboBox_ResetContent(control);
     if (inioption)
         GetPrivateProfileString(L"Input", inioption, L"Nothing", txt, ARR_SZ(txt), inipath);
-    unsigned sel = 0, j;
+    int sel = -1, j;
     for (j = 0; actions[j].action; j++) {
         wchar_t action_name[256];
         wcscpy_noaccel(action_name, actions[j].l10n, ARR_SZ(action_name));
@@ -675,7 +675,20 @@ static void FillActionDropListS(HWND hwnd, int idc, wchar_t *inioption, struct a
             sel = j;
         }
     }
+    if (sel < 0) {
+        // sel is negative if the string was not found in the struct actiondl:
+        // UNKNOWN ACTION, so we add it manually at the end of the list
+        ComboBox_AddString(control, txt);
+        sel = j; // And select this unknown action.
+    }
     ComboBox_SetCurSel(control, sel);
+}
+static void WriteActionDropListS(HWND hwnd, int idc, wchar_t *inioption, struct actiondl *actions)
+{
+    HWND control = GetDlgItem(hwnd, idc);
+    int j = ComboBox_GetCurSel(control);
+    if (actions[j].action) // Inside of known values
+        WritePrivateProfileString(L"Input", inioption, actions[j].action, inipath);
 }
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -698,6 +711,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     struct actiondl mouse_actions[] = {
         {L"Move",        l10n->input_actions_move},
         {L"Resize",      l10n->input_actions_resize},
+//        {L"Restore",     l10n->input_actions_restore},
         {L"Close",       l10n->input_actions_close},
         {L"Kill",        l10n->input_actions_kill},
         {L"Minimize",    l10n->input_actions_minimize},
@@ -831,13 +845,11 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             // Add 2 if in titlear add one for secondary action.
             int optoff = IsChecked(IDC_MBA2)? 1:IsChecked(IDC_INTTB)? 2: 0;
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {
-                int j = ComboBox_GetCurSel(GetDlgItem(hwnd, mouse_buttons[i].control));
-                WritePrivateProfileString(L"Input", mouse_buttons[i].option[optoff], mouse_actions[j].action, inipath);
+                WriteActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option[optoff], mouse_actions);
             }
             // Scroll
             for (i = 0; i < ARR_SZ(mouse_wheels); i++) {
-                int j = ComboBox_GetCurSel(GetDlgItem(hwnd, mouse_wheels[i].control));
-                WritePrivateProfileString(L"Input", mouse_wheels[i].option[optoff], scroll_actions[j].action, inipath);
+                WriteActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option[optoff], mouse_actions);
             }
 
             // Checkboxes...
@@ -1183,14 +1195,12 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         } else if (pnmh->code == PSN_APPLY && have_to_apply ) {
             int i;
             // Action without click
-            i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_GRABWITHALT));
-            WritePrivateProfileString(L"Input", L"GrabWithAlt", kb_actions[i].action, inipath);
-            i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_GRABWITHALTB));
-            WritePrivateProfileString(L"Input", L"GrabWithAltB", kb_actions[i].action, inipath);
+            WriteActionDropListS(hwnd, IDC_GRABWITHALT, L"GrabWithAlt", kb_actions);
+            WriteActionDropListS(hwnd, IDC_GRABWITHALTB, L"GrabWithAltB", kb_actions);
 
             WriteDialogOptions(hwnd, optlst, ARR_SZ(optlst));
             ScrollLockState = WriteOptionBoolB(IDC_SCROLLLOCKSTATE, L"Input", "ScrollLockState", 0);
-            // Invert move/resize key.
+            // Modifier key
             i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_MODKEY));
             if(i < (int)ARR_SZ(togglekeys))
                 WritePrivateProfileString(L"Input", L"ModKey", togglekeys[i].action, inipath);
@@ -1526,7 +1536,7 @@ static HWND NewTestWindow()
           , TestWindowProc
           , 0, 0, g_hinst, LoadIconA(g_hinst, iconstr[1])
           , LoadCursor(NULL, IDC_ARROW)
-          , (HBRUSH)(COLOR_BACKGROUND+1)
+          , NULL //(HBRUSH)(COLOR_BACKGROUND+1)
           , NULL, APP_NAME"-Test", NULL
         };
         RegisterClassEx(&wndd);
@@ -1534,8 +1544,8 @@ static HWND NewTestWindow()
     wchar_t wintitle[256];
     wcscpy_noaccel(wintitle, l10n->advanced_testwindow, ARR_SZ(wintitle));
     testwnd = CreateWindowEx(0
-         , APP_NAME"-Test"
-         , wintitle, WS_CAPTION|WS_OVERLAPPEDWINDOW
+         , APP_NAME"-Test", wintitle
+         , WS_CAPTION|WS_OVERLAPPEDWINDOW
          , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT
          , NULL, NULL, g_hinst, NULL);
     PostMessage(testwnd, WM_UPDCFRACTION, 0, 0);
@@ -1628,7 +1638,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             WriteDialogOptions(hwnd, optlst, ARR_SZ(optlst));
             UpdateSettings();
             // Update Test windows in if open.
-            EnumDesktopWindows(NULL, RefreshTestWin, 0);
+            EnumThreadWindows(GetCurrentThreadId(), RefreshTestWin, 0);
             have_to_apply = 0;
         }
     }

@@ -279,7 +279,7 @@ static pure int blacklisted(HWND hwnd, const struct blacklist *list)
     unsigned i;
 
     // Null hwnd or empty list
-    if (!hwnd || !list->length)
+    if (!hwnd || !list->length || !list->items)
         return 0;
     // If the first element is *|* (NULL|NULL)then we are in whitelist mode
     // mode = 1 => blacklist, mode = 0 => whitelist;
@@ -304,7 +304,7 @@ static pure int blacklistedP(HWND hwnd, const struct blacklist *list)
     unsigned i ;
 
     // Null hwnd or empty list
-    if (!hwnd || !list->length)
+    if (!hwnd || !list->length || !list->items)
         return 0;
     // If the first element is *|* then we are in whitelist mode
     // mode = 1 => blacklist mode = 0 => whitelist;
@@ -3138,8 +3138,21 @@ static void CenterWindow(HWND hwnd)
         , state.origin.width
         , state.origin.height);
 }
-
-//static void TrackMenuOfWindows(HWND menuhwnd, WNDENUMPROC EnumProc);
+// TODO: Event Hook
+//static void CALLBACK HandleWinEvent(
+//    HWINEVENTHOOK hook, DWORD event, HWND hwnd,
+//    LONG idObject, LONG idChild,
+//    DWORD dwEventThread, DWORD dwmsEventTime)
+//{
+//    if (event== EVENT_OBJECT_LOCATIONCHANGE && hwnd) {
+//        HWND pinhwnd = GetProp(hwnd, APP_NAME"-Pin");
+//        if (pinhwnd) PostMessage(pinhwnd, WM_TIMER, 0, 0);
+//    }
+//}
+// EVENT_OBJECT_REORDER
+// EVENT_SYSTEM_MOVESIZEEND
+// EVENT_SYSTEM_FOREGROUND 0x0003
+// EVENT_OBJECT_DESTROY 0x8001
 static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser);
 /////////////////////////////////////////////////////////////////////////////
 // Pin window callback function
@@ -3149,7 +3162,27 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
     switch(msg) {
     case WM_CREATE: {
+// TODO: Event Hook
+//        DWORD lpdwProcessId;
+//        DWORD threadid = GetWindowThreadProcessId(GetWindow(hwnd, GW_OWNER), &lpdwProcessId);
+//        int prop = SetProp(GetWindow(hwnd, GW_OWNER), APP_NAME"-Pin", (HANDLE)hwnd);
+//
+//        if (prop) {
+//            HWINEVENTHOOK hook = SetWinEventHook(
+//            EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE,  // Range of events
+//            NULL,                                          // Handle to DLL.
+//            HandleWinEvent,                                // The callback.
+//            lpdwProcessId, threadid, // Process and thread IDs of interest (0 = all)
+//            WINEVENT_OUTOFCONTEXT); // Flags.
+//            SetWindowLongPtr(hwnd, 0+sizeof(LONG_PTR), (LONG_PTR)hook);
+//            if(hook) {
+//                PostMessage(hwnd, WM_TIMER, 0, 0);
+//                break;
+//            }
+//        }
+
         SetTimer(hwnd, 1, conf.PinRate, NULL);
+
     } break;
     case WM_DPICHANGED: {
         // Reset the oldstyle, so we have to recalculate size/offset
@@ -3269,6 +3302,11 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 //    } break;
     case WM_DESTROY: {
         KillTimer(hwnd, 1);
+
+// TODO: Event Hook
+//        HWINEVENTHOOK hook = (HWINEVENTHOOK)GetWindowLongPtr(hwnd, 0+sizeof(LONG_PTR));
+//        if (hook) UnhookWinEvent(hook);
+
         // Remove topmost flag if the pin gets destroyed.
         HWND ow;
         if((ow=GetWindow(hwnd, GW_OWNER))
@@ -3287,18 +3325,21 @@ static HWND CreatePinWindow(const HWND owner)
         wnd.cbSize = sizeof(WNDCLASSEX);
         wnd.style = CS_NOCLOSE|CS_HREDRAW|CS_VREDRAW;
         wnd.lpfnWndProc = PinWindowProc;
-        wnd.cbWndExtra = sizeof(LONG_PTR);
+        wnd.cbWndExtra = sizeof(LONG_PTR); //*2
         wnd.hInstance = hinstDLL;
         wnd.hCursor = LoadCursor(NULL, IDC_ARROW);
         wnd.hbrBackground = CreateSolidBrush(conf.PinColor&0x00FFFFFF);
         wnd.lpszClassName =  APP_NAME"-Pin";
         RegisterClassEx(&wnd);
     }
-    return CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST
+    HWND ret = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST
                       , APP_NAME"-Pin", NULL
-                      , WS_POPUP|WS_VISIBLE|WS_BORDER /* Start Visible */
+                      , WS_POPUP|WS_BORDER /* Start invisible */
                       , 0, 0, 0, 0
                       , owner, NULL, hinstDLL, NULL);
+    // Show pin window without activating it to avoid focus loss.
+    ShowWindow(ret, SW_SHOWNA);
+    return ret;
 }
 static BOOL CALLBACK FindPinWinProc(HWND hwnd, LPARAM lp)
 {
@@ -3321,12 +3362,14 @@ static void TogglesAlwaysOnTop(HWND hwnd)
     // Use the Root owner
     hwnd = GetRootOwner(hwnd);
     LONG_PTR topmost = GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST;
-    if(!topmost) SetForegroundWindow(hwnd);
     SetWindowLevel(hwnd, topmost? HWND_NOTOPMOST: HWND_TOPMOST);
-    if(conf.TopmostIndicator && !topmost) {
-        CreatePinWindow(hwnd);
-//        SetWindowLongPtr(pw, GWLP_HWNDPARENT, (LONG_PTR)hwnd);
-//        ShowWindowAsync(pw, SW_SHOWNA);
+
+    if(!topmost) {
+        if (conf.TopmostIndicator) CreatePinWindow(hwnd);
+        ReallySetForegroundWindow(hwnd);
+//    } else {
+//        // Destroy Pin Window?
+//        DestroyWindow(GetPinWindow(hwnd));
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -3466,6 +3509,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
     unsigned i;
 
     struct menuitemdata *data = malloc(numhwnds * sizeof(struct menuitemdata));
+    if (!data) return;
     for (i=0; i<numhwnds; i++) {
         wchar_t *txt = data[i].txt;
         GetWindowText(hwnds[i], txt+5, MITTLEN-6);
@@ -3841,9 +3885,11 @@ static int TitleBarActions(POINT pt, enum action action, enum button button)
 
 /////////////////////////////////////////////////////////////////////////////
 // Called on MouseUp and on AltUp when using GrabWithAlt
+//static void FinishMovement() { PostMessage(g_hkhwnd, WM_FINISHMOVEMENT, 0, 0); }
 static void FinishMovement()
 {
     StopSpeedMes();
+//    Sleep(5000);
     if (LastWin.hwnd
     && (state.moving == NOT_MOVED || (!conf.FullWin && state.moving == 1))) {
         if (!conf.FullWin && state.action == AC_RESIZE) {
@@ -4369,7 +4415,6 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         dpi = LOWORD(wParam); // Update dpi value if changed...
     } else if (msg == WM_INITMENU) {
         state.unikeymenu = (HMENU)wParam;
-        // state.sclickhwnd = (HWND)lParam; // Child hwnd that was clicked.
     } else if (msg == WM_GETCLICKHWND) {
         return (LRESULT)state.sclickhwnd;
     } else if (msg == WM_COMMAND && LOWORD(wParam)) {
@@ -4505,7 +4550,9 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             return 0;
         }
     } else if (msg == WM_STACKLIST) {
-	    TrackMenuOfWindows((WNDENUMPROC)lParam, wParam);
+        TrackMenuOfWindows((WNDENUMPROC)lParam, wParam);
+//    } else if (msg == WM_FINISHMOVEMENT) {
+//        FinishMovementWM();
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
@@ -4579,6 +4626,7 @@ static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist, c
         return;
     }
     blacklist->data = malloc((wcslen(txt)+1)*sizeof(wchar_t));
+    if (!blacklist->data) return;
     wcscpy(blacklist->data, txt);
     wchar_t *pos = blacklist->data;
 
@@ -4611,7 +4659,15 @@ static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist, c
                 klass = NULL;
             }
             // Allocate space
+            struct blacklistitem *olditem = blacklist->items;
             blacklist->items = realloc(blacklist->items, (blacklist->length+1)*sizeof(struct blacklistitem));
+            if(!blacklist->items) {
+                // restore old item if realloc failed
+                // It will jst be a shorter blacklist
+                // May be NULL as well...
+                blacklist->items=olditem;
+                break; // Stop the loop
+            }
 
             // Store item
             blacklist->items[blacklist->length].title = title;
@@ -4723,6 +4779,7 @@ static HWND KreateMsgWin(WNDPROC proc, const wchar_t *name, LONG_PTR userdata)
         SetWindowLongPtr(hwnd, GWLP_USERDATA, userdata);
     return hwnd;
 }
+
 ///////////////////////////////////////////////////////////////////////////
 static void CreateTransWin(const wchar_t *inipath)
 {
@@ -4751,7 +4808,7 @@ static void CreateTransWin(const wchar_t *inipath)
     if (!g_transhwnd[0]) {
         int i;
         for (i=0; i<4; i++) { // the transparent window is made with 4 thin windows
-            g_transhwnd[i] = CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW  //|WS_EX_NOACTIVATE|
+            g_transhwnd[i] = CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW
                              , wnd.lpszClassName, NULL, WS_POPUP
                              , 0, 0, 0, 0, g_mainhwnd, NULL, hinstDLL, NULL);
             LOG("CreateWindowEx[i] = %lX", (DWORD)(DorQWORD)g_transhwnd[i]);

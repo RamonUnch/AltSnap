@@ -13,8 +13,8 @@
 #include "nanolibc.h"
 
 /* #include <dwmapi.h> */
-enum DWMWINDOWATTRIBUTE {
-  DWMWA_NCRENDERING_ENABLED = 1,
+ enum DWMWINDOWATTRIBUTE {
+  DWMWA_NCRENDERING_ENABLED,
   DWMWA_NCRENDERING_POLICY,
   DWMWA_TRANSITIONS_FORCEDISABLED,
   DWMWA_ALLOW_NCPAINT,
@@ -30,8 +30,19 @@ enum DWMWINDOWATTRIBUTE {
   DWMWA_CLOAKED,
   DWMWA_FREEZE_REPRESENTATION,
   DWMWA_PASSIVE_UPDATE_MODE,
-  DWMWA_LAST
+  /* */
+  DWMWA_USE_HOSTBACKDROPBRUSH,              /* Set, *pvAttribute=BOOL*/
+  DWMWA_USE_IMMERSIVE_DARK_MODE_PRE20H1=19, /* Set, *pvAttribute=BOOL*/
+  DWMWA_USE_IMMERSIVE_DARK_MODE = 20,       /* Set, *pvAttribute=BOOL*/
+  DWMWA_WINDOW_CORNER_PREFERENCE = 33,
+  DWMWA_BORDER_COLOR,
+  DWMWA_CAPTION_COLOR,
+  DWMWA_TEXT_COLOR,
+  DWMWA_VISIBLE_FRAME_BORDER_THICKNESS,
+  DWMWA_SYSTEMBACKDROP_TYPE,
+  DWMWA_LAST,
 };
+
 enum MONITOR_DPI_TYPE {
   MDT_EFFECTIVE_DPI = 0,
   MDT_ANGULAR_DPI = 1,
@@ -123,6 +134,7 @@ static BOOL (WINAPI *mySystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, 
 
 /* DWMAPI.DLL */
 static HRESULT (WINAPI *myDwmGetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c) = IPTR;
+static HRESULT (WINAPI *myDwmSetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c) = IPTR;
 static HRESULT (WINAPI *myDwmIsCompositionEnabled)(BOOL *pfEnabled) = IPTR;
 /*static BOOL (WINAPI *myDwmDefWindowProc)(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam, LRESULT *plResult)=IPTR;*/
 
@@ -445,6 +457,18 @@ static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
     /* DwmGetWindowAttribute return 0 on sucess ! */
     return 666; /* Here we FAIL with 666 error    */
 }
+static HRESULT DwmSetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
+{
+    if (myDwmSetWindowAttribute == IPTR) { /* First time */
+        myDwmSetWindowAttribute=LoadDLLProc("DWMAPI.DLL", "DwmSetWindowAttribute");
+    }
+    if (myDwmSetWindowAttribute) { /* We know we have the function */
+        return myDwmSetWindowAttribute(hwnd, a, b, c);
+    }
+    /* myDwmSetWindowAttribute return 0 on sucess ! */
+    return 666; /* Here we FAIL with 666 error    */
+}
+
 /* #define DwmGetWindowAttribute DwmGetWindowAttributeL */
 
 static void SubRect(RECT *__restrict__ frame, const RECT *rect)

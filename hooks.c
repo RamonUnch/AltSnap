@@ -237,7 +237,7 @@ static struct {
 } BlkLst;
 // MUST MATCH THE ABOVE!!!
 static const char *BlackListStrings[] = {
-    "Processes",
+    "Processes", // Max length is 15 char + NULL
     "Windows",
     "Snaplist",
     "MDIs",
@@ -454,8 +454,11 @@ static void SetWindowTrans(HWND hwnd)
 static void *GetEnoughSpace(void *ptr, unsigned num, unsigned *alloc, size_t size)
 {
     if (num >= *alloc) {
-        ptr = realloc(ptr, (*alloc+4)*size);
+        void *nptr = realloc(ptr, (*alloc+4)*size);
+        if (!nptr) { free(ptr);  *alloc=0; return NULL; }
+        ptr = nptr;
         if(ptr) *alloc = (*alloc+4); // Realloc succeeded, increase count.
+        else *alloc = 0;
     }
     return ptr;
 }
@@ -653,7 +656,7 @@ static int ResizeTouchingWindows(LPVOID lwptr)
     if (!ShouldResizeTouching()) return 0;
     RECT *bd;
     EnumOnce(&bd);
-    if (!numsnwnds) return 0;
+    if (!snwnds || !numsnwnds) return 0;
     struct windowRR *lw = lwptr;
     // posx, posy,  correspond to the VISIBLE rect
     // of the current window...
@@ -817,6 +820,7 @@ void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight)
     RECT *bd;
     if (!state.snap || state.Speed > conf.AeroMaxSpeed) return;
     EnumOnce(&bd);
+
     int posx = *_posx + bd->left;
     int posy = *_posy + bd->top;
     wndwidth  -= bd->left + bd->right;
@@ -833,17 +837,20 @@ void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight)
     unsigned i, j;
     for (i=0, j=0; i < nummonitors || j < numwnds; ) {
         RECT snapwnd;
-        UCHAR snapinside;
+        UCHAR snapinside=0;
 
         // Get snapwnd
-        if (i < nummonitors) {
+        if (monitors && i < nummonitors) {
             snapwnd = monitors[i];
             snapinside = 1;
             i++;
-        } else if (j < numwnds) {
+        } else if (wnds && j < numwnds) {
             snapwnd = wnds[j];
             snapinside = (state.snap != 2);
             j++;
+        } else {
+            // No monitors and no windows to snap to.
+            return;
         }
 
         // Check if posx snaps
@@ -935,14 +942,17 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight, UCHA
         UCHAR snapinside;
 
         // Get snapwnd
-        if (i < nummonitors) {
+        if (monitors && i < nummonitors) {
             CopyRect(&snapwnd, &monitors[i]);
             snapinside = 1;
             i++;
-        } else if (j < numwnds) {
+        } else if (wnds && j < numwnds) {
             CopyRect(&snapwnd, &wnds[j]);
             snapinside = (state.snap != 2);
             j++;
+        } else {
+            // nothing to snap to.
+            return;
         }
 
         // Check if posx snaps
@@ -1032,6 +1042,8 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight, UCHA
 }
 /////////////////////////////////////////////////////////////////////////////
 // Call with SW_MAXIMIZE or SW_RESTORE or below.
+// Set origin&1 to set the restore position to the original dimentions
+// set origin&2 for ASYNC window plamcemnt
 #define SW_FULLSCREEN 28
 static void MaximizeRestore_atpt(HWND hwnd, UINT sw_cmd, int origin)
 {
@@ -2566,7 +2578,7 @@ static int ActionAltTab(POINT pt, int delta, WNDENUMPROC lpEnumFunc)
     if (numhwnds <= 1) {
         state.origin.monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
         numhwnds = 0;
-        EnumWindows(lpEnumFunc, 0);
+        EnumDesktopWindows(NULL, lpEnumFunc, 0);
         if (numhwnds <= 1) {
             return 0;
         }
@@ -3242,6 +3254,8 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             bdx = GetSystemMetricsForDpi(SM_CXFIXEDFRAME, dpi);
             bdy = GetSystemMetricsForDpi(SM_CYFIXEDFRAME, dpi);
         }
+        // Vista/7/8.x/10 extra padding Not working???
+        // bdy += GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
 
         RECT btrc;
         if (GetCaptionButtonsRect(ow, &btrc)) {
@@ -3257,13 +3271,11 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             }
             CapButtonWidth = btnum * PinW;
         }
-        // Vista/7/8.x/10 extra padding Not working???
-        // bdy += GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
         // Adjust PinW and PinH to have nice stuff.
         PinW -= 2;
         PinH -= 2;
         SetWindowLongPtr(hwnd, GWLP_USERDATA, style); // Save old window style
-        int rightoffset = CapButtonWidth+PinW+bdx+4;
+        int rightoffset = CapButtonWidth+PinW+bdx+GetSystemMetricsForDpi(SM_CXBORDER, dpi)*2;
         int topoffset = bdy+1;
         // Cache local hwnd storage for pin win offsets in the first LONG_PTR of cbWndExtra
         SetWindowLongPtr(hwnd, 0, MAKELONGPTR(rightoffset,topoffset));
@@ -3281,7 +3293,9 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             GetClientRect(hwnd, &cr);
             BeginPaint(hwnd, &ps);
             int oldBkMode = SetBkMode(ps.hdc, TRANSPARENT);
+//            HFONT oldfont = SelectObject(ps.hdc, GetStockObject(DEFAULT_GUI_FONT));
             DrawTextW(ps.hdc, &Topchar, 1, &cr, DT_VCENTER|DT_CENTER|DT_SINGLELINE);
+//            SelectObject(ps.hdc, oldfont);
             SetBkMode(ps.hdc, oldBkMode); // restore BkMode
             EndPaint(hwnd, &ps);
       }
@@ -3498,6 +3512,8 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
     } else {
         EnumDesktopWindows(NULL, EnumProc, laser);
     }
+    if (!hwnds) return; // Enum failed
+
     LOG("Number of stacked windows = %u", numhwnds);
     if(numhwnds == 0) return;
 
@@ -3508,9 +3524,18 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
     state.unikeymenu = menu;
     unsigned i;
 
-    struct menuitemdata *data = malloc(numhwnds * sizeof(struct menuitemdata));
-    if (!data) return;
-    for (i=0; i<numhwnds; i++) {
+    struct menuitemdata *data=NULL;
+    struct menuitemdata data22[22];
+    if (numhwnds <=22) {
+        data = data22; // less than 22 windows then use the satck
+    } else {
+        data = malloc(numhwnds * sizeof(struct menuitemdata));;
+        if (!data) { // If malloc fails then fallback to the stack.
+            data=data22;
+            numhwnds = 22;
+        }
+    }
+    for (i=0; i < numhwnds; i++) {
         wchar_t *txt = data[i].txt;
         GetWindowText(hwnds[i], txt+5, MITTLEN-6);
         txt[0] = L'&';
@@ -3547,7 +3572,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
     DestroyMenu(menu);
     DestroyWindow(g_mchwnd);
     g_mchwnd = NULL;
-    free(data);
+    if (data != data22) free(data);
 
     return;
 }
@@ -3813,7 +3838,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
 
             MoveWindowAsync(state.hwnd, posx, posy, rwidth, rheight);
         }
-        if (state.hittest==2) return 0;
+        if (state.hittest==2 && button == BT_LMB) return 0;
         state.blockmouseup = 1;
     } else {
         SClickActions(state.hwnd, action);
@@ -4614,7 +4639,7 @@ __declspec(dllexport) void Unload()
 static void readblacklist(const wchar_t *inipath, struct blacklist *blacklist, const char *bl_str)
 {
     wchar_t txt[1968];
-    wchar_t bl_W[32];
+    wchar_t bl_W[16];
     str2wide(bl_W, bl_str);
 
     blacklist->data = NULL;
@@ -4909,9 +4934,9 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     }
 
     // [General] consistency checks
-    conf.CenterFraction=CLAMP(0, conf.CenterFraction, 100);
-    conf.AHoff        = CLAMP(0, conf.AHoff,          100);
-    conf.AVoff        = CLAMP(0, conf.AVoff,          100);
+    conf.CenterFraction=min(conf.CenterFraction, 100);
+    conf.AHoff        = min(conf.AHoff,          100);
+    conf.AVoff        = min(conf.AVoff,          100);
     conf.AeroSpeedTau = max(1, conf.AeroSpeedTau);
     conf.MinAlpha     = max(1, conf.MinAlpha);
     state.snap = conf.AutoSnap;

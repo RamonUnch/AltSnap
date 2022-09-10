@@ -42,6 +42,7 @@ static void ReadZones(wchar_t *inifile)
     RECT tmpzone;
     while (ReadRectFromini(&tmpzone, nzones, inifile)) {
         Zones = realloc( Zones, (nzones+1) * sizeof(RECT) );
+        if(!Zones) return;
         CopyRect(&Zones[nzones++], &tmpzone);
     }
 }
@@ -74,6 +75,7 @@ static void GenerateGridZones(unsigned Nx, unsigned Ny)
 }
 static unsigned GetZoneFromPoint(POINT pt, RECT *urc)
 {
+    if(!Zones) return 0;
     unsigned i, ret=0;
     SetRectEmpty(urc);
     int iz = conf.InterZone;

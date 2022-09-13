@@ -165,7 +165,7 @@ static void SaveCurrentLayout()
 {
     ClearAllZones();
     SaveTestWindow(NULL, 1);
-    EnumDesktopWindows(NULL, SaveTestWindow, 0);
+    EnumThreadWindows(GetCurrentThreadId(), SaveTestWindow, 0);
 }
 
 /////////////////////////////////////////////////////////////////////////////

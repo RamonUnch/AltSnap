@@ -24,7 +24,7 @@
 static HINSTANCE g_hinst = NULL;
 static HWND g_hwnd = NULL;
 static UINT WM_TASKBARCREATED = 0;
-static wchar_t inipath[MAX_PATH];
+static TCHAR inipath[MAX_PATH];
 
 // Cool stuff
 HINSTANCE hinstDLL = NULL;
@@ -55,10 +55,10 @@ int HookSystem()
 
     // Load library
     if (!hinstDLL) {
-        wchar_t path[MAX_PATH];
+        TCHAR path[MAX_PATH];
         GetModuleFileName(NULL, path, ARR_SZ(path));
         PathRemoveFileSpecL(path);
-        wcscat(path, L"\\hooks.dll");
+        wcscat(path, TEXT("\\hooks.dll"));
         hinstDLL = LoadLibrary(path);
         if (!hinstDLL) {
             LOG("Could not load HOOKS.DLL!!!");
@@ -190,6 +190,8 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
 }
 // To get the caret position in screen coordinate.
 // We first try to get the carret rect
+#include <oleacc.h>
+//static const GUID  my_IID_IAccessible = { 0x618736e0, 0x3c3d, 0x11cf, {0x81, 0x0c, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71} };
 static void GetKaretPos(POINT *pt)
 {
     GUITHREADINFO gui;
@@ -201,8 +203,24 @@ static void GetKaretPos(POINT *pt)
         if (gui.hwndCaret) {
             ClientToScreen(gui.hwndCaret, pt);
             return;
+//        } else if (gui.hwndFocus) {
+//            IAccessible *pacc = NULL;
+//            if ( S_OK==AccessibleObjectFromWindow(gui.hwndFocus, OBJID_CARET, &my_IID_IAccessible, (void**)&pacc) ) {
+//        //        MessageBox(NULL, NULL, NULL, 0);
+//                LONG x=0, y=0, w=0, h=0;
+//                VARIANT varCaret;
+//                varCaret.vt = VT_I4;
+//                varCaret.lVal = CHILDID_SELF;
+//                if (S_OK == pacc->lpVtbl->accLocation(pacc, &x, &y, &w, &h, varCaret)) {
+//                    pt->x = x+w/2;
+//                    pt->y = y+h/2;
+//                    pacc->lpVtbl->Release(pacc);
+//                    return;
+//                }
+//            }
         }
     }
+
     GetCursorPos(pt);
 }
 static void ShowUnikeyMenu(HWND hwnd, LPARAM param)
@@ -341,7 +359,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 /////////////////////////////////////////////////////////////////////////////
-int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, int iCmdShow)
+int WINAPI WinMainW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *params, int iCmdShow)
 {
     g_hinst = hInst;
 
@@ -353,20 +371,16 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
 
     // Read parameters on command line
     int elevate = 0, quiet = 0, config =0, multi = 0;
-    char *params = szCmdLine;
-    while (*params++);
-    while (szCmdLine < params && *params-- != '\\');
-    while (*params && *params != ' ') params++;
 
-    hide    = !!strstr(params, "-h");
-    quiet   = !!strstr(params, "-q");
-    elevate = !!strstr(params, "-e");
-    multi   = !!strstr(params, "-m");
-    config  = !!strstr(params, "-c");
+    hide    = !!lstrstr(params, TEXT("-h"));
+    quiet   = !!lstrstr(params, TEXT("-q"));
+    elevate = !!lstrstr(params, TEXT("-e"));
+    multi   = !!lstrstr(params, TEXT("-m"));
+    config  = !!lstrstr(params, TEXT("-c"));
 
     // Check if elevated if in >= WinVer
     WinVer = LOBYTE(LOWORD(GetVersion()));
-    LOG("Running with Windows version %d", WinVer);
+    LOG("Running with Windows version %lX", GetVersion());
     if (WinVer >= 6) { // Vista +
         HANDLE token;
         TOKEN_ELEVATION elevation;
@@ -388,11 +402,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
         HWND previnst = FindWindow(APP_NAME, L"");
         if (previnst) {
             // Ask old HotKey window to perform an action.
-            const char *actionstr = strstr(params, "-a");
+            const wchar_t *actionstr = lstrstr(params, TEXT("-a"));
             if (actionstr && actionstr[2] && actionstr[3] && actionstr[4]) {
-                enum action action = MapActionA(&actionstr[3]);
+                enum action action = MapActionW(&actionstr[3]);
                 HWND msghwnd;
-                if ((msghwnd = FindWindow( APP_NAME"-HotKeys", L""))) {
+                if ((msghwnd = FindWindow( APP_NAME"-HotKeys", TEXT("")))) {
                     PostMessage(msghwnd, WM_HOTKEY, (actionstr[2] == 'p')*0x1000+action, 0);
                     return 0;
                 }
@@ -476,17 +490,34 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, char *szCmdLine, in
     LOG("GOOD NORMAL EXIT");
     return msg.wParam;
 }
+static const TCHAR *ParamsFromCmdline(const TCHAR *cmdl)
+{
+    /* in case it starts with " we need to go to the next " */
+    if (cmdl[0] == TEXT('"')) {
+        do {
+            cmdl++;
+        } while(*cmdl && *cmdl != TEXT('"'));
+    } else {
+        while(*cmdl && *cmdl != TEXT(' ') && *cmdl != TEXT('\t')) {
+            cmdl++;
+        }
+    }
+    cmdl++; // Skip the " or the ' '
+    while(*cmdl == TEXT(' ') || *cmdl == TEXT('\t')) cmdl++;
+    return cmdl;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Use -nostdlib and -e_unfuckMain@0 to use this main, -eunfuckMain for x64.
 void WINAPI unfuckWinMain(void)
 {
     HINSTANCE hInst;
     HINSTANCE hPrevInstance = NULL;
-    char *szCmdLine;
+    const TCHAR *szCmdLine;
     int iCmdShow = 0;
 
     hInst = GetModuleHandle(NULL);
-    szCmdLine = (char *) GetCommandLineA();
+    szCmdLine = ParamsFromCmdline(GetCommandLine());
 
-    ExitProcess(WinMain(hInst, hPrevInstance, szCmdLine, iCmdShow));
+    ExitProcess(WinMainW(hInst, hPrevInstance, szCmdLine, iCmdShow));
 }

@@ -113,6 +113,7 @@ struct strings {
   // actions
   wchar_t *input_actions_move;
   wchar_t *input_actions_resize;
+//  wchar_t *input_actions_restore;
   wchar_t *input_actions_close;
   wchar_t *input_actions_kill;
   wchar_t *input_actions_pause;
@@ -317,6 +318,7 @@ static const char* l10n_inimapping[] = {
 
     "InputActionMove",
     "InputActionResize",
+//    "InputActionRestore",
     "InputActionClose",
     "InputActionKill",
     "InputActionPause",
@@ -523,6 +525,7 @@ static const struct strings en_US = {
  /* actions */
  /* move               */ L"Move window",
  /* resize             */ L"Resize window",
+// /* restore            */ L"Restore window",
  /* close              */ L"&Close window",
  /* kill               */ L"&Kill program",
  /* pause              */ L"Pause program",

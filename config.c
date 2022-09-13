@@ -283,7 +283,7 @@ static DWORD IsUACEnabled()
 /////////////////////////////////////////////////////////////////////////////
 // Helper functions and Macro
 #define IsChecked(idc) Button_GetCheck(GetDlgItem(hwnd, idc))
-#define IsCheckedW(idc) _itow(Button_GetCheck(GetDlgItem(hwnd, idc)), txt, 10)
+#define IsCheckedW(idc) _itow(IsChecked(idc), txt, 10)
 static void WriteOptionBoolW(HWND hwnd, WORD id, const wchar_t *section, const char *name_s)
 {
     wchar_t txt[8];
@@ -666,7 +666,8 @@ static void FillActionDropListS(HWND hwnd, int idc, wchar_t *inioption, struct a
     ComboBox_ResetContent(control);
     if (inioption)
         GetPrivateProfileString(L"Input", inioption, L"Nothing", txt, ARR_SZ(txt), inipath);
-    int sel = -1, j;
+    int sel, j;
+    sel = -!!inioption;
     for (j = 0; actions[j].action; j++) {
         wchar_t action_name[256];
         wcscpy_noaccel(action_name, actions[j].l10n, ARR_SZ(action_name));
@@ -849,7 +850,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             }
             // Scroll
             for (i = 0; i < ARR_SZ(mouse_wheels); i++) {
-                WriteActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option[optoff], mouse_actions);
+                WriteActionDropListS(hwnd, mouse_wheels[i].control, mouse_wheels[i].option[optoff], scroll_actions);
             }
 
             // Checkboxes...
@@ -1424,21 +1425,21 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         wcscat(lastkey, txt);
         RECT crc;
         GetClientRect(hwnd, &crc);
-        long splitheight = crc.bottom-GetSystemMetrics(SM_CYCAPTION);
-        RECT trc =  {5, splitheight, crc.right, crc.bottom};
+        UINT dpi = GetDpiForWindow(hwnd);
+        long splitheight = crc.bottom-GetSystemMetricsForDpi(SM_CYCAPTION, dpi);
+        RECT trc =  { 5, splitheight, crc.right, crc.bottom };
         InvalidateRect(hwnd, &trc, TRUE);
-        PostMessage(hwnd, WM_PAINT, 0, 0);
-
     } break;
 
     case WM_PAINT: {
+        if(!GetUpdateRect(hwnd, NULL, FALSE)) return 0;
         /* We must keep track of pens and delete them.*/
-        RECT wRect;
-        const HPEN pen = (HPEN) CreatePen(PS_SOLID, 2, GetSysColor(COLOR_BTNTEXT));
+        UINT dpi = GetDpiForWindow(hwnd);
+        const HPEN pen = (HPEN) CreatePen(PS_SOLID, GetSystemMetricsForDpi(SM_CXEDGE, dpi), GetSysColor(COLOR_BTNTEXT));
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
-        int SavedCD = SaveDC(hdc);
 
+        RECT wRect;
         GetWindowRect(hwnd, &wRect);
         POINT Offset = { wRect.left, wRect.top };
         ScreenToClient(hwnd, &Offset);
@@ -1447,50 +1448,51 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         SelectObject(hdc, pen);
         SetROP2(hdc, R2_COPYPEN);
 
-        int width = wRect.right - wRect.left;
-        int height = wRect.bottom - wRect.top;
+        const int width = wRect.right - wRect.left;
+        const int height = wRect.bottom - wRect.top;
+        const int cwidth = width*centerfrac/100;
+        const int cheight = height*centerfrac/100;
 
         FillRect(hdc, &ps.rcPaint, (HBRUSH)(COLOR_BTNFACE+1));
         Rectangle(hdc
-            , Offset.x+(width-width*centerfrac/100)/2
+            , Offset.x + (width-cwidth)/2
             , Offset.y
-            , (width+width*centerfrac/100)/2 + Offset.x
-            , height);
+            , Offset.x + (width+cwidth)/2
+            , Offset.y + height);
         Rectangle(hdc
             , Offset.x
-            , Offset.y+(height-height*centerfrac/100)/2
-            , width
-            , (height+height*centerfrac/100)/2 + Offset.y);
+            , Offset.y + (height-cheight)/2
+            , Offset.x + width
+            , Offset.y + (height+cheight)/2);
         if (centermode == 3) {
             HPEN bgpen = (HPEN) CreatePen(PS_SOLID, 2, GetSysColor(COLOR_BTNFACE));
             HPEN prevpen = SelectObject(hdc, bgpen);
             Rectangle(hdc
-                , Offset.x+(width-width*centerfrac/100)/2
-                , Offset.y+(height-height*centerfrac/100)/2
-                , (width+width*centerfrac/100)/2 + Offset.x
-                , (height+height*centerfrac/100)/2 + Offset.y);
-            SelectObject(hdc, prevpen); // restore pen
-            DeleteObject(bgpen); // delete bgpen.
+                , Offset.x + (width-cwidth)/2
+                , Offset.y + (height-cheight)/2
+                , Offset.x + (width+cwidth)/2
+                , Offset.y + (height+cheight)/2);
+            DeleteObject(SelectObject(hdc, prevpen)); // delete bgpen.
             // Draw diagonal lines
-            POINT pta[2] = {{Offset.x+(width-width*centerfrac/100)/2, Offset.y+(height-height*centerfrac/100)/2},
-                          { (width+width*centerfrac/100)/2 + Offset.x, (height+height*centerfrac/100)/2 + Offset.y}
-                         };
-            Polyline(hdc, pta, 2);
-            POINT ptb[2] = {{Offset.x+(width-width*centerfrac/100)/2, (height+height*centerfrac/100)/2 + Offset.y},
-                          { (width+width*centerfrac/100)/2 + Offset.x, Offset.y+(height-height*centerfrac/100)/2}
-                         };
-            Polyline(hdc, ptb, 2);
+            POINT pts[4] ={ { (width-cwidth)/2, (height-cheight)/2 },
+                            { (width+cwidth)/2, (height+cheight)/2 },
+                            { (width-cwidth)/2, (height+cheight)/2 },
+                            { (width+cwidth)/2, (height-cheight)/2 },
+                          };
+            OffsetPoints(pts, Offset.x, Offset.y, 4);
+            Polyline(hdc, pts  , 2);
+            Polyline(hdc, pts+2, 2);
 
             HPEN dotpen = (HPEN) CreatePen(PS_DOT, 1, GetSysColor(COLOR_BTNTEXT));
             prevpen = SelectObject(hdc, dotpen);
             SetBkColor(hdc, GetSysColor(COLOR_BTNFACE));
             Rectangle(hdc
-                , Offset.x+(width-width*centerfrac/100)/2
-                , Offset.y+(height-height*centerfrac/100)/2
-                , (width+width*centerfrac/100)/2 + Offset.x
-                , (height+height*centerfrac/100)/2 + Offset.y);
-            SelectObject(hdc, prevpen); // restore pen
-            DeleteObject(dotpen); // so we can delete this one...
+                , Offset.x+(width-cwidth)/2
+                , Offset.y+(height-cheight)/2
+                , (width+cwidth)/2 + Offset.x
+                , (height+cheight)/2 + Offset.y);
+            // restore oldpen and delete dotpen
+            DeleteObject(SelectObject(hdc, prevpen));
         }
 
         // Draw textual info....
@@ -1498,16 +1500,15 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
         RECT crc;
         GetClientRect(hwnd, &crc);
-        long splitheight = crc.bottom-GetSystemMetrics(SM_CYCAPTION);
+        long splitheight = crc.bottom-GetSystemMetricsForDpi(SM_CYCAPTION, dpi);
         RECT trc = {5, splitheight, crc.right, crc.bottom};
         DrawText(hdc, lastkey, wcslen(lastkey), &trc, DT_NOCLIP|DT_TABSTOP);
         wchar_t *str = l10n->zone_testwinhelp;
         if (UseZones&1) {
-            RECT trc2 = {5, 5, crc.right, splitheight};
+            RECT trc2 = { 5, 5, crc.right, splitheight };
             DrawText(hdc, str, wcslen(str), &trc2, DT_NOCLIP|DT_TABSTOP);
         }
 
-        RestoreDC(hdc, SavedCD);
         EndPaint(hwnd, &ps);
 
         DeleteObject(pen); // delete pen
@@ -1516,6 +1517,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     } break;
 
     case WM_ERASEBKGND:
+//        Sleep(200); break;
         return 1;
 
     case WM_UPDCFRACTION:

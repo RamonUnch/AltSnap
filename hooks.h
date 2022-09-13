@@ -50,6 +50,7 @@
 #define WM_UNIKEYMENU     (WM_USER+11)
 #define WM_GETCLICKHWND   (WM_USER+12)
 #define WM_STACKLIST      (WM_USER+13)
+#define WM_FINISHMOVEMENT (WM_USER+14)
 
 // List of possible actions
 enum action {
@@ -109,15 +110,16 @@ static wchar_t *ZidxToZonestr(int idx, wchar_t *zname)
     return zname;
 }
 
-static enum action MapActionA(const char *txt)
+// Map action string to actual action enum
+static enum action MapActionW(const wchar_t *txt)
 {
     static const char *action_map[] = ACTION_MAP;
     enum action ac;
     for (ac=0; ac < ARR_SZ(action_map); ac++) {
-        if(!stricmp(txt, action_map[ac])) return ac;
+        if(!wscsicmp(txt, action_map[ac])) return ac;
     }
     return AC_NONE;
-
 }
+
 #endif /* ALTDRAG_RPC_H */
 

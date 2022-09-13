@@ -13,8 +13,9 @@
 #include "nanolibc.h"
 
 /* #include <dwmapi.h> */
- enum DWMWINDOWATTRIBUTE {
-  DWMWA_NCRENDERING_ENABLED,
+enum DWMWINDOWATTRIBUTE {
+  /* Windows Vista+ */
+  DWMWA_NCRENDERING_ENABLED=1,
   DWMWA_NCRENDERING_POLICY,
   DWMWA_TRANSITIONS_FORCEDISABLED,
   DWMWA_ALLOW_NCPAINT,
@@ -24,21 +25,28 @@
   DWMWA_FLIP3D_POLICY,
   DWMWA_EXTENDED_FRAME_BOUNDS,
   DWMWA_HAS_ICONIC_BITMAP,
+  /* Windows 7+ */
   DWMWA_DISALLOW_PEEK,
   DWMWA_EXCLUDED_FROM_PEEK,
   DWMWA_CLOAK,
-  DWMWA_CLOAKED,
+  /* Windows 8+ */
+  DWMWA_CLOAKED, // 14
   DWMWA_FREEZE_REPRESENTATION,
   DWMWA_PASSIVE_UPDATE_MODE,
-  /* */
-  DWMWA_USE_HOSTBACKDROPBRUSH,              /* Set, *pvAttribute=BOOL*/
-  DWMWA_USE_IMMERSIVE_DARK_MODE_PRE20H1=19, /* Set, *pvAttribute=BOOL*/
-  DWMWA_USE_IMMERSIVE_DARK_MODE = 20,       /* Set, *pvAttribute=BOOL*/
+  DWMWA_USE_HOSTBACKDROPBRUSH,              /* Set, *pvAttribute=BOOL */
+
+  /* Windows 10 1809 + (17763 <= build < 18985), Undocumented */
+  DWMWA_USE_IMMERSIVE_DARK_MODE_PRE20H1=19, /* Set, *pvAttribute=BOOL */
+  /* Windows 10 21H1 + (build >= 18985) */
+  DWMWA_USE_IMMERSIVE_DARK_MODE = 20,  /* Documented value since Win 11 build 22000 */
+
+  /* Windows 11 Build 22000 + */
   DWMWA_WINDOW_CORNER_PREFERENCE = 33,
   DWMWA_BORDER_COLOR,
   DWMWA_CAPTION_COLOR,
   DWMWA_TEXT_COLOR,
   DWMWA_VISIBLE_FRAME_BORDER_THICKNESS,
+  /* Windows 11 Build 22621 + */
   DWMWA_SYSTEMBACKDROP_TYPE,
   DWMWA_LAST,
 };
@@ -74,6 +82,12 @@ enum MONITOR_DPI_TYPE {
 #ifndef HIBYTE
 #define HIBYTE(w) ( (BYTE)(((WORD) (w) >> 8) & 0xFF) )
 #endif
+
+#ifndef GET_X_LPARAM
+#define GET_X_LPARAM(lp)   ((int)(short)LOWORD(lp))
+#define GET_Y_LPARAM(lp)   ((int)(short)HIWORD(lp))
+#endif
+
 
 #define ARR_SZ(x) (sizeof(x) / sizeof((x)[0]))
 #define IDAPPLY 0x3021
@@ -162,6 +176,19 @@ static void ErrorBox(TCHAR *title)
     MessageBox( NULL, (LPCTSTR)lpMsgBuf, title, MB_OK | MB_ICONWARNING );
     /* Free the buffer using LocalFree. */
     LocalFree( lpMsgBuf );
+}
+
+static int PrintHwndDetails(HWND hwnd, TCHAR *buf)
+{
+    TCHAR klass[256], title[256];
+    GetClassName(hwnd, klass, ARR_SZ(klass));
+    GetWindowText(hwnd, title, ARR_SZ(title));
+    return wsprintf(buf
+        , TEXT("Hwnd=%x, %s|%s, style=%x, xstyle=%x")
+        , (UINT)(LONG_PTR)hwnd
+        , title, klass
+        , (UINT)GetWindowLongPtr(hwnd, GWL_STYLE)
+        , (UINT)GetWindowLongPtr(hwnd, GWL_EXSTYLE));
 }
 
 /* Removes the trailing file name from a path */
@@ -494,6 +521,15 @@ static void DeflateRectBorder(RECT *__restrict__ rc, const RECT *bd)
     rc->bottom -= bd->bottom;
 }
 
+static void OffsetPoints(POINT *pts, long dx, long dy, unsigned count)
+{
+    while(count--) {
+        pts->x += dx;
+        pts->y += dy;
+        pts++;
+    }
+}
+
 static void FixDWMRectLL(HWND hwnd, RECT *bbb, const int SnapGap)
 {
     RECT rect, frame;
@@ -531,12 +567,15 @@ static BOOL GetWindowRectLL(HWND hwnd, RECT *rect, const int SnapGap)
  * 2 The window was cloaked by the Shell.
  * 4 The cloak value was inherited from its owner window.
  * For windows that are supposed to be logically "visible", in addition to WS_VISIBLE.
+ * EDIT: Now Raymond Chen did an article about this:
+ * https://devblogs.microsoft.com/oldnewthing/20200302-00/?p=103507
+ * I had to figure it out the Hard way...
  */
 static int IsWindowCloaked(HWND hwnd)
 {
     int cloaked=0;
-    DwmGetWindowAttributeL(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked));
-    return cloaked;
+    return S_OK == DwmGetWindowAttributeL(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked))
+        && cloaked;
 }
 static BOOL IsVisible(HWND hwnd)
 {
@@ -748,53 +787,56 @@ static HICON GetWindowIcon(HWND hwnd)
  * SystemParametersInfoForDpi() and We must ude the old NONCLIENTMETRICS
  * structure when using Windows XP or lower.
  * (vistal added the iPaddedBorderWidth int element */
+struct OLDNONCLIENTMETRICSW {
+  UINT cbSize;
+  int iBorderWidth;
+  int iScrollWidth;
+  int iScrollHeight;
+  int iCaptionWidth;
+  int iCaptionHeight;
+  LOGFONTW lfCaptionFont;
+  int iSmCaptionWidth;
+  int iSmCaptionHeight;
+  LOGFONTW lfSmCaptionFont;
+  int iMenuWidth;
+  int iMenuHeight;
+  LOGFONTW lfMenuFont;
+  LOGFONTW lfStatusFont;
+  LOGFONTW lfMessageFont;
+};
+struct NEWNONCLIENTMETRICSW {
+  UINT cbSize;
+  int iBorderWidth;
+  int iScrollWidth;
+  int iScrollHeight;
+  int iCaptionWidth;
+  int iCaptionHeight;
+  LOGFONTW lfCaptionFont;
+  int iSmCaptionWidth;
+  int iSmCaptionHeight;
+  LOGFONTW lfSmCaptionFont;
+  int iMenuWidth;
+  int iMenuHeight;
+  LOGFONTW lfMenuFont;
+  LOGFONTW lfStatusFont;
+  LOGFONTW lfMessageFont;
+  int iPaddedBorderWidth; /* New in Window Vista */
+};
+static BOOL GetNonClientMetricsDpi(struct NEWNONCLIENTMETRICSW *ncm, UINT dpi)
+{
+    memset(ncm, 0, sizeof(struct NEWNONCLIENTMETRICSW));
+    ncm->cbSize = sizeof(struct NEWNONCLIENTMETRICSW);
+    BOOL ret = SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(struct NEWNONCLIENTMETRICSW), ncm, 0, dpi);
+    if (!ret) { /* Old Windows versions... XP and below */
+        ncm->cbSize = sizeof(struct OLDNONCLIENTMETRICSW);
+        ret = SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(struct OLDNONCLIENTMETRICSW), ncm, 0);
+    }
+    return ret;
+}
 static HFONT GetNCMenuFont(UINT dpi)
 {
-  struct OLDNONCLIENTMETRICSW {
-    UINT cbSize;
-    int iBorderWidth;
-    int iScrollWidth;
-    int iScrollHeight;
-    int iCaptionWidth;
-    int iCaptionHeight;
-    LOGFONTW lfCaptionFont;
-    int iSmCaptionWidth;
-    int iSmCaptionHeight;
-    LOGFONTW lfSmCaptionFont;
-    int iMenuWidth;
-    int iMenuHeight;
-    LOGFONTW lfMenuFont;
-    LOGFONTW lfStatusFont;
-    LOGFONTW lfMessageFont;
-  };
-  struct NEWNONCLIENTMETRICSW {
-    UINT cbSize;
-    int iBorderWidth;
-    int iScrollWidth;
-    int iScrollHeight;
-    int iCaptionWidth;
-    int iCaptionHeight;
-    LOGFONTW lfCaptionFont;
-    int iSmCaptionWidth;
-    int iSmCaptionHeight;
-    LOGFONTW lfSmCaptionFont;
-    int iMenuWidth;
-    int iMenuHeight;
-    LOGFONTW lfMenuFont;
-    LOGFONTW lfStatusFont;
-    LOGFONTW lfMessageFont;
-    int iPaddedBorderWidth; /* New in Window Vista */
-  };
-
     struct NEWNONCLIENTMETRICSW ncm;
-
-    memset(&ncm, 0, sizeof(struct NEWNONCLIENTMETRICSW));
-    ncm.cbSize = sizeof(struct NEWNONCLIENTMETRICSW);
-    BOOL ret = SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(struct NEWNONCLIENTMETRICSW), &ncm, 0, dpi);
-    if (!ret) { /* Old Windows versions... XP and below */
-        ncm.cbSize = sizeof(struct OLDNONCLIENTMETRICSW);
-        SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(struct OLDNONCLIENTMETRICSW), &ncm, 0);
-    }
+    GetNonClientMetricsDpi(&ncm, dpi);
     return CreateFontIndirect(&ncm.lfMenuFont);
 }
 

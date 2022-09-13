@@ -1528,7 +1528,7 @@ static void RestoreOldWin(const POINT pt, unsigned was_snapped, RECT *ownd)
     if (rdata_flag&ROLLED) {
         if (state.origin.maximized || was_snapped) {
             // if we restore a  Rolled Maximized/snapped window...
-            state.offset.y = GetSystemMetrics(SM_CYMIN)/2;
+            state.offset.y = GetSystemMetricsForWin(SM_CYMIN, state.hwnd)/2;
         } else {
             state.offset.x = pt.x - wnd.left;
             state.offset.y = pt.y - wnd.top;
@@ -3150,15 +3150,20 @@ static void CenterWindow(HWND hwnd)
         , state.origin.width
         , state.origin.height);
 }
-// TODO: Event Hook
+//// TODO: Event Hook
+//static HWND GetPinWindow(HWND owner);
 //static void CALLBACK HandleWinEvent(
 //    HWINEVENTHOOK hook, DWORD event, HWND hwnd,
 //    LONG idObject, LONG idChild,
 //    DWORD dwEventThread, DWORD dwmsEventTime)
 //{
-//    if (event== EVENT_OBJECT_LOCATIONCHANGE && hwnd) {
+//    if (hwnd && event == EVENT_OBJECT_LOCATIONCHANGE) {
 //        HWND pinhwnd = GetProp(hwnd, APP_NAME"-Pin");
 //        if (pinhwnd) PostMessage(pinhwnd, WM_TIMER, 0, 0);
+////    } else if (hwnd && event == EVENT_OBJECT_DESTROY && idObject==0) {
+////        HWND pinhwnd = GetPinWindow(GetRootOwner(hwnd));
+//////        MessageBox(NULL, NULL, NULL, 0);
+////        PostMessage(pinhwnd, WM_TIMER, 0, 0);
 //    }
 //}
 // EVENT_OBJECT_REORDER
@@ -3174,16 +3179,16 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
     switch(msg) {
     case WM_CREATE: {
-// TODO: Event Hook
+//// TODO: Event Hook
 //        DWORD lpdwProcessId;
 //        DWORD threadid = GetWindowThreadProcessId(GetWindow(hwnd, GW_OWNER), &lpdwProcessId);
 //        int prop = SetProp(GetWindow(hwnd, GW_OWNER), APP_NAME"-Pin", (HANDLE)hwnd);
 //
 //        if (prop) {
 //            HWINEVENTHOOK hook = SetWinEventHook(
-//            EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE,  // Range of events
-//            NULL,                                          // Handle to DLL.
-//            HandleWinEvent,                                // The callback.
+//            EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, // Range of events
+//            NULL, // Handle to DLL.
+//            HandleWinEvent, // The callback.
 //            lpdwProcessId, threadid, // Process and thread IDs of interest (0 = all)
 //            WINEVENT_OUTOFCONTEXT); // Flags.
 //            SetWindowLongPtr(hwnd, 0+sizeof(LONG_PTR), (LONG_PTR)hook);
@@ -3192,7 +3197,6 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 //                break;
 //            }
 //        }
-
         SetTimer(hwnd, 1, conf.PinRate, NULL);
 
     } break;
@@ -3288,16 +3292,19 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_PAINT: {
         wchar_t Topchar = HIBYTE(HIWORD(conf.PinColor&0xFF000000));
         if (Topchar) {
+            if(!GetUpdateRect(hwnd, NULL, FALSE))
+                return 0;
             PAINTSTRUCT ps;
             RECT cr;
             GetClientRect(hwnd, &cr);
             BeginPaint(hwnd, &ps);
-            int oldBkMode = SetBkMode(ps.hdc, TRANSPARENT);
+            SetBkMode(ps.hdc, TRANSPARENT);
 //            HFONT oldfont = SelectObject(ps.hdc, GetStockObject(DEFAULT_GUI_FONT));
             DrawTextW(ps.hdc, &Topchar, 1, &cr, DT_VCENTER|DT_CENTER|DT_SINGLELINE);
 //            SelectObject(ps.hdc, oldfont);
-            SetBkMode(ps.hdc, oldBkMode); // restore BkMode
+//            SetBkMode(ps.hdc, oldBkMode); // restore BkMode
             EndPaint(hwnd, &ps);
+            return 0;
       }
     } break;
     case WM_LBUTTONDOWN: {
@@ -3317,13 +3324,14 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     case WM_DESTROY: {
         KillTimer(hwnd, 1);
 
-// TODO: Event Hook
+//// TODO: Event Hook
 //        HWINEVENTHOOK hook = (HWINEVENTHOOK)GetWindowLongPtr(hwnd, 0+sizeof(LONG_PTR));
 //        if (hook) UnhookWinEvent(hook);
 
         // Remove topmost flag if the pin gets destroyed.
         HWND ow;
         if((ow=GetWindow(hwnd, GW_OWNER))
+        && IsWindow(ow)
         && (GetWindowLongPtr(ow, GWL_EXSTYLE)&WS_EX_TOPMOST) )
             SetWindowLevel(ow, HWND_NOTOPMOST);
     } break;
@@ -3339,7 +3347,7 @@ static HWND CreatePinWindow(const HWND owner)
         wnd.cbSize = sizeof(WNDCLASSEX);
         wnd.style = CS_NOCLOSE|CS_HREDRAW|CS_VREDRAW;
         wnd.lpfnWndProc = PinWindowProc;
-        wnd.cbWndExtra = sizeof(LONG_PTR); //*2
+        wnd.cbWndExtra = sizeof(LONG_PTR) ;
         wnd.hInstance = hinstDLL;
         wnd.hCursor = LoadCursor(NULL, IDC_ARROW);
         wnd.hbrBackground = CreateSolidBrush(conf.PinColor&0x00FFFFFF);
@@ -3381,9 +3389,9 @@ static void TogglesAlwaysOnTop(HWND hwnd)
     if(!topmost) {
         if (conf.TopmostIndicator) CreatePinWindow(hwnd);
         ReallySetForegroundWindow(hwnd);
-//    } else {
-//        // Destroy Pin Window?
-//        DestroyWindow(GetPinWindow(hwnd));
+    } else {
+        // Destroy Pin Window?
+        DestroyWindow(GetPinWindow(hwnd));
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -3426,20 +3434,28 @@ static void MaximizeHV(HWND hwnd, int horizontal)
             , mon.bottom - mon.top + bd.top+bd.bottom);
     }
 }
+
 /////////////////////////////////////////////////////////////////////////////
 HWND *minhwnds=NULL;
 unsigned minhwnds_alloc=0;
 unsigned numminhwnds=0;
-BOOL CALLBACK MinimizeWindowProc(HWND hwnd, LPARAM hMon)
+struct MinimizeWindowProcParams {
+    HMONITOR hMon;
+    HWND clickedhwnd;
+};
+BOOL CALLBACK MinimizeWindowProc(HWND hwnd, LPARAM lParam)
 {
     minhwnds = GetEnoughSpace(minhwnds, numminhwnds, &minhwnds_alloc, sizeof(HWND));
     if (!minhwnds) return FALSE; // Stop enum, we failed
+    struct MinimizeWindowProcParams *p = (struct MinimizeWindowProcParams *) lParam;
+    hwnd = GetRootOwner(hwnd);
 
-    if (hwnd != state.sclickhwnd
+    if (hwnd != p->clickedhwnd
+    // && IsAltTabAble(hwnd) ????
     && IsVisible(hwnd)
     && !IsIconic(hwnd)
     && (WS_MINIMIZEBOX&GetWindowLongPtr(hwnd, GWL_STYLE))){
-        if (!hMon || (HMONITOR)hMon == MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)) {
+        if (!p->hMon || p->hMon == MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)) {
             MinimizeWindow(hwnd);
             minhwnds[numminhwnds++] = hwnd;
         }
@@ -3450,6 +3466,9 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
 {
     static HWND restore = NULL;
     HMONITOR hMon = NULL;
+    hwnd = GetRootOwner(hwnd);
+//    if (!hwnd) return;
+
     if (CurrentMonOnly) hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
 
     if (restore == hwnd) {
@@ -3470,15 +3489,15 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
         numminhwnds = 0;
         restore = NULL;
     } else {
-        state.sclickhwnd = hwnd;
+        struct MinimizeWindowProcParams p = { NULL, hwnd };
         restore = hwnd;
         numminhwnds = 0;
         if (state.mdiclient) {
-            EnumChildWindows(state.mdiclient, MinimizeWindowProc, 0);
+            EnumChildWindows(state.mdiclient, MinimizeWindowProc, (LPARAM)&p);
         } else {
-            EnumDesktopWindows(NULL, MinimizeWindowProc, (LPARAM)hMon);
+            p.hMon = hMon;
+            EnumDesktopWindows(NULL, MinimizeWindowProc, (LPARAM)&p);
         }
-        state.sclickhwnd = NULL;
     }
 }
 
@@ -3525,14 +3544,14 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
     unsigned i;
 
     struct menuitemdata *data=NULL;
-    struct menuitemdata data22[22];
-    if (numhwnds <=22) {
-        data = data22; // less than 22 windows then use the satck
+    struct menuitemdata data20[20];
+    if (numhwnds <= 20) {
+        data = data20; // less than 20 windows then use the satck
     } else {
         data = malloc(numhwnds * sizeof(struct menuitemdata));;
         if (!data) { // If malloc fails then fallback to the stack.
-            data=data22;
-            numhwnds = 22;
+            data=data20;
+            numhwnds = 20;
         }
     }
     for (i=0; i < numhwnds; i++) {
@@ -3572,7 +3591,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
     DestroyMenu(menu);
     DestroyWindow(g_mchwnd);
     g_mchwnd = NULL;
-    if (data != data22) free(data);
+    if (data != data20) free(data);
 
     return;
 }
@@ -4468,7 +4487,7 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
         // Menu closes now.
         state.unikeymenu = NULL;
-        DestroyWindow(hwnd); // Done!
+        PostMessage(hwnd, WM_CLOSE, 0, 0); // Done!
         return 0;
     } else if (msg == WM_MENURBUTTONUP) {
         // The user released the right button.
@@ -4555,7 +4574,10 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
         if (action > AC_RESIZE) { // Exclude resize action in case...
             POINT pt;
-            GetCursorPos(&pt);
+            //GetCursorPos(&pt);
+            DWORD msgpos = GetMessagePos();
+            pt.x = GET_X_LPARAM(msgpos);
+            pt.y = GET_Y_LPARAM(msgpos);
             if (!ptwindow
             && (action == AC_MENU)) {
                 pt.x = MAXLONG;
@@ -4731,22 +4753,12 @@ static void readhotkeys(const wchar_t *inipath, const char *name, const wchar_t 
     }
     keys[i] = 0;
 }
-// Map action string to actual action enum
-static enum action MapAction(wchar_t *txt)
-{
-    static const char *action_map[] = ACTION_MAP;
-    enum action ac;
-    for (ac=0; ac < ARR_SZ(action_map); ac++) {
-        if(!wscsicmp(txt, action_map[ac])) return ac;
-    }
-    return AC_NONE;
-}
 static enum action readaction(const wchar_t *inipath, const wchar_t *key)
 {
     wchar_t txt[32];
     GetPrivateProfileString(L"Input", key, L"Nothing", txt, ARR_SZ(txt), inipath);
 
-    return MapAction(txt);
+    return MapActionW(txt);
 }
 // Read all buttons actions from inipath
 static void readbuttonactions(const wchar_t *inipath)
@@ -4814,6 +4826,7 @@ static void CreateTransWin(const wchar_t *inipath)
     WNDCLASSEX wnd;
     memset(&wnd, 0, sizeof(wnd));
     wnd.cbSize = sizeof(WNDCLASSEX);
+//    wnd.style = CS_SAVEBITS;
     wnd.lpfnWndProc = DefWindowProc;
     wnd.hInstance = hinstDLL;
     wnd.hbrBackground = CreateSolidBrush(color[0]);

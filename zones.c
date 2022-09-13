@@ -140,7 +140,7 @@ static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
     RECT rc;
     GetWindowRectL(hwnd, &rc);
     POINT pt;
-    int offset = Iabs(conf.InterZone)+16;
+    int offset = abs(conf.InterZone)+16;
 
     if        (direction == 0) { // LEFT
         pt.x = rc.left - offset; // Mid Left segment

@@ -54,7 +54,7 @@
 
 // List of possible actions
 enum action {
-    AC_NONE=0, AC_MOVE, AC_RESIZE, AC_RESTORE
+    AC_NONE=0, AC_MOVE, AC_RESIZE //, AC_RESTORE
   , AC_MENU, AC_MINIMIZE, AC_MAXIMIZE
   , AC_CENTER , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_BORDERLESS
   , AC_KILL, AC_PAUSE, AC_RESUME, AC_MAXHV, AC_MINALL, AC_MUTE
@@ -68,7 +68,7 @@ enum action {
 };
 // List of actions strings, keep the SAME ORDER than above
 #define ACTION_MAP { \
-    "Nothing", "Move", "Resize", "Restore"                         \
+    "Nothing", "Move", "Resize" /*, "Restore"*/                         \
   , "Menu", "Minimize", "Maximize"                                 \
   , "Center", "AlwaysOnTop", "Close", "Lower", "Borderless"        \
   , "Kill", "Pause", "Resume", "MaximizeHV", "MinAllOther", "Mute" \

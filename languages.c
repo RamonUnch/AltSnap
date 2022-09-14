@@ -103,6 +103,7 @@ void ListAllTranslations()
 
     // First element
     langinfo = malloc(sizeof(struct langinfoitem ));
+    if (!langinfo) return;
     langinfo[0].code = en_US.code;
     langinfo[0].lang_english = en_US.lang_english;
     langinfo[0].lang = en_US.lang;
@@ -124,24 +125,30 @@ void ListAllTranslations()
             nlanguages++;
             wcscpy(end, ffd.cFileName); // add filenale at the end of the path
             langinfo = realloc(langinfo, sizeof(struct langinfoitem) * nlanguages);
+            if (!langinfo) break;
 
             GetPrivateProfileString(L"Translation", L"Code", L"", txt, ARR_SZ(txt), fpath);
             langinfo[n].code = calloc(wcslen(txt)+1, sizeof(wchar_t));
+            if (!langinfo[n].code) break;
             wcscpy(langinfo[n].code, txt);
 
             GetPrivateProfileString(L"Translation", L"LangEnglish", L"", txt, ARR_SZ(txt), fpath);
             langinfo[n].lang_english = calloc(wcslen(txt)+1, sizeof(wchar_t));
+            if (!langinfo[n].lang_english) break;
             wcscpy(langinfo[n].lang_english, txt);
 
             GetPrivateProfileString(L"Translation", L"Lang", L"", txt, ARR_SZ(txt), fpath);
             langinfo[n].lang = calloc(wcslen(txt)+1, sizeof(wchar_t));
+            if (!langinfo[n].lang) break;
             wcscpy(langinfo[n].lang, txt);
 
             GetPrivateProfileString(L"Translation", L"Author", L"", txt, ARR_SZ(txt), fpath);
             langinfo[n].author = calloc(wcslen(txt)+1, sizeof(wchar_t));
+            if (!langinfo[n].author) break;
             wcscpy(langinfo[n].author, txt);
 
             langinfo[n].fn = malloc(wcslen(fpath)*sizeof(wchar_t)+4);
+            if (!langinfo[n].fn) break;
             wcscpy(langinfo[n].fn, fpath);
 
             n++;

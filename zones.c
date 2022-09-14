@@ -42,6 +42,7 @@ static void ReadZones(wchar_t *inifile)
     RECT tmpzone;
     while (ReadRectFromini(&tmpzone, nzones, inifile)) {
         Zones = realloc( Zones, (nzones+1) * sizeof(RECT) );
+        if(!Zones) return;
         CopyRect(&Zones[nzones++], &tmpzone);
     }
 }
@@ -74,6 +75,7 @@ static void GenerateGridZones(unsigned Nx, unsigned Ny)
 }
 static unsigned GetZoneFromPoint(POINT pt, RECT *urc)
 {
+    if(!Zones) return 0;
     unsigned i, ret=0;
     SetRectEmpty(urc);
     int iz = conf.InterZone;
@@ -125,14 +127,7 @@ static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *heig
     *width = rc.right - rc.left;
     *height = rc.bottom - rc.top;
 }
-//static void MoveWindowToTouchingZonePT(HWND hwnd)
-//{
-//    RECT rc;
-//    GetWindowRect(hwnd, &rc);
-//    SetEdgeAndOffset(&rc, state.prevpt); // state.resize.x/y & state.offset.x/y
-//    direction1 =
-//}
-static void RestoreWindowTo(HWND hwnd, int x, int y, int w, int h);
+
 static void SetOriginFromRestoreData(HWND hnwd, enum action action);
 static HMONITOR GetMonitorInfoFromWin(HWND hwnd, MONITORINFO *mi);
 static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
@@ -145,7 +140,7 @@ static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
     RECT rc;
     GetWindowRectL(hwnd, &rc);
     POINT pt;
-    int offset = Iabs(conf.InterZone)+16;
+    int offset = abs(conf.InterZone)+16;
 
     if        (direction == 0) { // LEFT
         pt.x = rc.left - offset; // Mid Left segment
@@ -184,8 +179,5 @@ static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
     InflateRectBorder(&fr, &bd);
 
     SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED|SNZONE);
-    if (zoomed)
-        RestoreWindowTo(hwnd, fr.left, fr.top, CLAMPW(fr.right-fr.left), CLAMPH(fr.bottom-fr.top));
-    else
-        MoveWindowAsync(hwnd, fr.left, fr.top, CLAMPW(fr.right-fr.left), CLAMPH(fr.bottom-fr.top));
+    MoveWindowAsync(hwnd, fr.left, fr.top, CLAMPW(fr.right-fr.left), CLAMPH(fr.bottom-fr.top));
 }

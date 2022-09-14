@@ -23,7 +23,7 @@ static xpure int sign(int x)
     return (x > 0) - (x < 0);
 }
 
-#if defined(__x86_64__) || defined(__i386__)
+#if defined(__GNUC__) && (defined(__x86_64__) || defined(__i386__))
 static xpure int Iabs(int x)
 {
     __asm__ (
@@ -362,7 +362,7 @@ static const wchar_t *wcsstrL(const wchar_t *haystack, const wchar_t *needle)
 }
 #define wcsstr wcsstrL
 
-static const char *strstrL(const char *haystack, const char *needle)
+static const char *lstrstrA(const char *haystack, const char *needle)
 {
     size_t i,j;
     for (i=0; haystack[i]; ++i) {
@@ -371,7 +371,20 @@ static const char *strstrL(const char *haystack, const char *needle)
     }
     return NULL;
 }
-#define strstr strstrL
+static const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t *needle)
+{
+    size_t i,j;
+    for (i=0; haystack[i]; ++i) {
+        for (j=0; haystack[i+j]==needle[j] && needle[j]; ++j) ;
+        if (!needle[j]) return &haystack[i];
+    }
+    return NULL;
+}
+#ifdef UNICODE
+#define lstrstr lstrstrW
+#else
+#define lstrstr lstrstrA
+#endif
 
 static inline unsigned h2u(const wchar_t c)
 {
@@ -393,6 +406,7 @@ static unsigned whex2u(const wchar_t *s)
 
 static void *reallocL(void *mem, size_t sz)
 {
+//    if (rand()%256 < 200) return NULL;
     if(!mem) return HeapAlloc(GetProcessHeap(), 0, sz);
     return HeapReAlloc(GetProcessHeap(), 0, mem, sz);
 }
@@ -400,6 +414,7 @@ static void *reallocL(void *mem, size_t sz)
 
 static void *mallocL(size_t sz)
 {
+//    if (rand()%256 < 200) return NULL;
     return HeapAlloc(GetProcessHeap(), 0, sz);
 }
 #define malloc mallocL

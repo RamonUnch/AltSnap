@@ -489,6 +489,7 @@ static int ShouldSnapTo(HWND hwnd)
     return hwnd != state.hwnd
         && IsVisible(hwnd)
         && !IsIconic(hwnd)
+        && !(GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_NOACTIVATE) // != WS_EX_NOACTIVATE
         &&( ((style=GetWindowLongPtr(hwnd, GWL_STYLE))&WS_CAPTION) == WS_CAPTION
            || (style&WS_THICKFRAME)
            || GetBorderlessFlag(hwnd)//&(WS_THICKFRAME|WS_CAPTION)
@@ -3307,11 +3308,11 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             return 0;
       }
     } break;
-    case WM_LBUTTONDOWN: {
+    case WM_LBUTTONUP: {
         DestroyWindow(hwnd);
         return 0;
     } break;
-    case WM_RBUTTONDOWN: {
+    case WM_RBUTTONUP: {
         state.mdiclient = NULL; // In case...
         TrackMenuOfWindows(EnumTopMostWindows, 0);
         return 0;
@@ -3391,7 +3392,7 @@ static void TogglesAlwaysOnTop(HWND hwnd)
         ReallySetForegroundWindow(hwnd);
     } else {
         // Destroy Pin Window?
-        DestroyWindow(GetPinWindow(hwnd));
+        if (conf.TopmostIndicator) DestroyWindow(GetPinWindow(hwnd));
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -3846,19 +3847,19 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
         // Wheel actions, directly return here
         // because maybe the action will not be done
         return DoWheelActions(state.hwnd, action);
-    } else if (action==AC_RESTORE) {
-        int rwidth, rheight;
-        if (GetRestoreData(state.hwnd, &rwidth, &rheight)&SNAPPED) {
-            ClearRestoreData(state.hwnd);
-            RECT rc;
-            GetWindowRect(state.hwnd, &rc);
-            int posx = DoubleClamp(pt.x, rc.left, rc.right, rwidth) - state.mdipt.x;
-            int posy = DoubleClamp(pt.y, rc.top, rc.bottom, rheight) - state.mdipt.y;
-
-            MoveWindowAsync(state.hwnd, posx, posy, rwidth, rheight);
-        }
-        if (state.hittest==2 && button == BT_LMB) return 0;
-        state.blockmouseup = 1;
+//    } else if (action==AC_RESTORE) {
+//        int rwidth, rheight;
+//        if (GetRestoreData(state.hwnd, &rwidth, &rheight)&SNAPPED) {
+//            ClearRestoreData(state.hwnd);
+//            RECT rc;
+//            GetWindowRect(state.hwnd, &rc);
+//            int posx = DoubleClamp(pt.x, rc.left, rc.right, rwidth) - state.mdipt.x;
+//            int posy = DoubleClamp(pt.y, rc.top, rc.bottom, rheight) - state.mdipt.y;
+//
+//            MoveWindowAsync(state.hwnd, posx, posy, rwidth, rheight);
+//        }
+//        if (state.hittest==2 && button == BT_LMB) return 0;
+//        state.blockmouseup = 1;
     } else {
         SClickActions(state.hwnd, action);
         state.blockmouseup = 1; // because the action is done
@@ -4869,7 +4870,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
     wcscpy(&inipath[wcslen(inipath)-3], L"ini");
 
-    #pragma GCC diagnostic ignored "-Wpointer-sign"
+//    #pragma GCC diagnostic ignored "-Wpointer-sign"
     static const struct OptionListItem {
         const wchar_t *section; const char *name; const int def;
     } optlist[] = {
@@ -4936,7 +4937,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         // [KBShortcuts]
         {L"KBShortcuts", "UsePtWindow", 0 },
     };
-    #pragma GCC diagnostic pop
+//    #pragma GCC diagnostic pop
 
     // Read all char options
     UCHAR *dest = &conf.AutoFocus; // 1st element.

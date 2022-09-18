@@ -161,8 +161,14 @@ void ListAllTranslations()
 /////////////////////////////////////////////////////////////////////////////
 void UpdateLanguage()
 {
-    wchar_t txt[8];
-    GetPrivateProfileString(L"General", L"Language", L"en-US", txt, ARR_SZ(txt), inipath);
+    wchar_t txt[16];
+    GetPrivateProfileString(L"General", L"Language", L"Auto", txt, ARR_SZ(txt), inipath);
+
+    // Determine which language should be used
+    // based on current user's LCID
+    if (!wcsicmp(txt, L"Auto")) {
+        LCIDToLocaleNameL(GetUserDefaultLCID(), txt, ARR_SZ(txt), 0);
+    }
 
     int i;
     for (i=0; i < nlanguages; i++) {

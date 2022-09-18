@@ -14,6 +14,7 @@
 
 /* #include <dwmapi.h> */
 enum DWMWINDOWATTRIBUTE {
+  /* Windows Vista+ */
   DWMWA_NCRENDERING_ENABLED=1,
   DWMWA_NCRENDERING_POLICY,
   DWMWA_TRANSITIONS_FORCEDISABLED,
@@ -24,21 +25,28 @@ enum DWMWINDOWATTRIBUTE {
   DWMWA_FLIP3D_POLICY,
   DWMWA_EXTENDED_FRAME_BOUNDS,
   DWMWA_HAS_ICONIC_BITMAP,
+  /* Windows 7+ */
   DWMWA_DISALLOW_PEEK,
   DWMWA_EXCLUDED_FROM_PEEK,
   DWMWA_CLOAK,
+  /* Windows 8+ */
   DWMWA_CLOAKED, // 14
   DWMWA_FREEZE_REPRESENTATION,
   DWMWA_PASSIVE_UPDATE_MODE,
-  /* */
-  DWMWA_USE_HOSTBACKDROPBRUSH,              /* Set, *pvAttribute=BOOL*/
-  DWMWA_USE_IMMERSIVE_DARK_MODE_PRE20H1=19, /* Set, *pvAttribute=BOOL*/
-  DWMWA_USE_IMMERSIVE_DARK_MODE = 20,       /* Set, *pvAttribute=BOOL*/
+  DWMWA_USE_HOSTBACKDROPBRUSH,              /* Set, *pvAttribute=BOOL */
+
+  /* Windows 10 1809 + (17763 <= build < 18985), Undocumented */
+  DWMWA_USE_IMMERSIVE_DARK_MODE_PRE20H1=19, /* Set, *pvAttribute=BOOL */
+  /* Windows 10 21H1 + (build >= 18985) */
+  DWMWA_USE_IMMERSIVE_DARK_MODE = 20,  /* Documented value since Win 11 build 22000 */
+
+  /* Windows 11 Build 22000 + */
   DWMWA_WINDOW_CORNER_PREFERENCE = 33,
   DWMWA_BORDER_COLOR,
   DWMWA_CAPTION_COLOR,
   DWMWA_TEXT_COLOR,
   DWMWA_VISIBLE_FRAME_BORDER_THICKNESS,
+  /* Windows 11 Build 22621 + */
   DWMWA_SYSTEMBACKDROP_TYPE,
   DWMWA_LAST,
 };
@@ -104,6 +112,12 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
 #define LOGA(X, ...) {DWORD err=GetLastError(); FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fprintf(LOG,", LastError=%lu\n",err); fclose(LOG); SetLastError(0); }
 #define LOG(X, ...) if(LOG_STUFF) LOGA(X, ##__VA_ARGS__)
 
+#ifdef DEBUG
+#include <assert.h>
+#else
+#undef assert
+#define assert(x)
+#endif
 /* Stuff missing in MinGW */
 #ifndef WM_MOUSEHWHEEL
 #define WM_MOUSEHWHEEL 0x020E
@@ -137,12 +151,11 @@ static int (WINAPI *myGetSystemMetricsForDpi)(int  nIndex, UINT dpi) = IPTR;
 static UINT (WINAPI *myGetDpiForWindow)(HWND hwnd) = IPTR;
 static BOOL (WINAPI *mySystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT  fWinIni, UINT  dpi) = IPTR;
 
-
 /* DWMAPI.DLL */
 static HRESULT (WINAPI *myDwmGetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c) = IPTR;
 static HRESULT (WINAPI *myDwmSetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c) = IPTR;
 static HRESULT (WINAPI *myDwmIsCompositionEnabled)(BOOL *pfEnabled) = IPTR;
-/*static BOOL (WINAPI *myDwmDefWindowProc)(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam, LRESULT *plResult)=IPTR;*/
+static BOOL (WINAPI *myDwmDefWindowProc)(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam, LRESULT *plResult)=IPTR;
 
 /* SHCORE.DLL */
 static HRESULT (WINAPI *myGetDpiForMonitor)(HMONITOR hmonitor, int dpiType, UINT *dpiX, UINT *dpiY) = IPTR;
@@ -445,6 +458,74 @@ static UINT GetDpiForWindowL(HWND hwnd)
 }
 #define GetDpiForWindow GetDpiForWindowL
 
+/* https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enablenonclientdpiscaling
+ * Available since Windows 10.0.14342 (~1607) https://stackoverflow.com/questions/36864894
+ * Useless since Windows 10.0.15063 (1703)
+ * So it is only useful in builds frim 1607 to 1703
+ * To be called in the WM_NCCREATE message handler.
+ */
+static BOOL EnableNonClientDpiScalingL(HWND hwnd)
+{
+    /* For Windows 10 below build 15063 */
+    static BOOL (WINAPI *myEnableNonClientDpiScaling)(HWND hwnd) = IPTR;
+    if (myEnableNonClientDpiScaling == IPTR) { /* First time */
+        myEnableNonClientDpiScaling=LoadDLLProc("USER32.DLL", "EnableNonClientDpiScaling");
+    }
+    if (myEnableNonClientDpiScaling) { /* We know we have the function */
+        return myEnableNonClientDpiScaling(hwnd);
+    }
+    return FALSE;
+}
+static xpure BOOL OredredWinVer()
+{
+    static DWORD WinVer;
+    if (!WinVer) {
+        DWORD ver = GetVersion();
+        WinVer = (ver&0x000000FF) << 24 // MAJOR
+               | (ver&0x0000FF00) << 8  // MINOR
+               | (ver&0xFFFF0000) >> 16;// BUILDID
+    }
+    return WinVer;
+}
+static BOOL IsDarkModeEnabled(void)
+{
+    DWORD value = 0;
+    if ( OredredWinVer() >= 0x0A004563 ) {
+        /* In case of Windows 10 build 10.0.17763 or 10.x (future) or 11+ */
+        DWORD len=sizeof(DWORD);
+        HKEY key;
+        if (RegOpenKeyEx(HKEY_CURRENT_USER
+                , TEXT("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize")
+                , 0, KEY_QUERY_VALUE, &key) == ERROR_SUCCESS)
+        {
+            if (RegQueryValueEx(key, TEXT("AppsUseLightTheme"), NULL, NULL, (LPBYTE)&value, &len) == ERROR_SUCCESS) {
+                value = !value;
+            }
+            RegCloseKey(key);
+        }
+   }
+   return value;
+}
+/* We can use the DWMWA_USE_IMMERSIVE_DARK_MODE=20 DWM style
+ * It is documented for Windows 11 but it also appears to work for Win10
+ * However from build 1809 to 2004 it the value was =19 and it is =20
+ * Since Windows 10 build 20H1 and on Win11
+ * DWMWA_USE_IMMERSIVE_DARK_MODE=19 up to Win10 2004
+ * DWMWA_USE_IMMERSIVE_DARK_MODE=20 since Win10 20H1 */
+static HRESULT DwmSetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c);
+static BOOL AllowDarkTitlebar(HWND hwnd)
+{
+    BOOL DarkMode = IsDarkModeEnabled();
+    if ( OredredWinVer() >= 0x0A004A29 ) {
+        /* Windows 10 build 10.0.18985 ie 20H1 */
+        return S_OK == DwmSetWindowAttributeL(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &DarkMode, sizeof(DarkMode));
+    } else if ( OredredWinVer() >= 0x0A004563) {
+        /* Windows 10 build 10.0.17763 ie: 1809 */
+        return S_OK == DwmSetWindowAttributeL(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_PRE20H1, &DarkMode, sizeof(DarkMode));
+    }
+    return FALSE;
+}
+
 /* Helper function */
 static int GetSystemMetricsForWin(int nIndex, HWND hwnd)
 {
@@ -667,7 +748,7 @@ static BOOL HaveDWM()
 
     return have_dwm;
 }
-#if 0
+
 static BOOL DwmDefWindowProcL(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam, LRESULT *plResult)
 {
     if (myDwmDefWindowProc == IPTR) { /* First time */
@@ -678,7 +759,7 @@ static BOOL DwmDefWindowProcL(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam,
     }
     return FALSE;
 }
-#endif
+
 /* PSAPI.DLL */
 static DWORD (WINAPI *myGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize) = IPTR;
 static DWORD GetModuleFileNameExL(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize)
@@ -728,6 +809,7 @@ static DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
 static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
 {
     MINMAXINFO mmi;
+    memset(&mmi, 0, sizeof(mmi));
     mmi.ptMinTrackSize.x = GetSystemMetrics(SM_CXMINTRACK);
     mmi.ptMinTrackSize.y = GetSystemMetrics(SM_CYMINTRACK);
     mmi.ptMaxTrackSize.x = GetSystemMetrics(SM_CXMAXTRACK);
@@ -825,7 +907,7 @@ static BOOL GetNonClientMetricsDpi(struct NEWNONCLIENTMETRICSW *ncm, UINT dpi)
     }
     return ret;
 }
-static HFONT GetNCMenuFont(UINT dpi)
+static HFONT CreateNCMenuFont(UINT dpi)
 {
     struct NEWNONCLIENTMETRICSW ncm;
     GetNonClientMetricsDpi(&ncm, dpi);
@@ -1009,6 +1091,32 @@ static void RectFromPts(RECT *rc, const POINT a, const POINT b)
     rc->top = min(a.y, b.y);
     rc->right = max(a.x, b.x);
     rc->bottom= max(a.y, b.y);
+}
+
+/* DownlevelLCIDToLocaleName in NLSDL.DLL */
+/* LCIDToLocaleName  in KERNEL32.DLL*/
+static int LCIDToLocaleNameL(LCID Locale, LPWSTR  lpName, int cchName, DWORD   dwFlags)
+{
+    static int (WINAPI *myLCIDToLocaleName)(LCID Locale, LPWSTR  lpName, int cchName, DWORD   dwFlags) = IPTR;
+    if (myLCIDToLocaleName == IPTR) { /* First time */
+        myLCIDToLocaleName=GetProcAddress(GetModuleHandleA("KERNEL32.DLL"), "LCIDToLocaleName");
+    }
+    if (myLCIDToLocaleName) { /* Function in KERNEL32.DLL */
+        return myLCIDToLocaleName(Locale, lpName, cchName, dwFlags);
+    } else {
+        HANDLE h = LoadLibraryA("NLSDL.DLL");
+        if (h) {
+            int ret=0;
+            int (WINAPI *myDwLCIDToLocaleName)(LCID Locale, LPWSTR  lpName, int cchName, DWORD   dwFlags);
+            myDwLCIDToLocaleName = GetProcAddress(h, "DownlevelLCIDToLocaleName");
+            if (myDwLCIDToLocaleName)
+                ret = myDwLCIDToLocaleName(Locale, lpName, cchName, dwFlags);
+            FreeLibrary(h);
+            return ret;
+        }
+    }
+
+    return 0;
 }
 
 #endif

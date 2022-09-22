@@ -73,7 +73,7 @@ static void GenerateGridZones(unsigned Nx, unsigned Ny)
         }
     }
 }
-static unsigned GetZoneFromPoint(POINT pt, RECT *urc)
+static unsigned GetZoneFromPoint(POINT pt, RECT *urc, int extend)
 {
     if(!Zones) return 0;
     unsigned i, ret=0;
@@ -84,8 +84,8 @@ static unsigned GetZoneFromPoint(POINT pt, RECT *urc)
 
         int inrect=0;
         inrect = PtInRect(&Zones[i], pt);
-        if ((state.ctrl||conf.UseZones&4) && !inrect)
-            inrect = PtInRect(&Zones[i], conf.UseZones&4?state.shiftpt:state.ctrlpt);
+        if ((state.ctrl||extend) && !inrect)
+            inrect = PtInRect(&Zones[i], extend?state.shiftpt:state.ctrlpt);
 
         if (iz) InflateRect(&Zones[i], -iz, -iz);
         if (inrect) {
@@ -114,7 +114,7 @@ static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *heig
     if (!state.usezones)
         return;
     RECT rc, bd;
-    unsigned ret = GetZoneFromPoint(pt, &rc);
+    unsigned ret = GetZoneFromPoint(pt, &rc, conf.UseZones&4);
     if (!ret) return; // Outside of a rect
 
     LastWin.end = 0;
@@ -164,7 +164,7 @@ static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
     ClampPointInRect(&mi.rcWork, &pt);
 
     RECT zrc;
-    unsigned ret = GetZoneFromPoint(pt, &zrc);
+    unsigned ret = GetZoneFromPoint(pt, &zrc, 0);
     if (!ret) return; // Outside of a rect
 
     RECT fr; // final rect...

@@ -150,11 +150,13 @@ static BOOL (WINAPI *myGetGUIThreadInfo)(DWORD idThread, LPGUITHREADINFO lpgui) 
 static int (WINAPI *myGetSystemMetricsForDpi)(int  nIndex, UINT dpi) = IPTR;
 static UINT (WINAPI *myGetDpiForWindow)(HWND hwnd) = IPTR;
 static BOOL (WINAPI *mySystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT  fWinIni, UINT  dpi) = IPTR;
-
+static HWINEVENTHOOK (WINAPI *mySetWinEventHook)(DWORD eventMin, DWORD eventMax, HMODULE hmodWinEventProc, WINEVENTPROC pfnWinEventProc, DWORD idProcess, DWORD idThread, DWORD dwFlags) = IPTR;
+static BOOL (WINAPI *myUnhookWinEvent)(HWINEVENTHOOK hWinEventHook) = IPTR;
 /* DWMAPI.DLL */
 static HRESULT (WINAPI *myDwmGetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c) = IPTR;
 static HRESULT (WINAPI *myDwmSetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c) = IPTR;
 static HRESULT (WINAPI *myDwmIsCompositionEnabled)(BOOL *pfEnabled) = IPTR;
+static HRESULT (WINAPI *myDwmGetColorizationColor)(DWORD *pcrColorization, BOOL *pfOpaqueBlend) = IPTR;
 static BOOL (WINAPI *myDwmDefWindowProc)(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam, LRESULT *plResult)=IPTR;
 
 /* SHCORE.DLL */
@@ -546,6 +548,34 @@ static BOOL SystemParametersInfoForDpiL(UINT uiAction, UINT uiParam, PVOID pvPar
 }
 #define SystemParametersInfoForDpi SystemParametersInfoForDpiL
 
+static HWINEVENTHOOK SetWinEventHookL(
+      DWORD eventMin, DWORD eventMax
+    , HMODULE hmodWinEventProc
+    , WINEVENTPROC pfnWinEventProc
+    , DWORD idProcess, DWORD idThread, DWORD dwFlags)
+{
+    if (mySetWinEventHook == IPTR) { /* First time */
+        mySetWinEventHook=LoadDLLProc("USER32.DLL", "SetWinEventHook");
+    }
+    if (mySetWinEventHook) { /* We know we have the function */
+        return mySetWinEventHook(eventMin, eventMax, hmodWinEventProc
+                    , pfnWinEventProc, idProcess, idThread, dwFlags);
+    }
+    /* Failed */
+    return NULL;
+}
+static BOOL UnhookWinEventL(HWINEVENTHOOK hWinEventHook)
+{
+    if (myUnhookWinEvent == IPTR) { /* First time */
+        myUnhookWinEvent=LoadDLLProc("USER32.DLL", "UnhookWinEvent");
+    }
+    if (myUnhookWinEvent) { /* We know we have the function */
+        return myUnhookWinEvent(hWinEventHook);
+    }
+    /* Failed */
+    return FALSE;
+}
+
 static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 {
     if (myDwmGetWindowAttribute == IPTR) { /* First time */
@@ -567,6 +597,31 @@ static HRESULT DwmSetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
     }
     /* myDwmSetWindowAttribute return 0 on sucess ! */
     return 666; /* Here we FAIL with 666 error    */
+}
+static HRESULT DwmGetColorizationColorL(DWORD *a, BOOL *b)
+{
+    if (myDwmGetColorizationColor == IPTR) { /* First time */
+        myDwmGetColorizationColor=LoadDLLProc("DWMAPI.DLL", "DwmGetColorizationColor");
+    }
+    if (myDwmGetColorizationColor) { /* We know we have the function */
+        return myDwmGetColorizationColor(a, b);
+    }
+    /* return 0 on sucess ! */
+    return 666; /* Here we FAIL with 666 error    */
+}
+
+static COLORREF GetSysColorizationColor()
+{
+    DWORD color=0;
+    BOOL b=FALSE;
+    if(S_OK == DwmGetColorizationColorL(&color, &b)) {
+        /* Re orde- bytes because
+         * COLORREF:  0x00BBGGRR and not 0xAARRGGBB */
+        return  (color&0x000000FF) << 16  /* blue */
+              | (color&0x0000FF00)        /* green */
+              | (color&0x00FF0000) >> 16; /* red */
+    }
+    return 0;
 }
 
 /* #define DwmGetWindowAttribute DwmGetWindowAttributeL */
@@ -1099,7 +1154,7 @@ static int LCIDToLocaleNameL(LCID Locale, LPWSTR  lpName, int cchName, DWORD   d
 {
     static int (WINAPI *myLCIDToLocaleName)(LCID Locale, LPWSTR  lpName, int cchName, DWORD   dwFlags) = IPTR;
     if (myLCIDToLocaleName == IPTR) { /* First time */
-        myLCIDToLocaleName=GetProcAddress(GetModuleHandleA("KERNEL32.DLL"), "LCIDToLocaleName");
+        myLCIDToLocaleName=(void*)GetProcAddress(GetModuleHandleA("KERNEL32.DLL"), "LCIDToLocaleName");
     }
     if (myLCIDToLocaleName) { /* Function in KERNEL32.DLL */
         return myLCIDToLocaleName(Locale, lpName, cchName, dwFlags);
@@ -1108,7 +1163,7 @@ static int LCIDToLocaleNameL(LCID Locale, LPWSTR  lpName, int cchName, DWORD   d
         if (h) {
             int ret=0;
             int (WINAPI *myDwLCIDToLocaleName)(LCID Locale, LPWSTR  lpName, int cchName, DWORD   dwFlags);
-            myDwLCIDToLocaleName = GetProcAddress(h, "DownlevelLCIDToLocaleName");
+            myDwLCIDToLocaleName = (void*)GetProcAddress(h, "DownlevelLCIDToLocaleName");
             if (myDwLCIDToLocaleName)
                 ret = myDwLCIDToLocaleName(Locale, lpName, cchName, dwFlags);
             FreeLibrary(h);

@@ -16,12 +16,13 @@
 #endif
 
 // Extra messages for Action Menu
-#define LP_CURSORPOS  (1<<0)
-#define LP_TOPMOST    (1<<1)
-#define LP_BORDERLESS (1<<2)
-#define LP_MAXIMIZED  (1<<3)
-#define LP_ROLLED     (1<<4)
-#define LP_MOVEONOFF  (1<<5)
+#define LP_CURSORPOS   (1<<0)
+#define LP_TOPMOST     (1<<1)
+#define LP_BORDERLESS  (1<<2)
+#define LP_MAXIMIZED   (1<<3)
+#define LP_ROLLED      (1<<4)
+#define LP_MOVEONOFF   (1<<5)
+#define LP_NOALTACTION (1<<6)
 
 // App
 #define APP_NAME       L"AltSnap"
@@ -51,31 +52,41 @@
 #define WM_GETCLICKHWND   (WM_USER+12)
 #define WM_STACKLIST      (WM_USER+13)
 #define WM_FINISHMOVEMENT (WM_USER+14)
+#define WM_CLOSEMODE      (WM_USER+15)
 
 // List of possible actions
 enum action {
-    AC_NONE=0, AC_MOVE, AC_RESIZE //, AC_RESTORE
+    AC_NONE=0, AC_MOVE, AC_RESIZE, AC_RESTORE
   , AC_MENU, AC_MINIMIZE, AC_MAXIMIZE
   , AC_CENTER , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_BORDERLESS
   , AC_KILL, AC_PAUSE, AC_RESUME, AC_MAXHV, AC_MINALL, AC_MUTE
-  , AC_SIDESNAP, AC_NSTACKED, AC_NSTACKED2, AC_PSTACKED, AC_PSTACKED2
-  , AC_STACKLIST, AC_STACKLIST2, AC_ASONOFF, AC_MOVEONOFF
+  , AC_SIDESNAP, AC_EXTENDSNAP
+  , AC_NSTACKED, AC_NSTACKED2, AC_PSTACKED, AC_PSTACKED2
+  , AC_STACKLIST, AC_STACKLIST2, AC_ALTTABLIST
+  , AC_ASONOFF, AC_MOVEONOFF
   , AC_MLZONE, AC_MTZONE, AC_MRZONE, AC_MBZONE
   , AC_XLZONE, AC_XTZONE, AC_XRZONE, AC_XBZONE
+  , AC_STEPL, AC_STEPT, AC_STEPR, AC_STEPB
+  , AC_SSTEPL, AC_SSTEPT, AC_SSTEPR, AC_SSTEPB
   , AC_ROLL, AC_ALTTAB, AC_VOLUME, AC_TRANSPARENCY, AC_HSCROLL
   , AC_ZOOM, AC_ZOOM2, AC_NPSTACKED
   , AC_MAXVALUE
+  , AC_ORICLICK
 };
 // List of actions strings, keep the SAME ORDER than above
 #define ACTION_MAP { \
-    "Nothing", "Move", "Resize" /*, "Restore"*/                         \
+    "Nothing", "Move", "Resize", "Restore"                         \
   , "Menu", "Minimize", "Maximize"                                 \
   , "Center", "AlwaysOnTop", "Close", "Lower", "Borderless"        \
   , "Kill", "Pause", "Resume", "MaximizeHV", "MinAllOther", "Mute" \
-  , "SideSnap", "NStacked", "NStacked2", "PStacked", "PStacked2"   \
-  , "StackList", "StackList2", "ASOnOff", "MoveOnOff"              \
+  , "SideSnap", "ExtendSnap"                                       \
+  , "NStacked", "NStacked2", "PStacked", "PStacked2"               \
+  , "StackList", "StackList2", "AltTabList"                        \
+  , "ASOnOff", "MoveOnOff"                                         \
   , "MLZone", "MTZone", "MRZone", "MBZone"                         \
   , "XLZone", "XTZone", "XRZone", "XBZone"                         \
+  , "StepL", "StepT", "StepR", "StepB"                             \
+  , "SStepL", "SStepT", "SStepR", "SStepB"                         \
   , "Roll", "AltTab", "Volume", "Transparency", "HScroll"          \
   , "Zoom", "Zoom2", "NPStacked",                                  \
 }
@@ -116,7 +127,7 @@ static enum action MapActionW(const wchar_t *txt)
     static const char *action_map[] = ACTION_MAP;
     enum action ac;
     for (ac=0; ac < ARR_SZ(action_map); ac++) {
-        if(!wscsicmp(txt, action_map[ac])) return ac;
+        if(!wcstostricmp(txt, action_map[ac])) return ac;
     }
     return AC_NONE;
 }

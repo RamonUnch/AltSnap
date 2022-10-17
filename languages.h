@@ -113,7 +113,7 @@ struct strings {
   // actions
   wchar_t *input_actions_move;
   wchar_t *input_actions_resize;
-//  wchar_t *input_actions_restore;
+  wchar_t *input_actions_restore;
   wchar_t *input_actions_close;
   wchar_t *input_actions_kill;
   wchar_t *input_actions_pause;
@@ -130,6 +130,7 @@ struct strings {
   wchar_t *input_actions_npstacked;
   wchar_t *input_actions_stacklist;
   wchar_t *input_actions_stacklist2;
+  wchar_t *input_actions_alttablist;
 
   wchar_t *input_actions_mlzone;
   wchar_t *input_actions_mtzone;
@@ -140,10 +141,20 @@ struct strings {
   wchar_t *input_actions_xrzone;
   wchar_t *input_actions_xbzone;
 
+  wchar_t *input_actions_stepl;
+  wchar_t *input_actions_stept;
+  wchar_t *input_actions_stepr;
+  wchar_t *input_actions_stepb;
+  wchar_t *input_actions_sstepl;
+  wchar_t *input_actions_sstept;
+  wchar_t *input_actions_sstepr;
+  wchar_t *input_actions_sstepb;
+
   wchar_t *input_actions_roll;
   wchar_t *input_actions_alwaysontop;
   wchar_t *input_actions_borderless;
   wchar_t *input_actions_center;
+  wchar_t *input_actions_oriclick;
   wchar_t *input_actions_nothing;
   wchar_t *input_actions_alttab;
   wchar_t *input_actions_volume;
@@ -151,6 +162,7 @@ struct strings {
   wchar_t *input_actions_menu;
   wchar_t *input_actions_maximizehv;
   wchar_t *input_actions_sidesnap;
+  wchar_t *input_actions_extendsnap;
   wchar_t *input_actions_minallother;
   wchar_t *input_actions_transparency;
   wchar_t *input_actions_zoom;
@@ -318,7 +330,7 @@ static const char* l10n_inimapping[] = {
 
     "InputActionMove",
     "InputActionResize",
-//    "InputActionRestore",
+    "InputActionRestore",
     "InputActionClose",
     "InputActionKill",
     "InputActionPause",
@@ -335,6 +347,7 @@ static const char* l10n_inimapping[] = {
     "InputActionNPStacked",
     "InputActionStackList",
     "InputActionStackList2",
+    "InputActionAltTabList",
     "InputActionMLZone",
     "InputActionMTZone",
     "InputActionMRZone",
@@ -343,10 +356,19 @@ static const char* l10n_inimapping[] = {
     "InputActionXTZone",
     "InputActionXRZone",
     "InputActionXBZone",
+    "InputActionStepL",
+    "InputActionStepT",
+    "InputActionStepR",
+    "InputActionStepB",
+    "InputActionSStepL",
+    "InputActionSStepT",
+    "InputActionSStepR",
+    "InputActionSStepB",
     "InputActionRoll",
     "InputActionAlwaysOnTop",
     "InputActionBorderless",
     "InputActionCenter",
+    "InputActionOriClick",
     "InputActionNothing",
     "InputActionAltTab",
     "InputActionVolume",
@@ -354,6 +376,7 @@ static const char* l10n_inimapping[] = {
     "InputActionMenu",
     "InputActionMaximizeHV",
     "InputActionSideSnap",
+    "InputActionExtendSnap",
     "InputActionMinAllOther",
     "InputActionTransparency",
     "InputActionZoom",
@@ -525,7 +548,7 @@ static const struct strings en_US = {
  /* actions */
  /* move               */ L"Move window",
  /* resize             */ L"Resize window",
-// /* restore            */ L"Restore window",
+ /* restore            */ L"Restore window",
  /* close              */ L"&Close window",
  /* kill               */ L"&Kill program",
  /* pause              */ L"Pause program",
@@ -541,7 +564,8 @@ static const struct strings en_US = {
  /* pstacked 2         */ L"Previous laser stacked window",
  /* npstacked          */ L"Next/Prev stacked window",
  /* stacklist          */ L"Stacked windows list",
- /* stacklist          */ L"Laser stacked windows list",
+ /* stacklist2         */ L"Laser stacked windows list",
+ /* alttablist         */ L"Windows List",
  /* mlzone             */ L"Move to the left zone",
  /* mtzone             */ L"Move to the top zone",
  /* mrzone             */ L"Move to the right zone",
@@ -550,17 +574,27 @@ static const struct strings en_US = {
  /* xtzone             */ L"Extend to the top zone",
  /* xrzone             */ L"Extend to the right zone",
  /* xbzone             */ L"Extend to the bottom zone",
+ /* stepl              */ L"Step left",
+ /* stept              */ L"Step up",
+ /* stepr              */ L"Step right",
+ /* stepb              */ L"Step down",
+ /* sstepl             */ L"Small step left",
+ /* sstept             */ L"Small step up",
+ /* sstepr             */ L"Small step right",
+ /* sstepb             */ L"Small step down",
  /* roll               */ L"&Roll/Unroll window",
  /* alwaysontop        */ L"Toggle always on &top",
  /* borderless         */ L"Toggle &borderless",
  /* center             */ L"C&enter window on screen",
+ /* oriclick           */ L"Send ori&ginal click",
  /* nothing            */ L"Nothing",
  /* alttab             */ L"Alt+Tab",
  /* volume             */ L"Volume",
  /* mute               */ L"Mute &sounds",
  /* menu               */ L"Action menu",
  /* maximizehv         */ L"Maximize &Vertically",
- /* sidesnap           */ L"&Snap to side/corner",
+ /* sidesnap           */ L"&Snap to monitor side/corner",
+ /* extendsnap         */ L"Extend to monitor side/corner",
  /* minallother        */ L"Minimize &other windows",
  /* transparency       */ L"Transparency",
  /* zoom               */ L"Zoom window",

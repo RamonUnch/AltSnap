@@ -138,7 +138,7 @@ void ToggleState()
 void ShowSClickMenu(HWND hwnd, LPARAM param)
 {
     POINT pt;
-    if(param&LP_CURSORPOS) {
+    if (param&LP_CURSORPOS) {
         // Use cursor position to place menu.
         GetCursorPos(&pt);
     } else {
@@ -151,6 +151,7 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
                       + GetSystemMetricsForWin(SM_CYCAPTION, clickhwnd);
     }
     HMENU menu = CreatePopupMenu();
+    enum action show_oriclick = (param&LP_NOALTACTION)? AC_ORICLICK: 0xFF;
 
     #define CHK(LP_FLAG) MF_STRING|(param&LP_FLAG?MF_CHECKED:MF_UNCHECKED)
 
@@ -175,13 +176,14 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
         { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
         { AC_MOVEONOFF,   CHK(LP_MOVEONOFF),  l10n->input_actions_moveonoff},
         { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
+        { show_oriclick,  MF_STRING,        l10n->input_actions_oriclick},
         { AC_NONE,        MF_STRING,          l10n->input_actions_nothing},
     };
     #undef CHK
     #undef K
     unsigned i;
     for (i=0; i < ARR_SZ(mnlst); i++) {
-        if ( (ACMenuItems>>i)&1 ) // Put the action in the HIWORD of wParam
+        if ( (ACMenuItems>>i)&1 && mnlst[i].action != 0xFF) // Put the action in the HIWORD of wParam
             AppendMenu(menu, mnlst[i].mf, mnlst[i].action<<16, mnlst[i].str);
     }
     TrackPopupMenu(menu, GetSystemMetrics(SM_MENUDROPALIGNMENT), pt.x, pt.y, 0, hwnd, NULL);

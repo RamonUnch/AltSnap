@@ -8,6 +8,7 @@
 #define noreturn __attribute__((noreturn))
 #define fastcall __attribute__((fastcall))
 #define ainline __attribute__((always_inline))
+#define mallocatrib __attribute__((malloc))
 #else
 #define flatten
 #define xpure
@@ -15,6 +16,7 @@
 #define noreturn
 #define fastcall
 #define ainline
+#define mallocatrib
 #define __restrict__
 #endif
 /* return +/-1 if x is +/- and 0 if x == 0 */
@@ -23,7 +25,8 @@ static xpure int sign(int x)
     return (x > 0) - (x < 0);
 }
 
-#if defined(__GNUC__) && (defined(__x86_64__) || defined(__i386__))
+#if (defined(__x86_64__) || defined(__i386__))
+#if !defined(CLANG) && defined(__GNUC__)
 static xpure int Iabs(int x)
 {
     __asm__ (
@@ -36,9 +39,17 @@ static xpure int Iabs(int x)
     );
     return x;
 }
-#define abs(x) Iabs(x)
+#else
+static xpure int Iabs(int a)
+{
+   int m = (a >> (sizeof(int) * CHAR_BIT - 1));
+   return (a + m) ^ m;
+}
 #endif
-
+#define abs(x) Iabs(x)
+#else
+#define abs(x) ((x)>0? (x): -(x));
+#endif // x86
 /* Function to set the kth bit of n */
 static int setBit(int n, int k)
 {
@@ -62,7 +73,8 @@ static void str2wide(wchar_t *w, const char *s)
     while((*w++ = *s++));
 }
 
-void *memsetL(void *dst, int s, size_t count)
+#ifdef CLANG
+ void * __cdecl memset(void *dst, int s, size_t count)
 {
     register char * a = dst;
     count++;
@@ -70,7 +82,7 @@ void *memsetL(void *dst, int s, size_t count)
         *a++ = s;
     return dst;
 }
-/* #define memset memsetL */
+#endif
 
 static wchar_t *wcsuprL(wchar_t *s)
 {
@@ -147,7 +159,7 @@ static int wtoiL(const wchar_t *s)
     return sign*v;
 }
 #define _wtoi wtoiL
-static inline void reverse(wchar_t *str, int length)
+static inline void reverseW(wchar_t *str, int length)
 {
     int start = 0;
     int end = length -1;
@@ -195,11 +207,64 @@ static wchar_t *itowL(unsigned num, wchar_t *str, int base)
     str[i] = '\0'; /* Append string terminator */
 
     /* Reverse the string */
-    reverse(str, i);
+    reverseW(str, i);
 
     return str;
 }
 #define _itow itowL
+static inline void reverseA(char *str, int length)
+{
+    int start = 0;
+    int end = length -1;
+    while (start < end) {
+        char tmp;
+        tmp = str[start];
+        str[start] = str[end];
+        str[end] = tmp;
+        start++;
+        end--;
+    }
+}
+static char *itoaL(unsigned num, char *str, int base)
+{
+    int i = 0;
+    int isNegative = 0;
+
+    /* Handle 0 explicitely */
+    if (num == 0) {
+        str[i++] = '0';
+        str[i] = '\0';
+        return str;
+    }
+
+    /* In standard itoa(), negative numbers are handled only with
+     * base 10. Otherwise numbers are considered unsigned. */
+    if ((int)num < 0 && base == 10) {
+        isNegative = 1;
+        num = -(int)num;
+    }
+
+    /* Process individual digits */
+    while (num != 0) {
+        int rem = num % base;
+        /* str[i++] = (rem > 9)? (rem-10) + 'A' : rem + '0'; */
+        str[i++] = rem + '0' + (rem > 9) * ('A' - '0' - 10); /* branchless version */
+
+        num = num/base;
+    }
+
+    /* If number is negative, append '-' */
+    if (isNegative)
+        str[i++] = '-';
+
+    str[i] = '\0'; /* Append string terminator */
+
+    /* Reverse the string */
+    reverseA(str, i);
+
+    return str;
+}
+#define _itoa itoaL
 
 static size_t wcslenL(const wchar_t *__restrict__ str)
 {
@@ -216,17 +281,7 @@ static int wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 }
 #define wcscmp wcscmpL
 
-/* stops comp at the '*' in the b param.
- * this is a kind of mini regexp that has no performance hit.
- * It also returns 0 (equal) if the b param is NULL */
-static int wcscmp_star(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
-{
-    if(!b) return 0;
-    /* if (*b == '*') return 1; */ /* Should not start with '*' */
-    while(*a && *a == *b) { a++; b++; }
-    return (*a != *b) & (*b != '*');
-}
-/* Reverse of the above function */
+/* Reverse of the next function */
 static int wcscmp_rstar(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 {
     const wchar_t *oa = a, *ob=b;
@@ -241,6 +296,17 @@ static int wcscmp_rstar(const wchar_t *__restrict__ a, const wchar_t *__restrict
 
     while(a > oa && b > ob && *a == *b) { a--; b--; }
 
+    return (*a != *b) & (*b != '*');
+}
+/* stops comp at the '*' in the b param.
+ * this is a kind of mini regexp that has no performance hit.
+ * It also returns 0 (equal) if the b param is NULL */
+static int wcscmp_star(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
+{
+    if(!b) return 0;
+    if(*b == L'*') return wcscmp_rstar(a, b);
+
+    while(*a && *a == *b) { a++; b++; }
     return (*a != *b) & (*b != '*');
 }
 
@@ -312,7 +378,7 @@ static int wcsicmpL(const wchar_t* s1, const wchar_t* s2)
 }
 #define wcsicmp wcsicmpL
 
-static int wscsicmp(const wchar_t* s1, const char* s2)
+static int wcstostricmp(const wchar_t* s1, const char* s2)
 {
     unsigned x1, x2;
 
@@ -331,7 +397,6 @@ static int wscsicmp(const wchar_t* s1, const char* s2)
     }
     return x1 - x2;
 }
-#define wcsicmp wcsicmpL
 
 wchar_t *wcscat(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
 {
@@ -351,17 +416,6 @@ static int strcmpL(const char *X, const char *Y)
 }
 #define strcmp strcmpL
 
-static const wchar_t *wcsstrL(const wchar_t *haystack, const wchar_t *needle)
-{
-    size_t i,j;
-    for (i=0; haystack[i]; ++i) {
-        for (j=0; haystack[i+j]==needle[j] && needle[j]; ++j) ;
-        if (!needle[j]) return &haystack[i];
-    }
-    return NULL;
-}
-#define wcsstr wcsstrL
-
 static const char *lstrstrA(const char *haystack, const char *needle)
 {
     size_t i,j;
@@ -380,6 +434,8 @@ static const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t *needle)
     }
     return NULL;
 }
+#define wcsstr lstrstrW
+#define strstr lstrstrA
 #ifdef UNICODE
 #define lstrstr lstrstrW
 #else
@@ -412,14 +468,14 @@ static void *reallocL(void *mem, size_t sz)
 }
 #define realloc reallocL
 
-static void *mallocL(size_t sz)
+static mallocatrib void *mallocL(size_t sz)
 {
 //    if (rand()%256 < 200) return NULL;
     return HeapAlloc(GetProcessHeap(), 0, sz);
 }
 #define malloc mallocL
 
-static void *callocL(size_t sz, size_t mult)
+static mallocatrib void *callocL(size_t sz, size_t mult)
 {
     return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sz*mult);
 }

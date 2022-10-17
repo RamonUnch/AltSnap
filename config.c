@@ -135,11 +135,13 @@ static void OpenConfig(int startpage)
     }
 
     // Define the property sheet
-    PROPSHEETHEADER psh = { sizeof(PROPSHEETHEADER) };
+    PROPSHEETHEADER psh;
+    memset(&psh, 0, sizeof(PROPSHEETHEADER));
+    psh.dwSize = sizeof(PROPSHEETHEADER);
     psh.dwFlags = PSH_PROPSHEETPAGE|PSH_USECALLBACK|PSH_USEHICON;
     psh.hwndParent = NULL;
     psh.hInstance = g_hinst;
-    psh.hIcon = LoadIconA(g_hinst, iconstr[1]);
+    psh.hIcon = LoadIcon(g_hinst, iconstr[1]);
     psh.pszCaption = APP_NAME;
     psh.nPages = ARR_SZ(pages);
     psh.ppsp = (LPCPROPSHEETPAGE) &psp;
@@ -199,7 +201,7 @@ static void UpdateStrings()
         HWND page = PropSheet_GetCurrentPageHwnd(g_cfgwnd);
         if (page != NULL) {
             int diffrows = numrows - numrows_prev;
-            WINDOWPLACEMENT wndpl = { sizeof(WINDOWPLACEMENT) };
+            WINDOWPLACEMENT wndpl; wndpl.length = sizeof(WINDOWPLACEMENT);
             // Resize window
             GetWindowPlacement(g_cfgwnd, &wndpl);
             wndpl.rcNormalPosition.bottom += 18 * diffrows;
@@ -227,7 +229,7 @@ static void MoveToCorner(HWND hwnd)
     ohwnd = hwnd;
 
     RECT rc;
-    MONITORINFO mi = { sizeof(MONITORINFO) };
+    MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
     POINT pt;
     GetCursorPos(&pt);
     GetMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi);
@@ -663,18 +665,19 @@ static void FillActionDropListS(HWND hwnd, int idc, wchar_t *inioption, struct a
 {
     HWND control = GetDlgItem(hwnd, idc);
     wchar_t txt[64];
+    int sel=0, j;
     ComboBox_ResetContent(control);
-    if (inioption)
+    if (inioption) {
+        sel = -1; // Selection to be made
         GetPrivateProfileString(L"Input", inioption, L"Nothing", txt, ARR_SZ(txt), inipath);
-    int sel, j;
-    sel = -!!inioption;
+    }
     for (j = 0; actions[j].action; j++) {
         wchar_t action_name[256];
         wcscpy_noaccel(action_name, actions[j].l10n, ARR_SZ(action_name));
         ComboBox_AddString(control, action_name);
-        if (!wcscmp(txt, actions[j].action)) {
+        if (inioption && !wcscmp(txt, actions[j].action)) {
             sel = j;
-        }
+    }
     }
     if (sel < 0) {
         // sel is negative if the string was not found in the struct actiondl:
@@ -712,7 +715,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     struct actiondl mouse_actions[] = {
         {L"Move",        l10n->input_actions_move},
         {L"Resize",      l10n->input_actions_resize},
-//        {L"Restore",     l10n->input_actions_restore},
+        {L"Restore",     l10n->input_actions_restore},
         {L"Close",       l10n->input_actions_close},
         {L"Kill",        l10n->input_actions_kill},
         {L"Minimize",    l10n->input_actions_minimize},
@@ -722,12 +725,14 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {L"PStacked",    l10n->input_actions_pstacked},
         {L"StackList",   l10n->input_actions_stacklist},
         {L"StackList2",  l10n->input_actions_stacklist2},
+        {L"AltTabList",  l10n->input_actions_alttablist},
         {L"Roll",        l10n->input_actions_roll},
         {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
         {L"Borderless",  l10n->input_actions_borderless},
         {L"Center",      l10n->input_actions_center},
         {L"MaximizeHV",  l10n->input_actions_maximizehv},
         {L"SideSnap",    l10n->input_actions_sidesnap},
+        {L"ExtendSnap",  l10n->input_actions_extendsnap},
         {L"MinAllOther", l10n->input_actions_minallother},
         {L"Mute",        l10n->input_actions_mute},
         {L"Menu",        l10n->input_actions_menu},
@@ -978,6 +983,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {L"PStacked2",   l10n->input_actions_pstacked2},
         {L"StackList",   l10n->input_actions_stacklist},
         {L"StackList2",  l10n->input_actions_stacklist2},
+        {L"AltTabList",  l10n->input_actions_alttablist},
         {L"MLZone",      l10n->input_actions_mlzone},
         {L"MTZone",      l10n->input_actions_mtzone},
         {L"MRZone",      l10n->input_actions_mrzone},
@@ -986,6 +992,14 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {L"XTZone",      l10n->input_actions_xtzone},
         {L"XRZone",      l10n->input_actions_xrzone},
         {L"XBZone",      l10n->input_actions_xbzone},
+        {L"StepL",       l10n->input_actions_stepl},
+        {L"StepT",       l10n->input_actions_stept},
+        {L"StepR",       l10n->input_actions_stepr},
+        {L"StepB",       l10n->input_actions_stepb},
+        {L"SStepL",      l10n->input_actions_sstepl},
+        {L"SStepT",      l10n->input_actions_sstept},
+        {L"SStepR",      l10n->input_actions_sstepr},
+        {L"SStepB",      l10n->input_actions_sstepb},
         {NULL, NULL}
     };
     // Hotkeys
@@ -1095,7 +1109,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                   , CS_PARENTDC
                   , PickShortcutWinProc
                   , 0, 0, g_hinst
-                  , NULL //LoadIconA(g_hinst, iconstr[1])
+                  , NULL //LoadIcon(g_hinst, iconstr[1])
                   , NULL //LoadCursor(NULL, IDC_ARROW)
                   , NULL //(HBRUSH)(COLOR_HIGHLIGHT+1)
                   , NULL, APP_NAME"-PickShortcut", NULL
@@ -1445,7 +1459,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         ScreenToClient(hwnd, &Offset);
 
         SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
-        SelectObject(hdc, pen);
+        HPEN oripen = SelectObject(hdc, pen);
         SetROP2(hdc, R2_COPYPEN);
 
         const int width = wRect.right - wRect.left;
@@ -1508,6 +1522,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             RECT trc2 = { 5, 5, crc.right, splitheight };
             DrawText(hdc, str, wcslen(str), &trc2, DT_NOCLIP|DT_TABSTOP);
         }
+        SelectObject(hdc, oripen);
 
         EndPaint(hwnd, &ps);
 
@@ -1524,6 +1539,12 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         centerfrac = GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath);
         centermode = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
         return 0;
+    case WM_NCHITTEST: {
+        // Let DWM try to handles the hittest message...
+        LRESULT result;
+        if (DwmDefWindowProcL(hwnd, msg, wParam, lParam, &result))
+            return result;
+    } break;
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
@@ -1536,7 +1557,7 @@ static HWND NewTestWindow()
             sizeof(WNDCLASSEX)
           , CS_HREDRAW|CS_VREDRAW|CS_BYTEALIGNCLIENT
           , TestWindowProc
-          , 0, 0, g_hinst, LoadIconA(g_hinst, iconstr[1])
+          , 0, 0, g_hinst, LoadIcon(g_hinst, iconstr[1])
           , LoadCursor(NULL, IDC_ARROW)
           , NULL //(HBRUSH)(COLOR_BACKGROUND+1)
           , NULL, APP_NAME"-Test", NULL

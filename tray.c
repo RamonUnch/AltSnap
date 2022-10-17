@@ -17,22 +17,22 @@ static struct { // NOTIFYICONDATA for NT4
     UINT uFlags;
     UINT uCallbackMessage;
     HICON hIcon;
-    char szTip[64];
+    wchar_t szTip[64];
 } tray;
 
 static int tray_added = 0;
 static int hide = 0;
 static int UseZones = 0;
 
-char *iconstr[] = {
-    "TRAY_OFF",
-    "TRAY_ON",
-    "TRAY_SUS"
+static const TCHAR *iconstr[] = {
+    TEXT("TRAY_OFF"),
+    TEXT("TRAY_ON"),
+    TEXT("TRAY_SUS")
 };
-static const char *traystr[] = {
-    APP_NAMEA" (Off)",
-    APP_NAMEA" (On)",
-    APP_NAMEA"...",
+static const TCHAR *traystr[] = {
+    TEXT(APP_NAMEA" (Off)"),
+    TEXT(APP_NAMEA" (On)"),
+    TEXT(APP_NAMEA"..."),
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -64,20 +64,20 @@ static int UpdateTray()
             Index=2;
     }
     // Load info tool tip and tray icon
-    strcpy(tray.szTip, traystr[Index]);
-    tray.hIcon = LoadIconA(g_hinst, iconstr[Index]);
+    wcscpy(tray.szTip, traystr[Index]);
+    tray.hIcon = LoadIcon(g_hinst, iconstr[Index]);
 
     // Only add or modify if not hidden or if balloon will be displayed
     if (!hide || tray.uFlags&NIF_INFO) {
         // Try a few times, sleep 100 ms between each attempt
         int i=1;
         LOG("Updating tray icon");
-        while (!Shell_NotifyIconA(tray_added? NIM_MODIFY: NIM_ADD, (void *)&tray) ) {
+        while (!Shell_NotifyIcon(tray_added? NIM_MODIFY: NIM_ADD, (void *)&tray) ) {
             LOG("Failed in try No. %d", i);
 
             // Maybe we just tried to add an already existing tray.
             // Happens after DPI change under Win 10 (TaskbarCreated) msg.
-            if (!tray_added && Shell_NotifyIconA(NIM_MODIFY, (void *)&tray)) {
+            if (!tray_added && Shell_NotifyIcon(NIM_MODIFY, (void *)&tray)) {
                 LOG("Updated tray icon");
                 tray_added = 1;
                 return 0;
@@ -102,7 +102,7 @@ static int RemoveTray()
     if (!tray_added)
         return 1;
 
-    if (!Shell_NotifyIconA(NIM_DELETE, (void *)&tray))
+    if (!Shell_NotifyIcon(NIM_DELETE, (void *)&tray))
         return 1;
 
     // Success

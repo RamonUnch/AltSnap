@@ -1414,42 +1414,54 @@ static HWND NewTestWindow();
 // Simple windows proc that draws the resizing regions.
 LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+	#define MAXLINES 16
     static UCHAR centerfrac=24;
     static UCHAR centermode=1;
-    static wchar_t lastkey[64]=L"";
+    static UCHAR idx=0;
+    static wchar_t lastkey[MAXLINES][48];
 
     switch (msg) {
     case WM_KEYDOWN:
-        if (wParam == 0x4E && (GetAsyncKeyState(VK_CONTROL)&0x8000)) {
+        // Ctrl+N (VK_N = 0x4E)
+        if (wParam == 0x4E && (GetKeyState(VK_CONTROL)&0x8000)) {
             NewTestWindow();
             break;
-        }
+        } /* Fall through */
     case WM_KEYUP:
     case WM_SYSKEYUP:
     case WM_SYSKEYDOWN: {
-        wchar_t txt[32];
-        wcscpy(lastkey, L"vKey = ");
-        wcscat(lastkey, _itow(wParam, txt, 16));
-        wcscat(lastkey, L", sCode = ");
-        wcscat(lastkey, _itow(HIWORD(lParam)&0x00FF, txt, 16));
-        wcscat(lastkey, L", Data = " );
-        wcscat(lastkey, _itow(lParam, txt, 16));
-        txt[0] = L','; txt[1] = L' ';
-        GetKeyNameText(lParam, txt+2, ARR_SZ(txt)-2);
-        wcscat(lastkey, txt);
+        wchar_t txt[22];
+        wcscpy(lastkey[idx], L"vK=");
+        wcscat(lastkey[idx], _itow((UCHAR)wParam, txt, 16));
+        wcscat(lastkey[idx], lParam&(1u<<31)? L" U": lParam&(1u<<30)? L" R" :L" D");
+        wcscat(lastkey[idx], L" sC=");
+        wcscat(lastkey[idx], _itow(HIWORD(lParam)&0x00FF, txt, 16));
+        wcscat(lastkey[idx], L", LP=" );
+        wcscat(lastkey[idx], _itow(lParam, txt, 16));
+        txt[0] = L','; txt[1] = L' '; txt[2] = L'\0';
+        if (GetKeyNameText(lParam, txt+2, ARR_SZ(txt)-2))
+            wcscat(lastkey[idx], txt);
         RECT crc;
         GetClientRect(hwnd, &crc);
         UINT dpi = GetDpiForWindow(hwnd);
-        long splitheight = crc.bottom-GetSystemMetricsForDpi(SM_CYCAPTION, dpi);
+        HDC hdc = GetDC(hwnd);
+        long lineheight = MulDiv(11, dpi?dpi:(UINT)GetDeviceCaps(hdc, LOGPIXELSY), 72);
+        ReleaseDC(hwnd, hdc);
+        lineheight = lineheight + lineheight/8;
+
+        long splitheight = crc.bottom-lineheight*MAXLINES;
         RECT trc =  { 5, splitheight, crc.right, crc.bottom };
         InvalidateRect(hwnd, &trc, TRUE);
+        idx++;
+        idx = idx%MAXLINES;
     } break;
 
     case WM_PAINT: {
         if(!GetUpdateRect(hwnd, NULL, FALSE)) return 0;
-        /* We must keep track of pens and delete them.*/
+        /* We must keep track of pens and delete them. */
         UINT dpi = GetDpiForWindow(hwnd);
-        const HPEN pen = (HPEN) CreatePen(PS_SOLID, GetSystemMetricsForDpi(SM_CXEDGE, dpi), GetSysColor(COLOR_BTNTEXT));
+        UINT penwidth = GetSystemMetricsForDpi(SM_CXEDGE, dpi);
+        const HPEN pen = (HPEN) CreatePen(PS_SOLID, penwidth, GetSysColor(COLOR_BTNTEXT));
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
 
@@ -1479,7 +1491,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             , Offset.x + width
             , Offset.y + (height+cheight)/2);
         if (centermode == 3) {
-            HPEN bgpen = (HPEN) CreatePen(PS_SOLID, 2, GetSysColor(COLOR_BTNFACE));
+            HPEN bgpen = (HPEN) CreatePen(PS_SOLID, penwidth, GetSysColor(COLOR_BTNFACE));
             HPEN prevpen = SelectObject(hdc, bgpen);
             Rectangle(hdc
                 , Offset.x + (width-cwidth)/2
@@ -1510,19 +1522,30 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
 
         // Draw textual info....
+        LOGFONT lfont;
+        GetObject(GetStockObject(DEFAULT_GUI_FONT), sizeof(LOGFONT), &lfont);
+        lfont.lfHeight = -MulDiv(11, dpi?dpi:(UINT)GetDeviceCaps(hdc, LOGPIXELSY), 72);
+        long lineheight = -(lfont.lfHeight + lfont.lfHeight/8);
+        HFONT oldfont = SelectObject(hdc, CreateFontIndirect(&lfont));
         SetBkMode(hdc, TRANSPARENT);
         SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
+
         RECT crc;
         GetClientRect(hwnd, &crc);
-        long splitheight = crc.bottom-GetSystemMetricsForDpi(SM_CYCAPTION, dpi);
-        RECT trc = {5, splitheight, crc.right, crc.bottom};
-        DrawText(hdc, lastkey, wcslen(lastkey), &trc, DT_NOCLIP|DT_TABSTOP);
+        UCHAR i;
+        long splitheight = crc.bottom - lineheight*MAXLINES;
+        for (i=0; i < MAXLINES; i++) {
+            UCHAR didx = (idx+i)%MAXLINES;
+            RECT trc = {5, crc.bottom-lineheight*(MAXLINES-i), crc.right, crc.bottom};
+            DrawText(hdc, lastkey[didx], wcslen(lastkey[didx]), &trc, DT_NOCLIP|DT_TABSTOP);
+        }
         wchar_t *str = l10n->zone_testwinhelp;
         if (UseZones&1) {
             RECT trc2 = { 5, 5, crc.right, splitheight };
             DrawText(hdc, str, wcslen(str), &trc2, DT_NOCLIP|DT_TABSTOP);
         }
         SelectObject(hdc, oripen);
+        DeleteObject(SelectObject(hdc, oldfont));
 
         EndPaint(hwnd, &ps);
 
@@ -1576,6 +1599,7 @@ static HWND NewTestWindow()
 
     return testwnd;
 }
+#undef MAXLINES
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {

@@ -187,6 +187,7 @@ static struct config {
     UCHAR UsePtWindow;
     // -- -- -- -- -- -- --
     UCHAR keepMousehook;
+    UCHAR EndSendKey; // Used to be VK_CONTROL
     WORD AeroMaxSpeed;
     DWORD BLCapButtons;
     DWORD BLUpperBorder;
@@ -1222,6 +1223,29 @@ static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
 
     CopyRect(_mon, full? &mi.rcMonitor : &mi.rcWork);
 }
+/////////////////////////////////////////////////////////////////////////
+// also return monitor's DPI
+//static UINT GetDPIMonitorRect(const POINT *pt, int full, RECT *_mon)
+//{
+//    UINT dpi = 0;
+//    if (state.mdiclient
+//    && GetClientRect(state.mdiclient, _mon)) {
+//        return GetDpiForWindow(state.mdiclient); // MDI!
+//    }
+//
+//    HMONITOR hmon = MonitorFromPoint(*pt, MONITOR_DEFAULTTONEAREST);
+//    MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
+//    GetMonitorInfo(hmon, &mi);
+//
+//    UINT dpiX, dpiY;
+//    if(S_OK == GetDpiForMonitorL(hmon, MDT_DEFAULT, &dpiX, &dpiY)) {
+//        dpi = dpiX;
+//    }
+//
+//    CopyRect(_mon, full? &mi.rcMonitor : &mi.rcWork);
+//    return dpi;
+//}
+
 static void WaitMovementEnd()
 { // Only wait 192ms maximum
     int i=0;
@@ -1919,7 +1943,7 @@ static void Send_KEY_UD(unsigned char vkey, WORD flags)
     SendInput(1, &input, sizeof(INPUT));
     InterlockedDecrement(&state.ignorekey);
 }
-#define Send_CTRL() Send_KEY(VK_CONTROL)
+#define Send_CTRL() if (conf.EndSendKey) Send_KEY(/*VK_CONTROL*/conf.EndSendKey)
 
 /////////////////////////////////////////////////////////////////////////////
 // Sends the click down/click up sequence to the system
@@ -2099,7 +2123,7 @@ static void ReallySetForegroundWindow(HWND hwnd)
             // We need to activate the window with key input.
             // CTRL seems to work. Also Alt works but trigers the menu
             // So it is simpler to stick to CTRL.
-            Send_CTRL();
+            Send_KEY(VK_CONTROL);
         }
         BringWindowToTop(hwnd);
         SetForegroundWindow(hwnd);
@@ -2441,6 +2465,8 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
 
     // Forward scroll message
     SendMessage(hwnd, wParam, wp, lp);
+    // Simulate small steps wheel (can be used to debug other programs)
+    //SendMessage(hwnd, WM_MOUSEWHEEL, (state.shift?(delta/7):delta)<<16, lp);
 
     // Block original scroll event
     return 1;
@@ -2894,8 +2920,8 @@ static int ActionZoom(HWND hwnd, int delta, int center)
     state.snap = conf.AutoSnap; // Only use autosnap setting.
 
     ResizeSnap(&x, &y, &width, &height
-              , min(max(left, right)-1, conf.SnapThreshold)  // initial x threshold
-              , min(max(top, bottom)-1, conf.SnapThreshold));// initial y threshold
+              , min( max(left, right)-1, conf.SnapThreshold )  // initial x threshold
+              , min( max(top, bottom)-1, conf.SnapThreshold ) );// initial y threshold
     // Make sure that the windows does not move
     // in case it is resized from bottom/right
     if (state.resize.x == RZ_LEFT) x = x+width - CLAMPW(width);
@@ -3369,7 +3395,11 @@ static HWND CreatePinWindow(const HWND owner)
         wnd.cbSize = sizeof(WNDCLASSEX);
         wnd.style = CS_NOCLOSE|CS_HREDRAW|CS_VREDRAW;
         wnd.lpfnWndProc = PinWindowProc;
+#ifdef EVENT_HOOK
         wnd.cbWndExtra = sizeof(LONG_PTR) * 2;
+#else
+        wnd.cbWndExtra = sizeof(LONG_PTR);
+#endif
         wnd.hInstance = hinstDLL;
         wnd.hCursor = LoadCursor(NULL, IDC_ARROW);
         wnd.hbrBackground = CreateSolidBrush(conf.PinColor&0x00FFFFFF);
@@ -3377,10 +3407,10 @@ static HWND CreatePinWindow(const HWND owner)
         RegisterClassEx(&wnd);
     }
     HWND ret = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST
-                      , APP_NAME"-Pin", NULL
-                      , WS_POPUP|WS_BORDER /* Start invisible */
-                      , 0, 0, 0, 0
-                      , owner, NULL, hinstDLL, NULL);
+                   , APP_NAME"-Pin", NULL
+                   , WS_POPUP|WS_BORDER /* Start invisible */
+                   , 0, 0, 0, 0
+                   , owner, NULL, hinstDLL, NULL);
     // Show pin window without activating it to avoid focus loss.
     ShowWindow(ret, SW_SHOWNA);
     return ret;
@@ -3420,7 +3450,7 @@ static void TogglesAlwaysOnTop(HWND hwnd)
     LONG_PTR topmost = GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST;
     SetWindowLevel(hwnd, topmost? HWND_NOTOPMOST: HWND_TOPMOST);
 
-    if(!topmost) {
+    if (!topmost) {
         if (conf.TopmostIndicator) CreatePinWindow(hwnd);
         ReallySetForegroundWindow(hwnd);
     } else {
@@ -3539,8 +3569,8 @@ static BOOL IsRectInMonitors(const RECT *rc)
 {
     unsigned i;
     for(i=0; i < nummonitors; i++) {
-        int inx = monitors[i].left < rc->right-4 && rc->left+4 < monitors[i].right;
-        int iny = monitors[i].top < rc->bottom-4 && rc->top+4 < monitors[i].bottom;
+        int inx = monitors[i].left < rc->right-8 && rc->left+8 < monitors[i].right;
+        int iny = monitors[i].top < rc->bottom-8 && rc->top+8 < monitors[i].bottom;
         if (inx && iny) // Windows is inside one of the monitors.
             return TRUE;
     }
@@ -3563,20 +3593,20 @@ static void StepWindow(HWND hwnd, short step, UCHAR direction)
 
     if (direction==0) {
         x += step; // x-axis
-        MoveSnap(&x, &y, width, height, threshold);
+        if (threshold) MoveSnap(&x, &y, width, height, threshold);
         y = rc.top; // y does not change.
         rc.left = x;
         rc.right = x + width;
     } else {
         y += step; // y-axis;
-        MoveSnap(&x, &y, width, height, threshold);
+        if (threshold) MoveSnap(&x, &y, width, height, threshold);
         x = rc.left; // x does not change.
         rc.top = y;
         rc.bottom = y + height;
     }
 
     if(IsRectInMonitors(&rc)) {
-        // Do not move is target rect is not in a monitor.
+        // Do not move if target rect is not in a monitor.
         SetWindowPos(hwnd, NULL
             , x, y, 0, 0
             , SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS);
@@ -4567,20 +4597,20 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi, H
 }
 static void SendSYSCOMMANDToMenuItem(HWND hwnd, int id, HMENU hmenu, WPARAM sc_command )
 {
-        if (conf.RCCloseMItem
-        && 0 <= id && (UINT)id < numhwnds
-        && GetWindowLongPtr(hwnd, GWLP_USERDATA) == 3
-        && IsWindow(hwnds[id]) ) {
-            if (sc_command == SC_CLOSE // remove topmost flag for close command
-            &&  GetWindowLongPtr(hwnds[id], GWL_EXSTYLE)&WS_EX_TOPMOST) {
-                HWND pinhwnd = GetPinWindow(hwnds[id]);
-                if (pinhwnd) DestroyWindow(pinhwnd);
-            }
-            PostMessage(hwnds[id], WM_SYSCOMMAND, sc_command, 0);
-
-            if (sc_command == SC_CLOSE)
-                EnableMenuItem(hmenu, id, MF_BYPOSITION|MF_GRAYED);
+    if (conf.RCCloseMItem
+    && 0 <= id && (UINT)id < numhwnds
+    && GetWindowLongPtr(hwnd, GWLP_USERDATA) == 3
+    && IsWindow(hwnds[id]) ) {
+        if (sc_command == SC_CLOSE // remove topmost flag for close command
+        &&  GetWindowLongPtr(hwnds[id], GWL_EXSTYLE)&WS_EX_TOPMOST) {
+            HWND pinhwnd = GetPinWindow(hwnds[id]);
+            if (pinhwnd) DestroyWindow(pinhwnd);
         }
+        PostMessage(hwnds[id], WM_SYSCOMMAND, sc_command, 0);
+
+        if (sc_command == SC_CLOSE)
+            EnableMenuItem(hmenu, id, MF_BYPOSITION|MF_GRAYED);
+    }
 }
 /////////////////////////////////////////////////////////////////////////////
 // Window for single click commands for menu
@@ -5162,6 +5192,9 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     for (i=0; i < ARR_SZ(hklst); i++) {
         readhotkeys(inipath, hklst[i].name, hklst[i].def, &conf.Hotkeys[i*(MAXKEYS+1)]);
     }
+    UCHAR eHKs[MAXKEYS+1]; // Key to be sent at the end of a movment.
+    readhotkeys(inipath, "EndSendKey", L"11", eHKs);
+    conf.EndSendKey = eHKs[0];
 
     // Read all the BLACKLITSTS
     readallblacklists(inipath);

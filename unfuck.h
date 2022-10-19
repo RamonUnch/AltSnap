@@ -439,7 +439,7 @@ static LRESULT GetDpiForMonitorL(HMONITOR hmonitor, int dpiType, UINT *dpiX, UIN
 }
 
 /* Supported wince Windows 10, version 1607 [desktop apps only] */
-static UINT GetDpiForWindowL(HWND hwnd)
+static UINT GetDpiForWindowL(const HWND hwnd)
 {
     if (myGetDpiForWindow == IPTR) { /* First time */
         myGetDpiForWindow=LoadDLLProc("USER32.DLL", "GetDpiForWindow");
@@ -460,6 +460,21 @@ static UINT GetDpiForWindowL(HWND hwnd)
 }
 #define GetDpiForWindow GetDpiForWindowL
 
+static UINT ReallyGetDpiForWindow(const HWND hwnd)
+{
+    UINT dpi = GetDpiForWindowL(hwnd);
+    if (!dpi) {
+        HDC hdc = GetDC(hwnd);
+        if(hdc) {
+            dpi = (UINT)GetDeviceCaps(hdc, LOGPIXELSY);
+            ReleaseDC(hwnd, hdc);
+            if (!dpi) dpi = 96; /* Default to 96 dpi*/
+        } else {
+            dpi = 96; /* cannot et a DC, default to 96 dpi */
+        }
+    }
+    return dpi;
+}
 /* https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enablenonclientdpiscaling
  * Available since Windows 10.0.14342 (~1607) https://stackoverflow.com/questions/36864894
  * Useless since Windows 10.0.15063 (1703)

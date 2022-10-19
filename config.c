@@ -1414,7 +1414,7 @@ static HWND NewTestWindow();
 // Simple windows proc that draws the resizing regions.
 LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-	#define MAXLINES 16
+    #define MAXLINES 16
     static UCHAR centerfrac=24;
     static UCHAR centermode=1;
     static UCHAR idx=0;
@@ -1443,14 +1443,11 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             wcscat(lastkey[idx], txt);
         RECT crc;
         GetClientRect(hwnd, &crc);
-        UINT dpi = GetDpiForWindow(hwnd);
-        HDC hdc = GetDC(hwnd);
-        long lineheight = MulDiv(11, dpi?dpi:(UINT)GetDeviceCaps(hdc, LOGPIXELSY), 72);
-        ReleaseDC(hwnd, hdc);
+        long lineheight = MulDiv(11, ReallyGetDpiForWindow(hwnd), 72);
         lineheight = lineheight + lineheight/8;
 
         long splitheight = crc.bottom-lineheight*MAXLINES;
-        RECT trc =  { 5, splitheight, crc.right, crc.bottom };
+        RECT trc =  { lineheight/2, splitheight, crc.right, crc.bottom };
         InvalidateRect(hwnd, &trc, TRUE);
         idx++;
         idx = idx%MAXLINES;
@@ -1524,7 +1521,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         // Draw textual info....
         LOGFONT lfont;
         GetObject(GetStockObject(DEFAULT_GUI_FONT), sizeof(LOGFONT), &lfont);
-        lfont.lfHeight = -MulDiv(11, dpi?dpi:(UINT)GetDeviceCaps(hdc, LOGPIXELSY), 72);
+        lfont.lfHeight = -MulDiv(11, ReallyGetDpiForWindow(hwnd), 72);
         long lineheight = -(lfont.lfHeight + lfont.lfHeight/8);
         HFONT oldfont = SelectObject(hdc, CreateFontIndirect(&lfont));
         SetBkMode(hdc, TRANSPARENT);
@@ -1536,12 +1533,12 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         long splitheight = crc.bottom - lineheight*MAXLINES;
         for (i=0; i < MAXLINES; i++) {
             UCHAR didx = (idx+i)%MAXLINES;
-            RECT trc = {5, crc.bottom-lineheight*(MAXLINES-i), crc.right, crc.bottom};
+            RECT trc = {lineheight/2, crc.bottom-lineheight*(MAXLINES-i), crc.right, crc.bottom};
             DrawText(hdc, lastkey[didx], wcslen(lastkey[didx]), &trc, DT_NOCLIP|DT_TABSTOP);
         }
         wchar_t *str = l10n->zone_testwinhelp;
         if (UseZones&1) {
-            RECT trc2 = { 5, 5, crc.right, splitheight };
+            RECT trc2 = { lineheight/2, lineheight/2, crc.right, splitheight };
             DrawText(hdc, str, wcslen(str), &trc2, DT_NOCLIP|DT_TABSTOP);
         }
         SelectObject(hdc, oripen);

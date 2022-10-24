@@ -58,9 +58,9 @@ static int UpdateTray()
 {
     int Index = !!ENABLED();
     if (Index) {
-        if ((ScrollLockState&1))
-            Index = !( !(GetKeyState(VK_SCROLL)&1) ^ !(ScrollLockState&2) );
-        else if (GetPropA(g_hwnd, APP_ASONOFF))
+        Index += (ScrollLockState&1)
+               && !( !(GetKeyState(VK_SCROLL)&1) ^ !(ScrollLockState&2) );
+        if (GetPropA(g_hwnd, APP_ASONOFF))
             Index=2;
     }
     // Load info tool tip and tray icon

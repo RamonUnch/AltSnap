@@ -3190,7 +3190,9 @@ static void CenterWindow(HWND hwnd)
         , state.origin.width
         , state.origin.height);
 }
-//// TODO: Event Hook
+
+//#define EVENT_HOOK
+// TODO: Event Hook
 #ifdef EVENT_HOOK
 static HWND GetPinWindow(HWND owner);
 static BOOL CALLBACK PostPinWindowsProcMessage(HWND hwnd, LPARAM lp);
@@ -3199,23 +3201,20 @@ static void CALLBACK HandleWinEvent(
     LONG idObject, LONG idChild,
     DWORD dwEventThread, DWORD dwmsEventTime)
 {
-    if (hwnd && event == EVENT_OBJECT_LOCATIONCHANGE) {
-        //HWND pinhwnd = GetProp(hwnd, APP_NAME"-Pin");
-        HWND pinhwnd = GetPinWindow(GetRootOwner(hwnd));
-        if (pinhwnd) PostMessage(pinhwnd, WM_TIMER, 0, 0);
-    } else if (hwnd
-    && event == EVENT_OBJECT_DESTROY
+    HWND pinhwnd = (HWND) hook; // 1st param...
+    if (hwnd
+    && (event == EVENT_OBJECT_DESTROY || event == EVENT_OBJECT_LOCATIONCHANGE)
     && idChild == INDEXID_CONTAINER
     && idObject == OBJID_WINDOW) {
-        // Refresh all pin windows.
-        EnumThreadWindows(GetCurrentThreadId(), PostPinWindowsProcMessage, WM_TIMER);
+        if (pinhwnd && GetParent(pinhwnd) == hwnd) {
+            //wchar_t txt[32];
+            //MessageBox(NULL, _itow(event, txt, 16), NULL, 0);
+            PostMessage(pinhwnd, WM_TIMER, 0, 0);
+        }
     }
 }
 #endif // EVENT_HOOK
-// EVENT_OBJECT_REORDER
-// EVENT_SYSTEM_MOVESIZEEND
-// EVENT_SYSTEM_FOREGROUND 0x0003
-// EVENT_OBJECT_DESTROY 0x8001
+
 static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser);
 /////////////////////////////////////////////////////////////////////////////
 // Pin window callback function
@@ -3234,13 +3233,52 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         RemoveProp(owner,  APP_NAME"-Pin");
 
         if (prop && threadid && lpdwProcessId) {
-            HWINEVENTHOOK hook = SetWinEventHook(
-            EVENT_OBJECT_DESTROY, EVENT_OBJECT_LOCATIONCHANGE, // Range of events
-            NULL, // Handle to DLL.
-            HandleWinEvent, // The callback.
-            lpdwProcessId, threadid, // Process and thread IDs of interest (0 = all)
-            WINEVENT_OUTOFCONTEXT); // Flags.
-            SetWindowLongPtr(hwnd, 0+sizeof(LONG_PTR), (LONG_PTR)hook);
+            #if defined(_M_AMD64) || defined(WIN64)
+                #define THUNK_SIZE 22
+            #else
+                #define THUNK_SIZE 13
+            #endif
+            BYTE *thunk = VirtualAlloc( NULL, THUNK_SIZE, MEM_COMMIT, PAGE_READWRITE );
+            // Replace the first parameter with the handle of the PinWindow.
+            // FIXME: Handle MIPS/PowerPC/ia-64/ARM/ARM64
+            #if defined(_M_AMD64) || defined(WIN64)
+                // AMD x86_64 windows : rcx, rdx, r8, r9 (ints).
+                // xmm0, xmm1, xmm2, xmm3, floating points
+                // Then push right to left.
+                // ----------------------------------
+                // ; mov rcx hwnd ->
+                // ; mov rax Procedure
+                // ; jmp rax
+                *(WORD  *)(thunk+ 0) = 0xB948;
+                *(HWND  *)(thunk+ 2) = hwnd; // <- Replace 1st param
+                *(WORD  *)(thunk+10) = 0xB848;
+                *(void **)(thunk+12) = (LONG_PTR*)HandleWinEvent;
+                *(WORD  *)(thunk+20) = 0xE0FF;
+            #else
+                // i386 __stdcall: push right to left
+                // ----------------------------------
+                // ; mov dword ptr [esp+4] hwnd
+                // ; jmp Procedure
+                *(DWORD *)(thunk+0) = 0x042444C7;
+                *(HWND  *)(thunk+4) = hwnd; // <- Replace 1st param
+                *(BYTE  *)(thunk+8) = 0xE9;
+                *(DWORD *)(thunk+9) = (BYTE*)((void*)HandleWinEvent)-(thunk+13);
+            #endif
+            DWORD oldprotect;
+            // Restrict thunk to execute only.
+            VirtualProtect(thunk, THUNK_SIZE, PAGE_EXECUTE, &oldprotect);
+            FlushInstructionCache(GetCurrentProcess(), thunk, THUNK_SIZE);
+
+            HWINEVENTHOOK hook =
+            SetWinEventHook(
+                EVENT_OBJECT_DESTROY, EVENT_OBJECT_LOCATIONCHANGE, // Range of events=8001-800Bh
+                NULL, // Handle to DLL.
+                (void*)thunk, // The callback function (thunked)
+                lpdwProcessId, threadid, // Process and thread IDs of interest (0 = all)
+                WINEVENT_OUTOFCONTEXT // Flags.
+                );
+            SetWindowLongPtr(hwnd, 0+sizeof(LONG_PTR), (LONG_PTR)hook); // save hook
+            SetWindowLongPtr(hwnd, 0+2*sizeof(LONG_PTR), (LONG_PTR)thunk); // save thunk
             if (hook) {
                 PostMessage(hwnd, WM_TIMER, 0, 0);
                 break;
@@ -3375,6 +3413,9 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 #ifdef EVENT_HOOK
         HWINEVENTHOOK hook = (HWINEVENTHOOK)GetWindowLongPtr(hwnd, 0+sizeof(LONG_PTR));
         if (hook) UnhookWinEvent(hook);
+        // Free the thunk.
+        BYTE *thunk = (BYTE *)GetWindowLongPtr(hwnd, 0+2*sizeof(LONG_PTR));
+        if (thunk) VirtualFree(thunk, 0, MEM_RELEASE);
 #endif // EVENT_HOOK
         // Remove topmost flag if the pin gets destroyed.
         HWND ow;
@@ -3396,7 +3437,7 @@ static HWND CreatePinWindow(const HWND owner)
         wnd.style = CS_NOCLOSE|CS_HREDRAW|CS_VREDRAW;
         wnd.lpfnWndProc = PinWindowProc;
 #ifdef EVENT_HOOK
-        wnd.cbWndExtra = sizeof(LONG_PTR) * 2;
+        wnd.cbWndExtra = sizeof(LONG_PTR) * 3;
 #else
         wnd.cbWndExtra = sizeof(LONG_PTR);
 #endif
@@ -3774,12 +3815,19 @@ static void SClickActions(HWND hwnd, enum action action)
     else if (action==AC_EXTENDSNAP)  SnapToCorner(hwnd, !state.shift);
     else if (action==AC_MENU)        ActionMenu(hwnd);
     else if (action==AC_NSTACKED)    ActionAltTab(state.prevpt, +1, EnumStackedWindowsProc);
-    else if (action==AC_NSTACKED2)   {state.shift = 1; ActionAltTab(state.prevpt, +1, EnumStackedWindowsProc); state.shift = 0;}
+    else if (action==AC_NSTACKED2) {  state.shift = 1;
+                                      ActionAltTab(state.prevpt, +1, EnumStackedWindowsProc);
+                                      state.shift = 0;
+                                    }
     else if (action==AC_PSTACKED)    ActionAltTab(state.prevpt, -1, EnumStackedWindowsProc);
-    else if (action==AC_PSTACKED2)   { state.shift = 1; ActionAltTab(state.prevpt, -1, EnumStackedWindowsProc); state.shift = 0;}
+    else if (action==AC_PSTACKED2) {  state.shift = 1;
+                                      ActionAltTab(state.prevpt, -1, EnumStackedWindowsProc);
+                                      state.shift = 0;
+                                   }
     else if (action==AC_STACKLIST)   ActionStackList(state.shift);
     else if (action==AC_STACKLIST2)  ActionStackList(!state.shift);
-    else if (action==AC_ALTTABLIST)  PostMessage(g_hkhwnd, WM_STACKLIST, 1, state.shift?(LPARAM)EnumStackedWindowsProc:(LPARAM)EnumAltTabWindows);
+    else if (action==AC_ALTTABLIST)  PostMessage(g_hkhwnd, WM_STACKLIST, 1
+                                         , state.shift?(LPARAM)EnumStackedWindowsProc:(LPARAM)EnumAltTabWindows);
     else if (action==AC_MLZONE)      MoveWindowToTouchingZone(hwnd, 0, 0); // mLeft
     else if (action==AC_MTZONE)      MoveWindowToTouchingZone(hwnd, 1, 0); // mTop
     else if (action==AC_MRZONE)      MoveWindowToTouchingZone(hwnd, 2, 0); // mBottom
@@ -3809,7 +3857,8 @@ static int DoWheelActions(HWND hwnd, enum action action)
     }
     int ret=1;
 
-    if      (action == AC_ALTTAB)       ActionAltTab(state.prevpt, state.delta, state.shift?EnumStackedWindowsProc:EnumAltTabWindows);
+    if      (action == AC_ALTTAB)       ActionAltTab(state.prevpt, state.delta
+                                            , state.shift?EnumStackedWindowsProc:EnumAltTabWindows);
     else if (action == AC_VOLUME)       ActionVolume(state.delta);
     else if (action == AC_TRANSPARENCY) ret = ActionTransparency(hwnd, state.delta);
     else if (action == AC_LOWER)        ActionLower(hwnd, state.delta, state.shift);
@@ -4720,7 +4769,7 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         if (GetWindowLongPtr(hwnd, GWLP_USERDATA) == 3) {
             WORD item;
             if (conf.NumberMenuItems) {
-	            // Lower case the input character.
+                // Lower case the input character.
                 // O-9 then A-Z
                 item = ('0' <= c && c <= '9')? c-'0'
                      : ('a' <= c && c <= 'z')? c-'a'+10
@@ -4861,6 +4910,7 @@ __declspec(dllexport) void Unload()
     free(wnds);
     free(snwnds);
     free(minhwnds);
+    free(Zones);
 }
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated and title and class are | separated.

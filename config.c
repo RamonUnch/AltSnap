@@ -224,6 +224,7 @@ static void UpdateStrings()
 }
 static void MoveToCorner(HWND hwnd)
 {
+    hwnd = GetAncestor(hwnd, GA_ROOT);
     static HWND ohwnd;
     if(hwnd == ohwnd) return;
     ohwnd = hwnd;
@@ -1022,11 +1023,8 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         { L"A1",    l10n->input_hotkeys_rightshift},
     };
     static const struct optlst optlst[] = {
-        { IDC_AGGRESSIVEPAUSE,  T_BOL, 0, L"Input", "AggressivePause", 0 },
-        { IDC_AGGRESSIVEKILL,   T_BOL, 0, L"Input", "AggressiveKill", 0 },
         { IDC_SCROLLLOCKSTATE,  T_BMK, 0, L"Input", "ScrollLockState", 0},
         { IDC_UNIKEYHOLDMENU,   T_BOL, 0, L"Input", "UniKeyHoldMenu", 0},
-        { IDC_NPSTACKED,        T_BOL, 0, L"Input", "NPStacked", 0},
         { IDC_KEYCOMBO,         T_BOL, 0, L"Input", "KeyCombo", 0 },
         { IDC_USEPTWINDOW,      T_BOL, 0, L"KBShortcuts", "UsePtWindow", 0},
     };
@@ -1416,6 +1414,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 {
     #define MAXLINES 16
     static UCHAR centerfrac=24;
+    static UCHAR sidefrac=100;
     static UCHAR centermode=1;
     static UCHAR idx=0;
     static wchar_t lastkey[MAXLINES][48];
@@ -1456,9 +1455,12 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_PAINT: {
         if(!GetUpdateRect(hwnd, NULL, FALSE)) return 0;
         /* We must keep track of pens and delete them. */
-        UINT dpi = GetDpiForWindow(hwnd);
-        UINT penwidth = GetSystemMetricsForDpi(SM_CXEDGE, dpi);
-        const HPEN pen = (HPEN) CreatePen(PS_SOLID, penwidth, GetSysColor(COLOR_BTNTEXT));
+        const UINT dpi = GetDpiForWindow(hwnd);
+        const UINT penwidth = GetSystemMetricsForDpi(SM_CXEDGE, dpi);
+        const COLORREF txtcolor = GetSysColor(COLOR_BTNTEXT);
+        const COLORREF bgcolor  = GetSysColor(COLOR_BTNFACE);
+        const HPEN pen = (HPEN) CreatePen(PS_SOLID, penwidth, txtcolor);
+
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
 
@@ -1477,25 +1479,44 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         const int cheight = height*centerfrac/100;
 
         FillRect(hdc, &ps.rcPaint, (HBRUSH)(COLOR_BTNFACE+1));
-        Rectangle(hdc
-            , Offset.x + (width-cwidth)/2
-            , Offset.y
-            , Offset.x + (width+cwidth)/2
-            , Offset.y + height);
-        Rectangle(hdc
-            , Offset.x
-            , Offset.y + (height-cheight)/2
-            , Offset.x + width
-            , Offset.y + (height+cheight)/2);
-        if (centermode == 3) {
-            HPEN bgpen = (HPEN) CreatePen(PS_SOLID, penwidth, GetSysColor(COLOR_BTNFACE));
-            HPEN prevpen = SelectObject(hdc, bgpen);
-            Rectangle(hdc
+        if (centermode != 3)
+            Rectangle(hdc // Draw central rectangle
                 , Offset.x + (width-cwidth)/2
                 , Offset.y + (height-cheight)/2
-                , Offset.x + (width+cwidth)/2
-                , Offset.y + (height+cheight)/2);
-            DeleteObject(SelectObject(hdc, prevpen)); // delete bgpen.
+                , Offset.x + (width+cwidth)/2 +1
+                , Offset.y + (height+cheight)/2+1);
+
+        // Side lines
+        const int swidth = width*min(centerfrac, sidefrac)/100;
+        const int sheight = height*min(centerfrac, sidefrac)/100;
+        POINT ptss[16]={// Left
+                        { 0,                (height-sheight)/2 },
+                        { (width-cwidth)/2, (height-sheight)/2 },
+                        { 0,                (height+sheight)/2 },
+                        { (width-cwidth)/2, (height+sheight)/2 },
+                        // Right
+                        { (width+cwidth)/2, (height-sheight)/2 },
+                        { width,            (height-sheight)/2 },
+                        { (width+cwidth)/2, (height+sheight)/2 },
+                        { width,            (height+sheight)/2 },
+                        // Top
+                        { (width-swidth)/2, 0                  },
+                        { (width-swidth)/2, (height-cheight)/2 },
+                        { (width+swidth)/2, 0                  },
+                        { (width+swidth)/2, (height-cheight)/2 },
+                        // Bottom
+                        { (width-swidth)/2, (height+cheight)/2 },
+                        { (width-swidth)/2, height             },
+                        { (width+swidth)/2, (height+cheight)/2 },
+                        { (width+swidth)/2, height             },
+                      };
+        OffsetPoints(ptss, Offset.x, Offset.y, 16);
+        int j;
+        for (j=0; j < 16; j+=2) {
+            Polyline(hdc, &ptss[j], 2);
+        }
+
+        if (centermode == 3) { // Closest side mode
             // Draw diagonal lines
             POINT pts[4] ={ { (width-cwidth)/2, (height-cheight)/2 },
                             { (width+cwidth)/2, (height+cheight)/2 },
@@ -1506,14 +1527,14 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             Polyline(hdc, pts  , 2);
             Polyline(hdc, pts+2, 2);
 
-            HPEN dotpen = (HPEN) CreatePen(PS_DOT, 1, GetSysColor(COLOR_BTNTEXT));
-            prevpen = SelectObject(hdc, dotpen);
-            SetBkColor(hdc, GetSysColor(COLOR_BTNFACE));
-            Rectangle(hdc
+            HPEN dotpen = (HPEN) CreatePen(PS_DOT, 1, txtcolor);
+            HPEN prevpen = SelectObject(hdc, dotpen);
+            SetBkColor(hdc, bgcolor);
+            Rectangle(hdc // Draw dashed central rectagle
                 , Offset.x+(width-cwidth)/2
                 , Offset.y+(height-cheight)/2
-                , (width+cwidth)/2 + Offset.x
-                , (height+cheight)/2 + Offset.y);
+                , (width+cwidth)/2 + Offset.x+1
+                , (height+cheight)/2 + Offset.y+1);
             // restore oldpen and delete dotpen
             DeleteObject(SelectObject(hdc, prevpen));
         }
@@ -1525,7 +1546,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         long lineheight = -(lfont.lfHeight + lfont.lfHeight/8);
         HFONT oldfont = SelectObject(hdc, CreateFontIndirect(&lfont));
         SetBkMode(hdc, TRANSPARENT);
-        SetTextColor(hdc, GetSysColor(COLOR_BTNTEXT));
+        SetTextColor(hdc, txtcolor);
 
         RECT crc;
         GetClientRect(hwnd, &crc);
@@ -1558,6 +1579,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_UPDCFRACTION:
         centerfrac = GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath);
         centermode = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
+        sidefrac   = GetPrivateProfileInt(L"General", L"SidesFraction", 100, inipath);
         return 0;
     case WM_NCHITTEST: {
         // Let DWM try to handles the hittest message...
@@ -1615,6 +1637,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         { IDC_TOPMOSTINDICATOR, T_BOL, 0, L"Advanced", "TopmostIndicator", 0},
 
         { IDC_CENTERFRACTION,   T_STR, 0, L"General",  "CenterFraction",L"24" },
+        { IDC_SIDESFRACTION,    T_STR, 0, L"General",  "SidesFraction",L"100" },
         { IDC_AEROHOFFSET,      T_STR, 0, L"General",  "AeroHoffset",   L"50" },
         { IDC_AEROVOFFSET,      T_STR, 0, L"General",  "AeroVoffset",   L"50" },
         { IDC_SNAPTHRESHOLD,    T_STR, 0, L"Advanced", "SnapThreshold", L"20" },

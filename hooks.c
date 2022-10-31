@@ -135,6 +135,7 @@ static struct config {
     UCHAR MDI;
     UCHAR ResizeCenter;
     UCHAR CenterFraction;
+    UCHAR SidesFraction;
     UCHAR AVoff;
     UCHAR AHoff;
     UCHAR MoveTrans;
@@ -2965,7 +2966,7 @@ static int ActionMove(POINT pt, int button)
     }
     return -1;
 }
-static void SetEdgeAndOffset(const RECT *wnd, POINT pt)
+static void SetEdgeAndOffsetCF(const RECT *wnd, const UCHAR centerfrac, POINT pt)
 {
     // Set edge and offset
     // Think of the window as nine boxes (corner regions get 38%, middle only 24%)
@@ -2973,7 +2974,7 @@ static void SetEdgeAndOffset(const RECT *wnd, POINT pt)
     // which is not what you see when resizing a window that Windows Aero resized
     int wndwidth  = wnd->right  - wnd->left;
     int wndheight = wnd->bottom - wnd->top;
-    int SideS = (100-conf.CenterFraction)/2;
+    int SideS = (100-centerfrac)/2;
     int CenteR = 100-SideS;
 
     if (pt.x-wnd->left < (wndwidth*SideS)/100) {
@@ -2999,6 +3000,16 @@ static void SetEdgeAndOffset(const RECT *wnd, POINT pt)
     // Set window right/bottom origin
     state.origin.right = wnd->right-state.mdipt.x;
     state.origin.bottom = wnd->bottom-state.mdipt.y;
+}
+static void SetEdgeAndOffset(const RECT *wnd, POINT pt)
+{
+    SetEdgeAndOffsetCF(wnd, conf.CenterFraction, pt);
+    if (conf.SidesFraction <= conf.CenterFraction
+    && !(state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER)) {
+        // Split in half the remaining;
+        SetEdgeAndOffsetCF(wnd, conf.SidesFraction, pt);
+    }
+
 }
 static void SnapToCorner(HWND hwnd, int extend)
 {
@@ -3239,6 +3250,7 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
                 #define THUNK_SIZE 13
             #endif
             BYTE *thunk = VirtualAlloc( NULL, THUNK_SIZE, MEM_COMMIT, PAGE_READWRITE );
+            if (!thunk) break;
             // Replace the first parameter with the handle of the PinWindow.
             // FIXME: Handle MIPS/PowerPC/ia-64/ARM/ARM64
             #if defined(_M_AMD64) || defined(WIN64)
@@ -3266,7 +3278,8 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             #endif
             DWORD oldprotect;
             // Restrict thunk to execute only.
-            VirtualProtect(thunk, THUNK_SIZE, PAGE_EXECUTE, &oldprotect);
+            BOOL ret = VirtualProtect(thunk, THUNK_SIZE, PAGE_EXECUTE, &oldprotect);
+            if (!ret) break;
             FlushInstructionCache(GetCurrentProcess(), thunk, THUNK_SIZE);
 
             HWINEVENTHOOK hook =
@@ -5139,6 +5152,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {L"General", "MDI", 0 },
         {L"General", "ResizeCenter", 1 },
         {L"General", "CenterFraction", 24 },
+        {L"General", "SidesFraction", 100 },
         {L"General", "AeroHoffset", 50 },
         {L"General", "AeroVoffset", 50 },
         {L"General", "MoveTrans", 255 },

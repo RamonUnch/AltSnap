@@ -636,7 +636,7 @@ static const struct strings en_US = {
 
  /* advanced tab */
  /* metrics_box      */   L"Metrics",
- /* centerfraction   */   L"&Center fraction (%):",
+ /* centerfraction   */   L"&Center/Sides fraction (%):",
  /* aerohoffset      */   L"Aero offset(%) &Horizontal:",
  /* aeroVoffset      */   L"&Vertical:",
  /* snapthreshold    */   L"&Snap Threshold (pixels):",

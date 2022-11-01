@@ -3001,14 +3001,50 @@ static void SetEdgeAndOffsetCF(const RECT *wnd, const UCHAR centerfrac, POINT pt
     state.origin.right = wnd->right-state.mdipt.x;
     state.origin.bottom = wnd->bottom-state.mdipt.y;
 }
-static void SetEdgeAndOffset(const RECT *wnd, POINT pt)
+
+// Use disgonals to determine the closest side.
+static void SetEdgeToClosestSide(const RECT *wnd, const POINT pt)
+{
+    const int W = wnd->right - wnd->left;
+    const int H = wnd->bottom - wnd->top;
+    const int x = pt.x - wnd->left;
+    const int y = pt.y - wnd->top;
+    char TR = y * W     <= H * x; // T/C or R/C mode
+    char TL = (H-y) * W >= H * x; // B/C or C/C mode
+    if (TR) { // Top or right
+        if (TL) {
+            state.resize.y = RZ_TOP;
+            state.offset.y = pt.y-wnd->top;
+        } else {
+            state.resize.x = RZ_RIGHT;
+            state.offset.x = wnd->right-pt.x;
+        }
+    } else { // Bottom or Left
+        if (TL) { // Bottom right
+            state.resize.x = RZ_LEFT;
+            state.offset.x = pt.x-wnd->left;
+        } else {
+            state.resize.y = RZ_BOTTOM;
+            state.offset.y = wnd->bottom-pt.y;
+        }
+    }
+}
+static void SetEdgeAndOffset(const RECT *wnd, const POINT pt)
 {
     SetEdgeAndOffsetCF(wnd, conf.CenterFraction, pt);
-    if (conf.SidesFraction <= conf.CenterFraction
-    && !(state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER)) {
-        // Split in half the remaining;
-        SetEdgeAndOffsetCF(wnd, conf.SidesFraction, pt);
+    if (conf.SidesFraction == conf.CenterFraction) {
+        // Classic 9 quadrent mode
+        return;
     }
+    // Special mode.
+    if (state.resize.x != RZ_CENTER || state.resize.y != RZ_CENTER) {
+        SetEdgeAndOffsetCF(wnd, conf.SidesFraction, pt);
+        if (conf.SidesFraction < conf.CenterFraction) {
+        } else { // (SidesFraction > CenterFraction)
+            SetEdgeToClosestSide(wnd, pt);
+        }
+    }
+
 
 }
 static void SnapToCorner(HWND hwnd, int extend)
@@ -3102,6 +3138,7 @@ static void SnapToCorner(HWND hwnd, int extend)
     if ( !(GetRestoreFlag(hwnd)&SNAPPED) )
         SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED|restore);
 }
+
 /////////////////////////////////////////////////////////////////////////////
 static int ActionResize(POINT pt, const RECT *wnd, int button)
 {
@@ -3130,29 +3167,7 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
             state.action = AC_MOVE;
         } else if (conf.ResizeCenter == 3) {
             // Use diagonals to select pure L/C R/C T/C B/C
-            int W = wnd->right - wnd->left;
-            int H = wnd->bottom - wnd->top;
-            int x = pt.x - wnd->left;
-            int y = pt.y - wnd->top;
-            char TR = y * W     <= H * x; // T/C or R/C mode
-            char TL = (H-y) * W >= H * x; // B/C or C/C mode
-            if (TR) { // Top or right
-                if (TL) {
-                    state.resize.y = RZ_TOP;
-                    state.offset.y = pt.y-wnd->top;
-                } else {
-                    state.resize.x = RZ_RIGHT;
-                    state.offset.x = wnd->right-pt.x;
-                }
-            } else { // Bottom or Left
-                if (TL) { // Bottom right
-                    state.resize.x = RZ_LEFT;
-                    state.offset.x = pt.x-wnd->left;
-                } else {
-                    state.resize.y = RZ_BOTTOM;
-                    state.offset.y = wnd->bottom-pt.y;
-                }
-            }
+            SetEdgeToClosestSide(wnd, pt);
         }
     }
     return -1;
@@ -5152,7 +5167,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {L"General", "MDI", 0 },
         {L"General", "ResizeCenter", 1 },
         {L"General", "CenterFraction", 24 },
-        {L"General", "SidesFraction", 100 },
+        {L"General", "SidesFraction", 255 },
         {L"General", "AeroHoffset", 50 },
         {L"General", "AeroVoffset", 50 },
         {L"General", "MoveTrans", 255 },
@@ -5220,6 +5235,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     // [General] consistency checks
     conf.CenterFraction=min(conf.CenterFraction, 100);
+    if(conf.SidesFraction == 255) conf.SidesFraction = conf.CenterFraction;
     conf.AHoff        = min(conf.AHoff,          100);
     conf.AVoff        = min(conf.AVoff,          100);
     conf.AeroSpeedTau = max(1, conf.AeroSpeedTau);

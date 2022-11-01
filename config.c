@@ -1487,33 +1487,55 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 , Offset.y + (height+cheight)/2+1);
 
         // Side lines
-        const int swidth = width*min(centerfrac, sidefrac)/100;
-        const int sheight = height*min(centerfrac, sidefrac)/100;
+        const int swidth = width*sidefrac/100;
+        const int sheight = height*sidefrac/100;
+        const int kwidth = max(cwidth, swidth);
+        const int kheight = max(cheight, sheight);
         POINT ptss[16]={// Left
                         { 0,                (height-sheight)/2 },
-                        { (width-cwidth)/2, (height-sheight)/2 },
+                        { (width-kwidth)/2, (height-sheight)/2 },
                         { 0,                (height+sheight)/2 },
-                        { (width-cwidth)/2, (height+sheight)/2 },
+                        { (width-kwidth)/2, (height+sheight)/2 },
                         // Right
-                        { (width+cwidth)/2, (height-sheight)/2 },
+                        { (width+kwidth)/2, (height-sheight)/2 },
                         { width,            (height-sheight)/2 },
-                        { (width+cwidth)/2, (height+sheight)/2 },
+                        { (width+kwidth)/2, (height+sheight)/2 },
                         { width,            (height+sheight)/2 },
                         // Top
                         { (width-swidth)/2, 0                  },
-                        { (width-swidth)/2, (height-cheight)/2 },
+                        { (width-swidth)/2, (height-kheight)/2 },
                         { (width+swidth)/2, 0                  },
-                        { (width+swidth)/2, (height-cheight)/2 },
+                        { (width+swidth)/2, (height-kheight)/2 },
                         // Bottom
-                        { (width-swidth)/2, (height+cheight)/2 },
+                        { (width-swidth)/2, (height+kheight)/2 },
                         { (width-swidth)/2, height             },
-                        { (width+swidth)/2, (height+cheight)/2 },
+                        { (width+swidth)/2, (height+kheight)/2 },
                         { (width+swidth)/2, height             },
                       };
         OffsetPoints(ptss, Offset.x, Offset.y, 16);
         int j;
         for (j=0; j < 16; j+=2) {
             Polyline(hdc, &ptss[j], 2);
+        }
+        if (centerfrac < sidefrac) {
+            // We must draw 4 extra diagonal lines.
+            POINT pts[8]={ // Top-Left
+                          { (width-kwidth)/2, (height-sheight)/2 },
+                          { (width-cwidth)/2, (height-cheight)/2 },
+                          // Top-Right
+                          { (width+kwidth)/2, (height-sheight)/2 },
+                          { (width+cwidth)/2, (height-cheight)/2 },
+                          // Bottom-Left
+                          { (width-swidth)/2, (height+kheight)/2 },
+                          { (width-cwidth)/2, (height+cheight)/2 },
+                          // Bottom-Right
+                          { (width+swidth)/2, (height+kheight)/2 },
+                          { (width+cwidth)/2, (height+cheight)/2 },
+                         };
+            OffsetPoints(pts, Offset.x, Offset.y, 16);
+            for (j=0; j < 8; j+=2) {
+                Polyline(hdc, &pts[j], 2);
+            }
         }
 
         if (centermode == 3) { // Closest side mode
@@ -1580,6 +1602,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         centerfrac = GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath);
         centermode = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
         sidefrac   = GetPrivateProfileInt(L"General", L"SidesFraction", 100, inipath);
+        if (sidefrac == 255) sidefrac = centerfrac;
         return 0;
     case WM_NCHITTEST: {
         // Let DWM try to handles the hittest message...

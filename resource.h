@@ -185,5 +185,5 @@
 #define IDC_SHIFT                       2103
 #define IDC_SHORTCUTS_VK                2104
 #define IDC_SHORTCUTS_CLEAR             2105
-
 #define IDC_USEPTWINDOW                 2106
+#define IDC_SIDESFRACTION               2107

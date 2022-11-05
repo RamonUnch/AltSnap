@@ -135,6 +135,7 @@ static struct config {
     UCHAR MDI;
     UCHAR ResizeCenter;
     UCHAR CenterFraction;
+    UCHAR SidesFraction;
     UCHAR AVoff;
     UCHAR AHoff;
     UCHAR MoveTrans;
@@ -2965,7 +2966,7 @@ static int ActionMove(POINT pt, int button)
     }
     return -1;
 }
-static void SetEdgeAndOffset(const RECT *wnd, POINT pt)
+static void SetEdgeAndOffsetCF(const RECT *wnd, const UCHAR centerfrac, POINT pt)
 {
     // Set edge and offset
     // Think of the window as nine boxes (corner regions get 38%, middle only 24%)
@@ -2973,7 +2974,7 @@ static void SetEdgeAndOffset(const RECT *wnd, POINT pt)
     // which is not what you see when resizing a window that Windows Aero resized
     int wndwidth  = wnd->right  - wnd->left;
     int wndheight = wnd->bottom - wnd->top;
-    int SideS = (100-conf.CenterFraction)/2;
+    int SideS = (100-centerfrac)/2;
     int CenteR = 100-SideS;
 
     if (pt.x-wnd->left < (wndwidth*SideS)/100) {
@@ -2999,6 +3000,52 @@ static void SetEdgeAndOffset(const RECT *wnd, POINT pt)
     // Set window right/bottom origin
     state.origin.right = wnd->right-state.mdipt.x;
     state.origin.bottom = wnd->bottom-state.mdipt.y;
+}
+
+// Use disgonals to determine the closest side.
+static void SetEdgeToClosestSide(const RECT *wnd, const POINT pt)
+{
+    const int W = wnd->right - wnd->left;
+    const int H = wnd->bottom - wnd->top;
+    const int x = pt.x - wnd->left;
+    const int y = pt.y - wnd->top;
+    char TR = y * W     <= H * x; // T/C or R/C mode
+    char TL = (H-y) * W >= H * x; // B/C or C/C mode
+    if (TR) { // Top or right
+        if (TL) {
+            state.resize.y = RZ_TOP;
+            state.offset.y = pt.y-wnd->top;
+        } else {
+            state.resize.x = RZ_RIGHT;
+            state.offset.x = wnd->right-pt.x;
+        }
+    } else { // Bottom or Left
+        if (TL) { // Bottom right
+            state.resize.x = RZ_LEFT;
+            state.offset.x = pt.x-wnd->left;
+        } else {
+            state.resize.y = RZ_BOTTOM;
+            state.offset.y = wnd->bottom-pt.y;
+        }
+    }
+}
+static void SetEdgeAndOffset(const RECT *wnd, const POINT pt)
+{
+    SetEdgeAndOffsetCF(wnd, conf.CenterFraction, pt);
+    if (conf.SidesFraction == conf.CenterFraction) {
+        // Classic 9 quadrent mode
+        return;
+    }
+    // Special mode.
+    if (state.resize.x != RZ_CENTER || state.resize.y != RZ_CENTER) {
+        SetEdgeAndOffsetCF(wnd, conf.SidesFraction, pt);
+        if (conf.SidesFraction < conf.CenterFraction) {
+        } else { // (SidesFraction > CenterFraction)
+            SetEdgeToClosestSide(wnd, pt);
+        }
+    }
+
+
 }
 static void SnapToCorner(HWND hwnd, int extend)
 {
@@ -3091,6 +3138,7 @@ static void SnapToCorner(HWND hwnd, int extend)
     if ( !(GetRestoreFlag(hwnd)&SNAPPED) )
         SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED|restore);
 }
+
 /////////////////////////////////////////////////////////////////////////////
 static int ActionResize(POINT pt, const RECT *wnd, int button)
 {
@@ -3119,29 +3167,7 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
             state.action = AC_MOVE;
         } else if (conf.ResizeCenter == 3) {
             // Use diagonals to select pure L/C R/C T/C B/C
-            int W = wnd->right - wnd->left;
-            int H = wnd->bottom - wnd->top;
-            int x = pt.x - wnd->left;
-            int y = pt.y - wnd->top;
-            char TR = y * W     <= H * x; // T/C or R/C mode
-            char TL = (H-y) * W >= H * x; // B/C or C/C mode
-            if (TR) { // Top or right
-                if (TL) {
-                    state.resize.y = RZ_TOP;
-                    state.offset.y = pt.y-wnd->top;
-                } else {
-                    state.resize.x = RZ_RIGHT;
-                    state.offset.x = wnd->right-pt.x;
-                }
-            } else { // Bottom or Left
-                if (TL) { // Bottom right
-                    state.resize.x = RZ_LEFT;
-                    state.offset.x = pt.x-wnd->left;
-                } else {
-                    state.resize.y = RZ_BOTTOM;
-                    state.offset.y = wnd->bottom-pt.y;
-                }
-            }
+            SetEdgeToClosestSide(wnd, pt);
         }
     }
     return -1;
@@ -3239,6 +3265,7 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
                 #define THUNK_SIZE 13
             #endif
             BYTE *thunk = VirtualAlloc( NULL, THUNK_SIZE, MEM_COMMIT, PAGE_READWRITE );
+            if (!thunk) break;
             // Replace the first parameter with the handle of the PinWindow.
             // FIXME: Handle MIPS/PowerPC/ia-64/ARM/ARM64
             #if defined(_M_AMD64) || defined(WIN64)
@@ -3266,7 +3293,8 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             #endif
             DWORD oldprotect;
             // Restrict thunk to execute only.
-            VirtualProtect(thunk, THUNK_SIZE, PAGE_EXECUTE, &oldprotect);
+            BOOL ret = VirtualProtect(thunk, THUNK_SIZE, PAGE_EXECUTE, &oldprotect);
+            if (!ret) break;
             FlushInstructionCache(GetCurrentProcess(), thunk, THUNK_SIZE);
 
             HWINEVENTHOOK hook =
@@ -5139,6 +5167,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {L"General", "MDI", 0 },
         {L"General", "ResizeCenter", 1 },
         {L"General", "CenterFraction", 24 },
+        {L"General", "SidesFraction", 255 },
         {L"General", "AeroHoffset", 50 },
         {L"General", "AeroVoffset", 50 },
         {L"General", "MoveTrans", 255 },
@@ -5206,6 +5235,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     // [General] consistency checks
     conf.CenterFraction=min(conf.CenterFraction, 100);
+    if(conf.SidesFraction == 255) conf.SidesFraction = conf.CenterFraction;
     conf.AHoff        = min(conf.AHoff,          100);
     conf.AVoff        = min(conf.AVoff,          100);
     conf.AeroSpeedTau = max(1, conf.AeroSpeedTau);

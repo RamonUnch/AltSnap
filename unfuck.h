@@ -30,7 +30,7 @@ enum DWMWINDOWATTRIBUTE {
   DWMWA_EXCLUDED_FROM_PEEK,
   DWMWA_CLOAK,
   /* Windows 8+ */
-  DWMWA_CLOAKED, // 14
+  DWMWA_CLOAKED, /* 14 */
   DWMWA_FREEZE_REPRESENTATION,
   DWMWA_PASSIVE_UPDATE_MODE,
   DWMWA_USE_HOSTBACKDROPBRUSH,              /* Set, *pvAttribute=BOOL */
@@ -60,7 +60,7 @@ enum MONITOR_DPI_TYPE {
 
 /* Invalid pointer with which we initialize
  * all dynamically imported functions */
-#define IPTR ((void*)(-1))
+#define IPTR (1)
 
 #define QWORD unsigned long long
 #ifdef WIN64
@@ -106,11 +106,12 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
     , UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 #endif
 
-#ifndef LOG_STUFF
-#define LOG_STUFF 0
-#endif
 #define LOGA(X, ...) {DWORD err=GetLastError(); FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fprintf(LOG,", LastError=%lu\n",err); fclose(LOG); SetLastError(0); }
+#ifdef LOG_STUFF
 #define LOG(X, ...) if(LOG_STUFF) LOGA(X, ##__VA_ARGS__)
+#else
+#define LOG(...)
+#endif
 
 #ifdef DEBUG
 #include <assert.h>
@@ -124,11 +125,11 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
 #endif
 
 /* on both x64 and x32 */
-#define GetLayeredWindowAttributes GetLayeredWindowAttributesL
-#define SetLayeredWindowAttributes SetLayeredWindowAttributesL
 #define NtSuspendProcess NtSuspendProcessL
 #define NtResumeProcess NtResumeProcessL
 #ifndef WIN64
+    #define GetLayeredWindowAttributes GetLayeredWindowAttributesL
+    #define SetLayeredWindowAttributes SetLayeredWindowAttributesL
     #define GetAncestor GetAncestorL
     #undef GetMonitorInfo
     #define GetMonitorInfo GetMonitorInfoL
@@ -137,34 +138,6 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
     #define MonitorFromWindow MonitorFromWindowL
 /*    #define GetGUIThreadInfo GetGUIThreadInfoL (NT4 SP3+/Win98+) */
 #endif
-
-/* USER32.DLL */
-static BOOL (WINAPI *mySetLayeredWindowAttributes)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags) = IPTR;
-static BOOL (WINAPI *myGetLayeredWindowAttributes)(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWORD *pdwFlags) = IPTR;
-static HWND (WINAPI *myGetAncestor)(HWND hwnd, UINT gaFlags) = IPTR;
-static BOOL (WINAPI *myEnumDisplayMonitors)(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, LPARAM dwData) = IPTR;
-static BOOL (WINAPI *myGetMonitorInfoW)(HMONITOR hMonitor, LPMONITORINFO lpmi) = IPTR;
-static HMONITOR (WINAPI *myMonitorFromPoint)(POINT pt, DWORD dwFlags) = IPTR;
-static HMONITOR (WINAPI *myMonitorFromWindow)(HWND hwnd, DWORD dwFlags) = IPTR;
-static BOOL (WINAPI *myGetGUIThreadInfo)(DWORD idThread, LPGUITHREADINFO lpgui) = IPTR;
-static int (WINAPI *myGetSystemMetricsForDpi)(int  nIndex, UINT dpi) = IPTR;
-static UINT (WINAPI *myGetDpiForWindow)(HWND hwnd) = IPTR;
-static BOOL (WINAPI *mySystemParametersInfoForDpi)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT  fWinIni, UINT  dpi) = IPTR;
-static HWINEVENTHOOK (WINAPI *mySetWinEventHook)(DWORD eventMin, DWORD eventMax, HMODULE hmodWinEventProc, WINEVENTPROC pfnWinEventProc, DWORD idProcess, DWORD idThread, DWORD dwFlags) = IPTR;
-static BOOL (WINAPI *myUnhookWinEvent)(HWINEVENTHOOK hWinEventHook) = IPTR;
-/* DWMAPI.DLL */
-static HRESULT (WINAPI *myDwmGetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c) = IPTR;
-static HRESULT (WINAPI *myDwmSetWindowAttribute)(HWND hwnd, DWORD a, PVOID b, DWORD c) = IPTR;
-static HRESULT (WINAPI *myDwmIsCompositionEnabled)(BOOL *pfEnabled) = IPTR;
-static HRESULT (WINAPI *myDwmGetColorizationColor)(DWORD *pcrColorization, BOOL *pfOpaqueBlend) = IPTR;
-static BOOL (WINAPI *myDwmDefWindowProc)(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam, LRESULT *plResult)=IPTR;
-
-/* SHCORE.DLL */
-static HRESULT (WINAPI *myGetDpiForMonitor)(HMONITOR hmonitor, int dpiType, UINT *dpiX, UINT *dpiY) = IPTR;
-
-/* NTDLL.DLL */
-static LONG (NTAPI *myNtSuspendProcess)(HANDLE ProcessHandle) = IPTR;
-static LONG (NTAPI *myNtResumeProcess )(HANDLE ProcessHandle) = IPTR;
 
 /* Helper function to pop a message bow with error code*/
 static void ErrorBox(TCHAR *title)
@@ -237,10 +210,10 @@ static BOOL HaveProc(char *DLLname, char *PROCname)
     return ret;
 }
 
-static void *LoadDLLProc(char *DLLname, char *PROCname)
+static FARPROC LoadDLLProc(const char *DLLname, const char *PROCname)
 {
     HINSTANCE hdll;
-    void *ret = NULL;
+    FARPROC ret = (FARPROC)NULL;
 
     if((hdll = GetModuleHandleA(DLLname))) {
         return GetProcAddress(hdll, PROCname);
@@ -254,22 +227,23 @@ static void *LoadDLLProc(char *DLLname, char *PROCname)
 }
 
 /* Accurate Sleep, needs WINMM.DLL */
-static MMRESULT (WINAPI *mtimeGetDevCaps)(LPTIMECAPS ptc, UINT cbtc) = IPTR;
-static MMRESULT (WINAPI *mtimeBeginPeriod)(UINT uPeriod) = IPTR;
-static MMRESULT (WINAPI *mtimeEndPeriod)(UINT uPeriod) = IPTR;
 static void ASleep(DWORD duration_ms)
 {
+    static MMRESULT (WINAPI *mtimeGetDevCaps)(LPTIMECAPS ptc, UINT cbtc) = (MMRESULT (WINAPI *)(LPTIMECAPS ptc, UINT cbtc))IPTR;
+    static MMRESULT (WINAPI *mtimeBeginPeriod)(UINT uPeriod);
+    static MMRESULT (WINAPI *mtimeEndPeriod)(UINT uPeriod);
+
     if (duration_ms > 15) {
         /* No need for accurate sleep... */
         Sleep(duration_ms);
         return;
     }
-    if (mtimeGetDevCaps == IPTR) {
+    if (mtimeGetDevCaps == (MMRESULT (WINAPI *)(LPTIMECAPS ptc, UINT cbtc))IPTR) {
         HANDLE h=LoadLibraryA("WINMM.DLL");
         if (h) {
-            mtimeGetDevCaps =(void *)GetProcAddress(h, "timeGetDevCaps");
-            mtimeBeginPeriod=(void *)GetProcAddress(h, "timeBeginPeriod");
-            mtimeEndPeriod  =(void *)GetProcAddress(h, "timeEndPeriod");
+            mtimeGetDevCaps =(MMRESULT (WINAPI *)(LPTIMECAPS ptc, UINT cbtc))GetProcAddress(h, "timeGetDevCaps");
+            mtimeBeginPeriod=(MMRESULT (WINAPI *)(UINT uPeriod))GetProcAddress(h, "timeBeginPeriod");
+            mtimeEndPeriod  =(MMRESULT (WINAPI *)(UINT uPeriod))GetProcAddress(h, "timeEndPeriod");
             if(!mtimeGetDevCaps || !mtimeBeginPeriod || !mtimeEndPeriod) {
                 mtimeGetDevCaps=NULL;
                 FreeLibrary(h);
@@ -303,16 +277,18 @@ static BOOL FreeDLLByName(char *DLLname)
 }
 static HWND GetAncestorL(HWND hwnd, UINT gaFlags)
 {
+    #define FUNK_TYPE ( HWND (WINAPI *)(HWND hwnd, UINT gaFlags) )
+    static HWND (WINAPI *funk)(HWND hwnd, UINT gaFlags) = FUNK_TYPE IPTR;
     HWND hlast, hprevious;
     LONG wlong;
     if(!hwnd) return NULL;
     hprevious = hwnd;
 
-    if (myGetAncestor == IPTR) {
-        myGetAncestor = LoadDLLProc("USER32.DLL", "GetAncestor");
+    if (funk == FUNK_TYPE IPTR) {
+        funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "GetAncestor");
     }
-    if(myGetAncestor) { /* We know we have the function */
-        return myGetAncestor(hwnd, gaFlags);
+    if(funk) { /* We know we have the function */
+        return funk(hwnd, gaFlags);
     }
     /* Fallback */
     while ( (hlast = GetParent(hprevious)) != NULL ){
@@ -321,37 +297,49 @@ static HWND GetAncestorL(HWND hwnd, UINT gaFlags)
         hprevious=hlast;
     }
     return hprevious;
+    #undef FUNK_TYPE
 }
 
 static BOOL GetLayeredWindowAttributesL(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWORD *pdwFlags)
 {
-    if (myGetLayeredWindowAttributes == IPTR) {
-        myGetLayeredWindowAttributes=LoadDLLProc("USER32.DLL", "GetLayeredWindowAttributes");
+    #define FUNK_TYPE ( BOOL (WINAPI *)(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWORD *pdwFlags) )
+    static BOOL (WINAPI *funk)(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWORD *pdwFlags) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) {
+        funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "GetLayeredWindowAttributes");
     }
-    if (myGetLayeredWindowAttributes) { /* We know we have the function */
-        return myGetLayeredWindowAttributes(hwnd, pcrKey, pbAlpha, pdwFlags);
+    if (funk) { /* We know we have the function */
+        return funk(hwnd, pcrKey, pbAlpha, pdwFlags);
     }
     return FALSE;
+    #undef FUNK_TYPE
 }
 
 static BOOL SetLayeredWindowAttributesL(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)
 {
-    if (mySetLayeredWindowAttributes == IPTR) { /* First time */
-        mySetLayeredWindowAttributes=LoadDLLProc("USER32.DLL", "SetLayeredWindowAttributes");
+    #define FUNK_TYPE ( BOOL (WINAPI *)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags) )
+    static BOOL (WINAPI *funk)(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk= FUNK_TYPE LoadDLLProc("USER32.DLL", "SetLayeredWindowAttributes");
     }
-    if(mySetLayeredWindowAttributes) { /* We know we have the function */
-        return mySetLayeredWindowAttributes(hwnd, crKey, bAlpha, dwFlags);
+    if(funk) { /* We know we have the function */
+        return funk(hwnd, crKey, bAlpha, dwFlags);
     }
     return FALSE;
+    #undef FUNK_TYPE
 }
 
 static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
 {
-    if (myGetMonitorInfoW == IPTR) { /* First time */
-        myGetMonitorInfoW=LoadDLLProc("USER32.DLL", "GetMonitorInfoW");
+    #define FUNK_TYPE ( BOOL (WINAPI *)(HMONITOR hMonitor, LPMONITORINFO lpmi) )
+    static BOOL (WINAPI *funk)(HMONITOR hMonitor, LPMONITORINFO lpmi) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "GetMonitorInfoW");
     }
-    if(myGetMonitorInfoW) { /* We know we have the function */
-        if(hMonitor) return myGetMonitorInfoW(hMonitor, lpmi);
+    if(funk) { /* We know we have the function */
+        if(hMonitor) return funk(hMonitor, lpmi);
     }
     /* Fallback for NT4 */
     GetClientRect(GetDesktopWindow(), &lpmi->rcMonitor);
@@ -359,17 +347,21 @@ static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
     lpmi->dwFlags = MONITORINFOF_PRIMARY;
 
     return TRUE;
+    #undef FUNK_TYPE
 }
 
 static BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, LPARAM dwData)
 {
+    #define FUNK_TYPE ( BOOL (WINAPI *)(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, LPARAM dwData) )
+    static BOOL (WINAPI *funk)(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, LPARAM dwData) = FUNK_TYPE IPTR;
+
     MONITORINFO mi;
 
-    if (myEnumDisplayMonitors == IPTR) { /* First time */
-        myEnumDisplayMonitors=LoadDLLProc("USER32.DLL", "EnumDisplayMonitors");
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk= FUNK_TYPE LoadDLLProc("USER32.DLL", "EnumDisplayMonitors");
     }
-    if (myEnumDisplayMonitors) { /* We know we have the function */
-        return myEnumDisplayMonitors(hdc, lprcClip, lpfnEnum, dwData);
+    if (funk) { /* We know we have the function */
+        return funk(hdc, lprcClip, lpfnEnum, dwData);
     }
 
     /* Fallbak */
@@ -377,75 +369,99 @@ static BOOL EnumDisplayMonitorsL(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfn
     lpfnEnum(NULL, NULL, &mi.rcMonitor, 0); /* Callback function */
 
     return TRUE;
+    #undef FUNK_TYPE
 }
 
 static HMONITOR MonitorFromPointL(POINT pt, DWORD dwFlags)
 {
-    if (myMonitorFromPoint == IPTR) { /* First time */
-        myMonitorFromPoint=LoadDLLProc("USER32.DLL", "MonitorFromPoint");
+    #define FUNK_TYPE ( HMONITOR (WINAPI *)(POINT pt, DWORD dwFlags) )
+    static HMONITOR (WINAPI *funk)(POINT pt, DWORD dwFlags) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "MonitorFromPoint");
     }
-    if (myMonitorFromPoint) { /* We know we have the function */
-        return myMonitorFromPoint(pt, dwFlags);
+    if (funk) { /* We know we have the function */
+        return funk(pt, dwFlags);
     }
     return NULL;
+    #undef FUNK_TYPE
 }
 
 static HMONITOR MonitorFromWindowL(HWND hwnd, DWORD dwFlags)
 {
-    if (myMonitorFromWindow == IPTR) { /* First time */
-        myMonitorFromWindow=LoadDLLProc("USER32.DLL", "MonitorFromWindow");
+    #define FUNK_TYPE ( HMONITOR (WINAPI *)(HWND hwnd, DWORD dwFlags) )
+    static HMONITOR (WINAPI *funk)(HWND hwnd, DWORD dwFlags) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "MonitorFromWindow");
     }
-    if (myMonitorFromWindow) { /* We know we have the function */
-        return myMonitorFromWindow(hwnd, dwFlags);
+    if (funk) { /* We know we have the function */
+        return funk(hwnd, dwFlags);
     }
     return NULL;
+    #undef FUNK_TYPE
 }
 
 static BOOL GetGUIThreadInfoL(DWORD pid, LPGUITHREADINFO lpgui)
 {
-    if (myGetGUIThreadInfo == IPTR) { /* First time */
-        myGetGUIThreadInfo=LoadDLLProc("USER32.DLL", "GetGUIThreadInfo");
+    #define FUNK_TYPE ( BOOL (WINAPI *)(DWORD pid, LPGUITHREADINFO lpgui) )
+    static BOOL (WINAPI *funk)(DWORD pid, LPGUITHREADINFO lpgui) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "GetGUIThreadInfo");
     }
-    if (myGetGUIThreadInfo) { /* We know we have the function */
-        return myGetGUIThreadInfo(pid, lpgui);
+    if (funk) { /* We know we have the function */
+        return funk(pid, lpgui);
     }
     return FALSE;
+    #undef FUNK_TYPE
 }
 
 static int GetSystemMetricsForDpiL(int  nIndex, UINT dpi)
 {
+    #define FUNK_TYPE ( int (WINAPI *)(int  nIndex, UINT dpi) )
+    static int (WINAPI *funk)(int  nIndex, UINT dpi) = FUNK_TYPE IPTR;
+
     if (dpi) {
-        if (myGetSystemMetricsForDpi == IPTR) { /* First time */
-            myGetSystemMetricsForDpi=LoadDLLProc("USER32.DLL", "GetSystemMetricsForDpi");
+        if (funk == FUNK_TYPE IPTR) { /* First time */
+            funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "GetSystemMetricsForDpi");
         }
-        if (myGetSystemMetricsForDpi) { /* We know we have the function */
-            return myGetSystemMetricsForDpi(nIndex, dpi);
+        if (funk) { /* We know we have the function */
+            return funk(nIndex, dpi);
         }
     }
     /* Use non dpi stuff if dpi == 0 or if it does not exist. */
     return GetSystemMetrics(nIndex);
+    #undef FUNK_TYPE
 }
 #define GetSystemMetricsForDpi GetSystemMetricsForDpiL
 
-static LRESULT GetDpiForMonitorL(HMONITOR hmonitor, int dpiType, UINT *dpiX, UINT *dpiY)
+static HRESULT GetDpiForMonitorL(HMONITOR hmonitor, int dpiType, UINT *dpiX, UINT *dpiY)
 {
-    if (myGetDpiForMonitor == IPTR) { /* First time */
-        myGetDpiForMonitor=LoadDLLProc("SHCORE.DLL", "GetDpiForMonitor");
+    #define FUNK_TYPE ( HRESULT (WINAPI *)(HMONITOR hmonitor, int dpiType, UINT *dpiX, UINT *dpiY) )
+    static HRESULT (WINAPI *funk)(HMONITOR hmonitor, int dpiType, UINT *dpiX, UINT *dpiY) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk = FUNK_TYPE LoadDLLProc("SHCORE.DLL", "GetDpiForMonitor");
     }
-    if (myGetDpiForMonitor) { /* We know we have the function */
-        return myGetDpiForMonitor(hmonitor, dpiType, dpiX, dpiY);
+    if (funk) { /* We know we have the function */
+        return funk(hmonitor, dpiType, dpiX, dpiY);
     }
     return 666; /* Fail with 666 error */
+    #undef FUNK_TYPE
 }
 
 /* Supported wince Windows 10, version 1607 [desktop apps only] */
 static UINT GetDpiForWindowL(const HWND hwnd)
 {
-    if (myGetDpiForWindow == IPTR) { /* First time */
-        myGetDpiForWindow=LoadDLLProc("USER32.DLL", "GetDpiForWindow");
+    #define FUNK_TYPE ( UINT (WINAPI *)(const HWND hwnd) )
+    static UINT (WINAPI *funk)(const HWND hwnd) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "GetDpiForWindow");
     }
-    if (myGetDpiForWindow) { /* We know we have the function */
-        return myGetDpiForWindow(hwnd);
+    if (funk) { /* We know we have the function */
+        return funk(hwnd);
     }
 
     /* Windows 8.1 / Server2012 R2 Fallback */
@@ -457,6 +473,7 @@ static UINT GetDpiForWindowL(const HWND hwnd)
     }
 
     return 0; /* Not handled */
+    #undef FUNK_TYPE
 }
 #define GetDpiForWindow GetDpiForWindowL
 
@@ -484,23 +501,26 @@ static UINT ReallyGetDpiForWindow(const HWND hwnd)
 static BOOL EnableNonClientDpiScalingL(HWND hwnd)
 {
     /* For Windows 10 below build 15063 */
-    static BOOL (WINAPI *myEnableNonClientDpiScaling)(HWND hwnd) = IPTR;
-    if (myEnableNonClientDpiScaling == IPTR) { /* First time */
-        myEnableNonClientDpiScaling=LoadDLLProc("USER32.DLL", "EnableNonClientDpiScaling");
+    #define FUNK_TYPE ( BOOL (WINAPI *)(HWND hwnd) )
+    static BOOL (WINAPI *funk)(HWND hwnd) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "EnableNonClientDpiScaling");
     }
-    if (myEnableNonClientDpiScaling) { /* We know we have the function */
-        return myEnableNonClientDpiScaling(hwnd);
+    if (funk) { /* We know we have the function */
+        return funk(hwnd);
     }
     return FALSE;
+    #undef FUNK_TYPE
 }
 static xpure BOOL OredredWinVer()
 {
     static DWORD WinVer;
     if (!WinVer) {
         DWORD ver = GetVersion();
-        WinVer = (ver&0x000000FF) << 24 // MAJOR
-               | (ver&0x0000FF00) << 8  // MINOR
-               | (ver&0xFFFF0000) >> 16;// BUILDID
+        WinVer = (ver&0x000000FF) << 24 /* MAJOR */
+               | (ver&0x0000FF00) << 8  /* MINOR */
+               | (ver&0xFFFF0000) >> 16;/* BUILDID */
     }
     return WinVer;
 }
@@ -550,16 +570,20 @@ static int GetSystemMetricsForWin(int nIndex, HWND hwnd)
 }
 static BOOL SystemParametersInfoForDpiL(UINT uiAction, UINT uiParam, PVOID pvParam, UINT  fWinIni, UINT dpi)
 {
+    #define FUNK_TYPE ( BOOL (WINAPI *)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT  fWinIni, UINT dpi) )
+    static BOOL (WINAPI *funk)(UINT uiAction, UINT uiParam, PVOID pvParam, UINT  fWinIni, UINT dpi) = FUNK_TYPE IPTR;
+
     if (dpi) {
-        if (mySystemParametersInfoForDpi == IPTR) { /* First time */
-            mySystemParametersInfoForDpi=LoadDLLProc("USER32.DLL", "SystemParametersInfoForDpi");
+        if (funk == FUNK_TYPE IPTR) { /* First time */
+            funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "SystemParametersInfoForDpi");
         }
-        if (mySystemParametersInfoForDpi) { /* We know we have the function */
-            return mySystemParametersInfoForDpi(uiAction, uiParam, pvParam, fWinIni, dpi);
+        if (funk) { /* We know we have the function */
+            return funk(uiAction, uiParam, pvParam, fWinIni, dpi);
         }
     }
     /* Not handeled */
     return SystemParametersInfo(uiAction, uiParam, pvParam, fWinIni);
+    #undef FUNK_TYPE
 }
 #define SystemParametersInfoForDpi SystemParametersInfoForDpiL
 
@@ -569,60 +593,81 @@ static HWINEVENTHOOK SetWinEventHookL(
     , WINEVENTPROC pfnWinEventProc
     , DWORD idProcess, DWORD idThread, DWORD dwFlags)
 {
-    if (mySetWinEventHook == IPTR) { /* First time */
-        mySetWinEventHook=LoadDLLProc("USER32.DLL", "SetWinEventHook");
+    #define FUNK_TYPE ( HWINEVENTHOOK (WINAPI *)(DWORD evm, DWORD evM, HMODULE hmod, WINEVENTPROC wevp, DWORD idProcess, DWORD idThread, DWORD dwFlags) )
+    static HWINEVENTHOOK (WINAPI *funk)(DWORD evm, DWORD evM, HMODULE hmod, WINEVENTPROC wevp, DWORD idProcess, DWORD idThread, DWORD dwFlags)= FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "SetWinEventHook");
     }
-    if (mySetWinEventHook) { /* We know we have the function */
-        return mySetWinEventHook(eventMin, eventMax, hmodWinEventProc
+    if (funk) { /* We know we have the function */
+        return funk(eventMin, eventMax, hmodWinEventProc
                     , pfnWinEventProc, idProcess, idThread, dwFlags);
     }
     /* Failed */
     return NULL;
+    #undef FUNK_TYPE
 }
 static BOOL UnhookWinEventL(HWINEVENTHOOK hWinEventHook)
 {
-    if (myUnhookWinEvent == IPTR) { /* First time */
-        myUnhookWinEvent=LoadDLLProc("USER32.DLL", "UnhookWinEvent");
+    #define FUNK_TYPE ( BOOL (WINAPI *)(HWINEVENTHOOK hWinEventHook) )
+    static BOOL (WINAPI *funk)(HWINEVENTHOOK hWinEventHook) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "UnhookWinEvent");
     }
-    if (myUnhookWinEvent) { /* We know we have the function */
-        return myUnhookWinEvent(hWinEventHook);
+    if (funk) { /* We know we have the function */
+        return funk(hWinEventHook);
     }
     /* Failed */
     return FALSE;
+    #undef FUNK_TYPE
 }
 
 static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 {
-    if (myDwmGetWindowAttribute == IPTR) { /* First time */
-        myDwmGetWindowAttribute=LoadDLLProc("DWMAPI.DLL", "DwmGetWindowAttribute");
+    #define FUNK_TYPE ( HRESULT (WINAPI *)(HWND hwnd, DWORD a, PVOID b, DWORD c) )
+    static HRESULT (WINAPI *funk)(HWND hwnd, DWORD a, PVOID b, DWORD c) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk = FUNK_TYPE LoadDLLProc("DWMAPI.DLL", "DwmGetWindowAttribute");
     }
-    if (myDwmGetWindowAttribute) { /* We know we have the function */
-        return myDwmGetWindowAttribute(hwnd, a, b, c);
+    if (funk) { /* We know we have the function */
+        return funk(hwnd, a, b, c);
     }
     /* DwmGetWindowAttribute return 0 on sucess ! */
     return 666; /* Here we FAIL with 666 error    */
+    #undef FUNK_TYPE
 }
+
 static HRESULT DwmSetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 {
-    if (myDwmSetWindowAttribute == IPTR) { /* First time */
-        myDwmSetWindowAttribute=LoadDLLProc("DWMAPI.DLL", "DwmSetWindowAttribute");
+    #define FUNK_TYPE ( HRESULT (WINAPI *)(HWND hwnd, DWORD a, PVOID b, DWORD c) )
+    static HRESULT (WINAPI *funk)(HWND hwnd, DWORD a, PVOID b, DWORD c) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk = FUNK_TYPE LoadDLLProc("DWMAPI.DLL", "DwmSetWindowAttribute");
     }
-    if (myDwmSetWindowAttribute) { /* We know we have the function */
-        return myDwmSetWindowAttribute(hwnd, a, b, c);
+    if (funk) { /* We know we have the function */
+        return funk(hwnd, a, b, c);
     }
     /* myDwmSetWindowAttribute return 0 on sucess ! */
     return 666; /* Here we FAIL with 666 error    */
+    #undef FUNK_TYPE
 }
 static HRESULT DwmGetColorizationColorL(DWORD *a, BOOL *b)
 {
-    if (myDwmGetColorizationColor == IPTR) { /* First time */
-        myDwmGetColorizationColor=LoadDLLProc("DWMAPI.DLL", "DwmGetColorizationColor");
+    #define FUNK_TYPE ( HRESULT (WINAPI *)(DWORD *a, BOOL *b) )
+    static HRESULT (WINAPI *funk)(DWORD *a, BOOL *b) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk = FUNK_TYPE LoadDLLProc("DWMAPI.DLL", "DwmGetColorizationColor");
     }
-    if (myDwmGetColorizationColor) { /* We know we have the function */
-        return myDwmGetColorizationColor(a, b);
+    if (funk) { /* We know we have the function */
+        return funk(a, b);
     }
     /* return 0 on sucess ! */
     return 666; /* Here we FAIL with 666 error    */
+    #undef FUNK_TYPE
 }
 
 static COLORREF GetSysColorizationColor()
@@ -766,28 +811,39 @@ static BOOL GetCaptionButtonsRect(HWND hwnd, RECT *rc)
 
 static LONG NtSuspendProcessL(HANDLE ProcessHandle)
 {
-    if (myNtSuspendProcess == IPTR) { /* First time */
-        myNtSuspendProcess=LoadDLLProc("NTDLL.DLL", "NtSuspendProcess");
+    #define FUNK_TYPE ( HRESULT (NTAPI *)(HANDLE ProcessHandle) )
+    static HRESULT (NTAPI *funk)(HANDLE ProcessHandle) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk = FUNK_TYPE LoadDLLProc("NTDLL.DLL", "NtSuspendProcess");
     }
-    if (myNtSuspendProcess) { /* We know we have the function */
-        return myNtSuspendProcess(ProcessHandle);
+    if (funk) { /* We know we have the function */
+        return funk(ProcessHandle);
     }
     return 666; /* Here we FAIL with 666 error    */
+    #undef FUNK_TYPE
 }
 
 static LONG NtResumeProcessL(HANDLE ProcessHandle)
 {
-    if (myNtResumeProcess == IPTR) { /* First time */
-        myNtResumeProcess=LoadDLLProc("NTDLL.DLL", "NtResumeProcess");
+    #define FUNK_TYPE ( HRESULT (NTAPI *)(HANDLE ProcessHandle) )
+    static HRESULT (NTAPI *funk)(HANDLE ProcessHandle) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk = FUNK_TYPE LoadDLLProc("NTDLL.DLL", "NtResumeProcess");
     }
-    if (myNtResumeProcess) { /* We know we have the function */
-        return myNtResumeProcess(ProcessHandle);
+    if (funk) { /* We know we have the function */
+        return funk(ProcessHandle);
     }
     return 666; /* Here we FAIL with 666 error    */
+    #undef FUNK_TYPE
 }
 
 static HRESULT DwmIsCompositionEnabledL(BOOL *pfEnabled)
 {
+    #define FUNK_TYPE ( HRESULT (WINAPI *)(BOOL *pfEnabled) )
+    HRESULT (WINAPI *funk)(BOOL *pfEnabled) = FUNK_TYPE IPTR;
+
     HINSTANCE hdll=NULL;
     HRESULT ret ;
 
@@ -796,9 +852,9 @@ static HRESULT DwmIsCompositionEnabledL(BOOL *pfEnabled)
 
     hdll = LoadLibraryA("DWMAPI.DLL");
     if(hdll) {
-        myDwmIsCompositionEnabled = (void *)GetProcAddress(hdll, "DwmIsCompositionEnabled");
-        if(myDwmIsCompositionEnabled) {
-            ret = myDwmIsCompositionEnabled(pfEnabled);
+        funk = FUNK_TYPE GetProcAddress(hdll, "DwmIsCompositionEnabled");
+        if(funk) {
+            ret = funk(pfEnabled);
         } else {
             *pfEnabled = FALSE;
             ret = 666;
@@ -806,6 +862,7 @@ static HRESULT DwmIsCompositionEnabledL(BOOL *pfEnabled)
         FreeLibrary(hdll);
     }
     return ret;
+    #undef FUNK_TYPE
 }
 
 static BOOL HaveDWM()
@@ -821,38 +878,48 @@ static BOOL HaveDWM()
 
 static BOOL DwmDefWindowProcL(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam, LRESULT *plResult)
 {
-    if (myDwmDefWindowProc == IPTR) { /* First time */
-        myDwmDefWindowProc=LoadDLLProc("DWMAPI.DLL", "DwmDefWindowProc");
+    #define FUNK_TYPE ( BOOL (WINAPI *)(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam, LRESULT *plResult) )
+    static BOOL (WINAPI *funk)(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam, LRESULT *plResult) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk= FUNK_TYPE LoadDLLProc("DWMAPI.DLL", "DwmDefWindowProc");
     }
-    if (myDwmDefWindowProc) { /* We know we have the function */
-        return myDwmDefWindowProc(hWnd, msg, wParam, lParam, plResult);
+    if (funk) { /* We know we have the function */
+        return funk(hWnd, msg, wParam, lParam, plResult);
     }
     return FALSE;
+    #undef FUNK_TYPE
 }
 
 /* PSAPI.DLL */
-static DWORD (WINAPI *myGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize) = IPTR;
 static DWORD GetModuleFileNameExL(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize)
 {
-    if (myGetModuleFileNameEx == IPTR) { /* First time */
-        myGetModuleFileNameEx=LoadDLLProc("PSAPI.DLL", "GetModuleFileNameExW");
-    }
-    if (myGetModuleFileNameEx) { /* We have the function */
-        return myGetModuleFileNameEx(hProcess, hModule, lpFilename, nSize);
-    }
-    return 0;
-}
-static DWORD (WINAPI *myGetProcessImageFileName)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize) = IPTR;
+    #define FUNK_TYPE ( DWORD (WINAPI *)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize) )
+    static DWORD (WINAPI *funk)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize) = FUNK_TYPE IPTR;
 
-DWORD GetProcessImageFileNameL(HANDLE hProcess, LPWSTR lpImageFileName, DWORD    nSize)
-{
-    if (myGetProcessImageFileName == IPTR) {
-        myGetProcessImageFileName=LoadDLLProc("PSAPI.DLL", "GetProcessImageFileNameW");
+    if (funk == FUNK_TYPE IPTR) { /* First time */
+        funk = FUNK_TYPE LoadDLLProc("PSAPI.DLL", "GetModuleFileNameExW");
     }
-    if (myGetProcessImageFileName) {
-        return myGetProcessImageFileName(hProcess, lpImageFileName, nSize);
+    if (funk) { /* We have the function */
+        return funk(hProcess, hModule, lpFilename, nSize);
     }
     return 0;
+    #undef FUNK_TYPE
+}
+
+static DWORD GetProcessImageFileNameL(HANDLE hProcess, LPWSTR lpImageFileName, DWORD    nSize)
+{
+    #define FUNK_TYPE ( DWORD (WINAPI *)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize) )
+    static DWORD (WINAPI *funk)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) {
+        funk = FUNK_TYPE LoadDLLProc("PSAPI.DLL", "GetProcessImageFileNameW");
+    }
+    if (funk) {
+        return funk(hProcess, lpImageFileName, nSize);
+    }
+    return 0;
+    #undef FUNK_TYPE
 }
 
 static DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
@@ -1010,8 +1077,10 @@ static int HitTestTimeoutL(HWND hwnd, LPARAM lParam)
 {
     DorQWORD area=0;
 
-//    if(DwmDefWindowProcL(hwnd, WM_NCHITTEST, 0, lParam, (LRESULT*)&area))
-//        return area;
+/*
+    if(DwmDefWindowProcL(hwnd, WM_NCHITTEST, 0, lParam, (LRESULT*)&area))
+        return area;
+*/
 
     while(hwnd && SendMessageTimeout(hwnd, WM_NCHITTEST, 0, lParam, SMTO_NORMAL, 255, &area)){
         if((int)area == HTTRANSPARENT)
@@ -1165,28 +1234,28 @@ static void RectFromPts(RECT *rc, const POINT a, const POINT b)
 
 /* DownlevelLCIDToLocaleName in NLSDL.DLL */
 /* LCIDToLocaleName  in KERNEL32.DLL*/
-static int LCIDToLocaleNameL(LCID Locale, LPWSTR  lpName, int cchName, DWORD   dwFlags)
+static int LCIDToLocaleNameL(LCID Locale, LPWSTR lpName, int cchName, DWORD dwFlags)
 {
-    static int (WINAPI *myLCIDToLocaleName)(LCID Locale, LPWSTR  lpName, int cchName, DWORD   dwFlags) = IPTR;
-    if (myLCIDToLocaleName == IPTR) { /* First time */
-        myLCIDToLocaleName=(void*)GetProcAddress(GetModuleHandleA("KERNEL32.DLL"), "LCIDToLocaleName");
-    }
-    if (myLCIDToLocaleName) { /* Function in KERNEL32.DLL */
-        return myLCIDToLocaleName(Locale, lpName, cchName, dwFlags);
-    } else {
-        HANDLE h = LoadLibraryA("NLSDL.DLL");
-        if (h) {
-            int ret=0;
-            int (WINAPI *myDwLCIDToLocaleName)(LCID Locale, LPWSTR  lpName, int cchName, DWORD   dwFlags);
-            myDwLCIDToLocaleName = (void*)GetProcAddress(h, "DownlevelLCIDToLocaleName");
-            if (myDwLCIDToLocaleName)
-                ret = myDwLCIDToLocaleName(Locale, lpName, cchName, dwFlags);
-            FreeLibrary(h);
-            return ret;
-        }
-    }
+    #define FUNK_TYPE ( int (WINAPI *)(LCID Locale, LPWSTR  lpName, int cchName, DWORD dwFlags) )
+    int (WINAPI *funk)(LCID Locale, LPWSTR  lpName, int cchName, DWORD dwFlags);
+    funk = FUNK_TYPE GetProcAddress(GetModuleHandleA("KERNEL32.DLL"), "LCIDToLocaleName");
 
+    if (funk) { /* Function in KERNEL32.DLL */
+        return funk(Locale, lpName, cchName, dwFlags);
+    }
+    /* Unable to find KERNEL32.DLL::LCIDToLocaleName
+     * Try with NLSDL.DLL::DownlevelLCIDToLocaleName */
+    HANDLE h = LoadLibraryA("NLSDL.DLL");
+    if (h) {
+        int ret=0;
+        funk = FUNK_TYPE GetProcAddress(h, "DownlevelLCIDToLocaleName");
+        if (funk)
+            ret = funk(Locale, lpName, cchName, dwFlags);
+        FreeLibrary(h);
+        return ret;
+    }
     return 0;
+    #undef FUNK_TYPE
 }
 
 #endif

@@ -64,7 +64,7 @@ int HookSystem()
             LOG("Could not load HOOKS.DLL!!!");
             return 1;
         } else {
-            void (*Load) (HWND) = (void *)GetProcAddress(hinstDLL, "Load");
+            void (*Load)(HWND) = (void (*)(HWND))GetProcAddress(hinstDLL, "Load");
             if(Load) {
                 Load(g_hwnd);
             }
@@ -111,7 +111,7 @@ int UnhookSystem()
     keyhook = NULL;
 
     // Tell dll file that we are unloading
-    void (*Unload) () = (void *) GetProcAddress(hinstDLL, "Unload");
+    void (*Unload)() = (void (*)()) GetProcAddress(hinstDLL, "Unload");
     if (Unload) Unload();
 
     // Free library
@@ -439,8 +439,9 @@ int WINAPI WinMainW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *param
                 return 0;
             }
             LOG("Elevation sucess");
-        } else LOG("No Elevation requested");
-
+        } else {
+            LOG("No Elevation requested");
+        }
     }
     // Language
     ListAllTranslations(); LOG("All translations listed");
@@ -451,8 +452,7 @@ int WINAPI WinMainW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *param
         { sizeof(WNDCLASSEX), 0
         , WindowProc, 0, 0, hInst, NULL, NULL
         , NULL, NULL, APP_NAME, NULL };
-    BOOL regg = RegisterClassEx(&wnd);
-    LOG("Register main APP Window: %s", regg? "Sucess": "Failed");
+    RegisterClassEx(&wnd);
     g_hwnd = CreateWindowEx(WS_EX_TOOLWINDOW|WS_EX_TOPMOST| WS_EX_TRANSPARENT
                             , wnd.lpszClassName , NULL , WS_POPUP
                             , 0, 0, 0, 0, NULL, NULL, hInst, NULL);

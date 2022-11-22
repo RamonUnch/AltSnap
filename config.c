@@ -138,7 +138,8 @@ static void OpenConfig(int startpage)
     PROPSHEETHEADER psh;
     memset(&psh, 0, sizeof(PROPSHEETHEADER));
     psh.dwSize = sizeof(PROPSHEETHEADER);
-    psh.dwFlags = PSH_PROPSHEETPAGE|PSH_USECALLBACK|PSH_USEHICON;
+    psh.dwFlags = VISTA? PSH_PROPSHEETPAGE|PSH_USECALLBACK|PSH_USEHICON|PSH_NOCONTEXTHELP
+                       : PSH_PROPSHEETPAGE|PSH_USECALLBACK|PSH_USEHICON;
     psh.hwndParent = NULL;
     psh.hInstance = g_hinst;
     psh.hIcon = LoadIcon(g_hinst, iconstr[1]);
@@ -341,12 +342,58 @@ static int ReadOptionIntW(HWND hwnd, WORD id, const wchar_t *section, const char
 }
 #define ReadOptionInt(id, section, name, def, mask) ReadOptionIntW(hwnd, id, section, name, def, mask)
 
-struct dialogstring { const int idc; const wchar_t *string; };
+
+/////////////////////////////////////////////////////////////////////////////
+// Description:
+//   Creates a tooltip for an item in a dialog box.
+// Parameters:
+//   idTool - identifier of an dialog box item.
+//   nDlg - window handle of the dialog box.
+//   pszText - string to use as the tooltip text.
+// Returns:
+//   The handle to the tooltip.
+//
+static HWND CreateInfoTip(HWND hDlg, int toolID, const TCHAR * const pszText)
+{
+    if (!toolID || !hDlg || !pszText || !*pszText)
+        return NULL;
+
+    // Get the window of the tool.
+    HWND hwndTool = GetDlgItem(hDlg, toolID);
+
+    // Create the tooltip. g_hInst is the global instance handle.
+    // Windows are owned by the dialog box so we do not need
+    // to explicitely  destroy them.
+    HWND hwndTip = CreateWindowEx(0, TOOLTIPS_CLASS, NULL,
+                       WS_POPUP | TTS_ALWAYSTIP ,
+                       CW_USEDEFAULT, CW_USEDEFAULT,
+                       CW_USEDEFAULT, CW_USEDEFAULT,
+                       hDlg, NULL, g_hinst, NULL);
+
+   if (!hwndTool || !hwndTip)
+       return NULL;
+
+    // Associate the tooltip with the tool.
+    TOOLINFO toolInfo = { 0 };
+    toolInfo.cbSize = sizeof(toolInfo);
+    toolInfo.hwnd = hDlg;
+    toolInfo.uFlags = TTF_IDISHWND | TTF_SUBCLASS ;
+    toolInfo.uId = (UINT_PTR)hwndTool;
+    toolInfo.lpszText = (TCHAR * const)pszText;
+    SendMessage(hwndTip, TTM_ADDTOOL, 0, (LPARAM)&toolInfo);
+    SendMessage(hwndTip, TTM_SETDELAYTIME, TTDT_AUTOPOP, MAKELONG(32767,0));
+    RECT rc; GetClientRect(hDlg, &rc);
+    SendMessage(hwndTip, TTM_SETMAXTIPWIDTH, 0, (rc.right-rc.left)*3/4);
+
+    return hwndTip;
+}
+struct dialogstring { const int idc; const wchar_t *string; /* const wchar_t *helpstr; */ };
 static void UpdateDialogStrings(HWND hwnd, const struct dialogstring * const strlst, unsigned size)
 {
     unsigned i;
     for (i=0; i < size; i++) {
         SetDlgItemText(hwnd, strlst[i].idc, strlst[i].string);
+        //CreateInfoTip(hwnd, strlst[i].idc, strlst[i].helpstr);
     }
 }
 // Options to bead or written...
@@ -471,6 +518,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         }
     } else if (msg == WM_NOTIFY) {
         LPNMHDR pnmh = (LPNMHDR) lParam;
+        
         if (pnmh->code == PSN_SETACTIVE) {
             updatestrings = 1;
 
@@ -511,17 +559,12 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
             have_to_apply = 0;
         }
-//    } else if (msg == WM_HELP) {
-//        LPHELPINFO hli = (LPHELPINFO)lParam;
-//        switch(hli->iCtrlId){
-//        case IDC_AUTOFOCUS: MessageBoxA(NULL, NULL, NULL, 0);
-//        }
     }
     if (updatestrings) {
         // Update text
         const struct dialogstring strlst[] = {
             { IDC_GENERAL_BOX,      l10n->general_box },
-            { IDC_AUTOFOCUS,        l10n->general_autofocus },
+            { IDC_AUTOFOCUS,        l10n->general_autofocus},
             { IDC_AERO,             l10n->general_aero },
             { IDC_SMARTAERO,        l10n->general_smartaero },
             { IDC_SMARTERAERO,      l10n->general_smarteraero },
@@ -545,6 +588,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         };
         UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
         // spetial case...
+        //CreateToolTip(IDC_AUTOFOCUS, hwnd, L"String\nExample");
         SetDlgItemText(hwnd, IDC_ELEVATE, elevated?l10n->general_elevated: l10n->general_elevate);
 
         // AutoSnap

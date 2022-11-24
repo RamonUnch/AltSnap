@@ -163,6 +163,7 @@ static struct config {
     UCHAR DragSendsAltCtrl;
     UCHAR TopmostIndicator;
     UCHAR RCCloseMItem;
+    UCHAR MaxKeysNum;
     // [Performance]
     UCHAR FullWin;
     UCHAR TransWinOpacity;
@@ -1444,7 +1445,7 @@ static void HideCursor()
 static pure int IsAKeyDown(const UCHAR *k)
 {
     while (*k) {
-        if(GetAsyncKeyState(*k++)&0x8000)
+        if(GetKeyState(*k++)&0x8000)
             return 1;
     }
     return 0;
@@ -1488,6 +1489,31 @@ static xpure int IsModKey(const UCHAR vkey)
     return IsHotkeyy(vkey, conf.ModKey);
 }
 
+static UCHAR TotNumberOfKeysDown()
+{
+    BYTE kb_state[256];
+    GetKeyState(0); // You need that for GetKeyboardState()
+    GetKeyboardState(kb_state);
+    UCHAR numkeys=0;
+    BYTE i;
+    for (i=0x13; i < 0xFF; i++) {
+        // vK codes go from 0 to 254 and we must skip a few
+        if((0x3A <= i && i<=0x40) // Undefineds
+        ||  i == 0x5E             // Reserved
+        || (0x88 <= i && i<=0x8F) // Unassigned
+        || (0x97 <= i && i<=0x9F) // Unassigned
+        || (0x97 <= i && i<=0x9F) // Unassigned
+        || (0xB8 <= i && i<=0xB9) // Reserved
+        || (0xC1 <= i && i<=0xDA) // Reserved + Unassigned (D8-DA)
+        || i == 0xE0 // Reserved
+        || i == 0xE8 // Unassigned
+        ) continue;
+
+        numkeys += !!(kb_state[i]&0x80);
+                 /*!!(GetKeyState(i)&0x8000)*/
+    }
+    return numkeys;
+}
 // Return true if required amount of hotkeys are holded.
 // If KeyCombo is disabled, user needs to hold only one hotkey.
 // Otherwise, user needs to hold at least two hotkeys.
@@ -1500,10 +1526,10 @@ static int IsHotkeyDown()
     const UCHAR *pos=&conf.Hotkeys[0];
     while (*pos && ckeys) {
         // check if key is held down
-        ckeys -= !!(GetAsyncKeyState(*pos++)&0x8000);
+        ckeys -= !!(GetKeyState(*pos++)&0x8000);
     }
     // return true if required amount of hotkeys are down
-    return !ckeys;
+    return !ckeys && (!conf.MaxKeysNum || TotNumberOfKeysDown() <= conf.MaxKeysNum);
 }
 
 // returns the number of hotkeys/ModKeys that are pressed.
@@ -1515,8 +1541,8 @@ static int NumKeysDown()
     const UCHAR *Mpos=&conf.ModKey[0];
     while (*Hpos) {
         // check if key is held down
-        keys += !!(GetAsyncKeyState(*Hpos++)&0x8000);
-        keys += !!(GetAsyncKeyState(*Mpos++)&0x8000);
+        keys += !!(GetKeyState(*Hpos++)&0x8000);
+        keys += !!(GetKeyState(*Mpos++)&0x8000);
     }
     return keys;
 }
@@ -2117,8 +2143,8 @@ static void ReallySetForegroundWindow(HWND hwnd)
     HWND  fore = GetForegroundWindow();
     if (fore != hwnd) {
         if (state.alt != VK_MENU &&  state.alt != VK_CONTROL
-        && !(GetAsyncKeyState(VK_CONTROL)&0x8000)
-        && !(GetAsyncKeyState(VK_MENU)&0x8000)) {
+        && !(GetKeyState(VK_CONTROL)&0x8000)
+        && !(GetKeyState(VK_MENU)&0x8000)) {
             // If the physical Alt or Ctrl keys are not down
             // We need to activate the window with key input.
             // CTRL seems to work. Also Alt works but trigers the menu
@@ -2246,7 +2272,8 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
     if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
         if (!state.alt && !state.action
         && (!conf.KeyCombo || (state.alt1 && state.alt1 != vkey))
-        && IsHotkey(vkey)) {
+        && IsHotkey(vkey)
+        && (!conf.MaxKeysNum || TotNumberOfKeysDown() < conf.MaxKeysNum)) {
             //LOGA("\nALT DOWN");
             state.alt = vkey;
             state.blockaltup = 0;
@@ -2356,7 +2383,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             static const UCHAR menupopdownkeys[] =
                 { VK_BACK, VK_TAB, VK_APPS, VK_DELETE, VK_SPACE, VK_LEFT, VK_RIGHT
                 , VK_PRIOR, VK_NEXT, VK_END, VK_HOME, 0};
-            if (state.unikeymenu && IsMenu(state.unikeymenu) && !(GetAsyncKeyState(vkey)&0x8000)) {
+            if (state.unikeymenu && IsMenu(state.unikeymenu) && !(GetKeyState(vkey)&0x8000)) {
                 if (vkey == VK_SNAPSHOT) return CallNextHookEx(NULL, nCode, wParam, lParam);
                 if (IsHotkeyy(vkey, menupopdownkeys)) {
                     KillAltSnapMenu();
@@ -2369,12 +2396,12 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
             } else if (!state.ctrl && !state.alt && (0x41 <= vkey && vkey <= 0x5A) && !IsAKeyDown(ctrlaltwinkeys) ) {
                 // handle long A-Z keydown.
-                if (GetAsyncKeyState(vkey)&0x8000) { // The key is autorepeating.
+                if (GetKeyState(vkey)&0x8000) { // The key is autorepeating.
                     if(!IsMenu(state.unikeymenu)) {
                         KillAltSnapMenu();
                         state.unikeymenu = (HMENU)1;
                         g_mchwnd = KreateMsgWin(MenuWindowProc, APP_NAME"-SClick", 2);
-                        UCHAR shiftdown = GetAsyncKeyState(VK_SHIFT)&0x8000 || GetKeyState(VK_CAPITAL)&1;
+                        UCHAR shiftdown = GetKeyState(VK_SHIFT)&0x8000 || GetKeyState(VK_CAPITAL)&1;
                         PostMessage(g_mainhwnd, WM_UNIKEYMENU, (WPARAM)g_mchwnd, vkey|(shiftdown<<8) );
                     }
                     return 1; // block keydown
@@ -2460,7 +2487,7 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
         VK_XBUTTON2,// MK_XBUTTON2 }  64
     };
     unsigned i;
-    for (i=0; i < ARR_SZ(toOr); i++)
+    for (i=0; i < ARR_SZ(toOr); i++) // Should we use GetKeyState?
         if (GetAsyncKeyState(toOr[i]) &0x8000) wp |= (1<<i);
 
     // Forward scroll message
@@ -4016,8 +4043,8 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
             SetForegroundWindowL(state.hwnd);
         }
         if (conf.DragSendsAltCtrl
-        && !(GetAsyncKeyState(VK_MENU)&0x8000)
-        && !(GetAsyncKeyState(VK_SHIFT)&0x8000)) {
+        && !(GetKeyState(VK_MENU)&0x8000)
+        && !(GetKeyState(VK_SHIFT)&0x8000)) {
             // This will pop down menu and stuff
             // In case autofocus did not do it.
             // LOGA("SendAltCtrlAlt");
@@ -5197,6 +5224,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         {L"Advanced", "DragSendsAltCtrl", 0 },
         {L"Advanced", "TopmostIndicator", 0 },
         {L"Advanced", "RCCloseMItem", 1 },
+        {L"Advanced", "MaxKeysNum", 0 },
         // [Performance]
         {L"Performance", "FullWin", 2 },
         {L"Performance", "TransWinOpacity", 0 },

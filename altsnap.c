@@ -19,6 +19,7 @@
 #define SWM_HELP       (WM_APP+8)
 #define SWM_SAVEZONES  (WM_APP+9)
 #define SWM_TESTWIN    (WM_APP+10)
+#define SWM_OPENINIFILE (WM_APP+11)
 
 // Boring stuff
 static HINSTANCE g_hinst = NULL;
@@ -289,7 +290,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 SendMessage(hwnd, WM_OPENCONFIG, 0, 0);
             }
         } else if (lParam == WM_MBUTTONDOWN) {
-            ShellExecute(NULL, L"open", inipath, NULL, NULL, SW_SHOWNORMAL);
+            SendMessage(hwnd, WM_COMMAND, SWM_OPENINIFILE, 0);
         } else if (lParam == WM_RBUTTONUP) {
             ShowContextMenu(hwnd);
         }
@@ -333,6 +334,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             SendMessage(hwnd, WM_OPENCONFIG, 0, 0);
         } else if (wmId == SWM_ABOUT) {
             SendMessage(hwnd, WM_OPENCONFIG, 5, 0);
+        } else if (wmId == SWM_OPENINIFILE) {
+            ShellExecute(NULL, L"open", inipath, NULL, NULL, SW_SHOWNORMAL);
         } else if (wmId == SWM_EXIT) {
             DestroyWindow(hwnd);
         } else if (wmId == SWM_SAVEZONES) {

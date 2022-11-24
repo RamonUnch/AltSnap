@@ -30,6 +30,7 @@ struct strings {
   wchar_t *menu_hide;
   wchar_t *menu_config;
   wchar_t *menu_about;
+  wchar_t *menu_openinifile;
   wchar_t *menu_savezones;
   wchar_t *menu_exit;
 
@@ -257,6 +258,7 @@ static const char* l10n_inimapping[] = {
     "MenuHideTray",
     "MenuConfigure",
     "MenuAbout",
+    "MenuOpenIniFile",
     "MenuSaveZones",
     "MenuExit",
 
@@ -467,8 +469,9 @@ static const struct strings en_US = {
  /* enable             */ L"&Enable",
  /* disable            */ L"&Disable",
  /* hide               */ L"&Hide tray",
- /* config             */ L"&Configure",
- /* about              */ L"&About",
+ /* config             */ L"&Configure...",
+ /* about              */ L"&About...",
+ /* open ini file      */ L"&Open ini file...",
  /* savezones          */ L"&Save test windows as snap layout",
  /* exit               */ L"E&xit",
 

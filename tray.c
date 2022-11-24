@@ -184,6 +184,7 @@ static void ShowContextMenu(HWND hwnd)
     AppendMenu(menu, MF_SEPARATOR, 0, NULL);
     AppendMenu(menu, MF_STRING, SWM_CONFIG, l10n->menu_config);
     AppendMenu(menu, MF_STRING, SWM_ABOUT, l10n->menu_about);
+    AppendMenu(menu, MF_STRING, SWM_OPENINIFILE, l10n->menu_openinifile);
 
     if (UseZones&1) { // Zones section
         AppendMenu(menu, MF_SEPARATOR, 0, NULL);

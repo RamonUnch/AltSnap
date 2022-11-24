@@ -151,12 +151,12 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
                       + GetSystemMetricsForWin(SM_CYCAPTION, clickhwnd);
     }
     HMENU menu = CreatePopupMenu();
-    enum action show_oriclick = (param&LP_NOALTACTION)? AC_ORICLICK: 0xFF;
+    UCHAR show_oriclick = (param&LP_NOALTACTION)? AC_ORICLICK: 0xFF;
 
     #define CHK(LP_FLAG) MF_STRING|(param&LP_FLAG?MF_CHECKED:MF_UNCHECKED)
 
     const struct {
-        const enum action action; const WORD mf; const wchar_t * const str;
+        UCHAR action; const WORD mf; const wchar_t * const str;
     } mnlst[] = {
        /* hide, action,      MF_FLAG/CHECKED,    menu string */
         { AC_ALWAYSONTOP, CHK(LP_TOPMOST),    l10n->input_actions_alwaysontop },

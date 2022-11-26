@@ -25,9 +25,9 @@
 #define LP_NOALTACTION (1<<6)
 
 // App
-#define APP_NAME       L"AltSnap"
+#define APP_NAME       TEXT("AltSnap")
 #define APP_NAMEA      "AltSnap"
-#define APP_VERSION    "1.57"
+#define APP_VERSION    "1.58"
 #define APP_PROPPT     APP_NAMEA"-RDim"
 #define APP_PROPFL     APP_NAMEA"-RFlag"
 #define APP_PROPOFFSET APP_NAMEA"-ROffset"
@@ -111,23 +111,23 @@ static int pure IsActionInList(const enum action ac, const enum action *aclst)
     return IsHotkeyy(ac, aclst);
 }
 // Convert zone number to ini name entry
-static wchar_t *ZidxToZonestr(int idx, wchar_t *zname)
+static TCHAR *ZidxToZonestr(int idx, TCHAR *zname)
 {
-    wchar_t txt[16];
+    TCHAR txt[16];
     zname[0] = '\0';
-    wcscat(zname, L"Zone");
-    wcscat(zname, itowL(idx, txt, 10)); // Zone Name from zone number
+    lstrcat(zname, TEXT("Zone"));
+    lstrcat(zname, itostr(idx, txt, 10)); // Zone Name from zone number
 
     return zname;
 }
 
 // Map action string to actual action enum
-static enum action MapActionW(const wchar_t *txt)
+static enum action MapActionW(const TCHAR *txt)
 {
     static const char *action_map[] = ACTION_MAP;
     enum action ac;
     for (ac=0; ac < ARR_SZ(action_map); ac++) {
-        if(!wcstostricmp(txt, action_map[ac])) return ac;
+        if(!strtotcharicmp(txt, action_map[ac])) return ac;
     }
     return AC_NONE;
 }

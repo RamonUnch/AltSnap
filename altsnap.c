@@ -57,9 +57,10 @@ int HookSystem()
     // Load library
     if (!hinstDLL) {
         TCHAR path[MAX_PATH];
-        GetModuleFileName(NULL, path, ARR_SZ(path));
+        DWORD ret = GetModuleFileName(NULL, path, ARR_SZ(path));
+        if(!ret || ret == ARR_SZ(path)) return 1;
         PathRemoveFileSpecL(path);
-        wcscat(path, TEXT("\\hooks.dll"));
+        lstrcat_s(path, ARR_SZ(path), TEXT("\\hooks.dll"));
         hinstDLL = LoadLibrary(path);
         if (!hinstDLL) {
             LOG("Could not load HOOKS.DLL!!!");
@@ -92,9 +93,9 @@ int HookSystem()
     LOG("Keyboard HOOK set");
 
     // Reading some config options...
-    UseZones = GetPrivateProfileInt(L"Zones", L"UseZones", 0, inipath);
-    SnapGap = CLAMP(-128, GetPrivateProfileInt(L"Advanced", L"SnapGap", 0, inipath), 127);
-    ACMenuItems = GetPrivateProfileInt(L"Advanced", L"ACMenuItems", -1, inipath);
+    UseZones = GetPrivateProfileInt(TEXT("Zones"), TEXT("UseZones"), 0, inipath);
+    SnapGap = CLAMP(-128, GetPrivateProfileInt(TEXT("Advanced"), TEXT("SnapGap"), 0, inipath), 127);
+    ACMenuItems = GetPrivateProfileInt(TEXT("Advanced"), TEXT("ACMenuItems"), -1, inipath);
     UpdateTray();
     return 0;
 }
@@ -106,7 +107,7 @@ int UnhookSystem()
     if (!keyhook) { // System not hooked
         return 1;
     } else if (!UnhookWindowsHookEx(keyhook) && showerror) {
-        MessageBox(NULL, l10n->unhook_error, APP_NAME,
+        MessageBox(NULL, l10n->unhook_error, TEXT(APP_NAMEA),
                    MB_ICONINFORMATION|MB_OK|MB_TOPMOST|MB_SETFOREGROUND);
     }
     keyhook = NULL;
@@ -157,7 +158,7 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
     #define CHK(LP_FLAG) MF_STRING|(param&LP_FLAG?MF_CHECKED:MF_UNCHECKED)
 
     const struct {
-        UCHAR action; const WORD mf; const wchar_t * const str;
+        UCHAR action; const WORD mf; const TCHAR * const str;
     } mnlst[] = {
        /* hide, action,      MF_FLAG/CHECKED,    menu string */
         { AC_ALWAYSONTOP, CHK(LP_TOPMOST),    l10n->input_actions_alwaysontop },
@@ -177,7 +178,7 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
         { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
         { AC_MOVEONOFF,   CHK(LP_MOVEONOFF),  l10n->input_actions_moveonoff},
         { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
-        { show_oriclick,  MF_STRING,        l10n->input_actions_oriclick},
+        { show_oriclick,  MF_STRING,          l10n->input_actions_oriclick},
         { AC_NONE,        MF_STRING,          l10n->input_actions_nothing},
     };
     #undef CHK
@@ -230,26 +231,26 @@ static void ShowUnikeyMenu(HWND hwnd, LPARAM param)
 {
     UCHAR vkey = LOBYTE(LOWORD(param));
     UCHAR capital = HIBYTE(LOWORD(param));
-    wchar_t **ukmap = &l10n->a; //EXTRAKEYS_MAP;
+    TCHAR **ukmap = &l10n->a; //EXTRAKEYS_MAP;
     HMENU menu = CreatePopupMenu();
     if (!menu) return;
 
-    const wchar_t *kl, *keylist = ukmap[vkey - 0x41];
+    const TCHAR *kl, *keylist = ukmap[vkey - 0x41];
     UCHAR i;
     for (kl = keylist, i='A'; *kl; kl++) {
         if(*kl==L'%') {
             AppendMenu(menu, MF_SEPARATOR, 0, NULL);
             continue;
         }
-        wchar_t unichar = *kl;
+        TCHAR unichar = *kl;
         if (kl[1] == L'|') {
             kl+=2;
             if (capital) unichar = *kl;
         } else if (capital) {
-            unichar = (wchar_t)(LONG_PTR)CharUpperW((wchar_t *)(LONG_PTR)*kl);
+            unichar = (TCHAR)(LONG_PTR)CharUpper((TCHAR *)(LONG_PTR)*kl);
         }
         if (i > 'Z') i = '1';
-        wchar_t mwstr[6];
+        TCHAR mwstr[6];
         mwstr[0] = L'&';
         mwstr[1] = i++;
         mwstr[2] = L'\t';
@@ -335,11 +336,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         } else if (wmId == SWM_ABOUT) {
             SendMessage(hwnd, WM_OPENCONFIG, 5, 0);
         } else if (wmId == SWM_OPENINIFILE) {
-            ShellExecute(NULL, L"open", inipath, NULL, NULL, SW_SHOWNORMAL);
+            ShellExecute(NULL, TEXT("open"), inipath, NULL, NULL, SW_SHOWNORMAL);
         } else if (wmId == SWM_EXIT) {
             DestroyWindow(hwnd);
         } else if (wmId == SWM_SAVEZONES) {
-            int ret = MessageBox(NULL, l10n->zone_confirmation, APP_NAME, MB_OKCANCEL);
+            int ret = MessageBox(NULL, l10n->zone_confirmation, TEXT(APP_NAMEA), MB_OKCANCEL);
             if (ret == IDOK) {
                 UnhookSystem();
                 SaveCurrentLayout();
@@ -371,7 +372,8 @@ int WINAPI WinMainW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *param
     // Get ini path
     LOG("\n\nALTSNAP STARTED");
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
-    wcscpy(&inipath[wcslen(inipath)-3], L"ini");
+    inipath[MAX_PATH-1] = '\0';
+    lstrcpy(&inipath[lstrlen(inipath)-3], TEXT("ini"));
     LOG("ini file: %S", inipath);
 
     // Read parameters on command line
@@ -401,17 +403,17 @@ int WINAPI WinMainW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *param
                                      , hide, quiet, elevate, multi, config);
 
     // Look for previous instance
-    if (!multi && !GetPrivateProfileInt(L"Advanced", L"MultipleInstances", 0, inipath)){
+    if (!multi && !GetPrivateProfileInt(TEXT("Advanced"), TEXT("MultipleInstances"), 0, inipath)){
         if (quiet) return 0;
 
-        HWND previnst = FindWindow(APP_NAME, L"");
+        HWND previnst = FindWindow(TEXT(APP_NAMEA), TEXT(""));
         if (previnst) {
             // Ask old HotKey window to perform an action.
-            const wchar_t *actionstr = lstrstr(params, TEXT("-a"));
+            const TCHAR *actionstr = lstrstr(params, TEXT("-a"));
             if (actionstr && actionstr[2] && actionstr[3] && actionstr[4]) {
                 enum action action = MapActionW(&actionstr[3]);
                 HWND msghwnd;
-                if ((msghwnd = FindWindow( APP_NAME"-HotKeys", TEXT("")))) {
+                if ((msghwnd = FindWindow( TEXT(APP_NAMEA"-HotKeys"), TEXT("")))) {
                     PostMessage(msghwnd, WM_HOTKEY, (actionstr[2] == 'p')*0x1000+action, 0);
                     return 0;
                 }
@@ -429,15 +431,15 @@ int WINAPI WinMainW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *param
 
     // Check AlwaysElevate
     if (!elevated) {
-        if(!elevate) elevate = GetPrivateProfileInt(L"Advanced", L"AlwaysElevate", 0, inipath);
+        if(!elevate) elevate = GetPrivateProfileInt(TEXT("Advanced"), TEXT("AlwaysElevate"), 0, inipath);
 
         // Handle request to elevate to administrator privileges
         if (elevate) {
             LOG("Elevation requested");
-            wchar_t path[MAX_PATH];
+            TCHAR path[MAX_PATH];
             GetModuleFileName(NULL, path, ARR_SZ(path));
-            HINSTANCE ret = ShellExecute(NULL, L"runas", path, (hide? L"-h": NULL), NULL, SW_SHOWNORMAL);
-            if ((DorQWORD)ret > 32){
+            HINSTANCE ret = ShellExecute(NULL, TEXT("runas"), path, (hide? TEXT("-h"): NULL), NULL, SW_SHOWNORMAL);
+            if ((DorQWORD)ret > 32) {
                 LOG("Elevation Faild => Not cool NORMAL EXIT");
                 return 0;
             }
@@ -454,7 +456,7 @@ int WINAPI WinMainW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *param
     WNDCLASSEX wnd =
         { sizeof(WNDCLASSEX), 0
         , WindowProc, 0, 0, hInst, NULL, NULL
-        , NULL, NULL, APP_NAME, NULL };
+        , NULL, NULL, TEXT(APP_NAMEA), NULL };
     RegisterClassEx(&wnd);
     g_hwnd = CreateWindowEx(WS_EX_TOOLWINDOW|WS_EX_TOPMOST| WS_EX_TRANSPARENT
                             , wnd.lpszClassName , NULL , WS_POPUP

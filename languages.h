@@ -10,240 +10,242 @@
 #ifndef ALTSNAP_STRINGS_H
 #define ALTSNAP_STRINGS_H
 
+#include <windows.h>
+
 struct langinfoitem {
-  wchar_t *code;
-  wchar_t *lang_english;
-  wchar_t *lang;
-  wchar_t *author;
-  wchar_t *fn;
+  TCHAR *code;
+  TCHAR *lang_english;
+  TCHAR *lang;
+  TCHAR *author;
+  TCHAR *fn;
 };
 
 struct strings {
-  wchar_t *code;
-  wchar_t *lang_english;
-  wchar_t *lang;
-  wchar_t *author;
+  TCHAR *code;
+  TCHAR *lang_english;
+  TCHAR *lang;
+  TCHAR *author;
 
   // menu
-  wchar_t *menu_enable;
-  wchar_t *menu_disable;
-  wchar_t *menu_hide;
-  wchar_t *menu_config;
-  wchar_t *menu_about;
-  wchar_t *menu_openinifile;
-  wchar_t *menu_savezones;
-  wchar_t *menu_exit;
+  TCHAR *menu_enable;
+  TCHAR *menu_disable;
+  TCHAR *menu_hide;
+  TCHAR *menu_config;
+  TCHAR *menu_about;
+  TCHAR *menu_openinifile;
+  TCHAR *menu_savezones;
+  TCHAR *menu_exit;
 
   // config
-  wchar_t *title;
-  wchar_t *tab_general;
-  wchar_t *tab_mouse;
-  wchar_t *tab_keyboard;
-  wchar_t *tab_blacklist;
-  wchar_t *tab_advanced;
-  wchar_t *tab_about;
+  TCHAR *title;
+  TCHAR *tab_general;
+  TCHAR *tab_mouse;
+  TCHAR *tab_keyboard;
+  TCHAR *tab_blacklist;
+  TCHAR *tab_advanced;
+  TCHAR *tab_about;
 
   // general
-  wchar_t *general_box;
-  wchar_t *general_autofocus;
-  wchar_t *general_aero;
-  wchar_t *general_smartaero;
-  wchar_t *general_smarteraero;
-  wchar_t *general_stickyresize;
-  wchar_t *general_inactivescroll;
-  wchar_t *general_mdi;
-  wchar_t *general_autosnap;
-  wchar_t *general_autosnap0;
-  wchar_t *general_autosnap1;
-  wchar_t *general_autosnap2;
-  wchar_t *general_autosnap3;
-  wchar_t *general_language;
-  wchar_t *general_fullwin;
-  wchar_t *general_usezones;
-  wchar_t *general_piercingclick;
-  wchar_t *general_resizeall;
-  wchar_t *general_resizecenter;
+  TCHAR *general_box;
+  TCHAR *general_autofocus;
+  TCHAR *general_aero;
+  TCHAR *general_smartaero;
+  TCHAR *general_smarteraero;
+  TCHAR *general_stickyresize;
+  TCHAR *general_inactivescroll;
+  TCHAR *general_mdi;
+  TCHAR *general_autosnap;
+  TCHAR *general_autosnap0;
+  TCHAR *general_autosnap1;
+  TCHAR *general_autosnap2;
+  TCHAR *general_autosnap3;
+  TCHAR *general_language;
+  TCHAR *general_fullwin;
+  TCHAR *general_usezones;
+  TCHAR *general_piercingclick;
+  TCHAR *general_resizeall;
+  TCHAR *general_resizecenter;
 
-  wchar_t *general_resizecenter_norm;
-  wchar_t *general_resizecenter_br;
-  wchar_t *general_resizecenter_move;
-  wchar_t *general_resizecenter_close;
+  TCHAR *general_resizecenter_norm;
+  TCHAR *general_resizecenter_br;
+  TCHAR *general_resizecenter_move;
+  TCHAR *general_resizecenter_close;
 
   // general autostart
-  wchar_t *general_autostart_box;
-  wchar_t *general_autostart;
-  wchar_t *general_autostart_hide;
-  wchar_t *general_autostart_elevate;
-  wchar_t *general_autostart_elevate_tip;
-  wchar_t *general_elevate;
-  wchar_t *general_elevated;
-  wchar_t *general_elevation_aborted;
+  TCHAR *general_autostart_box;
+  TCHAR *general_autostart;
+  TCHAR *general_autostart_hide;
+  TCHAR *general_autostart_elevate;
+  TCHAR *general_autostart_elevate_tip;
+  TCHAR *general_elevate;
+  TCHAR *general_elevated;
+  TCHAR *general_elevation_aborted;
 
   // input
   // mouse
-  wchar_t *input_mouse_box;
-  wchar_t *input_mouse_btac1;
-  wchar_t *input_mouse_btac2;
-  wchar_t *input_mouse_inttb;
-  wchar_t *input_mouse_lmb;
-  wchar_t *input_mouse_mmb;
-  wchar_t *input_mouse_rmb;
-  wchar_t *input_mouse_mb4;
-  wchar_t *input_mouse_mb5;
-  wchar_t *input_mouse_scroll;
-  wchar_t *input_mouse_hscroll;
-  wchar_t *input_mouse_moveup;
-  wchar_t *input_mouse_resizeup;
-  wchar_t *input_mouse_ttbactions_box;
-  wchar_t *input_mouse_ttbactionsna;
-  wchar_t *input_mouse_ttbactionswa;
-  wchar_t *input_mouse_mmb_hc;
-  wchar_t *input_mouse_mb4_hc;
-  wchar_t *input_mouse_mb5_hc;
-  wchar_t *input_mouse_longclickmove;
+  TCHAR *input_mouse_box;
+  TCHAR *input_mouse_btac1;
+  TCHAR *input_mouse_btac2;
+  TCHAR *input_mouse_inttb;
+  TCHAR *input_mouse_lmb;
+  TCHAR *input_mouse_mmb;
+  TCHAR *input_mouse_rmb;
+  TCHAR *input_mouse_mb4;
+  TCHAR *input_mouse_mb5;
+  TCHAR *input_mouse_scroll;
+  TCHAR *input_mouse_hscroll;
+  TCHAR *input_mouse_moveup;
+  TCHAR *input_mouse_resizeup;
+  TCHAR *input_mouse_ttbactions_box;
+  TCHAR *input_mouse_ttbactionsna;
+  TCHAR *input_mouse_ttbactionswa;
+  TCHAR *input_mouse_mmb_hc;
+  TCHAR *input_mouse_mb4_hc;
+  TCHAR *input_mouse_mb5_hc;
+  TCHAR *input_mouse_longclickmove;
 
-//  wchar_t *input_aggressive_pause;
-//  wchar_t *input_aggressive_kill;
-  wchar_t *input_scrolllockstate;
-  wchar_t *input_unikeyholdmenu;
-//  wchar_t *input_npstacked;
-  wchar_t *input_keycombo;
-  wchar_t *input_grabwithalt;
-  wchar_t *input_grabwithaltb;
+//  TCHAR *input_aggressive_pause;
+//  TCHAR *input_aggressive_kill;
+  TCHAR *input_scrolllockstate;
+  TCHAR *input_unikeyholdmenu;
+//  TCHAR *input_npstacked;
+  TCHAR *input_keycombo;
+  TCHAR *input_grabwithalt;
+  TCHAR *input_grabwithaltb;
 
   // actions
-  wchar_t *input_actions_move;
-  wchar_t *input_actions_resize;
-  wchar_t *input_actions_restore;
-  wchar_t *input_actions_close;
-  wchar_t *input_actions_kill;
-  wchar_t *input_actions_pause;
-  wchar_t *input_actions_resume;
-  wchar_t *input_actions_asonoff;
-  wchar_t *input_actions_moveonoff;
-  wchar_t *input_actions_minimize;
-  wchar_t *input_actions_maximize;
-  wchar_t *input_actions_lower;
-  wchar_t *input_actions_nstacked;
-  wchar_t *input_actions_nstacked2;
-  wchar_t *input_actions_pstacked;
-  wchar_t *input_actions_pstacked2;
-  wchar_t *input_actions_npstacked;
-  wchar_t *input_actions_stacklist;
-  wchar_t *input_actions_stacklist2;
-  wchar_t *input_actions_alttablist;
+  TCHAR *input_actions_move;
+  TCHAR *input_actions_resize;
+  TCHAR *input_actions_restore;
+  TCHAR *input_actions_close;
+  TCHAR *input_actions_kill;
+  TCHAR *input_actions_pause;
+  TCHAR *input_actions_resume;
+  TCHAR *input_actions_asonoff;
+  TCHAR *input_actions_moveonoff;
+  TCHAR *input_actions_minimize;
+  TCHAR *input_actions_maximize;
+  TCHAR *input_actions_lower;
+  TCHAR *input_actions_nstacked;
+  TCHAR *input_actions_nstacked2;
+  TCHAR *input_actions_pstacked;
+  TCHAR *input_actions_pstacked2;
+  TCHAR *input_actions_npstacked;
+  TCHAR *input_actions_stacklist;
+  TCHAR *input_actions_stacklist2;
+  TCHAR *input_actions_alttablist;
 
-  wchar_t *input_actions_mlzone;
-  wchar_t *input_actions_mtzone;
-  wchar_t *input_actions_mrzone;
-  wchar_t *input_actions_mbzone;
-  wchar_t *input_actions_xlzone;
-  wchar_t *input_actions_xtzone;
-  wchar_t *input_actions_xrzone;
-  wchar_t *input_actions_xbzone;
+  TCHAR *input_actions_mlzone;
+  TCHAR *input_actions_mtzone;
+  TCHAR *input_actions_mrzone;
+  TCHAR *input_actions_mbzone;
+  TCHAR *input_actions_xlzone;
+  TCHAR *input_actions_xtzone;
+  TCHAR *input_actions_xrzone;
+  TCHAR *input_actions_xbzone;
 
-  wchar_t *input_actions_stepl;
-  wchar_t *input_actions_stept;
-  wchar_t *input_actions_stepr;
-  wchar_t *input_actions_stepb;
-  wchar_t *input_actions_sstepl;
-  wchar_t *input_actions_sstept;
-  wchar_t *input_actions_sstepr;
-  wchar_t *input_actions_sstepb;
+  TCHAR *input_actions_stepl;
+  TCHAR *input_actions_stept;
+  TCHAR *input_actions_stepr;
+  TCHAR *input_actions_stepb;
+  TCHAR *input_actions_sstepl;
+  TCHAR *input_actions_sstept;
+  TCHAR *input_actions_sstepr;
+  TCHAR *input_actions_sstepb;
 
-  wchar_t *input_actions_roll;
-  wchar_t *input_actions_alwaysontop;
-  wchar_t *input_actions_borderless;
-  wchar_t *input_actions_center;
-  wchar_t *input_actions_oriclick;
-  wchar_t *input_actions_nothing;
-  wchar_t *input_actions_alttab;
-  wchar_t *input_actions_volume;
-  wchar_t *input_actions_mute;
-  wchar_t *input_actions_menu;
-  wchar_t *input_actions_maximizehv;
-  wchar_t *input_actions_sidesnap;
-  wchar_t *input_actions_extendsnap;
-  wchar_t *input_actions_minallother;
-  wchar_t *input_actions_transparency;
-  wchar_t *input_actions_zoom;
-  wchar_t *input_actions_zoom2;
-  wchar_t *input_actions_hscroll;
+  TCHAR *input_actions_roll;
+  TCHAR *input_actions_alwaysontop;
+  TCHAR *input_actions_borderless;
+  TCHAR *input_actions_center;
+  TCHAR *input_actions_oriclick;
+  TCHAR *input_actions_nothing;
+  TCHAR *input_actions_alttab;
+  TCHAR *input_actions_volume;
+  TCHAR *input_actions_mute;
+  TCHAR *input_actions_menu;
+  TCHAR *input_actions_maximizehv;
+  TCHAR *input_actions_sidesnap;
+  TCHAR *input_actions_extendsnap;
+  TCHAR *input_actions_minallother;
+  TCHAR *input_actions_transparency;
+  TCHAR *input_actions_zoom;
+  TCHAR *input_actions_zoom2;
+  TCHAR *input_actions_hscroll;
 
   // hotkeys
-  wchar_t *input_hotkeys_box;
-  wchar_t *input_hotkeys_modkey;
-  wchar_t *input_hotclicks_box;
-  wchar_t *input_hotclicks_more;
+  TCHAR *input_hotkeys_box;
+  TCHAR *input_hotkeys_modkey;
+  TCHAR *input_hotclicks_box;
+  TCHAR *input_hotclicks_more;
 
-  wchar_t *input_hotkeys_alt;
-  wchar_t *input_hotkeys_winkey;
-  wchar_t *input_hotkeys_ctrl;
-  wchar_t *input_hotkeys_shift;
-  wchar_t *input_hotkeys_shortcuts;
-  wchar_t *input_hotkeys_shortcutspick;
-  wchar_t *input_hotkeys_shortcutsclear;
-  wchar_t *input_hotkeys_shortcutset;
-  wchar_t *input_hotkeys_useptwindow;
+  TCHAR *input_hotkeys_alt;
+  TCHAR *input_hotkeys_winkey;
+  TCHAR *input_hotkeys_ctrl;
+  TCHAR *input_hotkeys_shift;
+  TCHAR *input_hotkeys_shortcuts;
+  TCHAR *input_hotkeys_shortcutspick;
+  TCHAR *input_hotkeys_shortcutsclear;
+  TCHAR *input_hotkeys_shortcutset;
+  TCHAR *input_hotkeys_useptwindow;
 
-  wchar_t *input_hotkeys_leftalt;
-  wchar_t *input_hotkeys_rightalt;
-  wchar_t *input_hotkeys_leftwinkey;
-  wchar_t *input_hotkeys_rightwinkey;
-  wchar_t *input_hotkeys_leftctrl;
-  wchar_t *input_hotkeys_rightctrl;
-  wchar_t *input_hotkeys_leftshift;
-  wchar_t *input_hotkeys_rightshift;
-  wchar_t *input_hotkeys_more;
+  TCHAR *input_hotkeys_leftalt;
+  TCHAR *input_hotkeys_rightalt;
+  TCHAR *input_hotkeys_leftwinkey;
+  TCHAR *input_hotkeys_rightwinkey;
+  TCHAR *input_hotkeys_leftctrl;
+  TCHAR *input_hotkeys_rightctrl;
+  TCHAR *input_hotkeys_leftshift;
+  TCHAR *input_hotkeys_rightshift;
+  TCHAR *input_hotkeys_more;
 
   // blacklist
-  wchar_t *blacklist_box;
-  wchar_t *blacklist_processblacklist;
-  wchar_t *blacklist_blacklist;
-  wchar_t *blacklist_scrolllist;
-  wchar_t *blacklist_mdis;
-  wchar_t *blacklist_pause;
-  wchar_t *blacklist_findwindow_box;
+  TCHAR *blacklist_box;
+  TCHAR *blacklist_processblacklist;
+  TCHAR *blacklist_blacklist;
+  TCHAR *blacklist_scrolllist;
+  TCHAR *blacklist_mdis;
+  TCHAR *blacklist_pause;
+  TCHAR *blacklist_findwindow_box;
 
   // advanced
-  wchar_t *advanced_metrics_box;
-  wchar_t *advanced_centerfraction;
-  wchar_t *advanced_aerohoffset;
-  wchar_t *advanced_aerovoffset;
-  wchar_t *advanced_snapthreshold;
-  wchar_t *advanced_aerothreshold;
-  wchar_t *advanced_snapgap;
-  wchar_t *advanced_aerospeed;
-  wchar_t *advanced_testwindow;
-  wchar_t *advanced_movetrans;
+  TCHAR *advanced_metrics_box;
+  TCHAR *advanced_centerfraction;
+  TCHAR *advanced_aerohoffset;
+  TCHAR *advanced_aerovoffset;
+  TCHAR *advanced_snapthreshold;
+  TCHAR *advanced_aerothreshold;
+  TCHAR *advanced_snapgap;
+  TCHAR *advanced_aerospeed;
+  TCHAR *advanced_testwindow;
+  TCHAR *advanced_movetrans;
 
-  wchar_t *advanced_behavior_box;
-  wchar_t *advanced_multipleinstances;
-  wchar_t *advanced_autoremaximize;
-  wchar_t *advanced_aerotopmaximizes;
-  wchar_t *advanced_aerodbclickshift;
-  wchar_t *advanced_maxwithlclick;
-  wchar_t *advanced_restoreonclick;
-  wchar_t *advanced_fullscreen;
-  wchar_t *advanced_blmaximized;
-  wchar_t *advanced_fancyzone;
-  wchar_t *advanced_norestore;
-  wchar_t *advanced_topmostindicator;
+  TCHAR *advanced_behavior_box;
+  TCHAR *advanced_multipleinstances;
+  TCHAR *advanced_autoremaximize;
+  TCHAR *advanced_aerotopmaximizes;
+  TCHAR *advanced_aerodbclickshift;
+  TCHAR *advanced_maxwithlclick;
+  TCHAR *advanced_restoreonclick;
+  TCHAR *advanced_fullscreen;
+  TCHAR *advanced_blmaximized;
+  TCHAR *advanced_fancyzone;
+  TCHAR *advanced_norestore;
+  TCHAR *advanced_topmostindicator;
   // about
-  wchar_t *about_box;
-  wchar_t *about_version;
-  wchar_t *about_author;
-  wchar_t *about_license;
-  wchar_t *about_translation_credit;
+  TCHAR *about_box;
+  TCHAR *about_version;
+  TCHAR *about_author;
+  TCHAR *about_license;
+  TCHAR *about_translation_credit;
 
   // misc
-  wchar_t *unhook_error;
-  wchar_t *zone_confirmation;
-  wchar_t *zone_testwinhelp;
-  wchar_t *a, *b, *c, *d, *e, *f, *g, *h;
-  wchar_t *i, *j, *k, *l, *m, *n, *o, *p;
-  wchar_t *q, *r, *s, *t, *u, *v, *w, *x;
-  wchar_t *y, *z;
+  TCHAR *unhook_error;
+  TCHAR *zone_confirmation;
+  TCHAR *zone_testwinhelp;
+  TCHAR *a, *b, *c, *d, *e, *f, *g, *h;
+  TCHAR *i, *j, *k, *l, *m, *n, *o, *p;
+  TCHAR *q, *r, *s, *t, *u, *v, *w, *x;
+  TCHAR *y, *z;
 };
 
 // SAME ORDER THAN ABOVE!!!!
@@ -276,7 +278,7 @@ static const char* l10n_inimapping[] = {
     "GeneralSmartAero",
     "GeneralSmarterAero",
     "GeneralStickyResize",
-    "GeneralInactiveScroll",
+    "GeneralInactiveScrol",
     "GeneralMDI",
     "GeneralAutoSnap",
     "GeneralAutoSnap0",
@@ -358,11 +360,11 @@ static const char* l10n_inimapping[] = {
     "InputActionXTZone",
     "InputActionXRZone",
     "InputActionXBZone",
-    "InputActionStepL",
+    "InputActionStepl",
     "InputActionStepT",
     "InputActionStepR",
     "InputActionStepB",
-    "InputActionSStepL",
+    "InputActionSStepl",
     "InputActionSStepT",
     "InputActionSStepR",
     "InputActionSStepB",
@@ -459,254 +461,254 @@ static const char* l10n_inimapping[] = {
 // SAME ORDER THAN ABOVE!!!!
 static const struct strings en_US = {
  /* === translation info === */
- /* code               */ L"en-US",
- /* lang_english       */ L"English",
- /* lang               */ L"English",
- /* author             */ L"Stefan Sundin, RamonUnch",
+ /* code               */ TEXT("en-US"),
+ /* lang_english       */ TEXT("English"),
+ /* lang               */ TEXT("English"),
+ /* author             */ TEXT("Stefan Sundin, RamonUnch"),
 
  /* === app === */
  /* menu */
- /* enable             */ L"&Enable",
- /* disable            */ L"&Disable",
- /* hide               */ L"&Hide tray",
- /* config             */ L"&Configure...",
- /* about              */ L"&About...",
- /* open ini file      */ L"&Open ini file...",
- /* savezones          */ L"&Save test windows as snap layout",
- /* exit               */ L"E&xit",
+ /* enable             */ TEXT("&Enable"),
+ /* disable            */ TEXT("&Disable"),
+ /* hide               */ TEXT("&Hide tray"),
+ /* config             */ TEXT("&Configure..."),
+ /* about              */ TEXT("&About"),
+ /* open ini file      */ TEXT("&Open ini file..."),
+ /* savezones          */ TEXT("&Save test windows as snap layout"),
+ /* exit               */ TEXT("E&xit"),
 
  /* === config === */
- /* title              */ APP_NAME L" Configuration",
+ /* title              */ TEXT( APP_NAMEA " Configuration"),
  /* tabs */
- /* general            */ L"General",
- /* Mouse              */ L"Mouse",
- /* Keybaord           */ L"Keyboard",
- /* blacklist          */ L"Blacklist",
- /* advanced           */ L"Advanced",
- /* about              */ L"About",
+ /* general            */ TEXT("General"),
+ /* Mouse              */ TEXT("Mouse"),
+ /* Keybaord           */ TEXT("Keyboard"),
+ /* blacklist          */ TEXT("Blacklist"),
+ /* advanced           */ TEXT("Advanced"),
+ /* about              */ TEXT("About"),
 
  /* general tab */
- /* box                */ L"General settings",
- /* autofocus          */ L"&Focus windows when dragging.\nYou can also press Ctrl to focus windows.",
- /* aero               */ L"Mimi&c Aero Snap",
- /* smartaero          */ L"Smart Aero Sna&p dimensions",
- /* smarteraero        */ L"Smarter Aer&o Snap dimensions",
- /* stickyresize       */ L"Resi&ze other snapped windows with Shift",
- /* inactivescroll     */ L"&Scroll inactive windows",
- /* mdi                */ L"&MDI support",
- /* autosnap           */ L"S&nap window edges to:",
- /* autosnap0          */ L"Disabled",
- /* autosnap1          */ L"To screen borders",
- /* autosnap2          */ L"+ outside of windows",
- /* autosnap3          */ L"+ inside of windows",
- /* language           */ L"&Language:",
- /* FullWin            */ L"&Drag full windows",
- /* UseZones           */ L"Snap to Layo&ut with Shift (configure with tray menu)",
- /* PiercingClick      */ L"Avoi&d blocking Alt+Click (disables AltSnap double-clicks)",
- /* ResizeAll          */ L"&Resize all windows",
- /* ResizeCenter       */ L"Center resize mode",
- /* ResizeCenterNorm   */ L"All d&irections",
- /* ResizeCenterBr     */ L"&Bottom right",
- /* ResizeCenterMove   */ L"Mo&ve",
- /* ResizeCenterClose  */ L"Clos&est side",
+ /* box                */ TEXT("General settings"),
+ /* autofocus          */ TEXT("&Focus windows when dragging.\nYou can also press Ctrl to focus windows."),
+ /* aero               */ TEXT("Mimi&c Aero Snap"),
+ /* smartaero          */ TEXT("Smart Aero Sna&p dimensions"),
+ /* smarteraero        */ TEXT("Smarter Aer&o Snap dimensions"),
+ /* stickyresize       */ TEXT("Resi&ze other snapped windows with Shift"),
+ /* inactivescroll     */ TEXT("&Scroll inactive windows"),
+ /* mdi                */ TEXT("&MDI support"),
+ /* autosnap           */ TEXT("S&nap window edges to:"),
+ /* autosnap0          */ TEXT("Disabled"),
+ /* autosnap1          */ TEXT("To screen borders"),
+ /* autosnap2          */ TEXT("+ outside of windows"),
+ /* autosnap3          */ TEXT("+ inside of windows"),
+ /* language           */ TEXT("&Language:"),
+ /* FullWin            */ TEXT("&Drag full windows"),
+ /* UseZones           */ TEXT("Snap to Layo&ut with Shift (configure with tray menu)"),
+ /* PiercingClick      */ TEXT("Avoi&d blocking Alt+Click (disables AltSnap double-clicks)"),
+ /* ResizeAll          */ TEXT("&Resize all windows"),
+ /* ResizeCenter       */ TEXT("Center resize mode"),
+ /* ResizeCenterNorm   */ TEXT("All d&irections"),
+ /* ResizeCenterBr     */ TEXT("&Bottom right"),
+ /* ResizeCenterMove   */ TEXT("Mo&ve"),
+ /* ResizeCenterClose  */ TEXT("Clos&est side"),
 
- /* autostart_box      */ L"Autostart",
- /* autostart          */ L"S&tart "APP_NAME" when logging on",
- /* autostart_hide     */ L"&Hide tray",
- /* autostart_elevate  */ L"&Elevate to administrator privileges",
- /* elevate_tip        */ L"Note that a UAC prompt will appear every time you log in, unless you disable UAC completely or use the Task Scheduler",
- /* elevate            */ L"E&levate",
- /* elevated           */ L"Elevated",
- /* elevation_aborted  */ L"Elevation aborted.",
+ /* autostart_box      */ TEXT("Autostart"),
+ /* autostart          */ TEXT("S&tart " APP_NAMEA " when logging on"),
+ /* autostart_hide     */ TEXT("&Hide tray"),
+ /* autostart_elevate  */ TEXT("&Elevate to administrator privileges"),
+ /* elevate_tip        */ TEXT("Note that a UAC prompt will appear every time you log in, unless you disable UAC completely or use the Task Scheduler"),
+ /* elevate            */ TEXT("E&levate"),
+ /* elevated           */ TEXT("Elevated"),
+ /* elevation_aborted  */ TEXT("Elevation aborted."),
 
  /* input tab */
  /* mouse */
- /* box                */ L"Mouse actions",
- /* btac1              */ L"&1. Primary",
- /* btac2              */ L"&2. Alternate",
- /* inttb              */ L"&Title bar",
- /* lmb                */ L"Left mouse &button:",
- /* mmb                */ L"&Middle mouse button:",
- /* rmb                */ L"Ri&ght mouse button:",
- /* mb4                */ L"Mouse button &4:",
- /* mb5                */ L"Mouse button &5:",
- /* scroll             */ L"&Scroll wheel:",
- /* hscroll            */ L"Scroll wheel (&horizontal):",
- /* moveup             */ L"Long &drag-free Move:",
- /* resizeup           */ L"Long drag-&free Resize:",
- /* ttbactions box     */ L"Use specific actions when clicking the Title bar",
- /* ttbaction noalt    */ L"Without hot&key",
- /* ttbaction walt     */ L"&With hotkey",
- /* mmb_hr             */ L"M&iddle mouse button",
- /* mb4_hc             */ L"M&ouse button 4",
- /* mb5_hc             */ L"Mo&use button 5",
- /* longclickmove      */ L"Mo&ve windows with a long left-click",
+ /* box                */ TEXT("Mouse actions"),
+ /* btac1              */ TEXT("&1. Primary"),
+ /* btac2              */ TEXT("&2. Alternate"),
+ /* inttb              */ TEXT("&Title bar"),
+ /* lmb                */ TEXT("Left mouse &button:"),
+ /* mmb                */ TEXT("&Middle mouse button:"),
+ /* rmb                */ TEXT("Ri&ght mouse button:"),
+ /* mb4                */ TEXT("Mouse button &4:"),
+ /* mb5                */ TEXT("Mouse button &5:"),
+ /* scroll             */ TEXT("&Scroll wheel:"),
+ /* hscroll            */ TEXT("Scroll wheel (&horizontal):"),
+ /* moveup             */ TEXT("Long &drag-free Move:"),
+ /* resizeup           */ TEXT("Long drag-&free Resize:"),
+ /* ttbactions box     */ TEXT("Use specific actions when clicking the Title bar"),
+ /* ttbaction noalt    */ TEXT("Without hot&key"),
+ /* ttbaction walt     */ TEXT("&With hotkey"),
+ /* mmb_hr             */ TEXT("M&iddle mouse button"),
+ /* mb4_hc             */ TEXT("M&ouse button 4"),
+ /* mb5_hc             */ TEXT("Mo&use button 5"),
+ /* longclickmove      */ TEXT("Mo&ve windows with a long left-click"),
 
- /* scroll lock state  */ L"Suspend/Resume AltSnap based on &Scroll lock state",
- /* unikeyholdmenu     */ L"Pop&up an extended character menu when holding an alphabetic key down",
- /* keycombo           */ L"Use two keys &combo to activate",
- /* grabwithalt        */ L"&Action without click:",
- /* grabwithaltb       */ L"Acti&on without click (alt):",
+ /* scroll lock state  */ TEXT("Suspend/Resume AltSnap based on &Scroll lock state"),
+ /* unikeyholdmenu     */ TEXT("Pop&up an extended character menu when holding an alphabetic key down"),
+ /* keycombo           */ TEXT("Use two keys &combo to activate"),
+ /* grabwithalt        */ TEXT("&Action without click:"),
+ /* grabwithaltb       */ TEXT("Acti&on without click (alt):"),
 
  /* actions */
- /* move               */ L"Move window",
- /* resize             */ L"Resize window",
- /* restore            */ L"Restore window",
- /* close              */ L"&Close window",
- /* kill               */ L"&Kill program",
- /* pause              */ L"Pause program",
- /* resume             */ L"Resume program",
- /* asonoff            */ L"S&uspend/Resume AltSnap",
- /* moveonoff          */ L"Movement dis&abled",
- /* minimize           */ L"Mi&nimize window",
- /* maximize           */ L"Ma&ximize window",
- /* lower              */ L"&Lower window",
- /* nstacked           */ L"Next stacked window",
- /* nstacked 2         */ L"Next laser stacked window",
- /* pstacked           */ L"Previous stacked window",
- /* pstacked 2         */ L"Previous laser stacked window",
- /* npstacked          */ L"Next/Prev stacked window",
- /* stacklist          */ L"Stacked windows list",
- /* stacklist2         */ L"Laser stacked windows list",
- /* alttablist         */ L"Windows List",
- /* mlzone             */ L"Move to the left zone",
- /* mtzone             */ L"Move to the top zone",
- /* mrzone             */ L"Move to the right zone",
- /* mbzone             */ L"Move to the bottom zone",
- /* xlzone             */ L"Extend to the left zone",
- /* xtzone             */ L"Extend to the top zone",
- /* xrzone             */ L"Extend to the right zone",
- /* xbzone             */ L"Extend to the bottom zone",
- /* stepl              */ L"Step left",
- /* stept              */ L"Step up",
- /* stepr              */ L"Step right",
- /* stepb              */ L"Step down",
- /* sstepl             */ L"Small step left",
- /* sstept             */ L"Small step up",
- /* sstepr             */ L"Small step right",
- /* sstepb             */ L"Small step down",
- /* roll               */ L"&Roll/Unroll window",
- /* alwaysontop        */ L"Toggle always on &top",
- /* borderless         */ L"Toggle &borderless",
- /* center             */ L"C&enter window on screen",
- /* oriclick           */ L"Send ori&ginal click",
- /* nothing            */ L"Nothing",
- /* alttab             */ L"Alt+Tab",
- /* volume             */ L"Volume",
- /* mute               */ L"Mute &sounds",
- /* menu               */ L"Action menu",
- /* maximizehv         */ L"Maximize &Vertically",
- /* sidesnap           */ L"&Snap to monitor side/corner",
- /* extendsnap         */ L"Extend to monitor side/corner",
- /* minallother        */ L"Minimize &other windows",
- /* transparency       */ L"Transparency",
- /* zoom               */ L"Zoom window",
- /* zoom2              */ L"Zoom window 2",
- /* hscroll            */ L"Horizontal scroll",
+ /* move               */ TEXT("Move window"),
+ /* resize             */ TEXT("Resize window"),
+ /* restore            */ TEXT("Restore window"),
+ /* close              */ TEXT("&Close window"),
+ /* kill               */ TEXT("&Kill program"),
+ /* pause              */ TEXT("Pause program"),
+ /* resume             */ TEXT("Resume program"),
+ /* asonoff            */ TEXT("S&uspend/Resume AltSnap"),
+ /* moveonoff          */ TEXT("Movement dis&abled"),
+ /* minimize           */ TEXT("Mi&nimize window"),
+ /* maximize           */ TEXT("Ma&ximize window"),
+ /* lower              */ TEXT("&Lower window"),
+ /* nstacked           */ TEXT("Next stacked window"),
+ /* nstacked 2         */ TEXT("Next laser stacked window"),
+ /* pstacked           */ TEXT("Previous stacked window"),
+ /* pstacked 2         */ TEXT("Previous laser stacked window"),
+ /* npstacked          */ TEXT("Next/Prev stacked window"),
+ /* stacklist          */ TEXT("Stacked windows list"),
+ /* stacklist2         */ TEXT("Laser stacked windows list"),
+ /* alttablist         */ TEXT("Windows List"),
+ /* mlzone             */ TEXT("Move to the left zone"),
+ /* mtzone             */ TEXT("Move to the top zone"),
+ /* mrzone             */ TEXT("Move to the right zone"),
+ /* mbzone             */ TEXT("Move to the bottom zone"),
+ /* xlzone             */ TEXT("Extend to the left zone"),
+ /* xtzone             */ TEXT("Extend to the top zone"),
+ /* xrzone             */ TEXT("Extend to the right zone"),
+ /* xbzone             */ TEXT("Extend to the bottom zone"),
+ /* stepl              */ TEXT("Step left"),
+ /* stept              */ TEXT("Step up"),
+ /* stepr              */ TEXT("Step right"),
+ /* stepb              */ TEXT("Step down"),
+ /* sstepl             */ TEXT("Small step left"),
+ /* sstept             */ TEXT("Small step up"),
+ /* sstepr             */ TEXT("Small step right"),
+ /* sstepb             */ TEXT("Small step down"),
+ /* roll               */ TEXT("&Roll/Unroll window"),
+ /* alwaysontop        */ TEXT("Toggle always on &top"),
+ /* borderless         */ TEXT("Toggle &borderless"),
+ /* center             */ TEXT("C&enter window on screen"),
+ /* oriclick           */ TEXT("Send ori&ginal click"),
+ /* nothing            */ TEXT("Nothing"),
+ /* alttab             */ TEXT("Alt+Tab"),
+ /* volume             */ TEXT("Volume"),
+ /* mute               */ TEXT("Mute &sounds"),
+ /* menu               */ TEXT("Action menu"),
+ /* maximizehv         */ TEXT("Maximize &Vertically"),
+ /* sidesnap           */ TEXT("&Snap to monitor side/corner"),
+ /* extendsnap         */ TEXT("Extend to monitor side/corner"),
+ /* minallother        */ TEXT("Minimize &other windows"),
+ /* transparency       */ TEXT("Transparency"),
+ /* zoom               */ TEXT("Zoom window"),
+ /* zoom2              */ TEXT("Zoom window 2"),
+ /* hscroll            */ TEXT("Horizontal scroll"),
 
  /* hotkeys */
- /* box                */ L"Hotkeys",
- /* modkey             */ L"Modifier key for al&ternate action:",
- /* hotclicks box      */ L"Activate with click",
- /* hotclicks more     */ L"Checked buttons will not be usable outside of AltSnap. They can be combined with an action.",
- /* alt                */ L"Alt",
- /* winkey             */ L"Winkey",
- /* ctrl               */ L"Ctrl",
- /* shift              */ L"Shift",
- /* shortcuts          */ L"S&hortcut for action:",
- /* shortcutspick      */ L"Pick &keys",
- /* shortcutsClear     */ L"Clear ke&ys",
- /* shortcutsSet       */ L"Sa&ve",
- /* useptwindow        */ L"Apply to the &pointed window",
- /* leftalt            */ L"L&eft Alt",
- /* rightalt           */ L"&Right Alt",
- /* leftwinkey         */ L"Left &Winkey",
- /* rightwinkey        */ L"Right W&inkey",
- /* leftctrl           */ L"&Left Ctrl",
- /* rightctrl          */ L"Ri&ght Ctrl",
- /* leftshift          */ L"Left Shift",
- /* rightshift         */ L"Right Shift",
- /* hotkeys more       */ L"You can add any key by editing the ini file.\nUse the shift key to snap windows to each other.",
+ /* box                */ TEXT("Hotkeys"),
+ /* modkey             */ TEXT("Modifier key for al&ternate action:"),
+ /* hotclicks box      */ TEXT("Activate with click"),
+ /* hotclicks more     */ TEXT("Checked buttons will not be usable outside of AltSnap. They can be combined with an action."),
+ /* alt                */ TEXT("Alt"),
+ /* winkey             */ TEXT("Winkey"),
+ /* ctrl               */ TEXT("Ctrl"),
+ /* shift              */ TEXT("Shift"),
+ /* shortcuts          */ TEXT("S&hortcut for action:"),
+ /* shortcutspick      */ TEXT("Pick &keys"),
+ /* shortcutsClear     */ TEXT("Clear ke&ys"),
+ /* shortcutsSet       */ TEXT("Sa&ve"),
+ /* useptwindow        */ TEXT("Apply to the &pointed window"),
+ /* leftalt            */ TEXT("L&eft Alt"),
+ /* rightalt           */ TEXT("&Right Alt"),
+ /* leftwinkey         */ TEXT("Left &Winkey"),
+ /* rightwinkey        */ TEXT("Right W&inkey"),
+ /* leftctrl           */ TEXT("&Left Ctrl"),
+ /* rightctrl          */ TEXT("Ri&ght Ctrl"),
+ /* leftshift          */ TEXT("Left Shift"),
+ /* rightshift         */ TEXT("Right Shift"),
+ /* hotkeys more       */ TEXT("You can add any key by editing the ini file.\nUse the shift key to snap windows to each other."),
 
  /* blacklist tab */
- /* box                */ L"Blacklist settings",
- /* processblacklist   */ L"&Process blacklist:",
- /* blacklist          */ L"&Windows blacklist:",
- /* scrolllist         */ L"Windows that should ignore &scroll action:",
- /* MDIs bl            */ L"&MDIs not to be treated as such:",
- /* Pause list         */ L"Processes not to be pa&used or killed:",
- /* findwindow_box     */ L"Identify window",
+ /* box                */ TEXT("Blacklist settings"),
+ /* processblacklist   */ TEXT("&Process blacklist:"),
+ /* blacklist          */ TEXT("&Windows blacklist:"),
+ /* scrolllist         */ TEXT("Windows that should ignore &scroll action:"),
+ /* MDIs bl            */ TEXT("&MDIs not to be treated as such:"),
+ /* Pause list         */ TEXT("Processes not to be pa&used or killed:"),
+ /* findwindow_box     */ TEXT("Identify window"),
 
  /* advanced tab */
- /* metrics_box      */   L"Metrics",
- /* centerfraction   */   L"&Center/Sides fraction (%):",
- /* aerohoffset      */   L"Aero offset(%) &Horizontal:",
- /* aeroVoffset      */   L"&Vertical:",
- /* snapthreshold    */   L"&Snap Threshold (pixels):",
- /* aerothreshold    */   L"A&ero Threshold (pixels):",
- /* snapgap          */   L"Snapping &gap (pixels):",
- /* aerospeed        */   L"Ma&x snapping speed (pixels):",
- /* testwindow       */   L"Test &Window",
- /* movetrans        */   L"Opacit&y when moving:",
+ /* metrics_box      */   TEXT("Metrics"),
+ /* centerfraction   */   TEXT("&Center/Sides fraction (%):"),
+ /* aerohoffset      */   TEXT("Aero offset(%) &Horizontal:"),
+ /* aeroVoffset      */   TEXT("&Vertical:"),
+ /* snapthreshold    */   TEXT("&Snap Threshold (pixels):"),
+ /* aerothreshold    */   TEXT("A&ero Threshold (pixels):"),
+ /* snapgap          */   TEXT("Snapping &gap (pixels):"),
+ /* aerospeed        */   TEXT("Ma&x snapping speed (pixels):"),
+ /* testwindow       */   TEXT("Test &Window"),
+ /* movetrans        */   TEXT("Opacit&y when moving:"),
 
- /* behavior_box     */   L"Behavior",
- /* multipleinstances*/   L"Allow multiple &instances of AltSnap",
- /* autoremaximize   */   L"Automatically &remaximize windows when changing monitor",
- /* aerotopmaximizes */   L"&Maximize windows snapped at top",
- /* aerodbclickshift */   L"Invert shift &behavior for double-click aero snapping",
- /* maxwithlclick    */   L"&Toggle maximize state with the resize button while moving",
- /* restoreonclick   */   L"Rest&ore window with single click like original AltDrag",
- /* fullscreen       */   L"Enable on &full screen windows",
- /* blmaximized      */   L"&Disable AltSnap on Maximized windows",
- /* fancyzone        */   L"Restore Fancy&Zones snapped windows",
- /* norestore        */   L"Never restore AltSna&pped windows",
- /* topmostindicator */   L"Show an i&ndicator on always on top windows",
+ /* behavior_box     */   TEXT("Behavior"),
+ /* multipleinstances*/   TEXT("Allow multiple &instances of AltSnap"),
+ /* autoremaximize   */   TEXT("Automatically &remaximize windows when changing monitor"),
+ /* aerotopmaximizes */   TEXT("&Maximize windows snapped at top"),
+ /* aerodbclickshift */   TEXT("Invert shift &behavior for double-click aero snapping"),
+ /* maxwithlclick    */   TEXT("&Toggle maximize state with the resize button while moving"),
+ /* restoreonclick   */   TEXT("Rest&ore window with single click like original AltDrag"),
+ /* fullscreen       */   TEXT("Enable on &full screen windows"),
+ /* blmaximized      */   TEXT("&Disable AltSnap on Maximized windows"),
+ /* fancyzone        */   TEXT("Restore Fancy&Zones snapped windows"),
+ /* norestore        */   TEXT("Never restore AltSna&pped windows"),
+ /* topmostindicator */   TEXT("Show an i&ndicator on always on top windows"),
 
  /* about tab */
- /* box                */ L"About "APP_NAME,
- /* version            */ L"Version "APP_VERSION,
- /* author             */ L"Created by Stefan Sundin",
- /* license            */ APP_NAME L" is free and open source software!\nFeel free to redistribute!",
- /* translation_credit */ L"Translation credit",
+ /* box                */ TEXT("About "APP_NAME),
+ /* version            */ TEXT("Version "APP_VERSION),
+ /* author             */ TEXT("Created by Stefan Sundin"),
+ /* license            */ TEXT( APP_NAMEA " is free and open source software!\nFeel free to redistribute!"),
+ /* translation_credit */ TEXT("Translation credit"),
 
  /* === misc === */
- /* unhook_error       */ L"There was an error disabling "APP_NAME". This was most likely caused by Windows having already disabled "APP_NAME"'s hooks.\n\n"
+ /* unhook_error       */ TEXT("There was an error disabling "APP_NAME". This was most likely caused by Windows having already disabled "APP_NAME"'s hooks.\n\n"
                            "If this is the first time this has happened, you can safely ignore it and continue using "APP_NAME".\n\n"
                            "If this is happening repeatedly, you can read on the website how to prevent this from happening again "
-                           "(look for '"APP_NAME" mysteriously stops working' in the documentation).",
+                           "(look for '"APP_NAME" mysteriously stops working' in the documentation)."),
 
- /* zoneconfirmation   */ L"Erase old snap layout and save current Test Windows positions as the new snap layout?",
- /* zone test win help */ L"To setup Snap layout:\n"
+ /* zoneconfirmation   */ TEXT("Erase old snap layout and save current Test Windows positions as the new snap layout?"),
+ /* zone test win help */ TEXT("To setup Snap layout:\n"
                            "1) Open several of those Test Windows\n"
                            "2) Dispose them as you please\n"
-                           "3) Hit the *&Save test windows as snap layout* option in the tray menu",
+                           "3) Hit the *&Save test windows as snap layout* option in the tray menu"),
  /* Extended character list  for each virtual key */
- /* A */ L"àáâäæãåª%āăąǎǟǡǣǻǽȁȃȧ|Ȧḁ%ⱥ|Ⱥɐ|Ɐɑ|Ɑɒ|Ɒⲁ|Ⲁⓐ", \
- /* B */ L"%ƀɓƃƅɃ%ɓḃḅḇⓑ", \
- /* C */ L"ç¢©%ćĉċčƈḉȼ|Ȼɕⓒ", \
- /* D */ L"ð%ďđɖɗƌƍḋḍḏḑḓǆǅǳǲȡȸⓓ", \
- /* E */ L"èéêë€%ēĕėęěǝəɛȅȇḕḗḙḛȩ|Ȩḝɇ|Ɇⱸⓔ", \
- /* F */ L"ƒ%ḟɸⱷⓕ%♩♪♮♭♯♬♫", \
- /* G */ L"%ǵǧḡɠɣǥⓖ", \
- /* H */ L"%ĥħƕǶḣḥḧḩḫȟ|Ȟⱨ|Ⱨⱶ|Ⱶẖⓗ", \
- /* I */ L"ìíîï%ĩīĭǐȉȋįİıĳɩɨḭḯⓘ", \
- /* J */ L"%ĵǰȷɉ|Ɉⓙ", \
- /* K */ L"%ķĸƙǩḱḳⱪ|Ⱪꝁ|Ꝁʞ|Ʞⓚ", \
- /* L */ L"£%ĺļľŀłƛǉǈȴƚ|Ƚⱡ|Ⱡɫ|Ɫḷḹḻḽⓛ", \
- /* M */ L"µ%ḿṁṃɱ|Ɱɯⓜ", \
- /* N */ L"ñ%ńņňŉŋɲƞ|Ƞǌǋǹȵ%ṅṇṉṋⓝ", \
- /* O */ L"òóôöœõø°%ōŏő%ɔɵơƣǒǫǭǿȍȏȣ|Ȣȫ|Ȫȭ|Ȭȯ|Ȯȱ|Ȱṍṏṑṓ%ⱺⓞ", \
- /* P */ L"¶þ·•%ƥᵽ|Ᵽṕṗⓟ", \
- /* Q */ L"¿¤‰‘’“”„…–—«»‹›%ȹɋ|Ɋⓠ", \
- /* R */ L"®%ŕŗřƦȑȓṙṛṝṟɍ|Ɍɽ|Ɽⱹⓡ", \
- /* S */ L"šß§%śŝşſ%ƨʃƪș|Șȿ|Ȿ%ṡṣṥṧṩⓢ", \
- /* T */ L"†‡™%ţťŧƫƭʈț|Țȶⱦ|Ⱦ%ṫṭṯṱẗⓣ", \
- /* U */ L"ùúûü%ũūůŭűų%ưʊǔǖǘǚǜȕȗʉ|Ʉ%ṳṵṷṹṻⓤ", \
- /* V */ L"%ʋɅⱱⱴ%ṽṿⓥ", \
- /* W */ L"%ẁẃŵẅⱳ|Ⱳ%ẇẉⓦ", \
- /* X */ L"±×÷¬%ẋẍⓧ", \
- /* Y */ L"ýÿ¥%ŷẏȳ|Ȳƴɏ|Ɏⓨ", \
- /* Z */ L"ž%źẑżẓẕ%ƶʒƹƺǯȥ|Ȥɀ|Ɀⱬ|Ⱬⓩ", \
+ /* A */ TEXT("àáâäæãåª%āăąǎǟǡǣǻǽȁȃȧ|Ȧḁ%ⱥ|Ⱥɐ|Ɐɑ|Ɑɒ|Ɒⲁ|Ⲁⓐ"), \
+ /* B */ TEXT("%ƀɓƃƅɃ%ɓḃḅḇⓑ"), \
+ /* C */ TEXT("ç¢©%ćĉċčƈḉȼ|Ȼɕⓒ"), \
+ /* D */ TEXT("ð%ďđɖɗƌƍḋḍḏḑḓǆǅǳǲȡȸⓓ"), \
+ /* E */ TEXT("èéêë€%ēĕėęěǝəɛȅȇḕḗḙḛȩ|Ȩḝɇ|Ɇⱸⓔ"), \
+ /* F */ TEXT("ƒ%ḟɸⱷⓕ%♩♪♮♭♯♬♫"), \
+ /* G */ TEXT("%ǵǧḡɠɣǥⓖ"), \
+ /* H */ TEXT("%ĥħƕǶḣḥḧḩḫȟ|Ȟⱨ|Ⱨⱶ|Ⱶẖⓗ"), \
+ /* I */ TEXT("ìíîï%ĩīĭǐȉȋįİıĳɩɨḭḯⓘ"), \
+ /* J */ TEXT("%ĵǰȷɉ|Ɉⓙ"), \
+ /* K */ TEXT("%ķĸƙǩḱḳⱪ|Ⱪꝁ|Ꝁʞ|Ʞⓚ"), \
+ /* L */ TEXT("£%ĺļľŀłƛǉǈȴƚ|Ƚⱡ|Ⱡɫ|Ɫḷḹḻḽⓛ"), \
+ /* M */ TEXT("µ%ḿṁṃɱ|Ɱɯⓜ"), \
+ /* N */ TEXT("ñ%ńņňŉŋɲƞ|Ƞǌǋǹȵ%ṅṇṉṋⓝ"), \
+ /* O */ TEXT("òóôöœõø°%ōŏő%ɔɵơƣǒǫǭǿȍȏȣ|Ȣȫ|Ȫȭ|Ȭȯ|Ȯȱ|Ȱṍṏṑṓ%ⱺⓞ"), \
+ /* P */ TEXT("¶þ·•%ƥᵽ|Ᵽṕṗⓟ"), \
+ /* Q */ TEXT("¿¤‰‘’“”„…–—«»‹›%ȹɋ|Ɋⓠ"), \
+ /* R */ TEXT("®%ŕŗřƦȑȓṙṛṝṟɍ|Ɍɽ|Ɽⱹⓡ"), \
+ /* S */ TEXT("šß§%śŝşſ%ƨʃƪș|Șȿ|Ȿ%ṡṣṥṧṩⓢ"), \
+ /* T */ TEXT("†‡™%ţťŧƫƭʈț|Țȶⱦ|Ⱦ%ṫṭṯṱẗⓣ"), \
+ /* U */ TEXT("ùúûü%ũūůŭűų%ưʊǔǖǘǚǜȕȗʉ|Ʉ%ṳṵṷṹṻⓤ"), \
+ /* V */ TEXT("%ʋɅⱱⱴ%ṽṿⓥ"), \
+ /* W */ TEXT("%ẁẃŵẅⱳ|Ⱳ%ẇẉⓦ"), \
+ /* X */ TEXT("±×÷¬%ẋẍⓧ"), \
+ /* Y */ TEXT("ýÿ¥%ŷẏȳ|Ȳƴɏ|Ɏⓨ"), \
+ /* Z */ TEXT("ž%źẑżẓẕ%ƶʒƹƺǯȥ|Ȥɀ|Ɀⱬ|Ⱬⓩ"), \
 };
 
 #endif

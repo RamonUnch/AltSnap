@@ -10,33 +10,33 @@
 RECT *Zones;
 unsigned nzones;
 
-static int ReadRectFromini(RECT *zone, unsigned idx, wchar_t *inipath)
+static int ReadRectFromini(RECT *zone, unsigned idx, TCHAR *inipath)
 {
     if (idx > MAX_ZONES) return 0;
 
     long *ZONE = (long *)zone;
-    wchar_t zaschii[128], zname[32]=L"";
+    TCHAR zaschii[128], zname[32]=TEXT("");
 
-    DWORD ret = GetPrivateProfileString(L"Zones", ZidxToZonestr(idx, zname), L"", zaschii, ARR_SZ(zaschii), inipath);
+    DWORD ret = GetPrivateProfileString(TEXT("Zones"), ZidxToZonestr(idx, zname), TEXT(""), zaschii, ARR_SZ(zaschii), inipath);
 
     if (!ret || zaschii[0] =='\0') return 0;
 
-    wchar_t *oldptr, *newptr;
+    TCHAR *oldptr, *newptr;
     oldptr = &zaschii[0];
     UCHAR i;
     for (i=0; i < 4; i++) {
-        newptr = wcschr(oldptr, ',');
+        newptr = lstrchr(oldptr, ',');
         if (!newptr) return 0;
         *newptr = '\0';
         newptr++;
         if(!*oldptr) return 0;
-        ZONE[i] = _wtoi(oldptr); // 0 left, 1 top, 2 right, 3 bottom;
+        ZONE[i] = strtoi(oldptr); // 0 left, 1 top, 2 right, 3 bottom;
         oldptr = newptr;
     }
     return 1;
 }
 // Load all zones from ini file
-static void ReadZones(wchar_t *inifile)
+static void ReadZones(TCHAR *inifile)
 {
     nzones = 0;
     RECT tmpzone;

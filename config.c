@@ -29,28 +29,28 @@ static void CheckAutostart(int *_on, int *_hidden, int *_elevated)
     *_on = *_hidden = *_elevated = 0;
     // Read registry
     HKEY key;
-    wchar_t value[MAX_PATH+20] = L"";
+    TCHAR value[MAX_PATH+20] = TEXT("");
     DWORD len = sizeof(value);
-    RegOpenKeyEx(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_QUERY_VALUE, &key);
-    RegQueryValueEx(key, APP_NAME, NULL, NULL, (LPBYTE)value, &len);
+    RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Software\\Microsoft\\Windows\\CurrentVersion\\Run"), 0, KEY_QUERY_VALUE, &key);
+    RegQueryValueEx(key, TEXT(APP_NAMEA), NULL, NULL, (LPBYTE)value, &len);
     RegCloseKey(key);
 
     // Compare to what it should be
-    wchar_t compare[MAX_PATH+20];
+    TCHAR compare[MAX_PATH+20];
     GetModuleFileName(NULL, &compare[1], MAX_PATH);
     compare[0] = '\"';
-    unsigned ll = wcslen(compare);
+    unsigned ll = lstrlen(compare);
     compare[ll] = '\"'; compare[++ll]='\0';
 
-    if (wcsstr(value, compare) != value) {
+    if (lstrstr(value, compare) != value) {
         return;
     }
     // Autostart is on, check arguments
     *_on = 1;
-    if (wcsstr(value, L" -hide") != NULL) {
+    if (lstrstr(value, TEXT(" -hide")) != NULL) {
         *_hidden = 1;
     }
-    if (wcsstr(value, L" -elevate") != NULL) {
+    if (lstrstr(value, TEXT(" -elevate")) != NULL) {
         *_elevated = 1;
     }
 }
@@ -61,24 +61,24 @@ static void SetAutostart(int on, int hhide, int eelevate)
     // Open key
     HKEY key;
     int error = RegCreateKeyEx(HKEY_CURRENT_USER
-                              , L"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+                              , TEXT("Software\\Microsoft\\Windows\\CurrentVersion\\Run")
                               , 0, NULL, 0, KEY_SET_VALUE, NULL, &key, NULL);
     if (error != ERROR_SUCCESS) return;
     if (on) {
         // Get path
-        wchar_t value[MAX_PATH+20];
+        TCHAR value[MAX_PATH+20];
         GetModuleFileName(NULL, &value[1], MAX_PATH);
         value[0] = '\"';
-        unsigned ll = wcslen(value);
+        unsigned ll = lstrlen(value);
         value[ll] = '\"'; value[++ll]='\0';
         // Add -hide or -elevate flags
-        if (hhide)    wcscat(value, L" -hide");
-        if (eelevate) wcscat(value, L" -elevate");
+        if (hhide)    lstrcat(value, TEXT(" -hide"));
+        if (eelevate) lstrcat(value, TEXT(" -elevate"));
         // Set autostart
-        RegSetValueEx(key, APP_NAME, 0, REG_SZ, (LPBYTE)value, (wcslen(value)+1)*sizeof(value[0]));
+        RegSetValueEx(key, TEXT(APP_NAMEA), 0, REG_SZ, (LPBYTE)value, (lstrlen(value)+1)*sizeof(value[0]));
     } else {
         // Remove
-        RegDeleteValue(key, APP_NAME);
+        RegDeleteValue(key, TEXT(APP_NAMEA));
     }
     // Close key
     RegCloseKey(key);
@@ -88,18 +88,18 @@ static void SetAutostart(int on, int hhide, int eelevate)
 // Only used in the case of Vista+
 static BOOL ElevateNow(int showconfig)
 {
-        wchar_t path[MAX_PATH];
+        TCHAR path[MAX_PATH];
         GetModuleFileName(NULL, path, ARR_SZ(path));
         INT_PTR ret;
         if (showconfig)
-            ret = (INT_PTR)ShellExecute(NULL, L"runas", path, L"-config -multi", NULL, SW_SHOWNORMAL);
+            ret = (INT_PTR)ShellExecute(NULL, TEXT("runas"), path, TEXT("-config -multi"), NULL, SW_SHOWNORMAL);
         else
-            ret = (INT_PTR)ShellExecute(NULL, L"runas", path, L"-multi", NULL, SW_SHOWNORMAL);
+            ret = (INT_PTR)ShellExecute(NULL, TEXT("runas"), path, TEXT("-multi"), NULL, SW_SHOWNORMAL);
 
         if (ret > 32) {
             PostMessage(g_hwnd, WM_CLOSE, 0, 0);
         } else {
-            MessageBox(NULL, l10n->general_elevation_aborted, APP_NAME, MB_ICONINFORMATION | MB_OK);
+            MessageBox(NULL, l10n->general_elevation_aborted, TEXT(APP_NAMEA), MB_ICONINFORMATION | MB_OK);
         }
         return FALSE;
 }
@@ -143,7 +143,7 @@ static void OpenConfig(int startpage)
     psh.hwndParent = NULL;
     psh.hInstance = g_hinst;
     psh.hIcon = LoadIcon(g_hinst, iconstr[1]);
-    psh.pszCaption = APP_NAME;
+    psh.pszCaption = TEXT(APP_NAMEA);
     psh.nPages = ARR_SZ(pages);
     psh.ppsp = (LPCPROPSHEETPAGE) &psp;
     psh.pfnCallback = PropSheetProc;
@@ -181,7 +181,7 @@ static void UpdateStrings()
     // tc = PropSheet_GetTabControl(g_cfgwnd);
     HWND tc = (HWND)SendMessage(g_cfgwnd, PSM_GETTABCONTROL, 0, 0);
     int numrows_prev = TabCtrl_GetRowCount(tc);
-    wchar_t *titles[6];
+    TCHAR *titles[6];
     titles[0] = l10n->tab_general;
     titles[1] = l10n->tab_mouse;
     titles[2] = l10n->tab_keyboard;
@@ -276,10 +276,10 @@ static DWORD IsUACEnabled()
         HKEY key;
         RegOpenKeyEx(
             HKEY_LOCAL_MACHINE
-          , L"Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System"
+          , TEXT("Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System")
           , 0, KEY_QUERY_VALUE, &key);
 
-        RegQueryValueEx(key, L"EnableLUA", NULL, NULL, (LPBYTE) &uac_enabled, &len);
+        RegQueryValueEx(key, TEXT("EnableLUA"), NULL, NULL, (LPBYTE) &uac_enabled, &len);
         RegCloseKey(key);
     }
     return uac_enabled;
@@ -287,55 +287,55 @@ static DWORD IsUACEnabled()
 /////////////////////////////////////////////////////////////////////////////
 // Helper functions and Macro
 #define IsChecked(idc) Button_GetCheck(GetDlgItem(hwnd, idc))
-#define IsCheckedW(idc) _itow(IsChecked(idc), txt, 10)
-static void WriteOptionBoolW(HWND hwnd, WORD id, const wchar_t *section, const char *name_s)
+#define IsCheckedW(idc) itostr(IsChecked(idc), txt, 10)
+static void WriteOptionBoolW(HWND hwnd, WORD id, const TCHAR *section, const char *name_s)
 {
-    wchar_t txt[8];
-    wchar_t name[64];
-    str2wide(name, name_s);
-    WritePrivateProfileString(section, name,_itow(Button_GetCheck(GetDlgItem(hwnd, id)), txt, 10), inipath);
+    TCHAR txt[8];
+    TCHAR name[64];
+    str2tchar(name, name_s);
+    WritePrivateProfileString(section, name,itostr(Button_GetCheck(GetDlgItem(hwnd, id)), txt, 10), inipath);
 }
 #define WriteOptionBool(id, section, name) WriteOptionBoolW(hwnd, id, section, name)
-static int WriteOptionBoolBW(HWND hwnd, WORD id, const wchar_t *section, const char *name_s, int bit)
+static int WriteOptionBoolBW(HWND hwnd, WORD id, const TCHAR *section, const char *name_s, int bit)
 {
-    wchar_t txt[8];
-    wchar_t name[64];
-    str2wide(name, name_s);
+    TCHAR txt[8];
+    TCHAR name[64];
+    str2tchar(name, name_s);
     int val = GetPrivateProfileInt(section, name, 0, inipath);
     if (Button_GetCheck(GetDlgItem(hwnd, id)))
         val = setBit(val, bit);
     else
         val = clearBit(val, bit);
 
-    WritePrivateProfileString(section, name, _itow(val, txt, 10), inipath);
+    WritePrivateProfileString(section, name, itostr(val, txt, 10), inipath);
     return val;
 }
 #define WriteOptionBoolB(id, section, name, bit) WriteOptionBoolBW(hwnd, id, section, name, bit)
 
-static void WriteOptionStrW(HWND hwnd, WORD id, const wchar_t *section, const char *name_s)
+static void WriteOptionStrW(HWND hwnd, WORD id, const TCHAR *section, const char *name_s)
 {
-    wchar_t txt[1024];
-    wchar_t name[64];
-    str2wide(name, name_s);
+    TCHAR txt[1024];
+    TCHAR name[64];
+    str2tchar(name, name_s);
     Edit_GetText(GetDlgItem(hwnd, id), txt, ARR_SZ(txt));
     WritePrivateProfileString(section, name, txt, inipath);
 }
 #define WriteOptionStr(id, section, name)  WriteOptionStrW(hwnd, id, section, name)
 
-static void ReadOptionStrW(HWND hwnd, WORD id, const wchar_t *section, const char *name_s, const wchar_t *def)
+static void ReadOptionStrW(HWND hwnd, WORD id, const TCHAR *section, const char *name_s, const TCHAR *def)
 {
-    wchar_t txt[1024];
-    wchar_t name[64];
-    str2wide(name, name_s);
+    TCHAR txt[1024];
+    TCHAR name[64];
+    str2tchar(name, name_s);
     GetPrivateProfileString(section, name, def, txt, ARR_SZ(txt), inipath);
     SetDlgItemText(hwnd, id, txt);
 }
 #define ReadOptionStr(id, section, name, def) ReadOptionStrW(hwnd, id, section, name, def)
 
-static int ReadOptionIntW(HWND hwnd, WORD id, const wchar_t *section, const char *name_s, int def, int mask)
+static int ReadOptionIntW(HWND hwnd, WORD id, const TCHAR *section, const char *name_s, int def, int mask)
 {
-    wchar_t name[64];
-    str2wide(name, name_s);
+    TCHAR name[64];
+    str2tchar(name, name_s);
     int ret = GetPrivateProfileInt(section, name, def, inipath);
     Button_SetCheck(GetDlgItem(hwnd, id), (ret&mask)? BST_CHECKED: BST_UNCHECKED);
     return ret;
@@ -387,7 +387,7 @@ static HWND CreateInfoTip(HWND hDlg, int toolID, const TCHAR * const pszText)
 
     return hwndTip;
 }
-struct dialogstring { const int idc; const wchar_t *string; /* const wchar_t *helpstr; */ };
+struct dialogstring { const int idc; const TCHAR *string; /* const TCHAR *helpstr; */ };
 static void UpdateDialogStrings(HWND hwnd, const struct dialogstring * const strlst, unsigned size)
 {
     unsigned i;
@@ -402,7 +402,7 @@ struct optlst {
     const short idc;
     const enum opttype type;
     const UCHAR bitN;
-    const wchar_t *section;
+    const TCHAR *section;
     const char *name;
     const void *def;
 };
@@ -415,7 +415,7 @@ static void ReadDialogOptions(HWND hwnd,const struct optlst *ol, unsigned size)
         else if (ol[i].type == T_BMK)
             ReadOptionIntW(hwnd, ol[i].idc, ol[i].section, ol[i].name, (int)(DorQWORD)ol[i].def, 1<<ol[i].bitN);
         else
-            ReadOptionStrW(hwnd, ol[i].idc, ol[i].section, ol[i].name, (wchar_t*)ol[i].def);
+            ReadOptionStrW(hwnd, ol[i].idc, ol[i].section, ol[i].name, (TCHAR*)ol[i].def);
     }
 }
 static void WriteDialogOptions(HWND hwnd,const struct optlst *ol, unsigned size)
@@ -435,9 +435,9 @@ static void WriteDialogOptions(HWND hwnd,const struct optlst *ol, unsigned size)
 // to be used with EnumDesktopWindows()
 BOOL CALLBACK RefreshTestWin(HWND hwnd, LPARAM lp)
 {
-    wchar_t classn[256];
+    TCHAR classn[256];
     if (GetClassName(hwnd, classn, ARR_SZ(classn))
-    && !wcscmp(APP_NAME"-Test", classn) ) {
+    && !lstrcmp(TEXT(APP_NAMEA"-Test"), classn) ) {
         PostMessage(hwnd, WM_UPDCFRACTION, 0, 0);
         SetWindowPos(hwnd, NULL, 0, 0, 0, 0
             , SWP_NOCOPYBITS|SWP_NOMOVE|SWP_NOREPOSITION|SWP_NOSIZE );
@@ -451,16 +451,16 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     #pragma GCC diagnostic ignored "-Wint-conversion"
     static const struct optlst optlst[] = {
        // dialog id, type, bit number, section name, option name, def val.
-        { IDC_AUTOFOCUS,     T_BOL, 0,  L"General",  "AutoFocus", 0 },
-        { IDC_AERO,          T_BOL, 0,  L"General",  "Aero", 1 },
-        { IDC_SMARTAERO,     T_BMK, 0,  L"General",  "SmartAero", 1 },
-        { IDC_SMARTERAERO,   T_BMK, 1,  L"General",  "SmartAero", 0 },
-        { IDC_STICKYRESIZE,  T_BOL, 0,  L"General",  "StickyResize", 1 },
-        { IDC_INACTIVESCROLL,T_BOL, 0,  L"General",  "InactiveScroll", 0 },
-        { IDC_MDI,           T_BOL, 0,  L"General",  "MDI", 1 },
-        { IDC_RESIZEALL,     T_BOL, 0,  L"Advanced", "ResizeAll", 1 },
-        { IDC_USEZONES,      T_BMK, 0,  L"Zones",    "UseZones", 0 },
-        { IDC_PIERCINGCLICK, T_BOL, 0,  L"Advanced", "PiercingClick", 0 },
+        { IDC_AUTOFOCUS,     T_BOL, 0,  TEXT("General"),  "AutoFocus", 0 },
+        { IDC_AERO,          T_BOL, 0,  TEXT("General"),  "Aero", 1 },
+        { IDC_SMARTAERO,     T_BMK, 0,  TEXT("General"),  "SmartAero", 1 },
+        { IDC_SMARTERAERO,   T_BMK, 1,  TEXT("General"),  "SmartAero", 0 },
+        { IDC_STICKYRESIZE,  T_BOL, 0,  TEXT("General"),  "StickyResize", 1 },
+        { IDC_INACTIVESCROLL,T_BOL, 0,  TEXT("General"),  "InactiveScroll", 0 },
+        { IDC_MDI,           T_BOL, 0,  TEXT("General"),  "MDI", 1 },
+        { IDC_RESIZEALL,     T_BOL, 0,  TEXT("Advanced"), "ResizeAll", 1 },
+        { IDC_USEZONES,      T_BMK, 0,  TEXT("Zones"),    "UseZones", 0 },
+        { IDC_PIERCINGCLICK, T_BOL, 0,  TEXT("Advanced"), "PiercingClick", 0 },
     };
     #pragma GCC diagnostic pop
 
@@ -471,7 +471,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         int ret;
         ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
 
-        ret = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
+        ret = GetPrivateProfileInt(TEXT("General"), TEXT("ResizeCenter"), 1, inipath);
         ret = ret==1? IDC_RZCENTER_NORM: ret==2? IDC_RZCENTER_MOVE: ret==3? IDC_RZCENTER_CLOSE: IDC_RZCENTER_BR;
         CheckRadioButton(hwnd, IDC_RZCENTER_NORM, IDC_RZCENTER_CLOSE, ret);
 
@@ -481,7 +481,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         int i;
         for (i = 0; i < nlanguages; i++) {
             ComboBox_AddString(control, langinfo[i].lang);
-            if (langinfo[i].code && !wcsicmp(l10n->code, langinfo[i].code) ) {
+            if (langinfo[i].code && !lstrcmpi(l10n->code, langinfo[i].code) ) {
                 ComboBox_SetCurSel(control, i);
             }
         }
@@ -511,14 +511,14 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             }
         } else if (id == IDC_AUTOSTART_ELEVATE) {
             if (val && IsUACEnabled()) {
-                MessageBox(NULL, l10n->general_autostart_elevate_tip, APP_NAME, MB_ICONINFORMATION | MB_OK);
+                MessageBox(NULL, l10n->general_autostart_elevate_tip, TEXT(APP_NAMEA), MB_ICONINFORMATION | MB_OK);
             }
         } else if (id == IDC_ELEVATE) {
             return ElevateNow(1);
         }
     } else if (msg == WM_NOTIFY) {
         LPNMHDR pnmh = (LPNMHDR) lParam;
-        
+
         if (pnmh->code == PSN_SETACTIVE) {
             updatestrings = 1;
 
@@ -535,18 +535,18 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             // all bool options (checkboxes).
             WriteDialogOptions(hwnd, optlst, ARR_SZ(optlst));
 
-            wchar_t txt[8];
+            TCHAR txt[8];
             int val = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_AUTOSNAP));
-            WritePrivateProfileString(L"General",    L"AutoSnap", _itow(val, txt, 10), inipath);
+            WritePrivateProfileString(TEXT("General"),    TEXT("AutoSnap"), itostr(val, txt, 10), inipath);
 
             val = IsChecked(IDC_RZCENTER_NORM)? 1: IsChecked(IDC_RZCENTER_MOVE)? 2:IsChecked(IDC_RZCENTER_CLOSE)? 3: 0;
-            WritePrivateProfileString(L"General",    L"ResizeCenter", _itow(val, txt, 10), inipath);
+            WritePrivateProfileString(TEXT("General"),    TEXT("ResizeCenter"), itostr(val, txt, 10), inipath);
 
             // Load selected Language
             int i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_LANGUAGE));
             i = min(i, nlanguages);
             LoadTranslation(langinfo[i].fn);
-            WritePrivateProfileString(L"General", L"Language", l10n->code, inipath);
+            WritePrivateProfileString(TEXT("General"), TEXT("Language"), l10n->code, inipath);
             updatestrings = 1;
             UpdateStrings();
 
@@ -588,7 +588,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         };
         UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
         // spetial case...
-        //CreateToolTip(IDC_AUTOFOCUS, hwnd, L"String\nExample");
+        //CreateToolTip(IDC_AUTOFOCUS, hwnd, TEXT("String\nExample"));
         SetDlgItemText(hwnd, IDC_ELEVATE, elevated?l10n->general_elevated: l10n->general_elevate);
 
         // AutoSnap
@@ -598,9 +598,9 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         ComboBox_AddString(control, l10n->general_autosnap1);
         ComboBox_AddString(control, l10n->general_autosnap2);
         ComboBox_AddString(control, l10n->general_autosnap3);
-        wchar_t txt[8];
-        GetPrivateProfileString(L"General", L"AutoSnap", L"0", txt, ARR_SZ(txt), inipath);
-        ComboBox_SetCurSel(control, _wtoi(txt));
+        TCHAR txt[8];
+        GetPrivateProfileString(TEXT("General"), TEXT("AutoSnap"), TEXT("0"), txt, ARR_SZ(txt), inipath);
+        ComboBox_SetCurSel(control, strtoi(txt));
 
         // Language
         control = GetDlgItem(hwnd, IDC_LANGUAGE);
@@ -609,13 +609,13 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     return FALSE;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int IsKeyInList(wchar_t *keys, unsigned vkey)
+static int IsKeyInList(TCHAR *keys, unsigned vkey)
 {
     unsigned temp, numread;
-    wchar_t *pos = keys;
+    TCHAR *pos = keys;
     while (*pos != '\0') {
         numread = 0;
-        temp = whex2u(pos);
+        temp = lstrhex2u(pos);
         while (pos[numread] && pos[numread] != ' ') numread++;
         while (pos[numread] == ' ') numread++;
         if (temp == vkey) {
@@ -625,37 +625,37 @@ static int IsKeyInList(wchar_t *keys, unsigned vkey)
     }
     return 0;
 }
-static void AddvKeytoList(wchar_t *keys, unsigned vkey)
+static void AddvKeytoList(TCHAR *keys, unsigned vkey)
 {
     // Check if it is already in the list.
     if (IsKeyInList(keys, vkey))
         return;
     // Add a key to the hotkeys list
     if (*keys != '\0') {
-        wcscat(keys, L" ");
+        lstrcat(keys, TEXT(" "));
     }
-    wchar_t buf[8];
-    wcscat(keys, _itow(vkey, buf, 16));
+    TCHAR buf[8];
+    lstrcat(keys, itostr(vkey, buf, 16));
 }
-static void RemoveKeyFromList(wchar_t *keys, unsigned vkey)
+static void RemoveKeyFromList(TCHAR *keys, unsigned vkey)
 {
     // Remove the key from the hotclick list
     unsigned temp, numread;
-    wchar_t *pos = keys;
+    TCHAR *pos = keys;
     while (*pos != '\0') {
         numread = 0;
-        temp = whex2u(pos);
+        temp = lstrhex2u(pos);
         while(pos[numread] && pos[numread] != ' ') numread++;
         while(pos[numread] == ' ') numread++;
         if (temp == vkey) {
             keys[pos - keys] = '\0';
-            wcscat(keys, pos + numread);
+            lstrcat(keys, pos + numread);
             break;
         }
         pos += numread;
     }
     // Strip eventual remaining spaces
-    unsigned ll = wcslen(keys);
+    unsigned ll = lstrlen(keys);
     while (ll > 0 && keys[--ll] == ' ') keys[ll]='\0';
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -663,11 +663,11 @@ struct hk_struct {
     unsigned control;
     unsigned vkey;
 };
-static void SaveHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const wchar_t *name)
+static void SaveHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const TCHAR *name)
 {
-    wchar_t keys[32];
+    TCHAR keys[32];
     // Get the current config in case there are some user added keys.
-    GetPrivateProfileString(L"Input", name, L"", keys, ARR_SZ(keys), inipath);
+    GetPrivateProfileString(TEXT("Input"), name, TEXT(""), keys, ARR_SZ(keys), inipath);
     unsigned i;
     for (i = 0; hotkeys[i].control; i++) {
          if (IsChecked(hotkeys[i].control)) {
@@ -676,19 +676,19 @@ static void SaveHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const wchar_
              RemoveKeyFromList(keys, hotkeys[i].vkey);
          }
     }
-    WritePrivateProfileString(L"Input", name, keys, inipath);
+    WritePrivateProfileString(TEXT("Input"), name, keys, inipath);
 }
 /////////////////////////////////////////////////////////////////////////////
-static void CheckConfigHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const wchar_t *hotkeystr, const wchar_t* def)
+static void CheckConfigHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const TCHAR *hotkeystr, const TCHAR* def)
 {
     // Hotkeys
     size_t i;
     unsigned temp;
-    wchar_t txt[32];
-    GetPrivateProfileString(L"Input", hotkeystr, def, txt, ARR_SZ(txt), inipath);
-    wchar_t *pos = txt;
+    TCHAR txt[32];
+    GetPrivateProfileString(TEXT("Input"), hotkeystr, def, txt, ARR_SZ(txt), inipath);
+    TCHAR *pos = txt;
     while (*pos != '\0') {
-        temp = whex2u(pos);
+        temp = lstrhex2u(pos);
         while(*pos && *pos != ' ') pos++;
         while(*pos == ' ') pos++;
 
@@ -703,26 +703,26 @@ static void CheckConfigHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const
 }
 
 struct actiondl {
-    wchar_t *action;
-    wchar_t *l10n;
+    TCHAR *action;
+    TCHAR *l10n;
 };
-static void FillActionDropListS(HWND hwnd, int idc, wchar_t *inioption, struct actiondl *actions)
+static void FillActionDropListS(HWND hwnd, int idc, TCHAR *inioption, struct actiondl *actions)
 {
     HWND control = GetDlgItem(hwnd, idc);
-    wchar_t txt[64];
+    TCHAR txt[64];
     int sel=0, j;
     ComboBox_ResetContent(control);
     if (inioption) {
         sel = -1; // Selection to be made
-        GetPrivateProfileString(L"Input", inioption, L"Nothing", txt, ARR_SZ(txt), inipath);
+        GetPrivateProfileString(TEXT("Input"), inioption, TEXT("Nothing"), txt, ARR_SZ(txt), inipath);
     }
     for (j = 0; actions[j].action; j++) {
-        wchar_t action_name[256];
-        wcscpy_noaccel(action_name, actions[j].l10n, ARR_SZ(action_name));
+        TCHAR action_name[256];
+        lstrcpy_noaccel(action_name, actions[j].l10n, ARR_SZ(action_name));
         ComboBox_AddString(control, action_name);
-        if (inioption && !wcscmp(txt, actions[j].action)) {
+        if (inioption && !lstrcmp(txt, actions[j].action)) {
             sel = j;
-    }
+        }
     }
     if (sel < 0) {
         // sel is negative if the string was not found in the struct actiondl:
@@ -732,12 +732,12 @@ static void FillActionDropListS(HWND hwnd, int idc, wchar_t *inioption, struct a
     }
     ComboBox_SetCurSel(control, sel);
 }
-static void WriteActionDropListS(HWND hwnd, int idc, wchar_t *inioption, struct actiondl *actions)
+static void WriteActionDropListS(HWND hwnd, int idc, TCHAR *inioption, struct actiondl *actions)
 {
     HWND control = GetDlgItem(hwnd, idc);
     int j = ComboBox_GetCurSel(control);
     if (actions[j].action) // Inside of known values
-        WritePrivateProfileString(L"Input", inioption, actions[j].action, inipath);
+        WritePrivateProfileString(TEXT("Input"), inioption, actions[j].action, inipath);
 }
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -746,66 +746,66 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     // Mouse actions
     static const struct {
         int control; // Same control
-        wchar_t *option[3]; // Prim/alt/TTB
+        TCHAR *option[3]; // Prim/alt/TTB
     } mouse_buttons[] = {
-        { IDC_LMB,     {L"LMB", L"LMBB", L"LMBT"} },
-        { IDC_MMB,     {L"MMB", L"MMBB", L"MMBT"} },
-        { IDC_RMB,     {L"RMB", L"RMBB", L"RMBT"} },
-        { IDC_MB4,     {L"MB4", L"MB4B", L"MB4T"} },
-        { IDC_MB5,     {L"MB5", L"MB5B", L"MB5T"} },
-        { IDC_MOVEUP,  {L"MoveUp", L"MoveUpB", L"MoveUpT"} },
-        { IDC_RESIZEUP,{L"ResizeUp", L"ResizeUpB", L"ResizeUpT"} },
+        { IDC_LMB,     {TEXT("LMB"), TEXT("LMBB"), TEXT("LMBT")} },
+        { IDC_MMB,     {TEXT("MMB"), TEXT("MMBB"), TEXT("MMBT")} },
+        { IDC_RMB,     {TEXT("RMB"), TEXT("RMBB"), TEXT("RMBT")} },
+        { IDC_MB4,     {TEXT("MB4"), TEXT("MB4B"), TEXT("MB4T")} },
+        { IDC_MB5,     {TEXT("MB5"), TEXT("MB5B"), TEXT("MB5T")} },
+        { IDC_MOVEUP,  {TEXT("MoveUp"), TEXT("MoveUpB"), TEXT("MoveUpT")} },
+        { IDC_RESIZEUP,{TEXT("ResizeUp"), TEXT("ResizeUpB"), TEXT("ResizeUpT")} },
     };
 
     struct actiondl mouse_actions[] = {
-        {L"Move",        l10n->input_actions_move},
-        {L"Resize",      l10n->input_actions_resize},
-        {L"Restore",     l10n->input_actions_restore},
-        {L"Close",       l10n->input_actions_close},
-        {L"Kill",        l10n->input_actions_kill},
-        {L"Minimize",    l10n->input_actions_minimize},
-        {L"Maximize",    l10n->input_actions_maximize},
-        {L"Lower",       l10n->input_actions_lower},
-        {L"NStacked",    l10n->input_actions_nstacked},
-        {L"PStacked",    l10n->input_actions_pstacked},
-        {L"StackList",   l10n->input_actions_stacklist},
-        {L"StackList2",  l10n->input_actions_stacklist2},
-        {L"AltTabList",  l10n->input_actions_alttablist},
-        {L"Roll",        l10n->input_actions_roll},
-        {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
-        {L"Borderless",  l10n->input_actions_borderless},
-        {L"Center",      l10n->input_actions_center},
-        {L"MaximizeHV",  l10n->input_actions_maximizehv},
-        {L"SideSnap",    l10n->input_actions_sidesnap},
-        {L"ExtendSnap",  l10n->input_actions_extendsnap},
-        {L"MinAllOther", l10n->input_actions_minallother},
-        {L"Mute",        l10n->input_actions_mute},
-        {L"Menu",        l10n->input_actions_menu},
-        {L"Nothing",     l10n->input_actions_nothing},
+        {TEXT("Move"),        l10n->input_actions_move},
+        {TEXT("Resize"),      l10n->input_actions_resize},
+        {TEXT("Restore"),     l10n->input_actions_restore},
+        {TEXT("Close"),       l10n->input_actions_close},
+        {TEXT("Kill"),        l10n->input_actions_kill},
+        {TEXT("Minimize"),    l10n->input_actions_minimize},
+        {TEXT("Maximize"),    l10n->input_actions_maximize},
+        {TEXT("Lower"),       l10n->input_actions_lower},
+        {TEXT("NStacked"),    l10n->input_actions_nstacked},
+        {TEXT("PStacked"),    l10n->input_actions_pstacked},
+        {TEXT("StackList"),   l10n->input_actions_stacklist},
+        {TEXT("StackList2"),  l10n->input_actions_stacklist2},
+        {TEXT("AltTabList"),  l10n->input_actions_alttablist},
+        {TEXT("Roll"),        l10n->input_actions_roll},
+        {TEXT("AlwaysOnTop"), l10n->input_actions_alwaysontop},
+        {TEXT("Borderless"),  l10n->input_actions_borderless},
+        {TEXT("Center"),      l10n->input_actions_center},
+        {TEXT("MaximizeHV"),  l10n->input_actions_maximizehv},
+        {TEXT("SideSnap"),    l10n->input_actions_sidesnap},
+        {TEXT("ExtendSnap"),  l10n->input_actions_extendsnap},
+        {TEXT("MinAllOther"), l10n->input_actions_minallother},
+        {TEXT("Mute"),        l10n->input_actions_mute},
+        {TEXT("Menu"),        l10n->input_actions_menu},
+        {TEXT("Nothing"),     l10n->input_actions_nothing},
         {NULL, NULL}
     };
 
     // Scroll
     static const struct {
         int control; // Same control
-        wchar_t *option[3]; // Prim/alt/TTB
+        TCHAR *option[3]; // Prim/alt/TTB
     } mouse_wheels[] = {
-        { IDC_SCROLL,  {L"Scroll",  L"ScrollB",  L"ScrollT"}  },
-        { IDC_HSCROLL, {L"HScroll", L"HScrollB", L"HScrollT"} }
+        { IDC_SCROLL,  {TEXT("Scroll"),  TEXT("ScrollB"),  TEXT("ScrollT")}  },
+        { IDC_HSCROLL, {TEXT("HScroll"), TEXT("HScrollB"), TEXT("HScrollT")} }
     };
 
     struct actiondl scroll_actions[] = {
-        {L"AltTab",       l10n->input_actions_alttab},
-        {L"Volume",       l10n->input_actions_volume},
-        {L"Transparency", l10n->input_actions_transparency},
-        {L"Zoom",         l10n->input_actions_zoom},
-        {L"Zoom2",        l10n->input_actions_zoom2},
-        {L"Lower",        l10n->input_actions_lower},
-        {L"Roll",         l10n->input_actions_roll},
-        {L"Maximize",     l10n->input_actions_maximize},
-        {L"NPStacked",    l10n->input_actions_npstacked},
-        {L"HScroll",      l10n->input_actions_hscroll},
-        {L"Nothing",      l10n->input_actions_nothing},
+        {TEXT("AltTab"),       l10n->input_actions_alttab},
+        {TEXT("Volume"),       l10n->input_actions_volume},
+        {TEXT("Transparency"), l10n->input_actions_transparency},
+        {TEXT("Zoom"),         l10n->input_actions_zoom},
+        {TEXT("Zoom2"),        l10n->input_actions_zoom2},
+        {TEXT("Lower"),        l10n->input_actions_lower},
+        {TEXT("Roll"),         l10n->input_actions_roll},
+        {TEXT("Maximize"),     l10n->input_actions_maximize},
+        {TEXT("NPStacked"),    l10n->input_actions_npstacked},
+        {TEXT("HScroll"),      l10n->input_actions_hscroll},
+        {TEXT("Nothing"),      l10n->input_actions_nothing},
         {NULL, NULL}
     };
 
@@ -818,16 +818,16 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     };
 
     static const struct optlst optlst[] = {
-        { IDC_TTBACTIONSNA,  T_BMK, 0, L"Input", "TTBActions", 0    },
-        { IDC_TTBACTIONSWA,  T_BMK, 1, L"Input", "TTBActions", 0    },
-        { IDC_LONGCLICKMOVE, T_BOL, 0, L"Input", "LongClickMove", 0 }
+        { IDC_TTBACTIONSNA,  T_BMK, 0, TEXT("Input"), "TTBActions", 0    },
+        { IDC_TTBACTIONSWA,  T_BMK, 1, TEXT("Input"), "TTBActions", 0    },
+        { IDC_LONGCLICKMOVE, T_BOL, 0, TEXT("Input"), "LongClickMove", 0 }
     };
 
     if (msg == WM_INITDIALOG) {
         // Hotclicks buttons
         ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
         CheckRadioButton(hwnd, IDC_MBA1, IDC_INTTB, IDC_MBA1); // Check the primary action
-        CheckConfigHotKeys(hotclicks, hwnd, L"Hotclicks", L"");
+        CheckConfigHotKeys(hotclicks, hwnd, TEXT("Hotclicks"), TEXT(""));
     } else if (msg == WM_COMMAND) {
         int event = HIWORD(wParam);
         int id = LOWORD(wParam);
@@ -843,8 +843,8 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     } else if (msg == WM_NOTIFY) {
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
-            wchar_t txt[8];
-            GetPrivateProfileString(L"Input", L"ModKey", L"", txt, ARR_SZ(txt), inipath);
+            TCHAR txt[8];
+            GetPrivateProfileString(TEXT("Input"), TEXT("ModKey"), TEXT(""), txt, ARR_SZ(txt), inipath);
             Button_Enable(GetDlgItem(hwnd, IDC_MBA2), txt[0]);
             // Disable inside ttb
             Button_Enable(GetDlgItem(hwnd, IDC_INTTB), IsChecked(IDC_TTBACTIONSNA)||IsChecked(IDC_TTBACTIONSWA));
@@ -906,7 +906,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             // Checkboxes...
             WriteDialogOptions(hwnd, optlst, ARR_SZ(optlst));
             // Hotclicks
-            SaveHotKeys(hotclicks, hwnd, L"Hotclicks");
+            SaveHotKeys(hotclicks, hwnd, TEXT("Hotclicks"));
             UpdateSettings();
             have_to_apply = 0;
         }
@@ -945,9 +945,9 @@ static LRESULT WINAPI PickShortcutWinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
         break;
     case WM_KEYUP: {
         if (!IsHotkeyy((UCHAR)wp, vkbl)) {
-            wchar_t txt[16];
+            TCHAR txt[16];
             HWND phwnd = GetParent(hwnd);
-            SetDlgItemText(phwnd, IDC_SHORTCUTS_VK, _itow(wp, txt, 16));
+            SetDlgItemText(phwnd, IDC_SHORTCUTS_VK, itostr(wp, txt, 16));
 
             Button_SetCheck(GetDlgItem(phwnd, IDC_SHIFT),  GetKeyState(VK_SHIFT)&0x8000? BST_CHECKED: BST_UNCHECKED);
             Button_SetCheck(GetDlgItem(phwnd, IDC_CONTROL),GetKeyState(VK_CONTROL)&0x8000? BST_CHECKED: BST_UNCHECKED);
@@ -994,92 +994,93 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         { 0, 0 }
     };
     struct actiondl kb_actions[] = {
-        {L"Move",        l10n->input_actions_move},
-        {L"Resize",      l10n->input_actions_resize},
-        {L"Close",       l10n->input_actions_close},
-        {L"Minimize",    l10n->input_actions_minimize},
-        {L"Maximize",    l10n->input_actions_maximize},
-        {L"Lower",       l10n->input_actions_lower},
-        {L"Roll",        l10n->input_actions_roll},
-        {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
-        {L"Borderless",  l10n->input_actions_borderless},
-        {L"Center",      l10n->input_actions_center},
-        {L"MaximizeHV",  l10n->input_actions_maximizehv},
-        {L"MinAllOther", l10n->input_actions_minallother},
-        {L"Menu",        l10n->input_actions_menu},
-        {L"Nothing",     l10n->input_actions_nothing},
+        {TEXT("Move"),        l10n->input_actions_move},
+        {TEXT("Resize"),      l10n->input_actions_resize},
+        {TEXT("Close"),       l10n->input_actions_close},
+        {TEXT("Minimize"),    l10n->input_actions_minimize},
+        {TEXT("Maximize"),    l10n->input_actions_maximize},
+        {TEXT("Lower"),       l10n->input_actions_lower},
+        {TEXT("Roll"),        l10n->input_actions_roll},
+        {TEXT("AlwaysOnTop"), l10n->input_actions_alwaysontop},
+        {TEXT("Borderless"),  l10n->input_actions_borderless},
+        {TEXT("Center"),      l10n->input_actions_center},
+        {TEXT("MaximizeHV"),  l10n->input_actions_maximizehv},
+        {TEXT("MinAllOther"), l10n->input_actions_minallother},
+        {TEXT("Menu"),        l10n->input_actions_menu},
+        {TEXT("Nothing"),     l10n->input_actions_nothing},
         {NULL, NULL}
     };
     struct actiondl kbshortcut_actions[] = {
-        {L"Kill",        l10n->input_actions_kill},
-        {L"Pause",       l10n->input_actions_pause},
-        {L"Resume",      l10n->input_actions_resume},
-        {L"ASOnOff",     l10n->input_actions_asonoff},
-        {L"Lower",       l10n->input_actions_lower},
-        {L"Roll",        l10n->input_actions_roll},
-        {L"AlwaysOnTop", l10n->input_actions_alwaysontop},
-        {L"Borderless",  l10n->input_actions_borderless},
-        {L"Center",      l10n->input_actions_center},
-        {L"Mute",        l10n->input_actions_mute},
-        {L"Menu",        l10n->input_actions_menu},
-        {L"NStacked",    l10n->input_actions_nstacked},
-        {L"NStacked2",   l10n->input_actions_nstacked2},
-        {L"PStacked",    l10n->input_actions_pstacked},
-        {L"PStacked2",   l10n->input_actions_pstacked2},
-        {L"StackList",   l10n->input_actions_stacklist},
-        {L"StackList2",  l10n->input_actions_stacklist2},
-        {L"AltTabList",  l10n->input_actions_alttablist},
-        {L"MLZone",      l10n->input_actions_mlzone},
-        {L"MTZone",      l10n->input_actions_mtzone},
-        {L"MRZone",      l10n->input_actions_mrzone},
-        {L"MBZone",      l10n->input_actions_mbzone},
-        {L"XLZone",      l10n->input_actions_xlzone},
-        {L"XTZone",      l10n->input_actions_xtzone},
-        {L"XRZone",      l10n->input_actions_xrzone},
-        {L"XBZone",      l10n->input_actions_xbzone},
-        {L"StepL",       l10n->input_actions_stepl},
-        {L"StepT",       l10n->input_actions_stept},
-        {L"StepR",       l10n->input_actions_stepr},
-        {L"StepB",       l10n->input_actions_stepb},
-        {L"SStepL",      l10n->input_actions_sstepl},
-        {L"SStepT",      l10n->input_actions_sstept},
-        {L"SStepR",      l10n->input_actions_sstepr},
-        {L"SStepB",      l10n->input_actions_sstepb},
+        {TEXT("Kill"),        l10n->input_actions_kill},
+        {TEXT("Pause"),       l10n->input_actions_pause},
+        {TEXT("Resume"),      l10n->input_actions_resume},
+        {TEXT("ASOnOff"),     l10n->input_actions_asonoff},
+        {TEXT("Lower"),       l10n->input_actions_lower},
+        {TEXT("Roll"),        l10n->input_actions_roll},
+        {TEXT("AlwaysOnTop"), l10n->input_actions_alwaysontop},
+        {TEXT("Borderless"),  l10n->input_actions_borderless},
+        {TEXT("Center"),      l10n->input_actions_center},
+        {TEXT("Mute"),        l10n->input_actions_mute},
+        {TEXT("Menu"),        l10n->input_actions_menu},
+        {TEXT("NStacked"),    l10n->input_actions_nstacked},
+        {TEXT("NStacked2"),   l10n->input_actions_nstacked2},
+        {TEXT("PStacked"),    l10n->input_actions_pstacked},
+        {TEXT("PStacked2"),   l10n->input_actions_pstacked2},
+        {TEXT("StackList"),   l10n->input_actions_stacklist},
+        {TEXT("StackList2"),  l10n->input_actions_stacklist2},
+        {TEXT("AltTabList"),  l10n->input_actions_alttablist},
+        {TEXT("MLZone"),      l10n->input_actions_mlzone},
+        {TEXT("MTZone"),      l10n->input_actions_mtzone},
+        {TEXT("MRZone"),      l10n->input_actions_mrzone},
+        {TEXT("MBZone"),      l10n->input_actions_mbzone},
+        {TEXT("XLZone"),      l10n->input_actions_xlzone},
+        {TEXT("XTZone"),      l10n->input_actions_xtzone},
+        {TEXT("XRZone"),      l10n->input_actions_xrzone},
+        {TEXT("XBZone"),      l10n->input_actions_xbzone},
+        {TEXT("StepL"),       l10n->input_actions_stepl},
+        {TEXT("StepT"),       l10n->input_actions_stept},
+        {TEXT("StepR"),       l10n->input_actions_stepr},
+        {TEXT("StepB"),       l10n->input_actions_stepb},
+        {TEXT("SStepL"),      l10n->input_actions_sstepl},
+        {TEXT("SStepT"),      l10n->input_actions_sstept},
+        {TEXT("SStepR"),      l10n->input_actions_sstepr},
+        {TEXT("SStepB"),      l10n->input_actions_sstepb},
         {NULL, NULL}
     };
     // Hotkeys
     const struct {
-        wchar_t *action;
-        wchar_t *l10n;
+        TCHAR *action;
+        TCHAR *l10n;
     } togglekeys[] = {
-        { L"",      l10n->input_actions_nothing},
-        { L"A4 A5", l10n->input_hotkeys_alt},
-        { L"5B 5C", l10n->input_hotkeys_winkey},
-        { L"A2 A3", l10n->input_hotkeys_ctrl},
-        { L"A0 A1", l10n->input_hotkeys_shift},
-        { L"A4",    l10n->input_hotkeys_leftalt},
-        { L"A5",    l10n->input_hotkeys_rightalt},
-        { L"5B",    l10n->input_hotkeys_leftwinkey},
-        { L"5C",    l10n->input_hotkeys_rightwinkey},
-        { L"A2",    l10n->input_hotkeys_leftctrl},
-        { L"A3",    l10n->input_hotkeys_rightctrl},
-        { L"A0",    l10n->input_hotkeys_leftshift},
-        { L"A1",    l10n->input_hotkeys_rightshift},
+        {TEXT(""),      l10n->input_actions_nothing},
+        {TEXT("A4 A5"), l10n->input_hotkeys_alt},
+        {TEXT("5B 5C"), l10n->input_hotkeys_winkey},
+        {TEXT("A2 A3"), l10n->input_hotkeys_ctrl},
+        {TEXT("A0 A1"), l10n->input_hotkeys_shift},
+        {TEXT("A4"),    l10n->input_hotkeys_leftalt},
+        {TEXT("A5"),    l10n->input_hotkeys_rightalt},
+        {TEXT("5B"),    l10n->input_hotkeys_leftwinkey},
+        {TEXT("5C"),    l10n->input_hotkeys_rightwinkey},
+        {TEXT("A2"),    l10n->input_hotkeys_leftctrl},
+        {TEXT("A3"),    l10n->input_hotkeys_rightctrl},
+        {TEXT("A0"),    l10n->input_hotkeys_leftshift},
+        {TEXT("A1"),    l10n->input_hotkeys_rightshift},
     };
     static const struct optlst optlst[] = {
-        { IDC_SCROLLLOCKSTATE,  T_BMK, 0, L"Input", "ScrollLockState", 0},
-        { IDC_UNIKEYHOLDMENU,   T_BOL, 0, L"Input", "UniKeyHoldMenu", 0},
-        { IDC_KEYCOMBO,         T_BOL, 0, L"Input", "KeyCombo", 0 },
-        { IDC_USEPTWINDOW,      T_BOL, 0, L"KBShortcuts", "UsePtWindow", 0},
+        { IDC_SCROLLLOCKSTATE,  T_BMK, 0, TEXT("Input"), "ScrollLockState", 0},
+        { IDC_UNIKEYHOLDMENU,   T_BOL, 0, TEXT("Input"), "UniKeyHoldMenu", 0},
+        { IDC_KEYCOMBO,         T_BOL, 0, TEXT("Input"), "KeyCombo", 0 },
+        { IDC_USEPTWINDOW,      T_BOL, 0, TEXT("KBShortcuts"), "UsePtWindow", 0},
     };
 
     if (msg == WM_INITDIALOG) {
         edit_shortcut_idx = 0;
         ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
         // Agressive Pause
-        CheckConfigHotKeys(hotkeys, hwnd, L"Hotkeys", L"A4 A5");
+        CheckConfigHotKeys(hotkeys, hwnd, TEXT("Hotkeys"), TEXT("A4 A5"));
 
       # ifndef WIN64
+        // Always enabled in 64 bit mode.
         Button_Enable(GetDlgItem(hwnd, IDC_AGGRESSIVEPAUSE), HaveProc("NTDLL.DLL", "NtResumeProcess"));
         Button_Enable(GetDlgItem(hwnd, IDC_UNIKEYHOLDMENU), WIN2K);
       # endif
@@ -1090,10 +1091,10 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         if (id == IDC_ALT ||  id == IDC_WINKEY || id == IDC_CONTROL || id == IDC_SHIFT) {
             Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 1);
         } else if (event == EN_UPDATE && id == IDC_SHORTCUTS_VK) {
-            wchar_t txt[4];
+            TCHAR txt[4];
             Edit_GetText(GetDlgItem(hwnd, IDC_SHORTCUTS_VK), txt, 3);
-            BYTE vKey = whex2u(txt);
-            wchar_t keyname[32]; keyname[0] = L'\0';
+            BYTE vKey = lstrhex2u(txt);
+            TCHAR keyname[32]; keyname[0] = L'\0';
             GetKeyNameText(MapVirtualKey(vKey, 0)<<16, keyname, ARR_SZ(keyname)-8);
             SetDlgItemText(hwnd, IDC_SHORTCUTS, keyname);
 
@@ -1110,11 +1111,11 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             // Update the shortcut with the current one.
             int i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_SHORTCUTS_AC));
             edit_shortcut_idx = i;
-            WORD shortcut= GetPrivateProfileInt(L"KBShortcuts", kbshortcut_actions[i].action, 0, inipath);
+            WORD shortcut= GetPrivateProfileInt(TEXT("KBShortcuts"), kbshortcut_actions[i].action, 0, inipath);
             BYTE vKey = LOBYTE(shortcut);
             BYTE mod = HIBYTE(shortcut);
-            wchar_t txt[8];
-            SetDlgItemText(hwnd, IDC_SHORTCUTS_VK, _itow(vKey, txt, 16));
+            TCHAR txt[8];
+            SetDlgItemText(hwnd, IDC_SHORTCUTS_VK, itostr(vKey, txt, 16));
 
             Button_SetCheck(GetDlgItem(hwnd, IDC_CONTROL),(mod&MOD_CONTROL)? BST_CHECKED: BST_UNCHECKED);
             Button_SetCheck(GetDlgItem(hwnd, IDC_SHIFT),  (mod&MOD_SHIFT)? BST_CHECKED: BST_UNCHECKED);
@@ -1124,10 +1125,10 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         }
         // WRITE Current Keyboard Shortcut
         if (id == IDC_SHORTCUTS_SET) {
-            wchar_t txt[8];
+            TCHAR txt[8];
             // MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
             Edit_GetText(GetDlgItem(hwnd, IDC_SHORTCUTS_VK), txt, 3);
-            BYTE vKey = whex2u(txt);
+            BYTE vKey = lstrhex2u(txt);
             BYTE mod =  IsChecked(IDC_ALT)
                      | (IsChecked(IDC_CONTROL)<<1)
                      | (IsChecked(IDC_SHIFT)<<2)
@@ -1135,17 +1136,15 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             WORD shortcut = vKey | (mod << 8);
             int i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_SHORTCUTS_AC));
             if (kbshortcut_actions[i].action && kbshortcut_actions[i].action[0] != '\0')
-                WritePrivateProfileString(L"KBShortcuts", kbshortcut_actions[i].action, _itow(shortcut, txt, 10), inipath);
+                WritePrivateProfileString(TEXT("KBShortcuts"), kbshortcut_actions[i].action, itostr(shortcut, txt, 10), inipath);
             Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 0);
             SetFocus(GetDlgItem(hwnd, IDC_SHORTCUTS_AC));
-            PropSheet_Changed(g_cfgwnd, hwnd);
-            have_to_apply = 1;
-            UpdateSettings();
+            goto APPLY_ALL;
         }
         if (id == IDC_SHORTCUTS_PICK) {
             HWND pickhwnd;
             WNDCLASSEX wnd;
-            if (!GetClassInfoEx(g_hinst, APP_NAME"-PickShortcut", &wnd)) {
+            if (!GetClassInfoEx(g_hinst, TEXT(APP_NAMEA"-PickShortcut"), &wnd)) {
                 WNDCLASSEX wndd = {
                     sizeof(WNDCLASSEX)
                   , CS_PARENTDC
@@ -1154,14 +1153,14 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                   , NULL //LoadIcon(g_hinst, iconstr[1])
                   , NULL //LoadCursor(NULL, IDC_ARROW)
                   , NULL //(HBRUSH)(COLOR_HIGHLIGHT+1)
-                  , NULL, APP_NAME"-PickShortcut", NULL
+                  , NULL, TEXT(APP_NAMEA"-PickShortcut"), NULL
                 };
                 RegisterClassEx(&wndd);
             }
             RECT rc;
             GetClientRect(hwnd, &rc);
             pickhwnd = CreateWindowEx(WS_EX_TOPMOST
-                 , APP_NAME"-PickShortcut", NULL
+                 , TEXT(APP_NAMEA"-PickShortcut"), NULL
                  , WS_CHILD|WS_VISIBLE
                  , rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top
                  , hwnd , NULL, g_hinst, NULL);
@@ -1170,7 +1169,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             EnableWindow(pickhwnd, TRUE);
             SetFocus(pickhwnd);
             SetActiveWindow(pickhwnd);
-            // SetDlgItemText(hwnd, IDC_SHORTCUTS, L"Press Keys...");
+            // SetDlgItemText(hwnd, IDC_SHORTCUTS, TEXT("Press Keys..."));
             Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_PICK), 0);
         }
         if (id == IDC_SHORTCUTS_CLEAR) {
@@ -1179,7 +1178,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             Button_SetCheck(GetDlgItem(hwnd, IDC_CONTROL), BST_UNCHECKED);
             Button_SetCheck(GetDlgItem(hwnd, IDC_WINKEY),BST_UNCHECKED);
             Button_SetCheck(GetDlgItem(hwnd, IDC_ALT),   BST_UNCHECKED);
-            SetDlgItemText(hwnd, IDC_SHORTCUTS_VK, L"");
+            SetDlgItemText(hwnd, IDC_SHORTCUTS_VK, TEXT(""));
             Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 1);
         }
 
@@ -1187,14 +1186,14 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // GrabWithAlt
-            wchar_t txt[64];
+            TCHAR txt[64];
 
-            GetPrivateProfileString(L"Input", L"ModKey", L"", txt, ARR_SZ(txt), inipath);
+            GetPrivateProfileString(TEXT("Input"), TEXT("ModKey"), TEXT(""), txt, ARR_SZ(txt), inipath);
             Static_Enable(GetDlgItem(hwnd, IDC_GRABWITHALTB_H), txt[0]);
             ListBox_Enable(GetDlgItem(hwnd, IDC_GRABWITHALTB), txt[0]);
 
-            FillActionDropListS(hwnd, IDC_GRABWITHALT, L"GrabWithAlt", kb_actions);
-            FillActionDropListS(hwnd, IDC_GRABWITHALTB, L"GrabWithAltB", kb_actions);
+            FillActionDropListS(hwnd, IDC_GRABWITHALT, TEXT("GrabWithAlt"), kb_actions);
+            FillActionDropListS(hwnd, IDC_GRABWITHALTB, TEXT("GrabWithAltB"), kb_actions);
             FillActionDropListS(hwnd, IDC_SHORTCUTS_AC, NULL, kbshortcut_actions);
             ComboBox_SetCurSel(GetDlgItem(hwnd, IDC_SHORTCUTS_AC), edit_shortcut_idx);
             Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 0);
@@ -1205,10 +1204,10 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             ComboBox_ResetContent(control);
             unsigned j, sel = 0;
             for (j = 0; j < ARR_SZ(togglekeys); j++) {
-                wchar_t key_name[256];
-                wcscpy_noaccel(key_name, togglekeys[j].l10n, ARR_SZ(key_name));
+                TCHAR key_name[256];
+                lstrcpy_noaccel(key_name, togglekeys[j].l10n, ARR_SZ(key_name));
                 ComboBox_AddString(control, key_name);
-                if (!wcscmp(txt, togglekeys[j].action)) {
+                if (!lstrcmp(txt, togglekeys[j].action)) {
                     sel = j;
                 }
             }
@@ -1250,20 +1249,21 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
 
         } else if (pnmh->code == PSN_APPLY && have_to_apply ) {
+            APPLY_ALL:;
             int i;
             // Action without click
-            WriteActionDropListS(hwnd, IDC_GRABWITHALT, L"GrabWithAlt", kb_actions);
-            WriteActionDropListS(hwnd, IDC_GRABWITHALTB, L"GrabWithAltB", kb_actions);
+            WriteActionDropListS(hwnd, IDC_GRABWITHALT, TEXT("GrabWithAlt"), kb_actions);
+            WriteActionDropListS(hwnd, IDC_GRABWITHALTB, TEXT("GrabWithAltB"), kb_actions);
 
             WriteDialogOptions(hwnd, optlst, ARR_SZ(optlst));
-            ScrollLockState = WriteOptionBoolB(IDC_SCROLLLOCKSTATE, L"Input", "ScrollLockState", 0);
+            ScrollLockState = WriteOptionBoolB(IDC_SCROLLLOCKSTATE, TEXT("Input"), "ScrollLockState", 0);
             // Modifier key
             i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_MODKEY));
             if(i < (int)ARR_SZ(togglekeys))
-                WritePrivateProfileString(L"Input", L"ModKey", togglekeys[i].action, inipath);
+                WritePrivateProfileString(TEXT("Input"), TEXT("ModKey"), togglekeys[i].action, inipath);
             // Hotkeys
-            SaveHotKeys(hotkeys, hwnd, L"Hotkeys");
-            WriteOptionBool(IDC_KEYCOMBO,  L"Input", "KeyCombo");
+            SaveHotKeys(hotkeys, hwnd, TEXT("Hotkeys"));
+            WriteOptionBool(IDC_KEYCOMBO,  TEXT("Input"), "KeyCombo");
             UpdateSettings();
             have_to_apply = 0;
         }
@@ -1276,11 +1276,11 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 {
     #pragma GCC diagnostic ignored "-Wint-conversion"
     static const struct optlst optlst[] = {
-        { IDC_PROCESSBLACKLIST, T_STR, 0, L"Blacklist", "Processes", L"" },
-        { IDC_BLACKLIST,        T_STR, 0, L"Blacklist", "Windows", L"" },
-        { IDC_SCROLLLIST,       T_STR, 0, L"Blacklist", "Scroll", L"" },
-        { IDC_MDIS,             T_STR, 0, L"Blacklist", "MDIs", L"" },
-        { IDC_PAUSEBL,          T_STR, 0, L"Blacklist", "Pause", L"" },
+        { IDC_PROCESSBLACKLIST, T_STR, 0, TEXT("Blacklist"), "Processes", TEXT("") },
+        { IDC_BLACKLIST,        T_STR, 0, TEXT("Blacklist"), "Windows", TEXT("") },
+        { IDC_SCROLLLIST,       T_STR, 0, TEXT("Blacklist"), "Scroll", TEXT("") },
+        { IDC_MDIS,             T_STR, 0, TEXT("Blacklist"), "MDIs", TEXT("") },
+        { IDC_PAUSEBL,          T_STR, 0, TEXT("Blacklist"), "Pause", TEXT("") },
     };
     #pragma GCC diagnostic pop
 
@@ -1315,7 +1315,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 
             // Create Transparent window covering the whole workspace
             WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0, FindWindowProc, 0, 0, g_hinst, NULL, NULL
-                             , (HBRUSH) (COLOR_WINDOW + 1), NULL, APP_NAME"-find", NULL };
+                             , (HBRUSH) (COLOR_WINDOW + 1), NULL, TEXT(APP_NAMEA"-find"), NULL };
             wnd.hCursor = LoadCursor(g_hinst, MAKEINTRESOURCE(IDI_FIND));
             RegisterClassEx(&wnd);
             HWND findhwnd = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_TRANSPARENT
@@ -1342,10 +1342,10 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
             };
             UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
             // Enable or disable buttons if needed
-            Button_Enable(GetDlgItem(hwnd, IDC_MDIS), GetPrivateProfileInt(L"General", L"MDI", 1, inipath));
+            Button_Enable(GetDlgItem(hwnd, IDC_MDIS), GetPrivateProfileInt(TEXT("General"), TEXT("MDI"), 1, inipath));
             Button_Enable(GetDlgItem(hwnd, IDC_PAUSEBL)
-                       ,  GetPrivateProfileInt(L"Input", L"AggressivePause", 0, inipath)
-                       || GetPrivateProfileInt(L"Input", L"AggressiveKill", 0, inipath));
+                       ,  GetPrivateProfileInt(TEXT("Input"), TEXT("AggressivePause"), 0, inipath)
+                       || GetPrivateProfileInt(TEXT("Input"), TEXT("AggressiveKill"), 0, inipath));
                         // Grayout useless
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Save to the config
@@ -1370,47 +1370,46 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             HWND nwindow = WindowFromPoint(pt);
             HWND window = GetAncestor(nwindow, GA_ROOT);
 
-            wchar_t title[256], classname[256];
+            TCHAR title[256], classname[256];
             GetWindowText(window, title, ARR_SZ(title));
             GetClassName(window, classname, ARR_SZ(classname));
 
-            wchar_t txt[512];
+            TCHAR txt[512];
             txt[0] = '\0';
-            wcscat(txt, title); wcscat(txt, L"|"); wcscat(txt, classname);
+            lstrcat(txt, title); lstrcat(txt, TEXT("|")); lstrcat(txt, classname);
             SetDlgItemText(page, IDC_NEWRULE, txt);
 
             if (GetWindowProgName(window, txt, ARR_SZ(txt))) {
                 SetDlgItemText(page, IDC_NEWPROGNAME, txt);
             }
-            SetDlgItemText(page, IDC_GWLSTYLE, _itow(GetWindowLongPtr(window, GWL_STYLE), txt, 16));
-            SetDlgItemText(page, IDC_GWLEXSTYLE, _itow(GetWindowLongPtr(window, GWL_EXSTYLE), txt, 16));
+            SetDlgItemText(page, IDC_GWLSTYLE, itostr(GetWindowLongPtr(window, GWL_STYLE), txt, 16));
+            SetDlgItemText(page, IDC_GWLEXSTYLE, itostr(GetWindowLongPtr(window, GWL_EXSTYLE), txt, 16));
             // WM_NCHITTEST messages info at current pt
-            _itow(HitTestTimeout(nwindow, pt.x, pt.y), txt, 10);
-            wchar_t tt[8];
-            _itow(HitTestTimeout(window, pt.x, pt.y), tt, 10);
-            wcscat(txt, L"/");wcscat(txt, tt);
+            itostr(HitTestTimeout(nwindow, pt.x, pt.y), txt, 10);
+            TCHAR tt[8];
+            itostr(HitTestTimeout(window, pt.x, pt.y), tt, 10);
+            lstrcat(txt, TEXT("/"));lstrcat(txt, tt);
             SetDlgItemText(page, IDC_NCHITTEST, txt);
             // IDC_DWMCAPBUTTON
             RECT rc;
             SetDlgItemText(page, IDC_DWMCAPBUTTON
-                , (GetCaptionButtonsRect(window, &rc) && PtInRect(&rc, pt))?L"Yes":L"No");
+                , (GetCaptionButtonsRect(window, &rc) && PtInRect(&rc, pt))?TEXT("Yes"):TEXT("No"));
 
             // Window rectangle info
             if (GetWindowRectL(window, &rc)) {
                 SetDlgItemText(page, IDC_RECT, RectToStr(&rc, txt));
             }
             // IDC_WINHANDLES
-            wcscpy(txt, L"Hwnd: "); wcscat(txt, _itow((DWORD)(DorQWORD)nwindow, tt,16));
-            wcscat(txt, L", Root: "); wcscat(txt, _itow((DWORD)(DorQWORD)window, tt,16));
-            // wcscat(txt, L", Parent: "); wcscat(txt, _itow((DWORD)(DorQWORD)GetParent(window), tt,16));
-            wcscat(txt, L", Owner: "); wcscat(txt, _itow((DWORD)(DorQWORD)GetWindow(window, GW_OWNER), tt,16));
+            lstrcpy(txt, TEXT("Hwnd: ")); lstrcat(txt, itostr((DWORD)(DorQWORD)nwindow, tt,16));
+            lstrcat(txt, TEXT(", Root: ")); lstrcat(txt, itostr((DWORD)(DorQWORD)window, tt,16));
+            lstrcat(txt, TEXT(", Owner: ")); lstrcat(txt, itostr((DWORD)(DorQWORD)GetWindow(window, GW_OWNER), tt,16));
             SetDlgItemText(page, IDC_WINHANDLES, txt);
         }
         // Show icon again
         ShowWindowAsync(GetDlgItem(page, IDC_FINDWINDOW), SW_SHOW);
 
         DestroyWindow(hwnd);
-        UnregisterClass(APP_NAME"-find", g_hinst);
+        UnregisterClass(TEXT(APP_NAMEA"-find"), g_hinst);
         return 0;
     } else if (wParam && msg ==  WM_ERASEBKGND) {
         return 1;
@@ -1430,19 +1429,19 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             // Update text
             SetDlgItemText(hwnd, IDC_ABOUT_BOX,        l10n->about_box);
             SetDlgItemText(hwnd, IDC_VERSION,          l10n->about_version);
-            SetDlgItemText(hwnd, IDC_URL,              L"https://github.com/RamonUnch/AltSnap");
+            SetDlgItemText(hwnd, IDC_URL,              TEXT("https://github.com/RamonUnch/AltSnap"));
             SetDlgItemText(hwnd, IDC_AUTHOR,           l10n->about_author);
             SetDlgItemText(hwnd, IDC_LICENSE,          l10n->about_license);
             SetDlgItemText(hwnd, IDC_TRANSLATIONS_BOX, l10n->about_translation_credit);
 
-            wchar_t txt[1024] = L"";
+            TCHAR txt[1024] = TEXT("");
             int i;
             for (i = 0; i < nlanguages; i++) {
-                wcscat(txt, langinfo[i].lang_english);
-                wcscat(txt, L": ");
-                wcscat(txt, langinfo[i].author);
+                lstrcat(txt, langinfo[i].lang_english);
+                lstrcat(txt, TEXT(": "));
+                lstrcat(txt, langinfo[i].author);
                 if (i + 1 != nlanguages) {
-                    wcscat(txt, L"\r\n");
+                    lstrcat(txt, TEXT("\r\n"));
                 }
             }
             SetDlgItemText(hwnd, IDC_TRANSLATIONS, txt);
@@ -1461,7 +1460,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     static UCHAR sidefrac=100;
     static UCHAR centermode=1;
     static UCHAR idx=0;
-    static wchar_t lastkey[MAXLINES][48];
+    static TCHAR lastkey[MAXLINES][48];
 
     switch (msg) {
     case WM_KEYDOWN:
@@ -1473,17 +1472,17 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_KEYUP:
     case WM_SYSKEYUP:
     case WM_SYSKEYDOWN: {
-        wchar_t txt[22];
-        wcscpy(lastkey[idx], L"vK=");
-        wcscat(lastkey[idx], _itow((UCHAR)wParam, txt, 16));
-        wcscat(lastkey[idx], lParam&(1u<<31)? L" U": lParam&(1u<<30)? L" R" :L" D");
-        wcscat(lastkey[idx], L" sC=");
-        wcscat(lastkey[idx], _itow(HIWORD(lParam)&0x00FF, txt, 16));
-        wcscat(lastkey[idx], L", LP=" );
-        wcscat(lastkey[idx], _itow(lParam, txt, 16));
+        TCHAR txt[22];
+        lstrcpy(lastkey[idx], TEXT("vK="));
+        lstrcat(lastkey[idx], itostr((UCHAR)wParam, txt, 16));
+        lstrcat(lastkey[idx], lParam&(1u<<31)? TEXT(" U"): lParam&(1u<<30)? TEXT(" R") :TEXT(" D"));
+        lstrcat(lastkey[idx], TEXT(" sC="));
+        lstrcat(lastkey[idx], itostr(HIWORD(lParam)&0x00FF, txt, 16));
+        lstrcat(lastkey[idx], TEXT(", LP=") );
+        lstrcat(lastkey[idx], itostr(lParam, txt, 16));
         txt[0] = L','; txt[1] = L' '; txt[2] = L'\0';
         if (GetKeyNameText(lParam, txt+2, ARR_SZ(txt)-2))
-            wcscat(lastkey[idx], txt);
+            lstrcat(lastkey[idx], txt);
         RECT crc;
         GetClientRect(hwnd, &crc);
         long lineheight = MulDiv(11, ReallyGetDpiForWindow(hwnd), 72);
@@ -1621,12 +1620,12 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         for (i=0; i < MAXLINES; i++) {
             UCHAR didx = (idx+i)%MAXLINES;
             RECT trc = {lineheight/2, crc.bottom-lineheight*(MAXLINES-i), crc.right, crc.bottom};
-            DrawText(hdc, lastkey[didx], wcslen(lastkey[didx]), &trc, DT_NOCLIP|DT_TABSTOP);
+            DrawText(hdc, lastkey[didx], lstrlen(lastkey[didx]), &trc, DT_NOCLIP|DT_TABSTOP);
         }
-        wchar_t *str = l10n->zone_testwinhelp;
+        TCHAR *str = l10n->zone_testwinhelp;
         if (UseZones&1) {
             RECT trc2 = { lineheight/2, lineheight/2, crc.right, splitheight };
-            DrawText(hdc, str, wcslen(str), &trc2, DT_NOCLIP|DT_TABSTOP);
+            DrawText(hdc, str, lstrlen(str), &trc2, DT_NOCLIP|DT_TABSTOP);
         }
         SelectObject(hdc, oripen);
         DeleteObject(SelectObject(hdc, oldfont));
@@ -1642,18 +1641,20 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 //        Sleep(200); break;
         return 1;
 
-    case WM_UPDCFRACTION:
-        centerfrac = GetPrivateProfileInt(L"General", L"CenterFraction", 24, inipath);
-        centermode = GetPrivateProfileInt(L"General", L"ResizeCenter", 1, inipath);
-        sidefrac   = GetPrivateProfileInt(L"General", L"SidesFraction", 100, inipath);
+    case WM_UPDCFRACTION: {
+        centerfrac = GetPrivateProfileInt(TEXT("General"), TEXT("CenterFraction"), 24, inipath);
+        centermode = GetPrivateProfileInt(TEXT("General"), TEXT("ResizeCenter"), 1, inipath);
+        sidefrac   = GetPrivateProfileInt(TEXT("General"), TEXT("SidesFraction"), 255, inipath);
         if (sidefrac == 255) sidefrac = centerfrac;
         return 0;
-    case WM_NCHITTEST: {
-        // Let DWM try to handles the hittest message...
-        LRESULT result;
-        if (DwmDefWindowProcL(hwnd, msg, wParam, lParam, &result))
-            return result;
     } break;
+//    case WM_NCHITTEST: {
+//        // Let DWM try to handles the hittest message...
+//        // !!USELESS Win10 is still BUGGY
+//        LRESULT result;
+//        if (DwmDefWindowProcL(hwnd, msg, wParam, lParam, &result))
+//            return result;
+//    } break;
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
@@ -1661,7 +1662,7 @@ static HWND NewTestWindow()
 {
     HWND testwnd;
     WNDCLASSEX wnd;
-    if (!GetClassInfoEx(g_hinst, APP_NAME"-Test", &wnd)) {
+    if (!GetClassInfoEx(g_hinst, TEXT(APP_NAMEA"-Test"), &wnd)) {
         WNDCLASSEX wndd = {
             sizeof(WNDCLASSEX)
           , CS_HREDRAW|CS_VREDRAW|CS_BYTEALIGNCLIENT
@@ -1669,14 +1670,14 @@ static HWND NewTestWindow()
           , 0, 0, g_hinst, LoadIcon(g_hinst, iconstr[1])
           , LoadCursor(NULL, IDC_ARROW)
           , NULL //(HBRUSH)(COLOR_BACKGROUND+1)
-          , NULL, APP_NAME"-Test", NULL
+          , NULL, TEXT(APP_NAMEA"-Test"), NULL
         };
         RegisterClassEx(&wndd);
     }
-    wchar_t wintitle[256];
-    wcscpy_noaccel(wintitle, l10n->advanced_testwindow, ARR_SZ(wintitle));
+    TCHAR wintitle[256];
+    lstrcpy_noaccel(wintitle, l10n->advanced_testwindow, ARR_SZ(wintitle));
     testwnd = CreateWindowEx(0
-         , APP_NAME"-Test", wintitle
+         , TEXT(APP_NAMEA"-Test"), wintitle
          , WS_CAPTION|WS_OVERLAPPEDWINDOW
          , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT
          , NULL, NULL, g_hinst, NULL);
@@ -1691,28 +1692,28 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 {
     #pragma GCC diagnostic ignored "-Wint-conversion"
     static const struct optlst optlst[] = {
-        { IDC_AUTOREMAXIMIZE,   T_BOL, 0, L"Advanced", "AutoRemaximize", 0 },
-        { IDC_AEROTOPMAXIMIZES, T_BMK, 0, L"Advanced", "AeroTopMaximizes", 1 },// bit 0
-        { IDC_AERODBCLICKSHIFT, T_BMK, 1, L"Advanced", "AeroTopMaximizes", 1 },// bit 1
-        { IDC_MULTIPLEINSTANCES,T_BOL, 0, L"Advanced", "MultipleInstances",0 },
-        { IDC_FULLSCREEN,       T_BOL, 0, L"Advanced", "FullScreen", 1 },
-        { IDC_BLMAXIMIZED,      T_BOL, 0, L"Advanced", "BLMaximized", 0 },
-        { IDC_FANCYZONE,        T_BOL, 0, L"Zones",    "FancyZone", 0 },
-        { IDC_NORESTORE,        T_BMK, 2, L"General",  "SmartAero", 0 },  // bit 2
-        { IDC_MAXWITHLCLICK,    T_BMK, 0, L"General",  "MMMaximize", 1 }, // bit 0
-        { IDC_RESTOREONCLICK,   T_BMK, 1, L"General",  "MMMaximize", 0 }, // bit 1
-        { IDC_TOPMOSTINDICATOR, T_BOL, 0, L"Advanced", "TopmostIndicator", 0},
+        { IDC_AUTOREMAXIMIZE,   T_BOL, 0, TEXT("Advanced"), "AutoRemaximize", 0 },
+        { IDC_AEROTOPMAXIMIZES, T_BMK, 0, TEXT("Advanced"), "AeroTopMaximizes", 1 },// bit 0
+        { IDC_AERODBCLICKSHIFT, T_BMK, 1, TEXT("Advanced"), "AeroTopMaximizes", 1 },// bit 1
+        { IDC_MULTIPLEINSTANCES,T_BOL, 0, TEXT("Advanced"), "MultipleInstances",0 },
+        { IDC_FULLSCREEN,       T_BOL, 0, TEXT("Advanced"), "FullScreen", 1 },
+        { IDC_BLMAXIMIZED,      T_BOL, 0, TEXT("Advanced"), "BLMaximized", 0 },
+        { IDC_FANCYZONE,        T_BOL, 0, TEXT("Zones"),    "FancyZone", 0 },
+        { IDC_NORESTORE,        T_BMK, 2, TEXT("General"),  "SmartAero", 0 },  // bit 2
+        { IDC_MAXWITHLCLICK,    T_BMK, 0, TEXT("General"),  "MMMaximize", 1 }, // bit 0
+        { IDC_RESTOREONCLICK,   T_BMK, 1, TEXT("General"),  "MMMaximize", 0 }, // bit 1
+        { IDC_TOPMOSTINDICATOR, T_BOL, 0, TEXT("Advanced"), "TopmostIndicator", 0},
 
-        { IDC_CENTERFRACTION,   T_STR, 0, L"General",  "CenterFraction",L"24" },
-        { IDC_SIDESFRACTION,    T_STR, 0, L"General",  "SidesFraction",L"100" },
-        { IDC_AEROHOFFSET,      T_STR, 0, L"General",  "AeroHoffset",   L"50" },
-        { IDC_AEROVOFFSET,      T_STR, 0, L"General",  "AeroVoffset",   L"50" },
-        { IDC_SNAPTHRESHOLD,    T_STR, 0, L"Advanced", "SnapThreshold", L"20" },
-        { IDC_AEROTHRESHOLD,    T_STR, 0, L"Advanced", "AeroThreshold", L"5"  },
-        { IDC_SNAPGAP,          T_STR, 0, L"Advanced", "SnapGap",       L"0"  },
-        { IDC_AEROSPEED,        T_STR, 0, L"Advanced", "AeroMaxSpeed",  L""   },
-        { IDC_AEROSPEEDTAU,     T_STR, 0, L"Advanced", "AeroSpeedTau",  L"32" },
-        { IDC_MOVETRANS,        T_STR, 0, L"General",  "MoveTrans",     L""   },
+        { IDC_CENTERFRACTION,   T_STR, 0, TEXT("General"),  "CenterFraction",TEXT("24") },
+        { IDC_SIDESFRACTION,    T_STR, 0, TEXT("General"),  "SidesFraction", TEXT("255")},
+        { IDC_AEROHOFFSET,      T_STR, 0, TEXT("General"),  "AeroHoffset",   TEXT("50") },
+        { IDC_AEROVOFFSET,      T_STR, 0, TEXT("General"),  "AeroVoffset",   TEXT("50") },
+        { IDC_SNAPTHRESHOLD,    T_STR, 0, TEXT("Advanced"), "SnapThreshold", TEXT("20") },
+        { IDC_AEROTHRESHOLD,    T_STR, 0, TEXT("Advanced"), "AeroThreshold", TEXT("5")  },
+        { IDC_SNAPGAP,          T_STR, 0, TEXT("Advanced"), "SnapGap",       TEXT("0")  },
+        { IDC_AEROSPEED,        T_STR, 0, TEXT("Advanced"), "AeroMaxSpeed",  TEXT("")   },
+        { IDC_AEROSPEEDTAU,     T_STR, 0, TEXT("Advanced"), "AeroSpeedTau",  TEXT("32") },
+        { IDC_MOVETRANS,        T_STR, 0, TEXT("General"),  "MoveTrans",     TEXT("")   },
     };
     #pragma GCC diagnostic pop
 

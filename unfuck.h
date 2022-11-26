@@ -172,7 +172,7 @@ static int PrintHwndDetails(HWND hwnd, TCHAR *buf)
 }
 
 /* Removes the trailing file name from a path */
-static BOOL PathRemoveFileSpecL(LPTSTR p)
+static BOOL PathRemoveFileSpecL(TCHAR *p)
 {
     int i=0;
     if (!p) return FALSE;
@@ -185,7 +185,7 @@ static BOOL PathRemoveFileSpecL(LPTSTR p)
 }
 
 /* Removes the path and keeps only the file name */
-static void PathStripPathL(LPTSTR p)
+static void PathStripPathL(TCHAR *p)
 {
     int i=0, j;
     if (!p) return;
@@ -336,7 +336,11 @@ static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
     static BOOL (WINAPI *funk)(HMONITOR hMonitor, LPMONITORINFO lpmi) = FUNK_TYPE IPTR;
 
     if (funk == FUNK_TYPE IPTR) { /* First time */
+    #ifdef _UNICODE
         funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "GetMonitorInfoW");
+    #else
+        funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "GetMonitorInfoA");
+    #endif
     }
     if(funk) { /* We know we have the function */
         if(hMonitor) return funk(hMonitor, lpmi);
@@ -898,7 +902,11 @@ static DWORD GetModuleFileNameExL(HANDLE hProcess, HMODULE hModule, LPTSTR lpFil
     static DWORD (WINAPI *funk)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize) = FUNK_TYPE IPTR;
 
     if (funk == FUNK_TYPE IPTR) { /* First time */
+    #ifdef _UNICODE
         funk = FUNK_TYPE LoadDLLProc("PSAPI.DLL", "GetModuleFileNameExW");
+    #else
+        funk = FUNK_TYPE LoadDLLProc("PSAPI.DLL", "GetModuleFileNameExA");
+    #endif
     }
     if (funk) { /* We have the function */
         return funk(hProcess, hModule, lpFilename, nSize);
@@ -907,13 +915,17 @@ static DWORD GetModuleFileNameExL(HANDLE hProcess, HMODULE hModule, LPTSTR lpFil
     #undef FUNK_TYPE
 }
 
-static DWORD GetProcessImageFileNameL(HANDLE hProcess, LPWSTR lpImageFileName, DWORD    nSize)
+static DWORD GetProcessImageFileNameL(HANDLE hProcess, TCHAR *lpImageFileName, DWORD    nSize)
 {
-    #define FUNK_TYPE ( DWORD (WINAPI *)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize) )
-    static DWORD (WINAPI *funk)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize) = FUNK_TYPE IPTR;
+    #define FUNK_TYPE ( DWORD (WINAPI *)(HANDLE hProcess, TCHAR *lpImageFileName, DWORD nSize) )
+    static DWORD (WINAPI *funk)(HANDLE hProcess, TCHAR *lpImageFileName, DWORD nSize) = FUNK_TYPE IPTR;
 
     if (funk == FUNK_TYPE IPTR) {
+    #ifdef _UNICODE
         funk = FUNK_TYPE LoadDLLProc("PSAPI.DLL", "GetProcessImageFileNameW");
+    #else
+        funk = FUNK_TYPE LoadDLLProc("PSAPI.DLL", "GetProcessImageFileNameA");
+    #endif
     }
     if (funk) {
         return funk(hProcess, lpImageFileName, nSize);
@@ -922,7 +934,7 @@ static DWORD GetProcessImageFileNameL(HANDLE hProcess, LPWSTR lpImageFileName, D
     #undef FUNK_TYPE
 }
 
-static DWORD GetWindowProgName(HWND hwnd, wchar_t *title, size_t title_len)
+static DWORD GetWindowProgName(HWND hwnd, TCHAR *title, size_t title_len)
 {
     DWORD pid;
     HANDLE proc;
@@ -998,55 +1010,55 @@ static HICON GetWindowIcon(HWND hwnd)
  * SystemParametersInfoForDpi() and We must ude the old NONCLIENTMETRICS
  * structure when using Windows XP or lower.
  * (vistal added the iPaddedBorderWidth int element */
-struct OLDNONCLIENTMETRICSW {
+struct OLDNONCLIENTMETRICSAW {
   UINT cbSize;
   int iBorderWidth;
   int iScrollWidth;
   int iScrollHeight;
   int iCaptionWidth;
   int iCaptionHeight;
-  LOGFONTW lfCaptionFont;
+  LOGFONT lfCaptionFont;
   int iSmCaptionWidth;
   int iSmCaptionHeight;
-  LOGFONTW lfSmCaptionFont;
+  LOGFONT lfSmCaptionFont;
   int iMenuWidth;
   int iMenuHeight;
-  LOGFONTW lfMenuFont;
-  LOGFONTW lfStatusFont;
-  LOGFONTW lfMessageFont;
+  LOGFONT lfMenuFont;
+  LOGFONT lfStatusFont;
+  LOGFONT lfMessageFont;
 };
-struct NEWNONCLIENTMETRICSW {
+struct NEWNONCLIENTMETRICSAW {
   UINT cbSize;
   int iBorderWidth;
   int iScrollWidth;
   int iScrollHeight;
   int iCaptionWidth;
   int iCaptionHeight;
-  LOGFONTW lfCaptionFont;
+  LOGFONT lfCaptionFont;
   int iSmCaptionWidth;
   int iSmCaptionHeight;
-  LOGFONTW lfSmCaptionFont;
+  LOGFONT lfSmCaptionFont;
   int iMenuWidth;
   int iMenuHeight;
-  LOGFONTW lfMenuFont;
-  LOGFONTW lfStatusFont;
-  LOGFONTW lfMessageFont;
+  LOGFONT lfMenuFont;
+  LOGFONT lfStatusFont;
+  LOGFONT lfMessageFont;
   int iPaddedBorderWidth; /* New in Window Vista */
 };
-static BOOL GetNonClientMetricsDpi(struct NEWNONCLIENTMETRICSW *ncm, UINT dpi)
+static BOOL GetNonClientMetricsDpi(struct NEWNONCLIENTMETRICSAW *ncm, UINT dpi)
 {
-    memset(ncm, 0, sizeof(struct NEWNONCLIENTMETRICSW));
-    ncm->cbSize = sizeof(struct NEWNONCLIENTMETRICSW);
-    BOOL ret = SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(struct NEWNONCLIENTMETRICSW), ncm, 0, dpi);
+    memset(ncm, 0, sizeof(struct NEWNONCLIENTMETRICSAW));
+    ncm->cbSize = sizeof(struct NEWNONCLIENTMETRICSAW);
+    BOOL ret = SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(struct NEWNONCLIENTMETRICSAW), ncm, 0, dpi);
     if (!ret) { /* Old Windows versions... XP and below */
-        ncm->cbSize = sizeof(struct OLDNONCLIENTMETRICSW);
-        ret = SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(struct OLDNONCLIENTMETRICSW), ncm, 0);
+        ncm->cbSize = sizeof(struct OLDNONCLIENTMETRICSAW);
+        ret = SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(struct OLDNONCLIENTMETRICSAW), ncm, 0);
     }
     return ret;
 }
 static HFONT CreateNCMenuFont(UINT dpi)
 {
-    struct NEWNONCLIENTMETRICSW ncm;
+    struct NEWNONCLIENTMETRICSAW ncm;
     GetNonClientMetricsDpi(&ncm, dpi);
     return CreateFontIndirect(&ncm.lfMenuFont);
 }
@@ -1234,6 +1246,7 @@ static void RectFromPts(RECT *rc, const POINT a, const POINT b)
 
 /* DownlevelLCIDToLocaleName in NLSDL.DLL */
 /* LCIDToLocaleName  in KERNEL32.DLL*/
+#ifdef _UNICODE
 static int LCIDToLocaleNameL(LCID Locale, LPWSTR lpName, int cchName, DWORD dwFlags)
 {
     #define FUNK_TYPE ( int (WINAPI *)(LCID Locale, LPWSTR  lpName, int cchName, DWORD dwFlags) )
@@ -1257,5 +1270,6 @@ static int LCIDToLocaleNameL(LCID Locale, LPWSTR lpName, int cchName, DWORD dwFl
     return 0;
     #undef FUNK_TYPE
 }
+#endif // UNICODE
 
 #endif

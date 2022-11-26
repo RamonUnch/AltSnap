@@ -12,7 +12,7 @@ static struct strings *l10n = (struct strings *)&en_US;
 
 /////////////////////////////////////////////////////////////////////////////
 // Copies and remove the accelerators & sign. and txt between ( ).
-static size_t wcscpy_noaccel(wchar_t *__restrict__ dest, wchar_t *__restrict__ source, size_t destlen)
+static size_t lstrcpy_noaccel(TCHAR *__restrict__ dest, TCHAR *__restrict__ source, size_t destlen)
 {
     size_t i=0, j=0;
     while(i < destlen && source[i]) {
@@ -31,10 +31,10 @@ static size_t wcscpy_noaccel(wchar_t *__restrict__ dest, wchar_t *__restrict__ s
     return j;
 }
 /////////////////////////////////////////////////////////////////////////////
-static pure size_t wcslen_resolved(wchar_t *__restrict__ str)
+static pure size_t lstrlen_resolved(TCHAR *__restrict__ str)
 {
     // Return the length of str, having resolved escape sequences
-    wchar_t *ptr;
+    TCHAR *ptr;
     int num_escape_sequences = 0;
     for (ptr=str; *ptr != '\0'; ptr++) {
         if (*ptr == '\\' && *(ptr+1) != '\0') {
@@ -45,7 +45,7 @@ static pure size_t wcslen_resolved(wchar_t *__restrict__ str)
     return ptr-str-num_escape_sequences;
 }
 
-static void wcscpy_resolve(wchar_t *__restrict__ dest, wchar_t *__restrict__ source)
+static void lstrcpy_resolve(TCHAR *__restrict__ dest, TCHAR *__restrict__ source)
 {
     // Copy from source to dest, resolving \\n to \n
     for (; *source != '\0'; source++,dest++) {
@@ -61,9 +61,9 @@ static void wcscpy_resolve(wchar_t *__restrict__ dest, wchar_t *__restrict__ sou
 
 /////////////////////////////////////////////////////////////////////////////
 #define txt_len 1024
-static void LoadTranslation(const wchar_t *__restrict__ ini)
+static void LoadTranslation(const TCHAR *__restrict__ ini)
 {
-    wchar_t txt[txt_len];
+    TCHAR txt[txt_len];
     size_t i;
     if (!ini) {
         l10n = (struct strings *)&en_US;
@@ -76,18 +76,18 @@ static void LoadTranslation(const wchar_t *__restrict__ ini)
     if(!l10n_ini) l10n_ini = calloc(1, sizeof(struct strings));
     for (i=0; i < ARR_SZ(l10n_inimapping); i++) {
         // Get pointer to default English string to be used if ini entry doesn't exist
-        wchar_t *def = ((wchar_t **)&en_US)[i];
-        wchar_t inimap[64];
-        str2wide(inimap, l10n_inimapping[i]);
-        GetPrivateProfileString(L"Translation", inimap, def, txt, txt_len, ini);
-        wchar_t **deststr = &((wchar_t **)l10n_ini)[i];
+        TCHAR *def = ((TCHAR **)&en_US)[i];
+        TCHAR inimap[64];
+        str2tchar(inimap, l10n_inimapping[i]);
+        GetPrivateProfileString(TEXT("Translation"), inimap, def, txt, txt_len, ini);
+        TCHAR **deststr = &((TCHAR **)l10n_ini)[i];
         if (deststr == &l10n_ini->about_version) {
             // Append version number to version....
-            wcscat(txt, L" ");
-            wcscat(txt, TEXT(APP_VERSION));
+            lstrcat(txt, TEXT(" "));
+            lstrcat(txt, TEXT(APP_VERSION));
         }
-        *deststr = realloc( *deststr, (wcslen_resolved(txt)+1)*sizeof(wchar_t) );
-        wcscpy_resolve(*deststr, txt);
+        *deststr = realloc( *deststr, (lstrlen_resolved(txt)+1)*sizeof(TCHAR) );
+        lstrcpy_resolve(*deststr, txt);
     }
     l10n = l10n_ini;
 }
@@ -99,7 +99,7 @@ void ListAllTranslations()
 {
     HANDLE hFind = INVALID_HANDLE_VALUE;
     WIN32_FIND_DATA ffd;
-    wchar_t szDir[MAX_PATH], fpath[MAX_PATH], txt[256];
+    TCHAR szDir[MAX_PATH], fpath[MAX_PATH], txt[256];
 
     // First element
     langinfo = malloc(sizeof(struct langinfoitem ));
@@ -113,43 +113,43 @@ void ListAllTranslations()
 
     GetModuleFileName(NULL, szDir, ARR_SZ(szDir));
     PathRemoveFileSpecL(szDir);
-    wcscat(szDir, L"\\Lang\\*.ini");
-    wcscpy(fpath, szDir);
-    wchar_t *end = fpath; // not the star!
-    end += wcslen(fpath)-5;
+    lstrcat(szDir, TEXT("\\Lang\\*.ini"));
+    lstrcpy(fpath, szDir);
+    TCHAR *end = fpath; // not the star!
+    end += lstrlen(fpath)-5;
     hFind = FindFirstFile(szDir, &ffd);
 
     if (hFind != INVALID_HANDLE_VALUE) {
         int n=1;
         do {
             nlanguages++;
-            wcscpy(end, ffd.cFileName); // add filenale at the end of the path
+            lstrcpy(end, ffd.cFileName); // add filenale at the end of the path
             langinfo = realloc(langinfo, sizeof(struct langinfoitem) * nlanguages);
             if (!langinfo) break;
 
-            GetPrivateProfileString(L"Translation", L"Code", L"", txt, ARR_SZ(txt), fpath);
-            langinfo[n].code = calloc(wcslen(txt)+1, sizeof(wchar_t));
+            GetPrivateProfileString(TEXT("Translation"), TEXT("Code"), TEXT(""), txt, ARR_SZ(txt), fpath);
+            langinfo[n].code = calloc(lstrlen(txt)+1, sizeof(TCHAR));
             if (!langinfo[n].code) break;
-            wcscpy(langinfo[n].code, txt);
+            lstrcpy(langinfo[n].code, txt);
 
-            GetPrivateProfileString(L"Translation", L"LangEnglish", L"", txt, ARR_SZ(txt), fpath);
-            langinfo[n].lang_english = calloc(wcslen(txt)+1, sizeof(wchar_t));
+            GetPrivateProfileString(TEXT("Translation"), TEXT("LangEnglish"), TEXT(""), txt, ARR_SZ(txt), fpath);
+            langinfo[n].lang_english = calloc(lstrlen(txt)+1, sizeof(TCHAR));
             if (!langinfo[n].lang_english) break;
-            wcscpy(langinfo[n].lang_english, txt);
+            lstrcpy(langinfo[n].lang_english, txt);
 
-            GetPrivateProfileString(L"Translation", L"Lang", L"", txt, ARR_SZ(txt), fpath);
-            langinfo[n].lang = calloc(wcslen(txt)+1, sizeof(wchar_t));
+            GetPrivateProfileString(TEXT("Translation"), TEXT("Lang"), TEXT(""), txt, ARR_SZ(txt), fpath);
+            langinfo[n].lang = calloc(lstrlen(txt)+1, sizeof(TCHAR));
             if (!langinfo[n].lang) break;
-            wcscpy(langinfo[n].lang, txt);
+            lstrcpy(langinfo[n].lang, txt);
 
-            GetPrivateProfileString(L"Translation", L"Author", L"", txt, ARR_SZ(txt), fpath);
-            langinfo[n].author = calloc(wcslen(txt)+1, sizeof(wchar_t));
+            GetPrivateProfileString(TEXT("Translation"), TEXT("Author"), TEXT(""), txt, ARR_SZ(txt), fpath);
+            langinfo[n].author = calloc(lstrlen(txt)+1, sizeof(TCHAR));
             if (!langinfo[n].author) break;
-            wcscpy(langinfo[n].author, txt);
+            lstrcpy(langinfo[n].author, txt);
 
-            langinfo[n].fn = malloc(wcslen(fpath)*sizeof(wchar_t)+4);
+            langinfo[n].fn = malloc(lstrlen(fpath)*sizeof(TCHAR)+4);
             if (!langinfo[n].fn) break;
-            wcscpy(langinfo[n].fn, fpath);
+            lstrcpy(langinfo[n].fn, fpath);
 
             n++;
         } while (FindNextFile(hFind, &ffd));
@@ -161,18 +161,20 @@ void ListAllTranslations()
 /////////////////////////////////////////////////////////////////////////////
 void UpdateLanguage()
 {
-    wchar_t txt[16];
-    GetPrivateProfileString(L"General", L"Language", L"Auto", txt, ARR_SZ(txt), inipath);
+    TCHAR txt[16];
+    GetPrivateProfileString(TEXT("General"), TEXT("Language"), TEXT("Auto"), txt, ARR_SZ(txt), inipath);
 
     // Determine which language should be used
     // based on current user's LCID
-    if (!wcsicmp(txt, L"Auto")) {
+    #ifdef _UNICODE
+    if (!lstrcmpi(txt, TEXT("Auto"))) {
         LCIDToLocaleNameL(GetUserDefaultLCID(), txt, ARR_SZ(txt), 0);
     }
+    #endif // _UNICODE
 
     int i;
     for (i=0; i < nlanguages; i++) {
-        if (!wcsicmp(txt, langinfo[i].code)) {
+        if (!lstrcmpi(txt, langinfo[i].code)) {
             LoadTranslation(langinfo[i].fn);
             break;
         }

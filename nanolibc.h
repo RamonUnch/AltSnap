@@ -68,7 +68,7 @@ static int toggleBit(int n, int k)
     return (n ^ (1 << (k)));
 }
 
-static void str2wide(wchar_t *w, const char *s)
+static void str2tchar(TCHAR *w, const char *s)
 {
     while((*w++ = *s++));
 }
@@ -113,7 +113,7 @@ static wchar_t *wcschrL(wchar_t *__restrict__ str, const wchar_t c)
 }
 #define wcschr wcschrL
 
-static const char *strchrL(const char *__restrict__ str, const char c)
+static char *strchrL(char *__restrict__ str, const char c)
 {
     while(*str != c) {
         if(!*str) return NULL;
@@ -282,9 +282,9 @@ static int wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 #define wcscmp wcscmpL
 
 /* Reverse of the next function */
-static int wcscmp_rstar(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
+static int lstrcmp_rstar(const TCHAR *__restrict__ a, const TCHAR *__restrict__ b)
 {
-    const wchar_t *oa = a, *ob=b;
+    const TCHAR *oa = a, *ob=b;
     if(!b) return 0;
 
     while(*a++) ;
@@ -301,10 +301,10 @@ static int wcscmp_rstar(const wchar_t *__restrict__ a, const wchar_t *__restrict
 /* stops comp at the '*' in the b param.
  * this is a kind of mini regexp that has no performance hit.
  * It also returns 0 (equal) if the b param is NULL */
-static int wcscmp_star(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
+static int lstrcmp_star(const TCHAR *__restrict__ a, const TCHAR *__restrict__ b)
 {
     if(!b) return 0;
-    if(*b == L'*') return wcscmp_rstar(a, b);
+    if(*b == L'*') return lstrcmp_rstar(a, b);
 
     while(*a && *a == *b) { a++; b++; }
     return (*a != *b) & (*b != '*');
@@ -378,7 +378,7 @@ static int wcsicmpL(const wchar_t* s1, const wchar_t* s2)
 }
 #define wcsicmp wcsicmpL
 
-static int wcstostricmp(const wchar_t* s1, const char* s2)
+static int strtotcharicmp(const TCHAR* s1, const char* s2)
 {
     unsigned x1, x2;
 
@@ -405,6 +405,35 @@ wchar_t *wcscat(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
     for (; (*dest=*src); ++src,++dest) ;	/* then append from src */
     return orig;
 }
+char *strcat(char *__restrict__ dest, const char *__restrict__ src)
+{
+    char *orig=dest;
+    for (; *dest; ++dest) ;	/* go to end of dest */
+    for (; (*dest=*src); ++src,++dest) ;	/* then append from src */
+    return orig;
+}
+
+char *strcat_sL(char *__restrict__ dest, const size_t N, const char *__restrict__ src)
+{
+    char *orig=dest;
+    char *dmax=dest+N-1; /* keep space for a terminating NULL */
+    for (; dest<dmax &&  *dest ; ++dest);             /* go to end of dest */
+    for (; dest<dmax && (*dest=*src); ++src,++dest);  /* then append from src */
+    *dest='\0'; /* ensure result is NULL terminated */
+    return orig;
+}
+#define strcat_s strcat_sL
+
+wchar_t *wcscat_sL(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__restrict__ src)
+{
+    wchar_t *orig=dest;
+    wchar_t *dmax=dest+N-1; /* keep space for a terminating NULL */
+    for (; dest<dmax &&  *dest ; ++dest);             /* go to end of dest */
+    for (; dest<dmax && (*dest=*src); ++src,++dest);  /* then append from src */
+    *dest='\0'; /* ensure result is NULL terminated */
+    return orig;
+}
+#define wcscat_s wcscat_sL
 
 static int strcmpL(const char *X, const char *Y)
 {
@@ -434,15 +463,42 @@ static const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t *needle)
     }
     return NULL;
 }
+
+#define itostrA itoaL
+#define itostrW itowL
+#define strtoiA atoiL
+#define strtoiW wtoiL
 #define wcsstr lstrstrW
 #define strstr lstrstrA
+#define lstrcpyA strcpy
+#define lstrcpyW wcscpy
+#define lstrcatA strcat
+#define lstrcat_sA strcat_s
+#define lstrcat_sW wcscat_s
+#define lstrcatW wcscat
+#define lstrlenA strlen
+#define lstrlenW wcslen
+#define lstrcmpA strcmp
+#define lstrcmpW wcscmp
+#define lstrcmpiA stricmp
+#define lstrcmpiW wcsicmp
+#define lstrchrA strchrL
+#define lstrchrW wcschrL
 #ifdef UNICODE
 #define lstrstr lstrstrW
+#define lstrchr lstrchrW
+#define itostr itostrW
+#define strtoi strtoiW
+#define lstrcat_s lstrcat_sW
 #else
 #define lstrstr lstrstrA
+#define lstrchr lstrchrA
+#define itostr itostrA
+#define strtoi strtoiA
+#define lstrcat_s lstrcat_sA
 #endif
 
-static inline unsigned h2u(const wchar_t c)
+static inline unsigned h2u(const TCHAR c)
 {
     if      (c >= '0' && c <= '9') return c - '0';
     else if (c >= 'A' && c <= 'F') return c-'A'+10;
@@ -451,7 +507,7 @@ static inline unsigned h2u(const wchar_t c)
 }
 
 /* stops at the end of the string or at a space*/
-static unsigned whex2u(const wchar_t *s)
+static unsigned lstrhex2u(const TCHAR *s)
 {
     unsigned ret=0;
     while(*s && *s != L' ')

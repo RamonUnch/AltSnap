@@ -309,7 +309,20 @@ static int lstrcmp_star(const TCHAR *__restrict__ a, const TCHAR *__restrict__ b
     while(*a && *a == *b) { a++; b++; }
     return (*a != *b) & (*b != '*');
 }
+#define tolower(x) ( x | ('A'<x && x<'Z') << 5 )
 
+/* Returns 0 if both strings start the same */
+static int lstrcmpi_samestart(const TCHAR *__restrict__ a, const TCHAR *__restrict__ b)
+{
+    while(*a && tolower(*a) == tolower(*b)) { a++; b++; }
+    return (*a != *b) && (*b != '\0');
+}
+
+static int lstrcmp_samestart(const TCHAR *__restrict__ a, const TCHAR *__restrict__ b)
+{
+    while(*a && *a == *b) { a++; b++; }
+    return (*a != *b) && (*b != '\0');
+}
 
 static wchar_t *wcscpyL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ in)
 {
@@ -434,6 +447,15 @@ wchar_t *wcscat_sL(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__
     return orig;
 }
 #define wcscat_s wcscat_sL
+
+TCHAR *lstrcpy_s(TCHAR *__restrict__ dest, const size_t N, const TCHAR *__restrict__ src)
+{
+    TCHAR *orig=dest;
+    TCHAR *dmax=dest+N-1; /* keep space for a terminating NULL */
+    for (; dest<dmax && (*dest=*src); ++src,++dest);  /* then append from src */
+    *dest='\0'; /* ensure result is NULL terminated */
+    return orig;
+}
 
 static int strcmpL(const char *X, const char *Y)
 {

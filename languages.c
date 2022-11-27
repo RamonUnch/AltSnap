@@ -66,7 +66,7 @@ static void GetSectionOptionStr(const TCHAR *section, const TCHAR *oname, const 
     lstrcat(name, TEXT("=")); // Add equal at the end of name
     const TCHAR *p = section;
     while (p[0] && p[1]) { // Double NULL treminated string
-        if(!lstrcmp_samestart(p, name)) {
+        if(!lstrcmpi_samestart(p, name)) {
             // Copy the buffer
             lstrcpy_s(txt, txtlen, p+lstrlen(name));
             return; // DONE!

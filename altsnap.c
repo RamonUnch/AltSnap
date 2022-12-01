@@ -365,7 +365,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 /////////////////////////////////////////////////////////////////////////////
-int WINAPI WinMainW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *params, int iCmdShow)
+int WINAPI WinMainAW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *params, int iCmdShow)
 {
     g_hinst = hInst;
 
@@ -377,13 +377,11 @@ int WINAPI WinMainW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *param
     LOG("ini file: %S", inipath);
 
     // Read parameters on command line
-    int elevate = 0, quiet = 0, config =0, multi = 0;
-
-    hide    = !!lstrstr(params, TEXT("-h"));
-    quiet   = !!lstrstr(params, TEXT("-q"));
-    elevate = !!lstrstr(params, TEXT("-e"));
-    multi   = !!lstrstr(params, TEXT("-m"));
-    config  = !!lstrstr(params, TEXT("-c"));
+    hide        = !!lstrstr(params, TEXT("-h"));
+    int quiet   = !!lstrstr(params, TEXT("-q"));
+    int elevate = !!lstrstr(params, TEXT("-e"));
+    int multi   = !!lstrstr(params, TEXT("-m"));
+    int config  = !!lstrstr(params, TEXT("-c"));
 
     // Check if elevated if in >= WinVer
     WinVer = LOBYTE(LOWORD(GetVersion()));
@@ -449,7 +447,6 @@ int WINAPI WinMainW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *param
         }
     }
     // Language
-    ListAllTranslations(); LOG("All translations listed");
     UpdateLanguage(); LOG("Language updated");
 
     // Create window
@@ -526,5 +523,5 @@ void WINAPI unfuckWinMain(void)
     hInst = GetModuleHandle(NULL);
     szCmdLine = ParamsFromCmdline(GetCommandLine());
 
-    ExitProcess(WinMainW(hInst, hPrevInstance, szCmdLine, iCmdShow));
+    ExitProcess(WinMainAW(hInst, hPrevInstance, szCmdLine, iCmdShow));
 }

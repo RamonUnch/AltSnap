@@ -120,6 +120,15 @@ static TCHAR *ZidxToZonestr(int idx, TCHAR *zname)
 
     return zname;
 }
+static char *ZidxToZonestrA(int idx, char *zname)
+{
+    char txt[16];
+    zname[0] = '\0';
+    lstrcatA(zname, "Zone");
+    lstrcatA(zname, itostrA(idx, txt, 10)); // Zone Name from zone number
+
+    return zname;
+}
 
 // Map action string to actual action enum
 static enum action MapActionW(const TCHAR *txt)

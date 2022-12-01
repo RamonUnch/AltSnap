@@ -10,16 +10,17 @@
 RECT *Zones;
 unsigned nzones;
 
-static int ReadRectFromini(RECT *zone, unsigned idx, TCHAR *inipath)
+static int ReadRectFromini(RECT *zone, unsigned idx, TCHAR *inisection)
 {
     if (idx > MAX_ZONES) return 0;
 
     long *ZONE = (long *)zone;
-    TCHAR zaschii[128], zname[32]=TEXT("");
+    TCHAR zaschii[128];
+    char zname[32]="";
 
-    DWORD ret = GetPrivateProfileString(TEXT("Zones"), ZidxToZonestr(idx, zname), TEXT(""), zaschii, ARR_SZ(zaschii), inipath);
+    GetSectionOptionStr(inisection, ZidxToZonestrA(idx, zname), TEXT(""), zaschii, ARR_SZ(zaschii));
 
-    if (!ret || zaschii[0] =='\0') return 0;
+    if (zaschii[0] =='\0') return 0;
 
     TCHAR *oldptr, *newptr;
     oldptr = &zaschii[0];
@@ -36,11 +37,11 @@ static int ReadRectFromini(RECT *zone, unsigned idx, TCHAR *inipath)
     return 1;
 }
 // Load all zones from ini file
-static void ReadZones(TCHAR *inifile)
+static void ReadZones(TCHAR *inisection)
 {
     nzones = 0;
     RECT tmpzone;
-    while (ReadRectFromini(&tmpzone, nzones, inifile)) {
+    while (ReadRectFromini(&tmpzone, nzones, inisection)) {
         Zones = realloc( Zones, (nzones+1) * sizeof(RECT) );
         if(!Zones) return;
         CopyRect(&Zones[nzones++], &tmpzone);

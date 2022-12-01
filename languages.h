@@ -473,7 +473,7 @@ static const struct strings en_US = {
  /* hide               */ TEXT("&Hide tray"),
  /* config             */ TEXT("&Configure..."),
  /* about              */ TEXT("&About"),
- /* open ini file      */ TEXT("&Open ini file..."),
+ /* open ini file      */ TEXT("&Open ini file"),
  /* savezones          */ TEXT("&Save test windows as snap layout"),
  /* exit               */ TEXT("E&xit"),
 

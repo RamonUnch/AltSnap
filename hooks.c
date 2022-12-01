@@ -15,6 +15,9 @@ static LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 #define REHOOK_TIMER    WM_APP+1
 #define SPEED_TIMER     WM_APP+2
 #define GRAB_TIMER      WM_APP+3
+#define POOL_TIMER      WM_APP+4
+
+// #define NO_HOOK_LL
 
 #define CURSOR_ONLY 66
 #define NOT_MOVED 33
@@ -215,6 +218,79 @@ static struct config {
     enum action ResizeUp[4];    // Actions on (long) Resize Up w/o drag
 } conf;
 
+struct OptionListItem {
+   const char *name; const int def;
+};
+// [General]
+static const struct OptionListItem General_uchars[] = {
+    { "AutoFocus", 0 },
+    { "AutoSnap", 0 },
+    { "Aero", 1 },
+    { "SmartAero", 1 },
+    { "StickyResize", 0 },
+    { "InactiveScroll", 0 },
+    { "MDI", 0 },
+    { "ResizeCenter", 1 },
+    { "CenterFraction", 24 },
+    { "SidesFraction", 255 },
+    { "AeroHoffset", 50 },
+    { "AeroVoffset", 50 },
+    { "MoveTrans", 255 },
+    { "MMMaximize", 1 },
+};
+// [Advanced]
+static const struct OptionListItem Advanced_uchars[] = {
+    { "ResizeAll", 1 },
+    { "FullScreen", 1 },
+    { "BLMaximized", 0 },
+    { "AutoRemaximize", 0 },
+    { "SnapThreshold", 20 },
+    { "AeroThreshold", 5 },
+    { "KBMoveStep", 100 },
+    { "KBMoveSStep", 10 },
+    { "AeroTopMaximizes", 1 },
+    { "UseCursor", 1 },
+    { "MinAlpha", 32 },
+    { "AlphaDelta", 64 },
+    { "AlphaDeltaShift", 8 },
+    { "ZoomFrac", 16 },
+    { "ZoomFracShift", 64 },
+    { "NumberMenuItems", 0},
+    { "AeroSpeedTau", 64 },
+    { "SnapGap", 0 },
+    { "ShiftSnaps", 1 },
+    { "PiercingClick", 0 },
+    { "DragSendsAltCtrl", 0 },
+    { "TopmostIndicator", 0 },
+    { "RCCloseMItem", 1 },
+    { "MaxKeysNum", 0 },
+};
+// [Performance]
+static const struct OptionListItem Performance_uchars[] = {
+    { "FullWin", 2 },
+    { "TransWinOpacity", 0 },
+    { "RefreshRate", 0 },
+    { "RezTimer", 0 },
+    { "PinRate", 32 },
+    { "MoveRate", 2 },
+    { "ResizeRate", 4 },
+};
+// [Input]
+static const struct OptionListItem Input_uchars[] = {
+    { "TTBActions", 0 },
+    { "KeyCombo", 0 },
+    { "ScrollLockState", 0 },
+    { "LongClickMove", 0 },
+    { "UniKeyHoldMenu", 0 },
+};
+// [Zones]
+static const struct OptionListItem Zones_uchars[] = {
+    { "UseZones", 0 },
+    { "InterZone", 0 },
+  # ifdef WIN64
+    { "FancyZone", 0 },
+  # endif
+};
 
 // Blacklist (dynamically allocated)
 struct blacklistitem {
@@ -4303,6 +4379,10 @@ static xpure enum buttonstate GetButtonState(WPARAM wp)
 //
 // We should not call the next Hook for button 6-20 (manual call only).
 #define CALLNEXTHOOK (button>BT_MB5 && button <= BT_MB20? 1: CallNextHookEx(NULL, nCode, wParam, lParam))
+
+#ifdef NO_HOOK_LL
+#define CallNextHookEx(NULL, nCode, wParam, lParam) 0
+#endif // NO_HOOK_LL
 //
 LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
@@ -4373,10 +4453,12 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     int is_hotclick = IsHotclick(button);
     if (is_hotclick && buttonstate == STATE_DOWN) {
         state.alt = button;
-        if (!action) return 1; // Block mouse up if it is not also an action...
+        // Start an action now if hotclick is also an action.
+        if (action) init_movement_and_actions(pt, NULL, action, button);
+        return 1; // Always block mouse down
     } else if (is_hotclick && buttonstate == STATE_UP) {
         state.alt = 0;
-        if (!action) return 1; // Block hotclick up
+        if (!action) return 1; // Block hotclick up if not an action
     }
 
     // Handle Titlebars actions if any
@@ -4461,7 +4543,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
                 // Forward the click if no action was Mapped
                 Send_Click(button);
             }
-            return 1; // block mousedown
+            return 1; // block mouseup
 
         } else if (state.action || is_hotclick) {
             FinishMovement();
@@ -4476,18 +4558,22 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 static void HookMouse()
 {
     state.moving = 0; // Used to know the first time we call MouseMove.
+    #ifndef NO_HOOK_LL
     if (conf.keepMousehook) {
         PostMessage(g_timerhwnd, WM_TIMER, REHOOK_TIMER, 0);
     }
+    #endif
 
     // Check if mouse is already hooked
     if (mousehook)
         return ;
 
     // Set up the mouse hook
+    #ifdef NO_HOOK_LL
+    mousehook = (void*)SetTimer(g_timerhwnd, POOL_TIMER, 32, NULL);
+    #else
     mousehook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, hinstDLL, 0);
-    if (!mousehook)
-        return ;
+    #endif
 }
 /////////////////////////////////////////////////////////////////////////////
 static void UnhookMouseOnly()
@@ -4497,7 +4583,11 @@ static void UnhookMouseOnly()
         return;
 
     // Remove mouse hook
+    #ifdef NO_HOOK_LL
+    KillTimer(g_timerhwnd, POOL_TIMER);
+    #else
     UnhookWindowsHookEx(mousehook);
+    #endif
     mousehook = NULL;
 }
 static void UnhookMouse()
@@ -4530,7 +4620,9 @@ static xpure int IsAreaLongClikcable(int area)
 LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_TIMER) {
-        if (wParam == REHOOK_TIMER) {
+        switch (wParam) {
+        #ifndef NO_HOOK_LL
+        case REHOOK_TIMER: {
             // Silently rehook hooks if they have been stopped (>= Win7 and LowLevelHooksTimeout)
             // This can often happen if locking or sleeping the computer a lot
             POINT pt;
@@ -4539,7 +4631,9 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 UnhookWindowsHookEx(mousehook);
                 mousehook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, hinstDLL, 0);
             }
-        } else if (wParam == SPEED_TIMER) {
+            } break;
+        #endif
+        case SPEED_TIMER: {
             static POINT oldpt;
             static int has_moved_to_fixed_pt;
             if (state.moving)
@@ -4551,7 +4645,8 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 MouseMove(state.prevpt);
             }
             if (state.Speed) has_moved_to_fixed_pt = 0;
-        } else if (wParam == GRAB_TIMER) {
+            } break;
+        case GRAB_TIMER: {
             // Grab the action after a certain amount of time of click down
             HWND ptwnd;
             UCHAR buttonswaped;
@@ -4573,12 +4668,48 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 }
             }
             KillTimer(g_timerhwnd, GRAB_TIMER);
+            return 0;
+            } break;
+        #ifdef NO_HOOK_LL
+        case POOL_TIMER: {
+            static MSLLHOOKSTRUCT omsll; // old state
+            static BYTE obts[4];
+            BYTE nbts[4] = {
+                !!(GetAsyncKeyState(VK_LBUTTON)&0x8000),
+                !!(GetAsyncKeyState(VK_RBUTTON)&0x8000),
+                !!(GetAsyncKeyState(VK_MBUTTON)&0x8000),
+                0,
+            };
+            MSLLHOOKSTRUCT nmsll = {0};
+            GetCursorPos(&nmsll.pt);
+            nmsll.time = GetTickCount();
+            if (nmsll.time == omsll.time)
+                return 0;
+
+            if (!SamePt(nmsll.pt, omsll.pt))
+                LowLevelMouseProc(HC_ACTION, WM_MOUSEMOVE, (LPARAM)&nmsll);
+            if (nbts[0] != obts[0])
+                LowLevelMouseProc(HC_ACTION, nbts[0]?WM_LBUTTONDOWN:WM_LBUTTONUP, (LPARAM)&nmsll);
+            if (nbts[1] != obts[1])
+                LowLevelMouseProc(HC_ACTION, nbts[1]?WM_RBUTTONDOWN:WM_RBUTTONUP, (LPARAM)&nmsll);
+            if (nbts[2] != obts[2])
+                LowLevelMouseProc(HC_ACTION, nbts[2]?WM_MBUTTONDOWN:WM_MBUTTONUP, (LPARAM)&nmsll);
+
+            memcpy(&omsll, &nmsll, sizeof(omsll));
+            memcpy(obts, nbts, sizeof(obts));
+            return 0;
+            } break;
+        #endif // NO_HOOK_LL
+        default:;
         }
-        return 0;
     } else if (msg == WM_DESTROY) {
         KillTimer(g_timerhwnd, REHOOK_TIMER);
         KillTimer(g_timerhwnd, SPEED_TIMER);
         KillTimer(g_timerhwnd, GRAB_TIMER);
+        #ifdef NO_HOOK_LL
+        KillTimer(g_timerhwnd, POOL_TIMER);
+        #endif // NO_HOOK_LL
+
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
@@ -4995,18 +5126,12 @@ __declspec(dllexport) void Unload()
 }
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated and title and class are | separated.
-static void readblacklist(const TCHAR *inipath, struct blacklist *blacklist, const char *bl_str)
+static void readblacklist(const TCHAR *section, struct blacklist *blacklist, const char *bl_str)
 {
-    TCHAR txt[1968];
-    TCHAR bl_W[16];
-    str2tchar(bl_W, bl_str);
+    TCHAR txt[1984];
 
-    blacklist->data = NULL;
-    blacklist->length = 0;
-    blacklist->items = NULL;
-
-    DWORD ret = GetPrivateProfileString(TEXT("Blacklist"), bl_W, TEXT(""), txt, ARR_SZ(txt), inipath);
-    if (!ret || txt[0] == '\0') {
+    GetSectionOptionStr(section, bl_str, TEXT(""), txt, ARR_SZ(txt));
+    if (/*!ret || */txt[0] == '\0') {
         return;
     }
     blacklist->data = malloc((lstrlen(txt)+1)*sizeof(TCHAR));
@@ -5061,23 +5186,30 @@ static void readblacklist(const TCHAR *inipath, struct blacklist *blacklist, con
     } // end while
 }
 // Read all the blacklitsts
+#define blacklist_section_length 32767
 void readallblacklists(TCHAR *inipath)
 {
+    memset(&BlkLst, 0, sizeof(BlkLst));
+
+    TCHAR *section = (TCHAR *)malloc(blacklist_section_length*sizeof(TCHAR));
+    if (!section) return;
+    GetPrivateProfileSection(TEXT("Blacklist"), section, blacklist_section_length, inipath);
+
     struct blacklist *list = &BlkLst.Processes;
     unsigned i;
     for (i=0; i< sizeof(BlkLst)/sizeof(struct blacklist); i++) {
-        readblacklist(inipath, list+i, BlackListStrings[i]);
+        readblacklist(section, list+i, BlackListStrings[i]);
     }
+    free(section);
 }
+#undef blacklist_section_length
+
 ///////////////////////////////////////////////////////////////////////////
 // Used to read Hotkeys and Hotclicks
-static void readhotkeys(const TCHAR *inipath, const char *name, const TCHAR *def, UCHAR *keys)
+static void readhotkeys(const TCHAR *inisection, const char *name, const TCHAR *def, UCHAR *keys)
 {
     TCHAR txt[64];
-    TCHAR nameW[64];
-    str2tchar(nameW, name);
-
-    GetPrivateProfileString(TEXT("Input"), nameW, def, txt, ARR_SZ(txt), inipath);
+    GetSectionOptionStr(inisection, name, def, txt, ARR_SZ(txt));
     UCHAR i=0;
     TCHAR *pos = txt;
     while (*pos) {
@@ -5090,15 +5222,15 @@ static void readhotkeys(const TCHAR *inipath, const char *name, const TCHAR *def
     }
     keys[i] = 0;
 }
-static enum action readaction(const TCHAR *inipath, const TCHAR *key)
+static enum action readaction(const TCHAR *section, const char *key)
 {
     TCHAR txt[32];
-    GetPrivateProfileString(TEXT("Input"), key, TEXT("Nothing"), txt, ARR_SZ(txt), inipath);
+    GetSectionOptionStr(section, key, TEXT("Nothing"), txt, ARR_SZ(txt));
 
     return MapActionW(txt);
 }
 // Read all buttons actions from inipath
-static void readbuttonactions(const TCHAR *inipath)
+void readbuttonactions(const TCHAR *inputsection)
 {
     static const char* buttons[] = {
         "LMB", "RMB", "MMB", "MB4", "MB5",
@@ -5116,20 +5248,20 @@ static void readbuttonactions(const TCHAR *inipath)
     for (i=0; i < ARR_SZ(buttons); i++) {
         enum action * const actionptr = &conf.Mouse.LMB[0]; // first action in list
 
-        TCHAR key[32];
-        str2tchar(key, buttons[i]);
-        int len = lstrlen(key);
+        char key[32];
+        strcpy(key, buttons[i]);
+        int len = lstrlenA(key);
         // Read primary action (no sufix)
-        actionptr[4*i+0] = readaction(inipath, key);
+        actionptr[4*i+0] = readaction(inputsection, key);
 
         key[len] = 'B'; key[len+1] = '\0'; // Secondary B sufixe
-        actionptr[4*i+1] = readaction(inipath, key);
+        actionptr[4*i+1] = readaction(inputsection, key);
 
         key[len] = 'T'; key[len+1] = '\0'; // Titlebar T sufixes
-        actionptr[4*i+2] = readaction(inipath, key);
+        actionptr[4*i+2] = readaction(inputsection, key);
 
         key[len] = 'T'; key[len+1] = 'B'; key[len+2] = '\0'; // TB
-        actionptr[4*i+3] = readaction(inipath, key);
+        actionptr[4*i+3] = readaction(inputsection, key);
     }
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -5155,11 +5287,11 @@ static HWND KreateMsgWin(WNDPROC proc, const TCHAR *name, LONG_PTR userdata)
 }
 
 ///////////////////////////////////////////////////////////////////////////
-static void CreateTransWin(const TCHAR *inipath)
+static void CreateTransWin(const TCHAR *inisection)
 {
     int color[4]; // 16 bytes to be sure no overfows
     // Read the color for the TransWin from ini file
-    readhotkeys(inipath, "FrameColor",  TEXT("80 00 80"), (UCHAR *)&color[0]);
+    readhotkeys(inisection, "FrameColor",  TEXT("80 00 80"), (UCHAR *)&color[0]);
     WNDCLASSEX wnd;
     memset(&wnd, 0, sizeof(wnd));
     wnd.cbSize = sizeof(WNDCLASSEX);
@@ -5190,6 +5322,43 @@ static void CreateTransWin(const TCHAR *inipath)
         }
     }
 }
+
+void registerAllHotkeys(const TCHAR* inipath)
+{
+    g_hkhwnd = KreateMsgWin(HotKeysWinProc, TEXT(APP_NAMEA"-HotKeys"), 0);
+    // MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
+    // RegisterHotKey(g_hkhwnd, 0xC000 + AC_KILL,   MOD_ALT|MOD_CONTROL, VK_F4); // F4=73h
+    // Read All shortcuts in the [KBShortcuts] section.
+    TCHAR inisection[1800];
+    GetPrivateProfileSection(TEXT("KBShortcuts"), inisection, ARR_SZ(inisection), inipath);
+
+    conf.UsePtWindow = GetSectionOptionInt(inisection, "UsePtWindow", 0);
+
+    static const char *action_names[] = ACTION_MAP;
+    unsigned ac;
+    for (ac=AC_MENU; ac < ARR_SZ(action_names); ac++) {
+        WORD HK = GetSectionOptionInt(inisection, action_names[ac], 0);
+        if(LOBYTE(HK) && HIBYTE(HK)) {
+            // Lobyte is the virtual key code and hibyte is the mod_key
+            if(!RegisterHotKey(g_hkhwnd, 0xC000 + ac, HIBYTE(HK), LOBYTE(HK))) {
+                // LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
+                //TCHAR title[128];
+                //lstrcpy(title, TEXT(APP_NAMEA": unable to register hotkey for action "));
+                //lstrcat(title, txt);
+                //ErrorBox(title);
+            }
+        }
+    }
+}
+static void readalluchars(UCHAR *dest, const TCHAR * const inisection, const struct OptionListItem *optlist, size_t listlen)
+{
+    // Read all char options
+    unsigned i;
+    for (i=0; i < listlen; i++) {
+        *dest++ = GetSectionOptionInt(inisection, optlist[i].name, optlist[i].def);
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.
 __declspec(dllexport) void Load(HWND mainhwnd)
@@ -5206,86 +5375,11 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
     lstrcpy(&inipath[lstrlen(inipath)-3], TEXT("ini"));
 
-//    #pragma GCC diagnostic ignored "-Wpointer-sign"
-    static const struct OptionListItem {
-        const TCHAR *section; const char *name; const int def;
-    } optlist[] = {
-        // [General]
-        {TEXT("General"), "AutoFocus", 0 },
-        {TEXT("General"), "AutoSnap", 0 },
-        {TEXT("General"), "Aero", 1 },
-        {TEXT("General"), "SmartAero", 1 },
-        {TEXT("General"), "StickyResize", 0 },
-        {TEXT("General"), "InactiveScroll", 0 },
-        {TEXT("General"), "MDI", 0 },
-        {TEXT("General"), "ResizeCenter", 1 },
-        {TEXT("General"), "CenterFraction", 24 },
-        {TEXT("General"), "SidesFraction", 255 },
-        {TEXT("General"), "AeroHoffset", 50 },
-        {TEXT("General"), "AeroVoffset", 50 },
-        {TEXT("General"), "MoveTrans", 255 },
-        {TEXT("General"), "MMMaximize", 1 },
+    TCHAR inisection[1570]; // Stack buffer.
 
-        // [Advanced]
-        {TEXT("Advanced"), "ResizeAll", 1 },
-        {TEXT("Advanced"), "FullScreen", 1 },
-        {TEXT("Advanced"), "BLMaximized", 0 },
-        {TEXT("Advanced"), "AutoRemaximize", 0 },
-        {TEXT("Advanced"), "SnapThreshold", 20 },
-        {TEXT("Advanced"), "AeroThreshold", 5 },
-        {TEXT("Advanced"), "KBMoveStep", 100 },
-        {TEXT("Advanced"), "KBMoveSStep", 10 },
-        {TEXT("Advanced"), "AeroTopMaximizes", 1 },
-        {TEXT("Advanced"), "UseCursor", 1 },
-        {TEXT("Advanced"), "MinAlpha", 32 },
-        {TEXT("Advanced"), "AlphaDelta", 64 },
-        {TEXT("Advanced"), "AlphaDeltaShift", 8 },
-        {TEXT("Advanced"), "ZoomFrac", 16 },
-        {TEXT("Advanced"), "ZoomFracShift", 64 },
-        {TEXT("Advanced"), "NumberMenuItems", 0},
-        /* AeroMaxSpeed not here... */
-        {TEXT("Advanced"), "AeroSpeedTau", 64 },
-        {TEXT("Advanced"), "SnapGap", 0 },
-        {TEXT("Advanced"), "ShiftSnaps", 1 },
-        {TEXT("Advanced"), "PiercingClick", 0 },
-        {TEXT("Advanced"), "DragSendsAltCtrl", 0 },
-        {TEXT("Advanced"), "TopmostIndicator", 0 },
-        {TEXT("Advanced"), "RCCloseMItem", 1 },
-        {TEXT("Advanced"), "MaxKeysNum", 0 },
-        // [Performance]
-        {TEXT("Performance"), "FullWin", 2 },
-        {TEXT("Performance"), "TransWinOpacity", 0 },
-        {TEXT("Performance"), "RefreshRate", 0 },
-        {TEXT("Performance"), "RezTimer", 0 },
-        {TEXT("Performance"), "PinRate", 32 },
-        {TEXT("Performance"), "MoveRate", 2 },
-        {TEXT("Performance"), "ResizeRate", 4 },
-
-        // [Input]
-        {TEXT("Input"), "TTBActions", 0 },
-        {TEXT("Input"), "KeyCombo", 0 },
-        {TEXT("Input"), "ScrollLockState", 0 },
-        {TEXT("Input"), "LongClickMove", 0 },
-        {TEXT("Input"), "UniKeyHoldMenu", 0 },
-
-        // [Zones]
-        {TEXT("Zones"), "UseZones", 0 },
-        {TEXT("Zones"), "InterZone", 0 },
-      # ifdef WIN64
-        {TEXT("Zones"), "FancyZone", 0 },
-      # endif
-        // [KBShortcuts]
-        {TEXT("KBShortcuts"), "UsePtWindow", 0 },
-    };
-//    #pragma GCC diagnostic pop
-
-    // Read all char options
-    UCHAR *dest = &conf.AutoFocus; // 1st element.
-    for (i=0; i < ARR_SZ(optlist); i++) {
-        TCHAR name[128];
-        str2tchar(name, optlist[i].name);
-        *dest++ = GetPrivateProfileInt(optlist[i].section, name, optlist[i].def, inipath);
-    }
+    // [General]
+    GetPrivateProfileSection(TEXT("General"), inisection, ARR_SZ(inisection), inipath);
+    readalluchars(&conf.AutoFocus, inisection, General_uchars, ARR_SZ(General_uchars));
 
     // [General] consistency checks
     conf.CenterFraction=min(conf.CenterFraction, 100);
@@ -5297,19 +5391,41 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     state.snap = conf.AutoSnap;
 
     // [Advanced]
+    GetPrivateProfileSection(TEXT("Advanced"), inisection, ARR_SZ(inisection), inipath);
+    readalluchars(&conf.ResizeAll, inisection, Advanced_uchars, ARR_SZ(Advanced_uchars));
+
     conf.ZoomFrac      = max(2, conf.ZoomFrac);
     conf.ZoomFracShift = max(2, conf.ZoomFracShift);
-    conf.BLCapButtons  = GetPrivateProfileInt(TEXT("Advanced"), TEXT("BLCapButtons"), 3, inipath);
-    conf.BLUpperBorder = GetPrivateProfileInt(TEXT("Advanced"), TEXT("BLUpperBorder"), 3, inipath);
-    conf.AeroMaxSpeed  = GetPrivateProfileInt(TEXT("Advanced"), TEXT("AeroMaxSpeed"), 65535, inipath);
-    if (conf.TopmostIndicator) {
-        int color[4];
-        readhotkeys(inipath, "PinColor",  TEXT("FF FF 00 54"), (UCHAR *)&color[0]);
-        conf.PinColor = color[0];
+    conf.BLCapButtons  = GetSectionOptionInt(inisection, "BLCapButtons", 3);
+    conf.BLUpperBorder = GetSectionOptionInt(inisection, "BLUpperBorder", 3);
+    conf.AeroMaxSpeed  = GetSectionOptionInt(inisection, "AeroMaxSpeed", 65535);
+
+    GetPrivateProfileSection(TEXT("Performance"), inisection, ARR_SZ(inisection), inipath);
+    readalluchars(&conf.FullWin, inisection, Performance_uchars, ARR_SZ(Performance_uchars));
+    conf.MoveRate     = max(1, conf.MoveRate);
+    conf.ResizeRate   = max(1, conf.ResizeRate);
+
+    // [Performance]
+    if (conf.RezTimer) conf.RefreshRate=0; // Ignore the refresh rate in RezTimer mode.
+    if (conf.FullWin == 2) { // Use current config to determine if we use FullWin.
+        BOOL drag_full_win=1;  // Default to ON if unable to detect
+        SystemParametersInfo(SPI_GETDRAGFULLWINDOWS, 0, &drag_full_win, 0);
+        conf.FullWin = drag_full_win;
     }
 
-    // [Input]
-    readbuttonactions(inipath);
+    GetPrivateProfileSection(TEXT("Input"), inisection, ARR_SZ(inisection), inipath);
+    readalluchars(&conf.TTBActions, inisection, Input_uchars, ARR_SZ(Input_uchars));
+    readbuttonactions(inisection);
+
+    if (conf.TopmostIndicator) {
+        int color[4];
+        readhotkeys(inisection, "PinColor",  TEXT("FF FF 00 54"), (UCHAR *)&color[0]);
+        conf.PinColor = color[0];
+    }
+    // Prepare the transparent window
+    if (!conf.FullWin) {
+        CreateTransWin(inisection);
+    }
 
     // Same order than in the conf struct
     static const struct hklst {
@@ -5324,10 +5440,10 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         { "HScrollKey", TEXT("10") },
     };
     for (i=0; i < ARR_SZ(hklst); i++) {
-        readhotkeys(inipath, hklst[i].name, hklst[i].def, &conf.Hotkeys[i*(MAXKEYS+1)]);
+        readhotkeys(inisection, hklst[i].name, hklst[i].def, &conf.Hotkeys[i*(MAXKEYS+1)]);
     }
     UCHAR eHKs[MAXKEYS+1]; // Key to be sent at the end of a movment.
-    readhotkeys(inipath, "EndSendKey", TEXT("11"), eHKs);
+    readhotkeys(inisection, "EndSendKey", TEXT("11"), eHKs);
     conf.EndSendKey = eHKs[0];
 
     // Read all the BLACKLITSTS
@@ -5335,29 +5451,18 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     ResetDB(); // Zero database of restore info (snap.c)
 
-    // [Zones] Configuration
+    GetPrivateProfileSection(TEXT("Zones"), inisection, ARR_SZ(inisection), inipath);
+    readalluchars(&conf.UseZones, inisection, Zones_uchars, ARR_SZ(Zones_uchars));
+
     if (conf.UseZones&1) { // We are using Zones
         if(conf.UseZones&2) { // Grid Mode
-            unsigned GridNx = GetPrivateProfileInt(TEXT("Zones"), TEXT("GridNx"), 0, inipath);
-            unsigned GridNy = GetPrivateProfileInt(TEXT("Zones"), TEXT("GridNy"), 0, inipath);
+            unsigned GridNx = GetSectionOptionInt(inisection, "GridNx", 0);
+            unsigned GridNy = GetSectionOptionInt(inisection, "GridNy", 0);
             if (GridNx && GridNy)
                 GenerateGridZones(GridNx, GridNy);
         } else {
-            ReadZones(inipath);
+            ReadZones(inisection);
         }
-    }
-
-    // [Performance]
-    if (conf.RezTimer) conf.RefreshRate=0; // Ignore the refresh rate in RezTimer mode.
-    if (conf.FullWin == 2) { // Use current config to determine if we use FullWin.
-        BOOL drag_full_win=1;  // Default to ON if unable to detect
-        SystemParametersInfo(SPI_GETDRAGFULLWINDOWS, 0, &drag_full_win, 0);
-        conf.FullWin = drag_full_win;
-    }
-
-    // Prepare the transparent window
-    if (!conf.FullWin) {
-        CreateTransWin(inipath);
     }
 
     conf.keepMousehook = ((conf.TTBActions&1) // titlebar action w/o Alt
@@ -5371,27 +5476,8 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         g_timerhwnd = KreateMsgWin(TimerWindowProc, TEXT(APP_NAMEA"-Timers"), 0);
     }
 
-    g_hkhwnd = KreateMsgWin(HotKeysWinProc, TEXT(APP_NAMEA"-HotKeys"), 0);
-    // MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
-    // RegisterHotKey(g_hkhwnd, 0xC000 + AC_KILL,   MOD_ALT|MOD_CONTROL, VK_F4); // F4=73h
-    // Read All shortcuts in the [KBShortcuts] section.
-    static const char *action_names[] = ACTION_MAP;
-    unsigned ac;
-    for (ac=AC_MENU; ac < ARR_SZ(action_names); ac++) {
-        TCHAR txt[32];
-        str2tchar(txt, action_names[ac]);
-        WORD HK = GetPrivateProfileInt(TEXT("KBShortcuts"), txt, 0, inipath);
-        if(LOBYTE(HK) && HIBYTE(HK)) {
-            // Lobyte is the virtual key code and hibyte is the mod_key
-            if(!RegisterHotKey(g_hkhwnd, 0xC000 + ac, HIBYTE(HK), LOBYTE(HK))) {
-                // LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
-                //TCHAR title[128];
-                //lstrcpy(title, TEXT(APP_NAMEA": unable to register hotkey for action "));
-                //lstrcat(title, txt);
-                //ErrorBox(title);
-            }
-        }
-    }
+    // read and register all shortcuts related options.
+    registerAllHotkeys(inipath);
 
     // Hook mouse if a permanent hook is needed
     if (conf.keepMousehook) {

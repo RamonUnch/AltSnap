@@ -73,6 +73,12 @@ static void str2tchar(TCHAR *w, const char *s)
     while((*w++ = *s++));
 }
 
+static void str2tchar_s(TCHAR *w, size_t N, const char *s)
+{
+    TCHAR *wmax = w + N-1;
+    while(w < wmax && (*w++ = *s++));
+}
+
 #ifdef CLANG
  void * __cdecl memset(void *dst, int s, size_t count)
 {
@@ -266,13 +272,28 @@ static char *itoaL(unsigned num, char *str, int base)
 }
 #define _itoa itoaL
 
-static size_t wcslenL(const wchar_t *__restrict__ str)
+static size_t wcslenL(const wchar_t *__restrict__ const str)
 {
     const wchar_t *ptr;
     for (ptr=str; *ptr != '\0'; ptr++);
     return ptr-str;
 }
 #define wcslen wcslenL
+
+static size_t strlenL(const char * const str)
+{
+    const char *ptr;
+    for (ptr=str; *ptr != '\0'; ptr++);
+    return ptr-str;
+}
+
+/* in case */
+__cdecl size_t strlen(const char *str)
+{
+    const char *ptr;
+    for (ptr=str; *ptr != '\0'; ptr++);
+    return ptr-str;
+}
 
 static int wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 {
@@ -498,8 +519,8 @@ static const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t *needle)
 #define lstrcat_sA strcat_s
 #define lstrcat_sW wcscat_s
 #define lstrcatW wcscat
-#define lstrlenA strlen
-#define lstrlenW wcslen
+#define lstrlenA strlenL
+#define lstrlenW wcslenL
 #define lstrcmpA strcmp
 #define lstrcmpW wcscmp
 #define lstrcmpiA stricmp

@@ -59,6 +59,27 @@ static void lstrcpy_resolve(TCHAR *__restrict__ dest, TCHAR *__restrict__ source
     *dest = '\0';
 }
 
+static void GetSectionOptionStr(const TCHAR *section, const TCHAR *oname, const TCHAR *def, TCHAR * __restrict__ txt, size_t txtlen)
+{
+    TCHAR name[256];
+    lstrcpy_s(name, ARR_SZ(name)-1, oname);
+    lstrcat(name, TEXT("=")); // Add equal at the end of name
+    const TCHAR *p = section;
+    while (p[0] && p[1]) { // Double NULL treminated string
+        if(!lstrcmpi_samestart(p, name)) {
+            // Copy the buffer
+            lstrcpy_s(txt, txtlen, p+lstrlen(name));
+            return; // DONE!
+        } else {
+            // Go to next string...
+            p += lstrlen(p); // p in on the '\0'
+            p++; // next string start.
+            if (!*p) break;
+        }
+    }
+    // Default to the provided def string
+    lstrcpy_s(txt, txtlen, def);
+}
 /////////////////////////////////////////////////////////////////////////////
 #define txt_len 1024
 static void LoadTranslation(const TCHAR *__restrict__ ini)
@@ -73,13 +94,26 @@ static void LoadTranslation(const TCHAR *__restrict__ ini)
     }
     // if english is not seleced then we have to allocate l10_ini strings struct
     // and we have to read the ini file...
+    DWORD ret;
+    DWORD tsectionlen=16383;
+    TCHAR *tsection = NULL;
+    do {
+         tsectionlen *=2;
+         TCHAR *tmp = (TCHAR *)realloc(tsection, tsectionlen*sizeof(TCHAR));
+         if(!tmp) { free(tsection); return; }
+         tsection = tmp;
+         ret = GetPrivateProfileSection(TEXT("Translation"), tsection, tsectionlen, ini);
+    } while (ret == tsectionlen-2);
+    if (!ret) return;
+
     if(!l10n_ini) l10n_ini = calloc(1, sizeof(struct strings));
     for (i=0; i < ARR_SZ(l10n_inimapping); i++) {
         // Get pointer to default English string to be used if ini entry doesn't exist
-        TCHAR *def = ((TCHAR **)&en_US)[i];
+        const TCHAR *const def = ((TCHAR **)&en_US)[i];
         TCHAR inimap[64];
         str2tchar(inimap, l10n_inimapping[i]);
-        GetPrivateProfileString(TEXT("Translation"), inimap, def, txt, txt_len, ini);
+        GetSectionOptionStr(tsection, inimap, def, txt, txt_len);
+        // GetPrivateProfileString(TEXT("Translation"), inimap, def, txt, txt_len, ini);
         TCHAR **deststr = &((TCHAR **)l10n_ini)[i];
         if (deststr == &l10n_ini->about_version) {
             // Append version number to version....
@@ -90,6 +124,7 @@ static void LoadTranslation(const TCHAR *__restrict__ ini)
         lstrcpy_resolve(*deststr, txt);
     }
     l10n = l10n_ini;
+    free(tsection); // free the cached Translation section.
 }
 struct langinfoitem *langinfo;
 int nlanguages;
@@ -124,25 +159,31 @@ void ListAllTranslations()
         do {
             nlanguages++;
             lstrcpy(end, ffd.cFileName); // add filenale at the end of the path
-            langinfo = realloc(langinfo, sizeof(struct langinfoitem) * nlanguages);
-            if (!langinfo) break;
+            struct langinfoitem *tmp = realloc(langinfo, sizeof(struct langinfoitem) * nlanguages);
+            if (!tmp) break;
+            langinfo = tmp;
 
-            GetPrivateProfileString(TEXT("Translation"), TEXT("Code"), TEXT(""), txt, ARR_SZ(txt), fpath);
+            // Preload section start
+            TCHAR tsection[512];
+            DWORD ret = GetPrivateProfileSection(TEXT("Translation"), tsection, ARR_SZ(tsection), fpath);
+            if(!ret) continue;
+
+            GetSectionOptionStr(tsection, TEXT("Code"), TEXT(""), txt, ARR_SZ(txt));
             langinfo[n].code = calloc(lstrlen(txt)+1, sizeof(TCHAR));
             if (!langinfo[n].code) break;
             lstrcpy(langinfo[n].code, txt);
 
-            GetPrivateProfileString(TEXT("Translation"), TEXT("LangEnglish"), TEXT(""), txt, ARR_SZ(txt), fpath);
+            GetSectionOptionStr(tsection, TEXT("LangEnglish"), TEXT(""), txt, ARR_SZ(txt));
             langinfo[n].lang_english = calloc(lstrlen(txt)+1, sizeof(TCHAR));
             if (!langinfo[n].lang_english) break;
             lstrcpy(langinfo[n].lang_english, txt);
 
-            GetPrivateProfileString(TEXT("Translation"), TEXT("Lang"), TEXT(""), txt, ARR_SZ(txt), fpath);
+            GetSectionOptionStr(tsection, TEXT("Lang"), TEXT(""), txt, ARR_SZ(txt));
             langinfo[n].lang = calloc(lstrlen(txt)+1, sizeof(TCHAR));
             if (!langinfo[n].lang) break;
             lstrcpy(langinfo[n].lang, txt);
 
-            GetPrivateProfileString(TEXT("Translation"), TEXT("Author"), TEXT(""), txt, ARR_SZ(txt), fpath);
+            GetSectionOptionStr(tsection, TEXT("Author"), TEXT(""), txt, ARR_SZ(txt));
             langinfo[n].author = calloc(lstrlen(txt)+1, sizeof(TCHAR));
             if (!langinfo[n].author) break;
             lstrcpy(langinfo[n].author, txt);

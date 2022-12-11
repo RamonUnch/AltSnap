@@ -140,7 +140,7 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
 #endif
 
 /* Helper function to pop a message bow with error code*/
-static void ErrorBox(TCHAR *title)
+static void ErrorBox(const TCHAR * const title)
 {
     LPVOID lpMsgBuf;
     FormatMessage(
@@ -197,7 +197,7 @@ static void PathStripPathL(TCHAR *p)
     p[j]= '\0';
 }
 
-static BOOL HaveProc(char *DLLname, char *PROCname)
+static BOOL HaveProc(const char * const DLLname, const char * const PROCname)
 {
     HINSTANCE hdll = LoadLibraryA(DLLname);
     BOOL ret = FALSE;
@@ -268,7 +268,7 @@ static void ASleep(DWORD duration_ms)
     }
 }
 
-static BOOL FreeDLLByName(char *DLLname)
+static BOOL FreeDLLByName(const char * const DLLname)
 {
     HINSTANCE hdll;
     if((hdll = GetModuleHandleA(DLLname)))
@@ -915,7 +915,7 @@ static DWORD GetModuleFileNameExL(HANDLE hProcess, HMODULE hModule, LPTSTR lpFil
     #undef FUNK_TYPE
 }
 
-static DWORD GetProcessImageFileNameL(HANDLE hProcess, TCHAR *lpImageFileName, DWORD    nSize)
+static DWORD GetProcessImageFileNameL(HANDLE hProcess, TCHAR *lpImageFileName, DWORD nSize)
 {
     #define FUNK_TYPE ( DWORD (WINAPI *)(HANDLE hProcess, TCHAR *lpImageFileName, DWORD nSize) )
     static DWORD (WINAPI *funk)(HANDLE hProcess, TCHAR *lpImageFileName, DWORD nSize) = FUNK_TYPE IPTR;
@@ -1271,5 +1271,53 @@ static int LCIDToLocaleNameL(LCID Locale, LPWSTR lpName, int cchName, DWORD dwFl
     #undef FUNK_TYPE
 }
 #endif // UNICODE
+
+/* Get the string inside the section returned by GetPrivateProfileSection */
+static void GetSectionOptionStr(const TCHAR *section, const char * const oname, const TCHAR *def, TCHAR * __restrict__ txt, size_t txtlen)
+{
+    if (section) {
+        TCHAR name[128];
+        str2tchar_s(name, ARR_SZ(name)-1, oname);
+        lstrcat(name, TEXT("=")); /* Add equal at the end of name */
+        const TCHAR *p = section;
+        while (p[0] && p[1]) { /* Double NULL treminated string */
+            if(!lstrcmpi_samestart(p, name)) {
+                /* Copy the buffer */
+                lstrcpy_s(txt, txtlen, p+lstrlen(name));
+                return; /* DONE! */
+            } else {
+                /* Go to next string... */
+                p += lstrlen(p); /* p in on the '\0' */
+                p++; /* next string start. */
+                if (!*p) break;
+            }
+        }
+    }
+    /* Default to the provided def string */
+    lstrcpy_s(txt, txtlen, def);
+}
+/* Get the int inside the section returned by GetPrivateProfileSection */
+static int GetSectionOptionInt(const TCHAR *section, const char * const oname, const int def)
+{
+    if (section) {
+        TCHAR name[128];
+        str2tchar_s(name, ARR_SZ(name)-1, oname);
+        lstrcat(name, TEXT("=")); /* Add equal at the end of name */
+        const TCHAR *p = section;
+        while (p[0] && p[1]) { /* Double NULL treminated string */
+            if(!lstrcmpi_samestart(p, name)) {
+                /* DONE !*/
+                return strtoi(p+lstrlen(name));
+            } else {
+                /* Go to next string... */
+                p += lstrlen(p); /* p in on the '\0' */
+                p++; /* next string start. */
+                if (!*p) break;
+            }
+        }
+    }
+    /* Default to the provided def value */
+    return def;
+}
 
 #endif

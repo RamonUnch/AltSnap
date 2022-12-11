@@ -107,6 +107,7 @@ static BOOL ElevateNow(int showconfig)
 // Entry point
 static void OpenConfig(int startpage)
 {
+    ListAllTranslations(); // In case
     if (IsWindow(g_cfgwnd)) {
         PropSheet_SetCurSel(g_cfgwnd, 0, startpage);
         SetForegroundWindow(g_cfgwnd);
@@ -479,10 +480,12 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         ComboBox_ResetContent(control);
         ComboBox_Enable(control, TRUE);
         int i;
-        for (i = 0; i < nlanguages; i++) {
-            ComboBox_AddString(control, langinfo[i].lang);
-            if (langinfo[i].code && !lstrcmpi(l10n->code, langinfo[i].code) ) {
-                ComboBox_SetCurSel(control, i);
+        if (langinfo) {
+            for (i = 0; i < nlanguages; i++) {
+                ComboBox_AddString(control, langinfo[i].lang);
+                if (langinfo[i].code && !lstrcmpi(l10n->code, langinfo[i].code) ) {
+                    ComboBox_SetCurSel(control, i);
+                }
             }
         }
         Button_Enable(GetDlgItem(hwnd, IDC_ELEVATE), VISTA && !elevated);
@@ -544,11 +547,12 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
             // Load selected Language
             int i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_LANGUAGE));
-            i = min(i, nlanguages);
-            LoadTranslation(langinfo[i].fn);
-            WritePrivateProfileString(TEXT("General"), TEXT("Language"), l10n->code, inipath);
-            updatestrings = 1;
-            UpdateStrings();
+            if (i < nlanguages && langinfo) {
+                LoadTranslation(langinfo[i].fn);
+                WritePrivateProfileString(TEXT("General"), TEXT("Language"), l10n->code, inipath);
+                updatestrings = 1;
+                UpdateStrings();
+            }
 
             // Autostart
             SetAutostart(IsChecked(IDC_AUTOSTART), IsChecked(IDC_AUTOSTART_HIDE), IsChecked(IDC_AUTOSTART_ELEVATE));
@@ -1436,12 +1440,14 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 
             TCHAR txt[1024] = TEXT("");
             int i;
-            for (i = 0; i < nlanguages; i++) {
-                lstrcat(txt, langinfo[i].lang_english);
-                lstrcat(txt, TEXT(": "));
-                lstrcat(txt, langinfo[i].author);
-                if (i + 1 != nlanguages) {
-                    lstrcat(txt, TEXT("\r\n"));
+            if (langinfo) {
+                for (i = 0; i < nlanguages; i++) {
+                    lstrcat(txt, langinfo[i].lang_english);
+                    lstrcat(txt, TEXT(": "));
+                    lstrcat(txt, langinfo[i].author);
+                    if (i + 1 != nlanguages) {
+                        lstrcat(txt, TEXT("\r\n"));
+                    }
                 }
             }
             SetDlgItemText(hwnd, IDC_TRANSLATIONS, txt);

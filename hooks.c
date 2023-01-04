@@ -159,6 +159,7 @@ static struct config {
     UCHAR ZoomFrac;
     UCHAR ZoomFracShift;
     UCHAR NumberMenuItems;
+    UCHAR MaxMenuWidth;
     UCHAR AeroSpeedTau;
     char SnapGap;
     UCHAR ShiftSnaps;
@@ -256,6 +257,7 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "ZoomFrac", 16 },
     { "ZoomFracShift", 64 },
     { "NumberMenuItems", 0},
+    { "MaxMenuWidth", 80},
     { "AeroSpeedTau", 64 },
     { "SnapGap", 0 },
     { "ShiftSnaps", 1 },
@@ -3793,13 +3795,11 @@ static TCHAR Int2Accel(int i)
         return i<26? TEXT('A')+i: TEXT('0')+i-26;
 }
 #include <oleacc.h>
-#define MITTLEN 80
 struct menuitemdata {
     #ifdef _UNICODE
     MSAAMENUINFO msaa;
     #endif
-    TCHAR* txtptr;
-    TCHAR txt[MITTLEN];
+    TCHAR *txtptr;
     HICON icon;
 };
 static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
@@ -3827,47 +3827,37 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
     HMENU menu = CreatePopupMenu();
     state.unikeymenu = menu;
     unsigned i;
+    TCHAR * const failed_string = TEXT("---");
 
-    struct menuitemdata *data=NULL;
-    struct menuitemdata data20[20];
-    if (numhwnds <= 20) {
-        data = data20; // less than 20 windows then use the satck
-    } else {
-        data = malloc(numhwnds * sizeof(struct menuitemdata));;
-        if (!data) { // If malloc fails then fallback to the stack.
-            data=data20;
-            numhwnds = 20;
-        }
-    }
+    struct menuitemdata data[36]; // Always fits into the stack
     for (i=0; i < numhwnds; i++) {
         int textlen = GetWindowTextLength(hwnds[i]);
+        // Limit the size to the asked width
+        if (conf.MaxMenuWidth)
+            textlen = min(textlen, conf.MaxMenuWidth);
 
         // 5 + textlen + 1 * null
-        if (textlen > MITTLEN - 6) {
-            // Allocate some memory
-            data[i].txtptr = malloc((textlen + 6) * sizeof(TCHAR));
-            if (!data[i].txtptr) {
-                // Nevermind.
-                data[i].txtptr = data[i].txt;
-                textlen = MITTLEN - 6;
-            }
+        // Allocate some memory
+        data[i].txtptr = malloc((textlen + 6) * sizeof(TCHAR));
+        if (data[i].txtptr) {
+            // Allocation succeeded
+            TCHAR *txt = data[i].txtptr;
+            GetWindowText(hwnds[i], txt+5, textlen + 1);
+            txt[0] = TEXT('&');
+            txt[1] = Int2Accel(i);
+            txt[2] = TEXT(' '); txt[3] = TEXT('-'); txt[4] = TEXT(' ');
         } else {
-            data[i].txtptr = data[i].txt;
+           // Display static text.
+           data[i].txtptr = failed_string;
         }
-
-        TCHAR *txt = data[i].txtptr;
-        GetWindowText(hwnds[i], txt+5, textlen + 1);
-        txt[0] = TEXT('&');
-        txt[1] = Int2Accel(i);
-        txt[2] = TEXT(' '); txt[3] = TEXT('-'); txt[4] = TEXT(' ');
-
         // Fill up MSAA structure for screen readers.
         #ifdef _UNICODE
         data[i].msaa.dwMSAASignature = MSAA_MENU_SIG;
-        data[i].msaa.cchWText = lstrlen(txt);
-        data[i].msaa.pszWText = txt;
+        data[i].msaa.cchWText = lstrlen(data[i].txtptr);
+        data[i].msaa.pszWText = data[i].txtptr;
         #endif
 
+        // GetWindowIcon return a shared resource not to be freed
         data[i].icon = GetWindowIcon(hwnds[i]);
         MENUITEMINFO lpmi= { sizeof(MENUITEMINFO) };
         lpmi.fMask = MIIM_DATA|MIIM_TYPE|MIIM_ID;
@@ -3908,10 +3898,9 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
 
     // Free strings
     for (i=0; i < numhwnds; i++) {
-        if (data[i].txtptr != data[i].txt)
+        if (data[i].txtptr != failed_string)
             free(data[i].txtptr);
     }
-    if (data != data20) free(data);
 
     return;
 }
@@ -3923,16 +3912,16 @@ static void ActionStackList(LPARAM lasermode)
 }
 static void ActionASOnOff()
 {
-    state.altsnaponoff = !GetPropA(g_mainhwnd, APP_ASONOFF);
-    SetPropA(g_mainhwnd, APP_ASONOFF, (HANDLE)(DorQWORD)state.altsnaponoff);
+    state.altsnaponoff = !GetProp(g_mainhwnd, APP_ASONOFF);
+    SetProp(g_mainhwnd, APP_ASONOFF, (HANDLE)(DorQWORD)state.altsnaponoff);
     PostMessage(g_mainhwnd, WM_UPDATETRAY, 0, 0);
 }
 static void ActionMoveOnOff(HWND hwnd)
 {
-    if (GetPropA(hwnd, APP_MOVEONOFF))
-        RemovePropA(hwnd, APP_MOVEONOFF);
+    if (GetProp(hwnd, APP_MOVEONOFF))
+        RemoveProp(hwnd, APP_MOVEONOFF);
     else
-        SetPropA(hwnd, APP_MOVEONOFF, (HANDLE)1);
+        SetProp(hwnd, APP_MOVEONOFF, (HANDLE)1);
 }
 static void ActionMenu(HWND hwnd)
 {
@@ -3949,7 +3938,7 @@ static void ActionMenu(HWND hwnd)
        | !!GetBorderlessFlag(hwnd) << 2                        // LP_BORDERLESS
        | IsZoomed(hwnd) << 3                                    // LP_MAXIMIZED
        | !!(GetRestoreFlag(hwnd)&2) << 4                           // LP_ROLLED
-       | !!GetPropA(state.hwnd, APP_MOVEONOFF) << 5             // LP_MOVEONOFF
+       | !!GetProp(state.hwnd, APP_MOVEONOFF) << 5             // LP_MOVEONOFF
        | (!state.alt && state.hittest) << 6                   // LP_NOALTACTION
     );
 }
@@ -4147,7 +4136,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
 
     // Do things depending on what button was pressed
     if (MOUVEMENT(action)) {
-        if (GetPropA(state.hwnd, APP_MOVEONOFF)) {
+        if (GetProp(state.hwnd, APP_MOVEONOFF)) {
             state.action = AC_NONE;
             return 0; // Movement was disabled for this window.
         }
@@ -5397,7 +5386,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
     lstrcpy(&inipath[lstrlen(inipath)-3], TEXT("ini"));
 
-    TCHAR inisection[1570]; // Stack buffer.
+    TCHAR inisection[1520]; // Stack buffer.
 
     // [General]
     GetPrivateProfileSection(TEXT("General"), inisection, ARR_SZ(inisection), inipath);

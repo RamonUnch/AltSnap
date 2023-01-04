@@ -143,7 +143,7 @@ static void OpenConfig(int startpage)
                        : PSH_PROPSHEETPAGE|PSH_USECALLBACK|PSH_USEHICON;
     psh.hwndParent = NULL;
     psh.hInstance = g_hinst;
-    psh.hIcon = LoadIcon(g_hinst, iconstr[1]);
+    psh.hIcon = icons[1]; //LoadIcon(g_hinst, iconstr[1]);
     psh.pszCaption = TEXT(APP_NAMEA);
     psh.nPages = ARR_SZ(pages);
     psh.ppsp = (LPCPROPSHEETPAGE) &psp;
@@ -1673,7 +1673,7 @@ static HWND NewTestWindow()
             sizeof(WNDCLASSEX)
           , CS_HREDRAW|CS_VREDRAW|CS_BYTEALIGNCLIENT
           , TestWindowProc
-          , 0, 0, g_hinst, LoadIcon(g_hinst, iconstr[1])
+          , 0, 0, g_hinst, icons[1] //LoadIcon(g_hinst, iconstr[1])
           , LoadCursor(NULL, IDC_ARROW)
           , NULL //(HBRUSH)(COLOR_BACKGROUND+1)
           , NULL, TEXT(APP_NAMEA"-Test"), NULL

@@ -3798,6 +3798,7 @@ struct menuitemdata {
     #ifdef _UNICODE
     MSAAMENUINFO msaa;
     #endif
+    TCHAR* txtptr;
     TCHAR txt[MITTLEN];
     HICON icon;
 };
@@ -3839,8 +3840,23 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
         }
     }
     for (i=0; i < numhwnds; i++) {
-        TCHAR *txt = data[i].txt;
-        GetWindowText(hwnds[i], txt+5, MITTLEN-6);
+        int textlen = GetWindowTextLength(hwnds[i]);
+
+        // 5 + textlen + 1 * null
+        if (textlen > MITTLEN - 6) {
+            // Allocate some memory
+            data[i].txtptr = malloc((textlen + 6) * sizeof(TCHAR));
+            if (!data[i].txtptr) {
+                // Nevermind.
+                data[i].txtptr = data[i].txt;
+                textlen = MITTLEN - 6;
+            }
+        } else {
+            data[i].txtptr = data[i].txt;
+        }
+
+        TCHAR *txt = data[i].txtptr;
+        GetWindowText(hwnds[i], txt+5, textlen + 1);
         txt[0] = TEXT('&');
         txt[1] = Int2Accel(i);
         txt[2] = TEXT(' '); txt[3] = TEXT('-'); txt[4] = TEXT(' ');
@@ -3889,6 +3905,12 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
     DestroyMenu(menu);
     DestroyWindow(g_mchwnd);
     g_mchwnd = NULL;
+
+    // Free strings
+    for (i=0; i < numhwnds; i++) {
+        if (data[i].txtptr != data[i].txt)
+            free(data[i].txtptr);
+    }
     if (data != data20) free(data);
 
     return;
@@ -4722,8 +4744,8 @@ static LPARAM MeasureMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi,
     if(!lpmi) return FALSE;
     struct menuitemdata *data = (struct menuitemdata *)lpmi->itemData;
     if(!data) return FALSE;
-    TCHAR *text = data->txt;
-    //LOGA("WM_MEASUREITEM: id=%u, txt=%S", lpmi->itemID, data->txt);
+    TCHAR *text = data->txtptr;
+    //LOGA("WM_MEASUREITEM: id=%u, txt=%S", lpmi->itemID, data->txtptr);
 
     HDC dc = GetDC(hwnd);
 
@@ -4766,7 +4788,7 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi, H
     int xicosz =  GetSystemMetricsForDpi(SM_CXSMICON, dpi);
     int yicosz =  GetSystemMetricsForDpi(SM_CYSMICON, dpi);
 
-    //LOGA("WM_DRAWITEM: id=%u, txt=%S", di->itemID, data->txt);
+    //LOGA("WM_DRAWITEM: id=%u, txt=%S", di->itemID, data->txtptr);
 
     int bgcol, txcol;
     if(di->itemState & ODS_SELECTED) {
@@ -4796,8 +4818,8 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi, H
     HFONT oldfont=SelectObject(di->hDC, mfont);
 
     SIZE sz;
-    GetTextExtentPoint32(di->hDC, data->txt, lstrlen(data->txt), &sz);
-    //LOGA("WM_DRAWITEM: txtXY=%u, %u, txt=%S", (UINT)sz.cx, (UINT)sz.cy, data->txt);
+    GetTextExtentPoint32(di->hDC, data->txtptr, lstrlen(data->txtptr), &sz);
+    //LOGA("WM_DRAWITEM: txtXY=%u, %u, txt=%S", (UINT)sz.cx, (UINT)sz.cy, data->txtptr);
 
     int totheight = di->rcItem.bottom - di->rcItem.top; // total menuitem height
     int yicooffset = (totheight - yicosz)/2; // Center icon vertically
@@ -4834,7 +4856,7 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi, H
     di->rcItem.left += xicosz + xmargin*3;
     di->rcItem.top += ytxtoffset;
     //LOGA("menuitemheight = %ld", di->rcItem.bottom-di->rcItem.top);
-    DrawText(di->hDC, data->txt, -1, &di->rcItem, 0); // Menuitem Text
+    DrawText(di->hDC, data->txtptr, -1, &di->rcItem, 0); // Menuitem Text
 
     // Restore dc context
     SelectObject(di->hDC, oldfont); // restore old font

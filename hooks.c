@@ -93,6 +93,7 @@ static struct {
 
     UCHAR moving;
     UCHAR blockmouseup;
+    UCHAR fwmouseup;
     UCHAR enumed;
     UCHAR usezones;
 
@@ -4443,15 +4444,6 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     // Get wheel delta
     state.delta = GET_WHEEL_DELTA_WPARAM(msg->mouseData);
 
-    // Check if we must block mouse up...
-    if (buttonstate == STATE_UP && state.blockmouseup) {
-        // block mouse up and decrement counter.
-        state.blockmouseup--;
-        if(!state.blockmouseup && !state.action && !state.alt)
-            UnhookMouseOnly(); // We no longer need the hook.
-        return 1;
-    }
-
 //    if (button<=BT_MB5)
 //        LOGA("button=%d, %s", button, buttonstate==STATE_DOWN?"DOWN":buttonstate==STATE_UP?"UP":"NONE");
 
@@ -4460,16 +4452,42 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     enum action ttbact = GetActionT(button);// Titlebar action
 
     // Check if the click is is a Hotclick and should enable ALT.
-    // If the hotclick is also mapped to an action, then we fall through
+    // If the hotclick is also mapped to an action, then we execute it.
     int is_hotclick = IsHotclick(button);
     if (is_hotclick && buttonstate == STATE_DOWN) {
         state.alt = button;
         // Start an action now if hotclick is also an action.
-        if (action) init_movement_and_actions(pt, NULL, action, button);
-        return 1; // Always block mouse down
+        // If action == AC_NONE, we are checking for blacklists...
+        int ret = init_movement_and_actions(pt, NULL, action, button);
+        if (ret && action) state.alt = 0; // Done!
+        if (ret) return 1; // Not balcklisted, action may have been performed!
+
+        // Window is blacklisted.
+        // So me must forward the click...
+        state.alt = 0; // release alt!
+        state.fwmouseup = 1; // Forward up click...
+        return CALLNEXTHOOK; // forward down click
     } else if (is_hotclick && buttonstate == STATE_UP) {
         state.alt = 0;
-        if (!action) return 1; // Block hotclick up if not an action
+        // Block hotclick up if not an action
+        // Because it will not be done by state.blockmouseup
+        if (!action) return 1;
+    }
+
+    // Check if we must block mouse up... (after releasing hotclicks)
+    if (buttonstate == STATE_UP) {
+        // fw/block mouse up and decrement counter.
+        if (state.fwmouseup) {
+            state.fwmouseup = 0;
+            //LOGA("forwarded BT%d mouse up", button);
+            return CALLNEXTHOOK;
+        } else if (state.blockmouseup) {
+            state.blockmouseup--;
+            if(!state.blockmouseup && !state.action && !state.alt)
+                UnhookMouseOnly(); // We no longer need the hook.
+            //LOGA("blocked BT%d mouse up", button);
+            return 1;
+        }
     }
 
     // Handle Titlebars actions if any
@@ -4536,7 +4554,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         // LogState("BUTTON UP:\n");
         SetWindowTrans(NULL); // Reset window transparency
 
-        if (state.action == action
+        if((state.action == action || (state.action == AC_MOVE && action == AC_RESIZE))
         && !state.moving // No drag occured
         && !state.ctrl // Ctrl is not down (because of focusing)
         && IsSamePTT(&pt, &state.clickpt) // same point

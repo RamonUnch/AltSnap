@@ -93,6 +93,7 @@ static struct {
 
     UCHAR moving;
     UCHAR blockmouseup;
+    UCHAR fwmouseup;
     UCHAR enumed;
     UCHAR usezones;
 
@@ -3371,13 +3372,13 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             BYTE *thunk = VirtualAlloc( NULL, THUNK_SIZE, MEM_COMMIT, PAGE_READWRITE );
             if (!thunk) break;
             // Replace the first parameter with the handle of the PinWindow.
-            // FIXME: Handle MIPS/PowerPC/ia-64/ARM/ARM64
+            // FIXME: Handle MIPS/Alpha/PowerPC/ia-64/ARM/ARM64...
             #if defined(_M_AMD64) || defined(WIN64)
                 // AMD x86_64 windows : rcx, rdx, r8, r9 (ints).
                 // xmm0, xmm1, xmm2, xmm3, floating points
                 // Then push right to left.
                 // ----------------------------------
-                // ; mov rcx hwnd ->
+                // ; mov rcx hwnd
                 // ; mov rax Procedure
                 // ; jmp rax
                 *(WORD  *)(thunk+ 0) = 0xB948;
@@ -3385,7 +3386,7 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
                 *(WORD  *)(thunk+10) = 0xB848;
                 *(void **)(thunk+12) = (LONG_PTR*)HandleWinEvent;
                 *(WORD  *)(thunk+20) = 0xE0FF;
-            #else
+            #elif defined(_M_IX86)
                 // i386 __stdcall: push right to left
                 // ----------------------------------
                 // ; mov dword ptr [esp+4] hwnd
@@ -3394,6 +3395,8 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
                 *(HWND  *)(thunk+4) = hwnd; // <- Replace 1st param
                 *(BYTE  *)(thunk+8) = 0xE9;
                 *(DWORD *)(thunk+9) = (BYTE*)((void*)HandleWinEvent)-(thunk+13);
+            #else
+                #error Unsupported CPU type, implement thunking or undefine EVENT_HOOK.
             #endif
             DWORD oldprotect;
             // Restrict thunk to execute only.
@@ -3569,6 +3572,7 @@ static HWND CreatePinWindow(const HWND owner)
         wnd.style = CS_NOCLOSE|CS_HREDRAW|CS_VREDRAW;
         wnd.lpfnWndProc = PinWindowProc;
 #ifdef EVENT_HOOK
+        // We need some data to save the thunk and event hook.
         wnd.cbWndExtra = sizeof(LONG_PTR) * 3;
 #else
         wnd.cbWndExtra = sizeof(LONG_PTR);
@@ -3851,7 +3855,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
            data[i].txtptr = failed_string;
         }
         // Fill up MSAA structure for screen readers.
-        #ifdef _UNICODE
+        #ifdef _UNICODE // Only available in unicode mode
         data[i].msaa.dwMSAASignature = MSAA_MENU_SIG;
         data[i].msaa.cchWText = lstrlen(data[i].txtptr);
         data[i].msaa.pszWText = data[i].txtptr;
@@ -3886,7 +3890,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
         HWND hwnd = hwnds[i-1];
 //        TCHAR buf[128];
 //        PrintHwndDetails(hwnd, buf);
-//        MessageBox(NULL, buf, NULL, 0);
+//        MessageBox(NULL, buf, TEXT("Info"), 0);
         if(IsIconic(hwnd))
             RestoreWindow(hwnd);
         SetForegroundWindowL(hwnd);
@@ -4443,15 +4447,6 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     // Get wheel delta
     state.delta = GET_WHEEL_DELTA_WPARAM(msg->mouseData);
 
-    // Check if we must block mouse up...
-    if (buttonstate == STATE_UP && state.blockmouseup) {
-        // block mouse up and decrement counter.
-        state.blockmouseup--;
-        if(!state.blockmouseup && !state.action && !state.alt)
-            UnhookMouseOnly(); // We no longer need the hook.
-        return 1;
-    }
-
 //    if (button<=BT_MB5)
 //        LOGA("button=%d, %s", button, buttonstate==STATE_DOWN?"DOWN":buttonstate==STATE_UP?"UP":"NONE");
 
@@ -4459,17 +4454,60 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     enum action action = GetAction(button); // Normal action
     enum action ttbact = GetActionT(button);// Titlebar action
 
+    // Handle another click if we are already busy with an action
+    if (buttonstate == STATE_DOWN && state.action && state.action != conf.GrabWithAlt[ModKey()]) {
+        if ((conf.MMMaximize&1)) {
+            ClickComboActions(action); // Handle click combo!
+        } else if (conf.UseZones&1 && state.action == AC_MOVE) {
+            state.usezones = !state.usezones;
+            state.blockmouseup = 1;
+            MouseMove(state.prevpt);
+        } else {
+            state.blockmouseup = 1;
+        }
+        return 1; // Block mousedown so altsnap does not remove g_mainhwnd
+    }
+
     // Check if the click is is a Hotclick and should enable ALT.
-    // If the hotclick is also mapped to an action, then we fall through
+    // If the hotclick is also mapped to an action, then we execute it.
     int is_hotclick = IsHotclick(button);
     if (is_hotclick && buttonstate == STATE_DOWN) {
         state.alt = button;
         // Start an action now if hotclick is also an action.
-        if (action) init_movement_and_actions(pt, NULL, action, button);
-        return 1; // Always block mouse down
+        // If action == AC_NONE, we are checking for blacklists...
+        int ret = init_movement_and_actions(pt, NULL, action, button);
+        if (ret) {
+            // Not balcklisted, action may have been performed!
+            if (action) state.alt = 0; // Done!
+            return 1;
+        }
+
+        // Window is blacklisted.
+        // So me must forward the click...
+        state.alt = 0; // release alt!
+        state.fwmouseup = 1; // Forward up click...
+        return CALLNEXTHOOK; // forward down click
     } else if (is_hotclick && buttonstate == STATE_UP) {
         state.alt = 0;
-        if (!action) return 1; // Block hotclick up if not an action
+        // Block hotclick up if not an action
+        // Because it will not be done by state.blockmouseup
+        if (!action) return 1;
+    }
+
+    // Check if we must block mouse up... (after releasing hotclicks)
+    if (buttonstate == STATE_UP) {
+        // fw/block mouse up and decrement counter.
+        if (state.fwmouseup) {
+            state.fwmouseup = 0;
+            //LOGA("forwarded BT%d mouse up", button);
+            return CALLNEXTHOOK;
+        } else if (state.blockmouseup) {
+            state.blockmouseup--;
+            if(!state.blockmouseup && !state.action && !state.alt)
+                UnhookMouseOnly(); // We no longer need the hook.
+            //LOGA("blocked BT%d mouse up", button);
+            return 1;
+        }
     }
 
     // Handle Titlebars actions if any
@@ -4503,21 +4541,8 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     if (!action && !ttbact && buttonstate == STATE_DOWN)
         return CALLNEXTHOOK;//CallNextHookEx(NULL, nCode, wParam, lParam);
 
-    // Handle another click if we are already busy with an action
-    if (buttonstate == STATE_DOWN && state.action && state.action != conf.GrabWithAlt[ModKey()]) {
-        if ((conf.MMMaximize&1))
-            ClickComboActions(action); // Handle click combo!
-        else if (conf.UseZones&1 && state.action == AC_MOVE) {
-            state.usezones = !state.usezones;
-            state.blockmouseup = 1;
-            MouseMove(state.prevpt);
-        } else {
-            state.blockmouseup = 1;
-        }
-        return 1; // Block mousedown so altsnap does not remove g_mainhwnd
-
     // INIT ACTIONS on mouse down if Alt is down...
-    } else if (buttonstate == STATE_DOWN && state.alt) {
+    if (buttonstate == STATE_DOWN && state.alt) {
         //LogState("BUTTON DOWN:\n");
         // Double ckeck some hotkey is pressed.
         if (!state.action
@@ -4536,7 +4561,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         // LogState("BUTTON UP:\n");
         SetWindowTrans(NULL); // Reset window transparency
 
-        if (state.action == action
+        if((state.action == action || (state.action == AC_MOVE && action == AC_RESIZE))
         && !state.moving // No drag occured
         && !state.ctrl // Ctrl is not down (because of focusing)
         && IsSamePTT(&pt, &state.clickpt) // same point
@@ -5444,7 +5469,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     } hklst[] = {
         { "Hotkeys",   TEXT("A4 A5") },
         { "Shiftkeys", TEXT("A0 A1") },
-        { "Hotclicks", NULL    },
+        { "Hotclicks", NULL },
         { "Killkeys",  TEXT("09 2E") },
         { "XXButtons", NULL },
         { "ModKey",    NULL },

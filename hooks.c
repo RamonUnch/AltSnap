@@ -4471,7 +4471,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     // Check if the click is is a Hotclick and should enable ALT.
     // If the hotclick is also mapped to an action, then we execute it.
     int is_hotclick = IsHotclick(button);
-    if (is_hotclick && buttonstate == STATE_DOWN) {
+    if (!state.alt && is_hotclick && buttonstate == STATE_DOWN) {
         state.alt = button;
         // Start an action now if hotclick is also an action.
         // If action == AC_NONE, we are checking for blacklists...
@@ -4487,7 +4487,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         state.alt = 0; // release alt!
         state.fwmouseup = 1; // Forward up click...
         return CALLNEXTHOOK; // forward down click
-    } else if (is_hotclick && buttonstate == STATE_UP) {
+    } else if (state.alt == button && is_hotclick && buttonstate == STATE_UP) {
         state.alt = 0;
         // Block hotclick up if not an action
         // Because it will not be done by state.blockmouseup

@@ -1294,7 +1294,10 @@ static void GetSectionOptionStr(const TCHAR *section, const char * const oname, 
         }
     }
     /* Default to the provided def string */
-    lstrcpy_s(txt, txtlen, def);
+    if (def)
+        lstrcpy_s(txt, txtlen, def);
+    else if (txtlen)
+        txt[0] = TEXT('\0');  // Empty string
 }
 /* Get the int inside the section returned by GetPrivateProfileSection */
 static int GetSectionOptionInt(const TCHAR *section, const char * const oname, const int def)

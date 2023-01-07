@@ -34,11 +34,46 @@ static const TCHAR *traystr[] = {
     TEXT(APP_NAMEA" (On)"),
     TEXT(APP_NAMEA"..."),
 };
+static HICON icons[3];
+
+static void LoadAllIcons()
+{
+    TCHAR theme[MAX_PATH]; // Get theme name
+    int ret = GetPrivateProfileString(TEXT("General"), TEXT("Theme"), TEXT(""), theme, ARR_SZ(theme), inipath);
+    if (ret && theme[1]) {
+        TCHAR path[MAX_PATH];
+        DWORD mod = GetModuleFileName(NULL, path, ARR_SZ(path));
+        if (mod) {
+            PathRemoveFileSpecL(path);
+            lstrcat_s(path, ARR_SZ(path), TEXT("\\Themes\\")); // Themes subfolder
+            lstrcat_s(path, ARR_SZ(path), theme); // Theme name
+            int len = lstrlen(path);
+            TCHAR *p = path+len;
+            *p++ = TEXT('\\');
+            if (len < MAX_PATH-13) { // strlen("TRAY_OFF.ICO")==12
+                UCHAR i;
+                for(i=0; i<3; i++) {
+                    lstrcpy(p, iconstr[i]);
+                    lstrcat(p, TEXT(".ico"));
+                    HICON tmp = LoadImage(g_hinst, path, IMAGE_ICON,0,0, LR_LOADFROMFILE|LR_DEFAULTSIZE|LR_LOADTRANSPARENT);
+                    icons[i] = tmp? tmp: LoadIcon(g_hinst, iconstr[i]);
+                }
+                return;
+            }
+        }
+    }
+    // Fallback to internal icons.
+    UCHAR i;
+    for (i=0; i<3; i++)
+        icons[i] = LoadIcon(g_hinst, iconstr[i]);
+}
 
 /////////////////////////////////////////////////////////////////////////////
 static int InitTray()
 {
     ScrollLockState = GetPrivateProfileInt(TEXT("Input"), TEXT("ScrollLockState"), 0, inipath);
+
+    LoadAllIcons();
 
     // Create icondata
     tray.cbSize = sizeof(tray);
@@ -60,12 +95,12 @@ static int UpdateTray()
     if (Index) {
         Index += (ScrollLockState&1)
                && !( !(GetKeyState(VK_SCROLL)&1) ^ !(ScrollLockState&2) );
-        if (GetPropA(g_hwnd, APP_ASONOFF))
+        if (GetProp(g_hwnd, APP_ASONOFF))
             Index=2;
     }
     // Load info tool tip and tray icon
     lstrcpy(tray.szTip, traystr[Index]);
-    tray.hIcon = LoadIcon(g_hinst, iconstr[Index]);
+    tray.hIcon = icons[Index];
 
     // Only add or modify if not hidden or if balloon will be displayed
     if (!hide || tray.uFlags&NIF_INFO) {

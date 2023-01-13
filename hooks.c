@@ -299,6 +299,7 @@ static const struct OptionListItem Zones_uchars[] = {
 struct blacklistitem {
     TCHAR *title;
     TCHAR *classname;
+    TCHAR *exename;
 };
 struct blacklist {
     struct blacklistitem *items;
@@ -357,32 +358,37 @@ static pure int ISCLAMPEDH(int y)  { return state.mmi.Min.y <= y && y <= state.m
 // Wether a window is present or not in a blacklist
 static pure int blacklisted(HWND hwnd, const struct blacklist *list)
 {
-    TCHAR title[256], classname[256];
-    DorQWORD mode ;
-    unsigned i;
-
     // Null hwnd or empty list
     if (!hwnd || !list->length || !list->items)
         return 0;
-    // If the first element is *|* (NULL|NULL)then we are in whitelist mode
+    // If the first element is *:*|* (NULL:NULL|NULL)then we are in whitelist mode
     // mode = 1 => blacklist, mode = 0 => whitelist;
-    mode = (DorQWORD)list->items[0].classname|(DorQWORD)list->items[0].title;
-    i = !mode;
+    UCHAR mode = list->items[0].classname
+              || list->items[0].title
+              || list->items[0].exename;
+    unsigned i = !mode; // Skip the first item...
 
+    TCHAR title[256], classname[256];
+    TCHAR exename[MAX_PATH];
+    title[0] = classname[0] = exename[0] = '\0';
     GetWindowText(hwnd, title, ARR_SZ(title));
     GetClassName(hwnd, classname, ARR_SZ(classname));
+    GetWindowProgName(hwnd, exename, ARR_SZ(exename));
 
     for ( ; i < list->length; i++) {
         if (!lstrcmp_star(classname, list->items[i].classname)
-        &&  !lstrcmp_star(title, list->items[i].title)) {
-              return mode;
+        &&  !lstrcmp_star(title, list->items[i].title)
+        && (!list->items[i].exename || !lstrcmpi(exename, list->items[i].exename))
+        ) {
+            return mode;
         }
     }
     return !mode;
 }
+#if 0
 static pure int blacklistedP(HWND hwnd, const struct blacklist *list)
 {
-    TCHAR title[MAX_PATH];
+    TCHAR exename[MAX_PATH];
     DorQWORD mode ;
     unsigned i ;
 
@@ -391,19 +397,20 @@ static pure int blacklistedP(HWND hwnd, const struct blacklist *list)
         return 0;
     // If the first element is *|* then we are in whitelist mode
     // mode = 1 => blacklist mode = 0 => whitelist;
-    mode = (DorQWORD)list->items[0].title;
+    mode = (DorQWORD)list->items[0].exename;
     i = !mode;
 
-    if (!GetWindowProgName(hwnd, title, ARR_SZ(title)))
+    if (!GetWindowProgName(hwnd, exename, ARR_SZ(exename)))
         return 0;
 
     // ProcessBlacklist is case-insensitive
     for ( ; i < list->length; i++) {
-        if (list->items[i].title && !lstrcmpi(title, list->items[i].title))
+        if (list->items[i].exename && !lstrcmpi(exename, list->items[i].exename))
             return mode;
     }
     return !mode;
 }
+#endif
 static int isClassName(HWND hwnd, const TCHAR *str)
 {
     TCHAR classname[256];
@@ -2150,7 +2157,7 @@ static void HotkeyUp()
 static int ActionPause(HWND hwnd, UCHAR pause)
 {
 //    LOGA("Entering pause/resume %d", (int)pause);
-    if (!blacklistedP(hwnd, &BlkLst.Pause)) {
+    if (!blacklisted(hwnd, &BlkLst.Pause)) {
         DWORD pid=0;
         GetWindowThreadProcessId(hwnd, &pid);
 
@@ -2207,7 +2214,7 @@ static int ActionKill(HWND hwnd)
         return 1;
     }
 
-    if(blacklistedP(hwnd, &BlkLst.Pause))
+    if(blacklisted(hwnd, &BlkLst.Pause))
        return 0;
 
     DWORD lpThreadId;
@@ -2454,7 +2461,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         } else if (conf.UniKeyHoldMenu
         && (fhwnd=GetForegroundWindow())
         && !IsFullScreenBL(fhwnd)
-        && !blacklistedP(fhwnd, &BlkLst.Processes)
+        && !blacklisted(fhwnd, &BlkLst.Processes)
         && !blacklisted(fhwnd, &BlkLst.Windows)) {
             // Key lists used below...
             static const UCHAR ctrlaltwinkeys[] =
@@ -4109,7 +4116,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     // or if the window is fullscreen.
     if (state.hwnd == GetDesktopWindow()
     || state.hwnd == GetShellWindow()
-    || blacklistedP(state.hwnd, &BlkLst.Processes)
+    || blacklisted(state.hwnd, &BlkLst.Processes)
     || isClassName(state.hwnd, TEXT(APP_NAMEA"-Pin"))
     ||(blacklisted(state.hwnd, &BlkLst.Windows)
        && !state.hittest && button != BT_WHEEL && button != BT_HWHEEL
@@ -5162,6 +5169,7 @@ __declspec(dllexport) void Unload()
 }
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated and title and class are | separated.
+// valid items are: exename.exe:title|class, title|class, exename:title, title
 static void readblacklist(const TCHAR *section, struct blacklist *blacklist, const char *bl_str)
 {
     TCHAR txt[1984];
@@ -5176,8 +5184,7 @@ static void readblacklist(const TCHAR *section, struct blacklist *blacklist, con
     TCHAR *pos = blacklist->data;
 
     while (pos) {
-        TCHAR *title = pos;
-        TCHAR *klass = lstrchr(pos, TEXT('|')); // go to the next |
+        TCHAR *exenm = pos;
 
         // Move pos to next item (if any)
         pos = lstrchr(pos, TEXT(','));
@@ -5186,39 +5193,59 @@ static void readblacklist(const TCHAR *section, struct blacklist *blacklist, con
             do {
                 *pos++ = '\0';
             } while(*pos == ' ');
-        }
+        } // No more changes to pos.
+
+        TCHAR *title = lstrchr(exenm, TEXT(':')); // go to the :
+        // Look for the klass
+        TCHAR *klass = lstrchr(exenm, TEXT('|')); // go to the next |
 
         // Split the item with NULL
-        if (klass) {
-           *klass = '\0';
-           klass++;
-        }
-        // Add blacklist item
         if (title) {
-            if (title[0] == '\0') {
-                title = TEXT(""); // Empty title
-            } else if (title[0] == '*' && title[1] == '\0') {
-                title = NULL; // Title is a single *
-            }
-            if (klass && klass[0] == '*' && klass[1] == '\0') {
-                klass = NULL; // class is a single *
-            }
-            // Allocate space
-            struct blacklistitem *olditem = blacklist->items;
-            blacklist->items = realloc(blacklist->items, (blacklist->length+1)*sizeof(struct blacklistitem));
-            if(!blacklist->items) {
-                // restore old item if realloc failed
-                // It will jst be a shorter blacklist
-                // May be NULL as well...
-                blacklist->items=olditem;
-                break; // Stop the loop
-            }
-
-            // Store item
-            blacklist->items[blacklist->length].title = title;
-            blacklist->items[blacklist->length].classname = klass;
-            blacklist->length++;
+            // we are in the exename:title(|klass), format
+            *title = '\0';
+            title++;
+            // if klass we are in the exename:title|class, format
+            if (klass) *klass++ = '\0';
+        } else if (klass) {
+            // We did not find the ':' but we found a '|'
+            // => we are in the title|class format !
+            // => no exe name specified.
+            *klass = '\0'; // Split the item with NULL
+            klass++;
+            title = exenm;
+            exenm = NULL;
+        } else {
+            // We found no ':' nor '|'
+            // We are in the exename only format.
         }
+
+        // Add blacklist item
+        if (title && title[0] == '*' && title[1] == '\0') {
+            title = NULL; // Title is a single *
+        }
+        if (klass && klass[0] == '*' && klass[1] == '\0') {
+            klass = NULL; // class is a single *
+        }
+        if (exenm && exenm[0] == '*' && exenm[1] == '\0') {
+            exenm = NULL; // exename is a single *
+        }
+        // Allocate space
+        struct blacklistitem *olditem = blacklist->items;
+        blacklist->items = realloc(blacklist->items, (blacklist->length+1)*sizeof(struct blacklistitem));
+        if (!blacklist->items) {
+            // restore old item if realloc failed
+            // It will jst be a shorter blacklist
+            // May be NULL as well...
+            blacklist->items=olditem;
+            break; // Stop the loop
+        }
+
+        // Store item
+        LOGA( "%ls:%ls|%ls", exenm, title, klass);
+        blacklist->items[blacklist->length].exename = exenm;
+        blacklist->items[blacklist->length].title = title;
+        blacklist->items[blacklist->length].classname = klass;
+        blacklist->length++;
     } // end while
 }
 // Read all the blacklitsts

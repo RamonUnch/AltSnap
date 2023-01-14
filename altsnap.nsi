@@ -151,9 +151,10 @@ Section "Uninstall"
     Delete Lang\zh_TW.ini
     RMDir "$INSTDIR\Lang"
 
-    File Themes\erasmion\TRAY_OFF.ico
-    File Themes\erasmion\TRAY_ON.ico
-    File Themes\erasmion\TRAY_SUS.ico
+    Delete Themes\erasmion\TRAY_OFF.ico
+    Delete Themes\erasmion\TRAY_ON.ico
+    Delete Themes\erasmion\TRAY_SUS.ico
+    RMDir "$INSTDIR\Themes\erasmion"
     RMDir "$INSTDIR\Themes"
 
     SetOutPath $APPDATA

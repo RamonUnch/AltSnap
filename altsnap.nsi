@@ -2,7 +2,7 @@
 # define the name of the installer
 
 !define APP_NAME "AltSnap"
-!define APP_VERSION "1.57"
+!define APP_VERSION "1.58"
 # define the name of the installer
 OutFile "${APP_NAME}${APP_VERSION}-inst.exe"
 Name "${APP_NAME} ${APP_VERSION}"
@@ -59,6 +59,11 @@ Section
     File Lang\sz_SK.ini
     File Lang\zh_CN.ini
     File Lang\zh_TW.ini
+
+    SetOutPath $INSTDIR\Themes\erasmion
+    File Themes\erasmion\TRAY_OFF.ico
+    File Themes\erasmion\TRAY_ON.ico
+    File Themes\erasmion\TRAY_SUS.ico
 
     SetOutPath $INSTDIR
     CreateShortcut "$SMPROGRAMS\AltSnap.lnk" "$INSTDIR\AltSnap.exe"
@@ -145,6 +150,11 @@ Section "Uninstall"
     Delete Lang\zh_CN.ini
     Delete Lang\zh_TW.ini
     RMDir "$INSTDIR\Lang"
+
+    File Themes\erasmion\TRAY_OFF.ico
+    File Themes\erasmion\TRAY_ON.ico
+    File Themes\erasmion\TRAY_SUS.ico
+    RMDir "$INSTDIR\Themes"
 
     SetOutPath $APPDATA
     RMDir "$INSTDIR"

@@ -297,9 +297,9 @@ static const struct OptionListItem Zones_uchars[] = {
 
 // Blacklist (dynamically allocated)
 struct blacklistitem {
-    TCHAR *title;
-    TCHAR *classname;
-    TCHAR *exename;
+    const TCHAR *title;
+    const TCHAR *classname;
+    const TCHAR *exename;
 };
 struct blacklist {
     struct blacklistitem *items;
@@ -4249,7 +4249,7 @@ static int InTitlebar(POINT pt, enum action action,  enum button button)
 
         // Hittest to see if we are in a caption!
         // Only accept caption buttons as a titlebar for the buttons that are
-        // Not in the blacklist (default LMB and RMB ttb actions only applies
+        // Not in the blacklist (default LMB and RMB ttb actions only apply
         // to the real titlebar (hittest=2).
         assert(button-2 < 32 && button-2 >= 0); // Max is 32 buttons.
         int area = HitTestTimeoutbl(nhwnd, pt);
@@ -5201,11 +5201,21 @@ static void readblacklist(const TCHAR *section, struct blacklist *blacklist, con
 
         // Split the item with NULL
         if (title) {
-            // we are in the exename:title(|klass), format
-            *title = '\0';
-            title++;
-            // if klass we are in the exename:title|class, format
-            if (klass) *klass++ = '\0';
+            // if klass we are in the exename:title|class, format?
+            if (klass) {
+                if (klass < title) {
+                    // if a ':' comes after a '|' the there is a ':' in the class
+                    // and exename is not specified ie: title|class format.
+                    // We do this because there can be no '|' in a filename
+                    title = exenm;
+                    exenm = NULL;
+                } else {
+                    // we are in the exename:title(|klass), format
+                    *title = '\0'; // zero out the ':'
+                    title++;
+                }
+                *klass++ = '\0'; // zero out the '|'
+            }
         } else if (klass) {
             // We did not find the ':' but we found a '|'
             // => we are in the title|class format !

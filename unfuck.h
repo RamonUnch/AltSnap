@@ -936,17 +936,22 @@ static DWORD GetProcessImageFileNameL(HANDLE hProcess, TCHAR *lpImageFileName, D
 
 static DWORD GetWindowProgName(HWND hwnd, TCHAR *title, size_t title_len)
 {
-    DWORD pid;
+    DWORD pid=0;
     HANDLE proc;
     DWORD ret=0;
-    GetWindowThreadProcessId(hwnd, &pid);
+    if (!GetWindowThreadProcessId(hwnd, &pid) || !pid )
+        return 0;
     proc = OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ, FALSE, pid);
 
-    if (proc) ret = GetModuleFileNameExL(proc, NULL, title, title_len);
-    else proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
-    if(!proc) return 0;
+    if (proc)
+        ret = GetModuleFileNameExL(proc, NULL, title, title_len);
+    else
+        proc = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
+    if(!proc)
+        return 0;
 
-    if(!ret) ret = GetProcessImageFileNameL(proc, title, title_len);
+    // Try other function
+    if (!ret) ret = GetProcessImageFileNameL(proc, title, title_len);
 
     CloseHandle(proc);
 

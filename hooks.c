@@ -1334,9 +1334,11 @@ static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
 //}
 
 static void WaitMovementEnd()
-{ // Only wait 192ms maximum
-    int i=0;
-    while (LastWin.hwnd && i++ < 12) Sleep(16);
+{ // Only wait 64ms maximum
+    if (conf.FullWin) {
+        int i=0;
+        while (LastWin.hwnd && i++ < 4) Sleep(16);
+    }
     LastWin.hwnd = NULL; // Zero out in case.
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -4279,6 +4281,7 @@ static int TitleBarActions(POINT pt, enum action action, enum button button)
 //static void FinishMovement() { PostMessage(g_hkhwnd, WM_FINISHMOVEMENT, 0, 0); }
 static void FinishMovement()
 {
+    LOG("FinishMovement");
     StopSpeedMes();
 //    Sleep(5000);
     if (LastWin.hwnd
@@ -4445,8 +4448,8 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     }
 
 //    if ((0x201 > wParam || wParam > 0x205) && wParam != 0x20a)
-//        LOGA("wParam=%lx, data=%lx, time=%lu, extra=%lx", (DWORD)wParam
-//            , (DWORD)msg->mouseData, (DWORD)msg->time, (DWORD)msg->dwExtraInfo);
+//        LOGA("wParam=%lx, data=%lx, time=%lu, extra=%lx, block?=%d", (DWORD)wParam
+//            , (DWORD)msg->mouseData, (DWORD)msg->time, (DWORD)msg->dwExtraInfo, (int)state.blockmouseup);
 
     //Get Button state and data.
     enum buttonstate buttonstate = GetButtonState(wParam);
@@ -5251,7 +5254,7 @@ static void readblacklist(const TCHAR *section, struct blacklist *blacklist, con
         }
 
         // Store item
-        LOGA( "%ls:%ls|%ls", exenm, title, klass);
+        LOG( "%ls:%ls|%ls", exenm, title, klass);
         blacklist->items[blacklist->length].exename = exenm;
         blacklist->items[blacklist->length].title = title;
         blacklist->items[blacklist->length].classname = klass;

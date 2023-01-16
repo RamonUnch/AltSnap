@@ -28,15 +28,15 @@
 #define APP_NAME       TEXT("AltSnap")
 #define APP_NAMEA      "AltSnap"
 #define APP_VERSION    "1.58"
-#define APP_PROPPT     APP_NAMEA"-RDim"
-#define APP_PROPFL     APP_NAMEA"-RFlag"
-#define APP_PROPOFFSET APP_NAMEA"-ROffset"
-#define APP_PRBDLESS   APP_NAMEA"-RStyle"
-#define APP_ROLLED     APP_NAMEA"-Rolled"
-#define APP_ASONOFF    APP_NAMEA"-ASOnOff"
-#define APP_MOVEONOFF  APP_NAMEA"-MoveOnOff"
-#define FZ_PROPPT      "FancyZones_RestoreSize"
-#define FZ_PROPZONES   "FancyZones_zones"
+#define APP_PROPPT     TEXT(APP_NAMEA"-RDim")
+#define APP_PROPFL     TEXT(APP_NAMEA"-RFlag")
+#define APP_PROPOFFSET TEXT(APP_NAMEA"-ROffset")
+#define APP_PRBDLESS   TEXT(APP_NAMEA"-RStyle")
+#define APP_ROLLED     TEXT(APP_NAMEA"-Rolled")
+#define APP_ASONOFF    TEXT(APP_NAMEA"-ASOnOff")
+#define APP_MOVEONOFF  TEXT(APP_NAMEA"-MoveOnOff")
+#define FZ_PROPPT      TEXT("FancyZones_RestoreSize")
+#define FZ_PROPZONES   TEXT("FancyZones_zones")
 
 // User Messages
 #define WM_TRAY           (WM_USER+2)

@@ -20,7 +20,10 @@ SetCompressor /SOLID lzma
 
 ; The text to prompt the user to enter a directory
 DirText "This will install AltSnap on your computer. Choose a directory"
-
+Page directory
+Page instfiles
+Page custom customPage "" ": custom page"
+ 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # DEFAULT SECTION
 Section
@@ -90,6 +93,12 @@ Section
     WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "EstimatedSize" "400"
 
 SectionEnd
+
+Function customPage
+  MessageBox MB_YESNO "Run AltSnap now?" IDNO NoRunNow
+    Exec "$INSTDIR\AltSnap.exe" ; view readme or whatever, if you want.
+  NoRunNow:
+FunctionEnd
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # CLOSEAPP

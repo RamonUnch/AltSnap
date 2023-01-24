@@ -314,6 +314,7 @@ static struct {
     struct blacklist Pause;
     struct blacklist MMBLower;
     struct blacklist Scroll;
+    struct blacklist IScroll;
     struct blacklist AResize;
     struct blacklist SSizeMove;
     struct blacklist NCHittest;
@@ -328,6 +329,7 @@ static const char *BlackListStrings[] = {
     "Pause",
     "MMBLower",
     "Scroll",
+    "IScroll",
     "AResize",
     "SSizeMove",
     "NCHittest",
@@ -2537,10 +2539,13 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
 {
     // Get window and foreground window
     HWND hwnd = WindowFromPoint(pt);
+    if (!hwnd || blacklisted(hwnd, &BlkLst.IScroll))
+        return 0;
+
     HWND foreground = GetForegroundWindow();
 
-    // Return if no window or if foreground window is blacklisted
-    if (!hwnd || (foreground && blacklisted(foreground,&BlkLst.Windows)))
+    // Return if foreground window is blacklisted
+    if (foreground && blacklisted(foreground,&BlkLst.Windows))
         return 0;
 
     // If it's a groupbox, grab the real window

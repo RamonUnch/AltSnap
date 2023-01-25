@@ -2059,19 +2059,20 @@ static void Send_KEY_UD(unsigned char vkey, WORD flags)
     SendInput(1, &input, sizeof(INPUT));
     InterlockedDecrement(&state.ignorekey);
 }
-#define Send_CTRL() if (conf.EndSendKey) Send_KEY(/*VK_CONTROL*/conf.EndSendKey)
+#define Send_CTRL() if (conf.EndSendKey) Send_KEY(conf.EndSendKey)
 
 /////////////////////////////////////////////////////////////////////////////
 // Sends the click down/click up sequence to the system
-static void Send_Click(enum button button)
+static DWORD WINAPI Send_ClickProc(LPVOID buttonD)
 {
+    enum button button = (enum button)(LONG_PTR)buttonD;
     static const WORD bmapping[] = {
           MOUSEEVENTF_LEFTDOWN
         , MOUSEEVENTF_RIGHTDOWN
         , MOUSEEVENTF_MIDDLEDOWN
         , MOUSEEVENTF_XDOWN, MOUSEEVENTF_XDOWN
     };
-    if (!button || button > BT_MB5) return;
+    if (!button || button > BT_MB5) return 0;
 
     DWORD MouseEvent = bmapping[button-2];
     DWORD mdata = 0;
@@ -2091,7 +2092,9 @@ static void Send_Click(enum button button)
     InterlockedIncrement(&state.ignoreclick);
     SendInput(2, input, sizeof(INPUT));
     InterlockedDecrement(&state.ignoreclick);
+    return 0;
 }
+#define Send_Click(x) Send_ClickProc((LPVOID)(LONG_PTR)(x));
 /////////////////////////////////////////////////////////////////////////////
 // Sends an unicode character to the system.
 // KEYEVENTF_UNICODE requires at least Windows 2000
@@ -4121,9 +4124,9 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     // Return if window is blacklisted,
     // if we can't get information about it,
     // or if the window is fullscreen.
-    if (state.hwnd == GetDesktopWindow()
-    || state.hwnd == GetShellWindow()
-    || blacklisted(state.hwnd, &BlkLst.Processes)
+    // state.hwnd == GetDesktopWindow()
+    // state.hwnd == GetShellWindow()
+    if (blacklisted(state.hwnd, &BlkLst.Processes)
     || isClassName(state.hwnd, TEXT(APP_NAMEA"-Pin"))
     ||(blacklisted(state.hwnd, &BlkLst.Windows)
        && !state.hittest && button != BT_WHEEL && button != BT_HWHEEL
@@ -4417,12 +4420,15 @@ static xpure enum buttonstate GetButtonState(WPARAM wp)
 LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
 //    if (state.ignoreclick) LOGA("IgnoreClick")
-    if (nCode != HC_ACTION || state.ignoreclick || ScrollLockState())
-        return CallNextHookEx(NULL, nCode, wParam, lParam);
-
     // Set up some variables
     PMSLLHOOKSTRUCT msg = (PMSLLHOOKSTRUCT)lParam;
     POINT pt = msg->pt;
+//    if ((0x201 > wParam || wParam > 0x205) && wParam != 0x20a && wParam != WM_MOUSEMOVE)
+//        LOGA("wParam=%lx, data=%lx, time=%lu, extra=%lx, block?=%d", (DWORD)wParam
+//            , (DWORD)msg->mouseData, (DWORD)msg->time, (DWORD)msg->dwExtraInfo, (int)state.blockmouseup);
+    if (nCode != HC_ACTION || state.ignoreclick || ScrollLockState())
+        return CallNextHookEx(NULL, nCode, wParam, lParam);
+
     // Mouse move, only if it is not exactly the same point than before
     if (wParam == WM_MOUSEMOVE) {
         if (SamePt(pt, state.prevpt)) return CallNextHookEx(NULL, nCode, wParam, lParam);
@@ -4451,10 +4457,6 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         }
         return CallNextHookEx(NULL, nCode, wParam, lParam);
     }
-
-//    if ((0x201 > wParam || wParam > 0x205) && wParam != 0x20a)
-//        LOGA("wParam=%lx, data=%lx, time=%lu, extra=%lx, block?=%d", (DWORD)wParam
-//            , (DWORD)msg->mouseData, (DWORD)msg->time, (DWORD)msg->dwExtraInfo, (int)state.blockmouseup);
 
     //Get Button state and data.
     enum buttonstate buttonstate = GetButtonState(wParam);
@@ -4591,8 +4593,12 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             if (action > AC_RESIZE) {
                 SClickActions(state.hwnd, action);
             } else {
-                // Forward the click if no action was Mapped
-                Send_Click(button);
+                // Forward the click if no action was Mapped!
+                // Win 10+ does not like receaving button down
+                // when the button is already down, so we create a thread.
+                //Send_Click(button);
+                DWORD id;
+                CloseHandle(CreateThread(NULL, STACK, Send_ClickProc, (LPVOID)(LONG_PTR)button, 0, &id));
             }
             return 1; // block mouseup
 
@@ -5123,6 +5129,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
     } else if (msg == WM_STACKLIST) {
         TrackMenuOfWindows((WNDENUMPROC)lParam, wParam);
+        return 0;
 //    } else if (msg == WM_FINISHMOVEMENT) {
 //        FinishMovementWM();
     }

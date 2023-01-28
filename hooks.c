@@ -44,6 +44,8 @@ enum button { BT_NONE=0, BT_LMB=0x02, BT_RMB=0x03, BT_MMB=0x04, BT_MB4=0x05
 enum resize { RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER };
 enum buttonstate {STATE_NONE, STATE_DOWN, STATE_UP};
 
+#define BT_PROBE (1<<16)
+
 static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, int button);
 static void FinishMovement();
 static void MoveTransWin(int x, int y, int w, int h);
@@ -2095,6 +2097,11 @@ static DWORD WINAPI Send_ClickProc(LPVOID buttonD)
     return 0;
 }
 #define Send_Click(x) Send_ClickProc((LPVOID)(LONG_PTR)(x));
+static void Send_Click_Thread(enum button button)
+{
+    DWORD id;
+    CloseHandle(CreateThread(NULL, STACK, Send_ClickProc, (LPVOID)(LONG_PTR)button, 0, &id));
+}
 /////////////////////////////////////////////////////////////////////////////
 // Sends an unicode character to the system.
 // KEYEVENTF_UNICODE requires at least Windows 2000
@@ -4086,11 +4093,13 @@ static int xpure DoubleClamp(int ptx, int left, int right, int rwidth)
     return posx;
 }
 /////////////////////////////////////////////////////////////////////////////
-// If the action is AC_NONE it will tell us if we pass the blacklist.
-static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, int button)
+// If we pass buttonX BT_PROBE is AC_NONE it will tell us if we pass the blacklist.
+static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, int buttonX)
 {
     RECT wnd;
     state.prevpt = pt; // in case
+    int button = LOWORD(buttonX);
+    UCHAR probemode = HIWORD(buttonX);
 
     // Make sure nothing is in the way
     HideCursor();
@@ -4141,7 +4150,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
 //    LOGA("Blacklists passed!");
 
     // If no action is to be done then we passed all balcklists
-    if (action == AC_NONE) return 1;
+    if (probemode) return 1;
 
     // Set state
     state.blockaltup = state.alt; // If alt is down...
@@ -4424,8 +4433,9 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     PMSLLHOOKSTRUCT msg = (PMSLLHOOKSTRUCT)lParam;
     POINT pt = msg->pt;
 //    if ((0x201 > wParam || wParam > 0x205) && wParam != 0x20a && wParam != WM_MOUSEMOVE)
-//        LOGA("wParam=%lx, data=%lx, time=%lu, extra=%lx, block?=%d", (DWORD)wParam
-//            , (DWORD)msg->mouseData, (DWORD)msg->time, (DWORD)msg->dwExtraInfo, (int)state.blockmouseup);
+//        LOGA("wParam=%lx, data=%lx, time=%lu, extra=%lx, block?=%d, ignored?=%d", (DWORD)wParam
+//            , (DWORD)msg->mouseData, (DWORD)msg->time, (DWORD)msg->dwExtraInfo
+//            , (int)state.blockmouseup, (int)state.ignoreclick);
     if (nCode != HC_ACTION || state.ignoreclick || ScrollLockState())
         return CallNextHookEx(NULL, nCode, wParam, lParam);
 
@@ -4511,7 +4521,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         if (!action) return 1;
     }
 
-    // Check if we must block mouse up... (after releasing hotclicks)
+    // Check if we must BLOCK MOUSE UP... (after releasing hotclicks)
     if (buttonstate == STATE_UP) {
         // fw/block mouse up and decrement counter.
         if (state.fwmouseup) {
@@ -4575,7 +4585,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 
     // BUTTON UP
     } else if (buttonstate == STATE_UP) {
-        // LogState("BUTTON UP:\n");
+        //LogState("BUTTON UP:\n");
         SetWindowTrans(NULL); // Reset window transparency
 
         if((state.action == action || (state.action == AC_MOVE && action == AC_RESIZE))
@@ -4596,13 +4606,13 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
                 // Forward the click if no action was Mapped!
                 // Win 10+ does not like receaving button down
                 // when the button is already down, so we create a thread.
-                //Send_Click(button);
-                DWORD id;
-                CloseHandle(CreateThread(NULL, STACK, Send_ClickProc, (LPVOID)(LONG_PTR)button, 0, &id));
+                Send_Click_Thread(button);
             }
             return 1; // block mouseup
-
-        } else if (state.action || is_hotclick) {
+        }
+        // If a button performing an action is released,
+        // we finish all moveent and proceed.
+        if (action && state.action) {
             FinishMovement();
             return 1;
         }
@@ -4715,7 +4725,7 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             &&!IsAreaLongClikcable(HitTestTimeoutbl(ptwnd, pt))) {
                 // Determine if we should actually move the Window by probing with AC_NONE
                 state.hittest = 0; // No specific hittest here.
-                int ret = init_movement_and_actions(pt, NULL, AC_NONE, 0);
+                int ret = init_movement_and_actions(pt, NULL, AC_MOVE, 0|BT_PROBE);
                 if (ret) { // Release mouse click if we have to move.
                     InterlockedIncrement(&state.ignoreclick);
                     mouse_event(buttonswaped?MOUSEEVENTF_RIGHTUP:MOUSEEVENTF_LEFTUP

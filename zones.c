@@ -15,13 +15,14 @@ static int ReadRectFromini(RECT *zone, unsigned idx, TCHAR *inisection)
     if (idx > MAX_ZONES) return 0;
 
     long *ZONE = (long *)zone;
-    TCHAR zaschii[128];
     char zname[32]="";
+    TCHAR zaschii[128];
 
-    GetSectionOptionStr(inisection, ZidxToZonestrA(idx, zname), TEXT(""), zaschii, ARR_SZ(zaschii));
-
-    if (zaschii[0] =='\0') return 0;
-
+    LPCTSTR txt = GetSectionOptionCStr(inisection, ZidxToZonestrA(idx, zname), NULL);
+    if (!txt)
+        return 0;
+    // Copy to modifyable buffer.
+    lstrcpy_s(zaschii, ARR_SZ(zaschii), txt);
     TCHAR *oldptr, *newptr;
     oldptr = &zaschii[0];
     UCHAR i;

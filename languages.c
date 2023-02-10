@@ -12,7 +12,7 @@ static struct strings *l10n = (struct strings *)&en_US;
 
 /////////////////////////////////////////////////////////////////////////////
 // Copies and remove the accelerators & sign. and txt between ( ).
-static size_t lstrcpy_noaccel(TCHAR *__restrict__ dest, TCHAR *__restrict__ source, size_t destlen)
+static size_t lstrcpy_noaccel(TCHAR *__restrict__ dest, const TCHAR *__restrict__ source, size_t destlen)
 {
     size_t i=0, j=0;
     while(i < destlen && source[i]) {
@@ -31,10 +31,10 @@ static size_t lstrcpy_noaccel(TCHAR *__restrict__ dest, TCHAR *__restrict__ sour
     return j;
 }
 /////////////////////////////////////////////////////////////////////////////
-static pure size_t lstrlen_resolved(TCHAR *__restrict__ str)
+static pure size_t lstrlen_resolved(const TCHAR *__restrict__ str)
 {
     // Return the length of str, having resolved escape sequences
-    TCHAR *ptr;
+    const TCHAR *ptr;
     int num_escape_sequences = 0;
     for (ptr=str; *ptr != '\0'; ptr++) {
         if (*ptr == '\\' && *(ptr+1) != '\0') {
@@ -45,7 +45,7 @@ static pure size_t lstrlen_resolved(TCHAR *__restrict__ str)
     return ptr-str-num_escape_sequences;
 }
 
-static void lstrcpy_resolve(TCHAR *__restrict__ dest, TCHAR *__restrict__ source)
+static void lstrcpy_resolve(TCHAR *__restrict__ dest, const TCHAR *__restrict__ source)
 {
     // Copy from source to dest, resolving \\n to \n
     for (; *source != '\0'; source++,dest++) {
@@ -60,10 +60,9 @@ static void lstrcpy_resolve(TCHAR *__restrict__ dest, TCHAR *__restrict__ source
 }
 
 /////////////////////////////////////////////////////////////////////////////
-#define txt_len 1024
+//
 static void LoadTranslation(const TCHAR *__restrict__ ini)
 {
-    TCHAR txt[txt_len];
     size_t i;
     if (!ini) {
         l10n = (struct strings *)&en_US;
@@ -90,13 +89,15 @@ static void LoadTranslation(const TCHAR *__restrict__ ini)
     for (i=0; i < ARR_SZ(l10n_inimapping); i++) {
         // Get pointer to default English string to be used if ini entry doesn't exist
         const TCHAR *const def = ((TCHAR **)&en_US)[i];
-        GetSectionOptionStr(tsection, l10n_inimapping[i], def, txt, txt_len);
-        // str2tchar(inimap, l10n_inimapping[i]);
-        // GetPrivateProfileString(TEXT("Translation"), inimap, def, txt, txt_len, ini);
+        const TCHAR * txt = GetSectionOptionCStr(tsection, l10n_inimapping[i], def);
+
         TCHAR **deststr = &((TCHAR **)l10n_ini)[i];
         if (deststr == &l10n_ini->about_version) {
             // Append version number to version....
-            lstrcat(txt, TEXT(" "APP_VERSION));
+            TCHAR tmp[128];
+            lstrcpy(tmp, txt);
+            lstrcat(tmp, TEXT(" "APP_VERSION));
+            txt = (const TCHAR*)tmp;
         }
         *deststr = realloc( *deststr, (lstrlen_resolved(txt)+1)*sizeof(TCHAR) );
         lstrcpy_resolve(*deststr, txt);
@@ -114,7 +115,8 @@ void ListAllTranslations()
 
     HANDLE hFind = INVALID_HANDLE_VALUE;
     WIN32_FIND_DATA ffd;
-    TCHAR szDir[MAX_PATH], fpath[MAX_PATH], txt[256];
+    TCHAR szDir[MAX_PATH], fpath[MAX_PATH];
+    LPCTSTR txt;
 
     // First element
     langinfo = malloc(sizeof(struct langinfoitem ));
@@ -148,26 +150,31 @@ void ListAllTranslations()
             DWORD ret = GetPrivateProfileSection(TEXT("Translation"), tsection, ARR_SZ(tsection), fpath);
             if(!ret) continue;
 
-            GetSectionOptionStr(tsection, "Code", TEXT(""), txt, ARR_SZ(txt));
+            // Short language code such as en-US, fr-FR, it-IT etc.
+            txt = GetSectionOptionCStr(tsection, "Code", TEXT(""));
             langinfo[n].code = calloc(lstrlen(txt)+1, sizeof(TCHAR));
             if (!langinfo[n].code) break;
             lstrcpy(langinfo[n].code, txt);
 
-            GetSectionOptionStr(tsection, "LangEnglish", TEXT(""), txt, ARR_SZ(txt));
+            // Language name in English
+            txt = GetSectionOptionCStr(tsection, "LangEnglish", TEXT(""));
             langinfo[n].lang_english = calloc(lstrlen(txt)+1, sizeof(TCHAR));
             if (!langinfo[n].lang_english) break;
             lstrcpy(langinfo[n].lang_english, txt);
 
-            GetSectionOptionStr(tsection, "Lang", TEXT(""), txt, ARR_SZ(txt));
+            // Language name in original language
+            txt = GetSectionOptionCStr(tsection, "Lang", TEXT(""));
             langinfo[n].lang = calloc(lstrlen(txt)+1, sizeof(TCHAR));
             if (!langinfo[n].lang) break;
             lstrcpy(langinfo[n].lang, txt);
 
-            GetSectionOptionStr(tsection, "Author", TEXT(""), txt, ARR_SZ(txt));
+            // Author
+            txt = GetSectionOptionCStr(tsection, "Author", TEXT(""));
             langinfo[n].author = calloc(lstrlen(txt)+1, sizeof(TCHAR));
             if (!langinfo[n].author) break;
             lstrcpy(langinfo[n].author, txt);
 
+            // Full file path
             langinfo[n].fn = malloc(lstrlen(fpath)*sizeof(TCHAR)+4);
             if (!langinfo[n].fn) break;
             lstrcpy(langinfo[n].fn, fpath);

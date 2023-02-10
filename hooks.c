@@ -5197,10 +5197,8 @@ __declspec(dllexport) void Unload()
 // valid items are: exename.exe:title|class, title|class, exename:title, title
 static void readblacklist(const TCHAR *section, struct blacklist *blacklist, const char *bl_str)
 {
-    TCHAR txt[1984];
-
-    GetSectionOptionStr(section, bl_str, TEXT(""), txt, ARR_SZ(txt));
-    if (/*!ret || */txt[0] == '\0') {
+    LPCTSTR txt = GetSectionOptionCStr(section, bl_str, NULL);
+    if (!txt) {
         return;
     }
     blacklist->data = malloc((lstrlen(txt)+1)*sizeof(TCHAR));
@@ -5306,10 +5304,10 @@ void readallblacklists(TCHAR *inipath)
 // Used to read Hotkeys and Hotclicks
 static void readhotkeys(const TCHAR *inisection, const char *name, const TCHAR *def, UCHAR *keys)
 {
-    TCHAR txt[64];
-    GetSectionOptionStr(inisection, name, def, txt, ARR_SZ(txt));
+    LPCTSTR txt = GetSectionOptionCStr(inisection, name, def);
+    if(!txt) return;
     UCHAR i=0;
-    TCHAR *pos = txt;
+    const TCHAR *pos = txt;
     while (*pos) {
         // Store key
         if (i == MAXKEYS) break;
@@ -5322,8 +5320,8 @@ static void readhotkeys(const TCHAR *inisection, const char *name, const TCHAR *
 }
 static enum action readaction(const TCHAR *section, const char *key)
 {
-    TCHAR txt[32];
-    GetSectionOptionStr(section, key, TEXT("Nothing"), txt, ARR_SZ(txt));
+    LPCTSTR txt = GetSectionOptionCStr(section, key, TEXT("Nothing"));
+    if(!txt) return AC_NONE;
 
     return MapActionW(txt);
 }
@@ -5473,7 +5471,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
     lstrcpy(&inipath[lstrlen(inipath)-3], TEXT("ini"));
 
-    TCHAR inisection[1520]; // Stack buffer.
+    TCHAR inisection[1420]; // Stack buffer.
 
     // [General]
     GetPrivateProfileSection(TEXT("General"), inisection, ARR_SZ(inisection), inipath);

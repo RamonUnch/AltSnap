@@ -7,10 +7,11 @@
 #include "hooks.h"
 
 #define MAX_ZONES 2048
-RECT *Zones;
-unsigned nzones;
+#define MAX_LAYOUTS 10
+RECT *Zones[MAX_LAYOUTS];
+unsigned nzones[MAX_LAYOUTS];
 
-static int ReadRectFromini(RECT *zone, unsigned idx, TCHAR *inisection)
+static int ReadRectFromini(RECT *zone, unsigned laynum, unsigned idx, TCHAR *inisection)
 {
     if (idx > MAX_ZONES) return 0;
 
@@ -18,9 +19,10 @@ static int ReadRectFromini(RECT *zone, unsigned idx, TCHAR *inisection)
     char zname[32]="";
     TCHAR zaschii[128];
 
-    LPCTSTR txt = GetSectionOptionCStr(inisection, ZidxToZonestrA(idx, zname), NULL);
-    if (!txt)
+    LPCTSTR txt = GetSectionOptionCStr(inisection, ZidxToZonestrA(laynum, idx, zname), NULL);
+    if (!txt || !txt[0])
         return 0;
+    //LOGA("Zone(%u, %u) = %S", laynum, idx, txt);
     // Copy to modifyable buffer.
     lstrcpy_s(zaschii, ARR_SZ(zaschii), txt);
     TCHAR *oldptr, *newptr;
@@ -37,26 +39,36 @@ static int ReadRectFromini(RECT *zone, unsigned idx, TCHAR *inisection)
     }
     return 1;
 }
+static void ReadZonesFromLayout(TCHAR *inisection, unsigned laynum)
+{
+    nzones[laynum] = 0;
+    Zones[laynum] = NULL;
+    RECT tmpzone;
+    while (ReadRectFromini(&tmpzone, laynum, nzones[laynum], inisection)) {
+        RECT *tmp = realloc( Zones[laynum], (nzones[laynum]+1) * sizeof(RECT) );
+        if(!tmp) return;
+        Zones[laynum] = tmp;
+        CopyRect(&Zones[laynum][nzones[laynum]++], &tmpzone);
+    }
+}
 // Load all zones from ini file
 static void ReadZones(TCHAR *inisection)
 {
-    nzones = 0;
-    RECT tmpzone;
-    while (ReadRectFromini(&tmpzone, nzones, inisection)) {
-        Zones = realloc( Zones, (nzones+1) * sizeof(RECT) );
-        if(!Zones) return;
-        CopyRect(&Zones[nzones++], &tmpzone);
-    }
+    UCHAR i;
+    for(i=0; i<MAX_LAYOUTS; i++)
+        ReadZonesFromLayout(inisection, i);
 }
 // Generate a grid if asked
 static void GenerateGridZones(unsigned Nx, unsigned Ny)
 {
     // Enumerate monitors
     nummonitors = 0;
-	nzones =0;
+    unsigned nz = 0;
     EnumDisplayMonitors(NULL, NULL, EnumMonitorsProc, 0);
-	Zones = realloc(Zones, nummonitors * Nx * Ny * sizeof(RECT));
-	if(!Zones) return;
+    RECT *tmp = realloc(Zones[0], nummonitors * Nx * Ny * sizeof(RECT));
+    if(!tmp) return;
+    Zones[0] = tmp;
+    if(!Zones[0]) return;
 
     // Loop on all monitors
     unsigned m;
@@ -66,32 +78,35 @@ static void GenerateGridZones(unsigned Nx, unsigned Ny)
         for(i=0; i<Nx; i++) { // Horizontal
             unsigned j;
             for(j=0; j<Ny; j++) { //Vertical
-                Zones[nzones].left  = mon->left+(( i ) * (mon->right - mon->left))/Nx;
-                Zones[nzones].top   = mon->top +(( j ) * (mon->bottom - mon->top))/Ny;
-                Zones[nzones].right = mon->left+((i+1) * (mon->right - mon->left))/Nx;
-                Zones[nzones].bottom= mon->top +((j+1) * (mon->bottom - mon->top))/Ny;
-                nzones++;
+                Zones[0][nz].left  = mon->left+(( i ) * (mon->right - mon->left))/Nx;
+                Zones[0][nz].top   = mon->top +(( j ) * (mon->bottom - mon->top))/Ny;
+                Zones[0][nz].right = mon->left+((i+1) * (mon->right - mon->left))/Nx;
+                Zones[0][nz].bottom= mon->top +((j+1) * (mon->bottom - mon->top))/Ny;
+                nz++;
             }
         }
     }
+    nzones[0] = nz;
 }
 static unsigned GetZoneFromPoint(POINT pt, RECT *urc, int extend)
 {
-    if(!Zones) return 0;
+
+    RECT * const lZones = Zones[conf.LayoutNumber];
+    if(!lZones) return 0;
     unsigned i, ret=0;
     SetRectEmpty(urc);
     int iz = conf.InterZone;
-    for (i=0; i < nzones; i++) {
-        if (iz) InflateRect(&Zones[i], iz, iz);
+    for (i=0; i < nzones[conf.LayoutNumber]; i++) {
+        if (iz) InflateRect(&lZones[i], iz, iz);
 
         int inrect=0;
-        inrect = PtInRect(&Zones[i], pt);
+        inrect = PtInRect(&lZones[i], pt);
         if ((state.ctrl||extend) && !inrect)
-            inrect = PtInRect(&Zones[i], extend?state.shiftpt:state.ctrlpt);
+            inrect = PtInRect(&lZones[i], extend?state.shiftpt:state.ctrlpt);
 
-        if (iz) InflateRect(&Zones[i], -iz, -iz);
+        if (iz) InflateRect(&lZones[i], -iz, -iz);
         if (inrect) {
-            UnionRect(urc, urc, &Zones[i]);
+            UnionRect(urc, urc, &lZones[i]);
             ret++;
         }
     }

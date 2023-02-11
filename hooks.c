@@ -187,6 +187,7 @@ static struct config {
     UCHAR UniKeyHoldMenu;
     // [Zones]
     UCHAR UseZones;
+    UCHAR LayoutNumber;
     char InterZone;
   # ifdef WIN64
     UCHAR FancyZone;
@@ -291,6 +292,7 @@ static const struct OptionListItem Input_uchars[] = {
 // [Zones]
 static const struct OptionListItem Zones_uchars[] = {
     { "UseZones", 0 },
+    { "LayoutNumber", 0 },
     { "InterZone", 0 },
   # ifdef WIN64
     { "FancyZone", 0 },
@@ -5142,7 +5144,10 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return 0;
 //    } else if (msg == WM_FINISHMOVEMENT) {
 //        FinishMovementWM();
+    } else if (msg == WM_SETLAYOUTNUM) {
+        conf.LayoutNumber=CLAMP(0, wParam, 9);
     }
+    
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
@@ -5457,7 +5462,7 @@ static void readalluchars(UCHAR *dest, const TCHAR * const inisection, const str
 
 ///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.
-__declspec(dllexport) void Load(HWND mainhwnd)
+__declspec(dllexport) HWND Load(HWND mainhwnd)
 {
     // Load settings
     TCHAR inipath[MAX_PATH];
@@ -5580,6 +5585,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         HookMouse();
         SetTimer(g_timerhwnd, REHOOK_TIMER, 5000, NULL); // Start rehook timer
     }
+    return g_hkhwnd;
 }
 /////////////////////////////////////////////////////////////////////////////
 // Do not forget the -e_DllMain@12 for gcc... -eDllMain for x86_64

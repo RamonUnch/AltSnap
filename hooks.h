@@ -53,6 +53,7 @@
 #define WM_STACKLIST      (WM_USER+13)
 #define WM_FINISHMOVEMENT (WM_USER+14)
 #define WM_CLOSEMODE      (WM_USER+15)
+#define WM_SETLAYOUTNUM   (WM_USER+16)
 
 // List of possible actions
 enum action {
@@ -111,19 +112,23 @@ static int pure IsActionInList(const enum action ac, const enum action *aclst)
     return IsHotkeyy(ac, aclst);
 }
 // Convert zone number to ini name entry
-static TCHAR *ZidxToZonestr(int idx, TCHAR *zname)
+static TCHAR *ZidxToZonestr(int laynum, int idx, TCHAR *zname)
 {
+    if (laynum > 9 ) return NULL;
     TCHAR txt[16];
-    zname[0] = '\0';
+    zname[0] = !laynum?TEXT('\0'): TEXT('A')+laynum-1 ;
+    zname[1] = '\0';
     lstrcat(zname, TEXT("Zone"));
     lstrcat(zname, itostr(idx, txt, 10)); // Zone Name from zone number
 
     return zname;
 }
-static char *ZidxToZonestrA(int idx, char *zname)
+static char *ZidxToZonestrA(int laynum, int idx, char *zname)
 {
+    if (laynum > 9 ) return NULL;
     char txt[16];
-    zname[0] = '\0';
+    zname[0] = !laynum?'\0': 'A'+laynum-1 ;
+    zname[1] = '\0';
     lstrcatA(zname, "Zone");
     lstrcatA(zname, itostrA(idx, txt, 10)); // Zone Name from zone number
 

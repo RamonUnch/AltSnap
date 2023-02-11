@@ -23,6 +23,8 @@ static struct { // NOTIFYICONDATA for NT4
 static int tray_added = 0;
 static int hide = 0;
 static int UseZones = 0;
+static int LayoutNumber=0;
+static int MaxLayouts=0; 
 
 static const TCHAR *iconstr[] = {
     TEXT("TRAY_OFF"),
@@ -72,6 +74,9 @@ static void LoadAllIcons()
 static int InitTray()
 {
     ScrollLockState = GetPrivateProfileInt(TEXT("Input"), TEXT("ScrollLockState"), 0, inipath);
+    LayoutNumber    = GetPrivateProfileInt(TEXT("Zones"), TEXT("LayoutNumber"), 0, inipath);
+    MaxLayouts      = GetPrivateProfileInt(TEXT("Zones"), TEXT("MaxLayouts"), 0, inipath);
+    MaxLayouts = CLAMP(0, MaxLayouts, 10);
 
     LoadAllIcons();
 
@@ -144,8 +149,14 @@ static int RemoveTray()
     tray_added = 0;
     return 0;
 }
+
 /////////////////////////////////////////////////////////////////////////////
 // Zones functions
+static void WriteCurrentLayoutNumber()
+{
+    TCHAR txt[16];
+    WritePrivateProfileString(TEXT("Zones"), TEXT("LayoutNumber"), itostr(LayoutNumber, txt, 10), inipath);
+}
 static TCHAR *RectToStr(RECT *rc, TCHAR *rectstr)
 {
     TCHAR txt[16];
@@ -162,14 +173,14 @@ static TCHAR *RectToStr(RECT *rc, TCHAR *rectstr)
 static void SaveZone(RECT *rc, unsigned num)
 {
     TCHAR txt[128], name[32];
-    WritePrivateProfileString(TEXT("Zones"), ZidxToZonestr(num, name), RectToStr(rc, txt), inipath);
+    WritePrivateProfileString(TEXT("Zones"), ZidxToZonestr(LayoutNumber, num, name), RectToStr(rc, txt), inipath);
 }
 static void ClearAllZones()
 {
     int i;
     TCHAR txt[128], name[32];
     for (i = 0; i < 32; i++) {
-        ZidxToZonestr(i, name);
+        ZidxToZonestr(LayoutNumber, i, name);
         if (GetPrivateProfileString(TEXT("Zones"), name, TEXT(""), txt, ARR_SZ(txt), inipath)) {
             WritePrivateProfileString(TEXT("Zones"), name, TEXT(""), inipath);
         }
@@ -222,6 +233,18 @@ static void ShowContextMenu(HWND hwnd)
     AppendMenu(menu, MF_STRING, SWM_OPENINIFILE, l10n->menu_openinifile);
 
     if (UseZones&1) { // Zones section
+        if(MaxLayouts)
+            AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+        UCHAR i;
+        for (i=0; i < MaxLayouts; i++) {
+            TCHAR txt[128];
+            TCHAR istr[16];
+            lstrcpy(txt, TEXT("Snap Layout &"));
+            lstrcat(txt, itostr(i+1, istr, 10));
+            UINT mfflags = i==LayoutNumber?MF_STRING|MF_CHECKED:MF_STRING|MF_UNCHECKED;
+            AppendMenu(menu, mfflags, SWM_SNAPLAYOUT+i, txt);
+        }
+
         AppendMenu(menu, MF_SEPARATOR, 0, NULL);
         AppendMenu(menu, MF_STRING, SWM_TESTWIN,  l10n->advanced_testwindow);
         AppendMenu(menu, FindWindow(TEXT(APP_NAMEA"-test"), NULL)? MF_STRING :MF_STRING|MF_GRAYED

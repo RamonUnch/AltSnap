@@ -381,6 +381,16 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         // it wasn't hidden by hooks.c for some reason
         ShowWindow(hwnd, SW_HIDE);
         return 0;
+    } else if (msg == WM_DISPLAYCHANGE) {
+        LOG("WM_DISPLAYCHANGE %d:%d, %dbpp in WindowProc", LOWORD(lParam), HIWORD(lParam), wParam );
+        if (g_dllmsgHKhwnd) {
+            int bestlayout = SendMessage(g_dllmsgHKhwnd, WM_GETBESTLAYOUT, wParam, lParam);
+            if( bestlayout != LayoutNumber
+            &&  0 <= bestlayout && bestlayout < MaxLayouts ) {
+                LayoutNumber = bestlayout;
+                PostMessage(g_dllmsgHKhwnd, WM_SETLAYOUTNUM, LayoutNumber, 0);
+            }
+        }
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }

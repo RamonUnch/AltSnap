@@ -27,7 +27,7 @@
 // App
 #define APP_NAME       TEXT("AltSnap")
 #define APP_NAMEA      "AltSnap"
-#define APP_VERSION    "1.58"
+#define APP_VERSION    "1.59"
 #define APP_PROPPT     TEXT(APP_NAMEA"-RDim")
 #define APP_PROPFL     TEXT(APP_NAMEA"-RFlag")
 #define APP_PROPOFFSET TEXT(APP_NAMEA"-ROffset")
@@ -54,7 +54,8 @@
 #define WM_FINISHMOVEMENT (WM_USER+14)
 #define WM_CLOSEMODE      (WM_USER+15)
 #define WM_SETLAYOUTNUM   (WM_USER+16)
-
+#define WM_GETLAYOUTREZ   (WM_USER+17)
+#define WM_GETBESTLAYOUT  (WM_USER+18)
 // List of possible actions
 enum action {
     AC_NONE=0, AC_MOVE, AC_RESIZE, AC_RESTORE

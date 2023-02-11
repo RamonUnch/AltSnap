@@ -24,7 +24,7 @@ static int tray_added = 0;
 static int hide = 0;
 static int UseZones = 0;
 static int LayoutNumber=0;
-static int MaxLayouts=0; 
+static int MaxLayouts=0;
 
 static const TCHAR *iconstr[] = {
     TEXT("TRAY_OFF"),
@@ -236,12 +236,31 @@ static void ShowContextMenu(HWND hwnd)
         if(MaxLayouts)
             AppendMenu(menu, MF_SEPARATOR, 0, NULL);
         UCHAR i;
+        DWORD rez =0;
+
         for (i=0; i < MaxLayouts; i++) {
             TCHAR txt[128];
             TCHAR istr[16];
-            lstrcpy(txt, TEXT("Snap Layout &"));
+
+            lstrcpy(txt, l10n->menu_snaplayout); // Snap layout &i
             lstrcat(txt, itostr(i+1, istr, 10));
-            UINT mfflags = i==LayoutNumber?MF_STRING|MF_CHECKED:MF_STRING|MF_UNCHECKED;
+            if (g_dllmsgHKhwnd) {
+                if ((rez = SendMessage(g_dllmsgHKhwnd, WM_GETLAYOUTREZ, i, 0))) {
+                    // Add (width:height) to label the layout.
+                    lstrcat(txt, TEXT("  ("));
+                    lstrcat(txt, itostr(LOWORD(rez), istr, 10));
+                    lstrcat(txt, TEXT(":"));
+                    lstrcat(txt, itostr(HIWORD(rez), istr, 10));
+                    lstrcat(txt, TEXT(")"));
+                } else {
+                    lstrcat_s(txt, ARR_SZ(txt), l10n->menu_emptyzone); // (empty)
+                }
+            } else {
+                lstrcat(txt, TEXT("  (...)"));
+            }
+            // Check the current layout We use a simple checkmark,
+            // because a radio button is more complex to setup.
+            UINT mfflags = i==LayoutNumber? MF_STRING|MF_CHECKED: MF_STRING|MF_UNCHECKED;
             AppendMenu(menu, mfflags, SWM_SNAPLAYOUT+i, txt);
         }
 

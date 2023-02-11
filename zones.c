@@ -198,3 +198,79 @@ static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
     SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED|SNZONE);
     MoveWindowAsync(hwnd, fr.left, fr.top, CLAMPW(fr.right-fr.left), CLAMPH(fr.bottom-fr.top));
 }
+// Sets urc as the union of all the rcs array or RECT, of length N
+static void UnionMultiRect(RECT *urc, const RECT *rcs, unsigned N)
+{
+    CopyRect(urc, &rcs[0]);
+    while (--N) {
+        rcs++;
+        urc->left    = min(urc->left,   rcs->left);
+        urc->top     = min(urc->top,    rcs->top);
+        urc->right   = max(urc->right,  rcs->right);
+        urc->bottom  = max(urc->bottom, rcs->bottom);
+    }
+}
+static pure DWORD GetLayoutRez(int laynum)
+{
+    unsigned nz = nzones[laynum];
+    const RECT *zone = Zones[laynum];
+    if (!zone || !nz) return 0;
+    RECT urc;
+    UnionMultiRect(&urc, zone, nz);
+    return  (urc.right-urc.left) | (urc.bottom-urc.top)<<16;
+}
+// Calculate the dimentions of union rectangle that contains all
+// the work area of every monitors.
+static DWORD GetFullMonitorsRez()
+{
+    // Enumerate monitors
+    EnumDisplayMonitors(NULL, NULL, EnumMonitorsProc, 0);
+    if (!monitors || !nummonitors)
+        return 0; // ERROR! do nothing
+    RECT urc;
+    UnionMultiRect(&urc, monitors, nummonitors);
+
+    // Return dimentions width:height
+    return (urc.right-urc.left) | (urc.bottom-urc.top)<<16;
+}
+
+// Return a layout number if its dimentions exactly fit
+// the display monitor.
+static int GetBestLayoutFromMonitors()
+{
+    DWORD curRZ = GetLayoutRez(conf.LayoutNumber);
+
+    // If the current rez is 0:0 we should not change it.
+    // Because it can be used as a dummy mode, plus a user
+    // might have selected it in advance to configure it
+    // later for the new display settings, so selecting
+    // an other one would bother him.
+    if (!curRZ)
+        return -1;
+
+    // Check if the current Layout is good for the current monitor
+    DWORD monRZ;
+    if (nummonitors <= 1) {
+        RECT mrc;
+        SystemParametersInfo(SPI_GETWORKAREA, 0, &mrc, 0);
+        monRZ = (mrc.right-mrc.left) | (mrc.bottom-mrc.top)<<16;
+        // In Single monitor mode we use SPI_GETWORKAREA.
+        // Because EnumDisplayMonitor often gives bad values.
+        // I am unsure on how to properly handle multiple monitors...
+        if(monRZ == curRZ) {
+            return -1; // Current layout is good!
+        }
+    } else if ( (monRZ = GetFullMonitorsRez()) == curRZ ) {
+        // GetFullMonitorsRez gives us the union of all monitors.rcWork
+        return -1; // Current layout is good!
+    }
+
+    UCHAR i;
+    for (i=0; i<ARR_SZ(Zones); i++) {
+        DWORD rez = GetLayoutRez(i);
+        if( rez == monRZ )
+            return i;
+    }
+    // No perfect match found!
+    return -1;
+}

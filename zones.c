@@ -10,8 +10,14 @@
 #define MAX_LAYOUTS 10
 RECT *Zones[MAX_LAYOUTS];
 unsigned nzones[MAX_LAYOUTS];
-
-static int ReadRectFromini(RECT *zone, unsigned laynum, unsigned idx, TCHAR *inisection)
+DWORD Grids[MAX_LAYOUTS];
+static void freezones()
+{
+    USHORT i;
+    for (i=0; i<ARR_SZ(Zones);i++)
+        free(Zones[i]);
+}
+static int ReadRectFromini(RECT *zone, unsigned laynum, unsigned idx, const TCHAR *inisection)
 {
     if (idx > MAX_ZONES) return 0;
 
@@ -39,7 +45,7 @@ static int ReadRectFromini(RECT *zone, unsigned laynum, unsigned idx, TCHAR *ini
     }
     return 1;
 }
-static void ReadZonesFromLayout(TCHAR *inisection, unsigned laynum)
+static void ReadZonesFromLayout(const TCHAR *inisection, unsigned laynum)
 {
     nzones[laynum] = 0;
     Zones[laynum] = NULL;
@@ -52,23 +58,23 @@ static void ReadZonesFromLayout(TCHAR *inisection, unsigned laynum)
     }
 }
 // Load all zones from ini file
-static void ReadZones(TCHAR *inisection)
+static void ReadZones(const TCHAR *inisection)
 {
     UCHAR i;
-    for(i=0; i<MAX_LAYOUTS; i++)
+    for(i=0; i<ARR_SZ(Zones); i++)
         ReadZonesFromLayout(inisection, i);
 }
 // Generate a grid if asked
-static void GenerateGridZones(unsigned Nx, unsigned Ny)
+static void GenerateGridZones(unsigned layout, unsigned short Nx, unsigned short Ny)
 {
     // Enumerate monitors
     nummonitors = 0;
     unsigned nz = 0;
     EnumDisplayMonitors(NULL, NULL, EnumMonitorsProc, 0);
-    RECT *tmp = realloc(Zones[0], nummonitors * Nx * Ny * sizeof(RECT));
+    RECT *tmp = realloc(Zones[layout], nummonitors * Nx * Ny * sizeof(RECT));
     if(!tmp) return;
-    Zones[0] = tmp;
-    if(!Zones[0]) return;
+    Zones[layout] = tmp;
+    if(!Zones[layout]) return;
 
     // Loop on all monitors
     unsigned m;
@@ -78,16 +84,51 @@ static void GenerateGridZones(unsigned Nx, unsigned Ny)
         for(i=0; i<Nx; i++) { // Horizontal
             unsigned j;
             for(j=0; j<Ny; j++) { //Vertical
-                Zones[0][nz].left  = mon->left+(( i ) * (mon->right - mon->left))/Nx;
-                Zones[0][nz].top   = mon->top +(( j ) * (mon->bottom - mon->top))/Ny;
-                Zones[0][nz].right = mon->left+((i+1) * (mon->right - mon->left))/Nx;
-                Zones[0][nz].bottom= mon->top +((j+1) * (mon->bottom - mon->top))/Ny;
+                Zones[layout][nz].left  = mon->left+(( i ) * (mon->right - mon->left))/Nx;
+                Zones[layout][nz].top   = mon->top +(( j ) * (mon->bottom - mon->top))/Ny;
+                Zones[layout][nz].right = mon->left+((i+1) * (mon->right - mon->left))/Nx;
+                Zones[layout][nz].bottom= mon->top +((j+1) * (mon->bottom - mon->top))/Ny;
                 nz++;
             }
         }
     }
-    nzones[0] = nz;
+    nzones[layout] = nz;
 }
+static void ReadGrids(const TCHAR *inisection)
+{
+    UCHAR i;
+    char gnamex[8];
+    char gnamey[8];
+    strcpy(gnamex, "GridNx");
+    strcpy(gnamey, "GridNy");
+    gnamex[7] = '\0';
+    gnamey[7] = '\0';
+    for (i=0; i < ARR_SZ(Grids); i++) {
+        Grids[i] = 0;
+        unsigned short GridNx = GetSectionOptionInt(inisection, gnamex, 0);
+        unsigned short GridNy = GetSectionOptionInt(inisection, gnamey, 0);
+        if (GridNx && GridNy && GridNx*GridNy <= MAX_ZONES) {
+            Grids[i] = GridNx | GridNy << 16; // Store grid dimentions
+            GenerateGridZones(i, GridNx, GridNy);
+        }
+        // GridNx1, GridNx2, GridNx3...
+        gnamex[6] = '1' + i;
+        gnamey[6] = '1' + i;
+    }
+}
+// Recalculate the zones from the Grid info.
+// Needed in case resolution changes.
+static void RecalculateZonesFromGrids()
+{
+    UCHAR i;
+    for (i=0; i<ARR_SZ(Grids); i++) {
+        unsigned short GridNx = LOWORD(Grids[i]);
+        unsigned short GridNy = HIWORD(Grids[i]);
+        if(GridNx && GridNy)
+            GenerateGridZones(i, GridNx, GridNy);
+    }
+}
+
 static unsigned GetZoneFromPoint(POINT pt, RECT *urc, int extend)
 {
 
@@ -212,6 +253,11 @@ static void UnionMultiRect(RECT *urc, const RECT *rcs, unsigned N)
 }
 static pure DWORD GetLayoutRez(int laynum)
 {
+    laynum = CLAMP(0, laynum, ARR_SZ(Zones)-1);
+    if (conf.UseZones&2) {
+        // In Grid mode we return the grid dimentions!
+        return Grids[laynum];
+    }
     unsigned nz = nzones[laynum];
     const RECT *zone = Zones[laynum];
     if (!zone || !nz) return 0;
@@ -238,6 +284,13 @@ static DWORD GetFullMonitorsRez()
 // the display monitor.
 static int GetBestLayoutFromMonitors()
 {
+    if (!(conf.UseZones&1))
+        return -1;
+    if (conf.UseZones&2) {
+        // Grid mode! Do not change Grid, just recalculate them all...
+        RecalculateZonesFromGrids();
+        return -1; // DONE!
+    }
     DWORD curRZ = GetLayoutRez(conf.LayoutNumber);
 
     // If the current rez is 0:0 we should not change it.

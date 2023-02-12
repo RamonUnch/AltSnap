@@ -5174,7 +5174,7 @@ __declspec(dllexport) void Unload()
     free(wnds);
     free(snwnds);
     free(minhwnds);
-    free(Zones);
+    freezones();
 }
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated and title and class are | separated.
@@ -5536,10 +5536,7 @@ __declspec(dllexport) HWND Load(HWND mainhwnd)
 
     if (conf.UseZones&1) { // We are using Zones
         if(conf.UseZones&2) { // Grid Mode
-            unsigned GridNx = GetSectionOptionInt(inisection, "GridNx", 0);
-            unsigned GridNy = GetSectionOptionInt(inisection, "GridNy", 0);
-            if (GridNx && GridNy)
-                GenerateGridZones(GridNx, GridNy);
+            ReadGrids(inisection);
         } else {
             ReadZones(inisection);
         }

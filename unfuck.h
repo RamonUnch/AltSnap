@@ -1277,6 +1277,7 @@ static int LCIDToLocaleNameL(LCID Locale, LPWSTR lpName, int cchName, DWORD dwFl
 }
 #endif // UNICODE
 
+#if 0
 /* Get the string inside the section returned by GetPrivateProfileSection */
 static void GetSectionOptionStr(const TCHAR *section, const char * const oname, const TCHAR *def, TCHAR * __restrict__ txt, size_t txtlen)
 {
@@ -1303,6 +1304,26 @@ static void GetSectionOptionStr(const TCHAR *section, const char * const oname, 
         lstrcpy_s(txt, txtlen, def);
     else if (txtlen)
         txt[0] = TEXT('\0');  // Empty string
+}
+#endif
+static const TCHAR* GetSectionOptionCStr(const TCHAR *section, const char * const oname, const TCHAR *const def)
+{
+    TCHAR name[128];
+    str2tchar_s(name, ARR_SZ(name)-1, oname);
+    lstrcat(name, TEXT("=")); /* Add equal at the end of name */
+    const TCHAR *p = section;
+    while (p[0] && p[1]) { /* Double NULL treminated string */
+        if(!lstrcmpi_samestart(p, name)) {
+            return p+lstrlen(name); /* DONE! */
+        } else {
+            /* Go to next string... */
+            p += lstrlen(p); /* p in on the '\0' */
+            p++; /* next string start. */
+            if (!*p) break;
+        }
+    }
+    /* Default to the provided def string */
+    return def;
 }
 /* Get the int inside the section returned by GetPrivateProfileSection */
 static int GetSectionOptionInt(const TCHAR *section, const char * const oname, const int def)

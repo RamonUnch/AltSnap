@@ -20,12 +20,16 @@
 #define SWM_SAVEZONES  (WM_APP+9)
 #define SWM_TESTWIN    (WM_APP+10)
 #define SWM_OPENINIFILE (WM_APP+11)
+#define SWM_SNAPLAYOUT    (WM_APP+12)
+#define SWM_SNAPLAYOUTEND (WM_APP+22)
 
 // Boring stuff
 static HINSTANCE g_hinst = NULL;
 static HWND g_hwnd = NULL;
 static UINT WM_TASKBARCREATED = 0;
 static TCHAR inipath[MAX_PATH];
+
+static HWND g_dllmsgHKhwnd = NULL;
 
 // Cool stuff
 HINSTANCE hinstDLL = NULL;
@@ -66,9 +70,9 @@ int HookSystem()
             LOG("Could not load HOOKS.DLL!!!");
             return 1;
         } else {
-            void (*Load)(HWND) = (void (*)(HWND))GetProcAddress(hinstDLL, "Load");
+            HWND (*Load)(HWND) = (HWND (*)(HWND))GetProcAddress(hinstDLL, "Load");
             if(Load) {
-                Load(g_hwnd);
+                g_dllmsgHKhwnd = Load(g_hwnd);
             }
         }
     }
@@ -115,6 +119,9 @@ int UnhookSystem()
     // Tell dll file that we are unloading
     void (*Unload)() = (void (*)()) GetProcAddress(hinstDLL, "Unload");
     if (Unload) Unload();
+
+    // Zero out the message hwnd from DLL.
+    g_dllmsgHKhwnd = NULL;
 
     // Free library
     if (hinstDLL) FreeLibrary(hinstDLL);
@@ -340,14 +347,27 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         } else if (wmId == SWM_EXIT) {
             DestroyWindow(hwnd);
         } else if (wmId == SWM_SAVEZONES) {
-            int ret = MessageBox(NULL, l10n->zone_confirmation, TEXT(APP_NAMEA), MB_OKCANCEL);
+            TCHAR txt[256], numstr[16];
+            lstrcpy_s(txt, ARR_SZ(txt), l10n->zone_confirmation);
+            lstrcat_s(txt, ARR_SZ(txt), TEXT("\n"));
+            lstrcat_s(txt, ARR_SZ(txt), TEXT("Snap Layout "));
+            lstrcat_s(txt, ARR_SZ(txt), itostr(LayoutNumber+1, numstr, 10));
+            int ret = MessageBox(NULL, txt, TEXT(APP_NAMEA), MB_OKCANCEL);
             if (ret == IDOK) {
                 UnhookSystem();
                 SaveCurrentLayout();
+                WriteCurrentLayoutNumber();
                 HookSystem();
             }
         } else if (wmId == SWM_TESTWIN) {
             NewTestWindow();
+        } else if (SWM_SNAPLAYOUT <= wmId && wmId <= SWM_SNAPLAYOUTEND) {
+            // Inform hooks.dll that the snap layout changed
+            LayoutNumber = wmId-SWM_SNAPLAYOUT;
+            if(g_dllmsgHKhwnd)
+                PostMessage(g_dllmsgHKhwnd, WM_SETLAYOUTNUM, LayoutNumber, 0);
+            // Save new value in the .ini file
+            WriteCurrentLayoutNumber();
         }
     } else if (msg == WM_QUERYENDSESSION) {
         showerror = 0;
@@ -361,6 +381,16 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         // it wasn't hidden by hooks.c for some reason
         ShowWindow(hwnd, SW_HIDE);
         return 0;
+    } else if (msg == WM_DISPLAYCHANGE || (msg == WM_SETTINGCHANGE && wParam  == SPI_SETWORKAREA)) {
+        LOG("WM_DISPLAYCHANGE %d:%d, %dbpp in WindowProc", LOWORD(lParam), HIWORD(lParam), wParam );
+        if (g_dllmsgHKhwnd) {
+            int bestlayout = SendMessage(g_dllmsgHKhwnd, WM_GETBESTLAYOUT, 0, 0);
+            if( bestlayout != LayoutNumber
+            &&  0 <= bestlayout && bestlayout < MaxLayouts ) {
+                LayoutNumber = bestlayout;
+                PostMessage(g_dllmsgHKhwnd, WM_SETLAYOUTNUM, LayoutNumber, 0);
+            }
+        }
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }

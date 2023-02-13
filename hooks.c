@@ -187,6 +187,7 @@ static struct config {
     UCHAR UniKeyHoldMenu;
     // [Zones]
     UCHAR UseZones;
+    UCHAR LayoutNumber;
     char InterZone;
   # ifdef WIN64
     UCHAR FancyZone;
@@ -291,6 +292,7 @@ static const struct OptionListItem Input_uchars[] = {
 // [Zones]
 static const struct OptionListItem Zones_uchars[] = {
     { "UseZones", 0 },
+    { "LayoutNumber", 0 },
     { "InterZone", 0 },
   # ifdef WIN64
     { "FancyZone", 0 },
@@ -389,32 +391,7 @@ static pure int blacklisted(HWND hwnd, const struct blacklist *list)
     }
     return !mode;
 }
-#if 0
-static pure int blacklistedP(HWND hwnd, const struct blacklist *list)
-{
-    TCHAR exename[MAX_PATH];
-    DorQWORD mode ;
-    unsigned i ;
 
-    // Null hwnd or empty list
-    if (!hwnd || !list->length || !list->items)
-        return 0;
-    // If the first element is *|* then we are in whitelist mode
-    // mode = 1 => blacklist mode = 0 => whitelist;
-    mode = (DorQWORD)list->items[0].exename;
-    i = !mode;
-
-    if (!GetWindowProgName(hwnd, exename, ARR_SZ(exename)))
-        return 0;
-
-    // ProcessBlacklist is case-insensitive
-    for ( ; i < list->length; i++) {
-        if (list->items[i].exename && !lstrcmpi(exename, list->items[i].exename))
-            return mode;
-    }
-    return !mode;
-}
-#endif
 static int isClassName(HWND hwnd, const TCHAR *str)
 {
     TCHAR classname[256];
@@ -5142,7 +5119,14 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return 0;
 //    } else if (msg == WM_FINISHMOVEMENT) {
 //        FinishMovementWM();
+    } else if (msg == WM_SETLAYOUTNUM) {
+        conf.LayoutNumber=CLAMP(0, wParam, 9);
+    } else if (msg == WM_GETLAYOUTREZ) {
+        return GetLayoutRez(wParam);
+    } else if (msg == WM_GETBESTLAYOUT) {
+        return GetBestLayoutFromMonitors(lParam);
     }
+
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
@@ -5190,7 +5174,7 @@ __declspec(dllexport) void Unload()
     free(wnds);
     free(snwnds);
     free(minhwnds);
-    free(Zones);
+    freezones();
 }
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated and title and class are | separated.
@@ -5198,7 +5182,7 @@ __declspec(dllexport) void Unload()
 static void readblacklist(const TCHAR *section, struct blacklist *blacklist, const char *bl_str)
 {
     LPCTSTR txt = GetSectionOptionCStr(section, bl_str, NULL);
-    if (!txt) {
+    if (!txt || !*txt) {
         return;
     }
     blacklist->data = malloc((lstrlen(txt)+1)*sizeof(TCHAR));
@@ -5305,7 +5289,7 @@ void readallblacklists(TCHAR *inipath)
 static void readhotkeys(const TCHAR *inisection, const char *name, const TCHAR *def, UCHAR *keys)
 {
     LPCTSTR txt = GetSectionOptionCStr(inisection, name, def);
-    if(!txt) return;
+    if(!txt || !*txt) return;
     UCHAR i=0;
     const TCHAR *pos = txt;
     while (*pos) {
@@ -5321,7 +5305,7 @@ static void readhotkeys(const TCHAR *inisection, const char *name, const TCHAR *
 static enum action readaction(const TCHAR *section, const char *key)
 {
     LPCTSTR txt = GetSectionOptionCStr(section, key, TEXT("Nothing"));
-    if(!txt) return AC_NONE;
+    if(!txt || !*txt) return AC_NONE;
 
     return MapActionW(txt);
 }
@@ -5457,7 +5441,7 @@ static void readalluchars(UCHAR *dest, const TCHAR * const inisection, const str
 
 ///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.
-__declspec(dllexport) void Load(HWND mainhwnd)
+__declspec(dllexport) HWND Load(HWND mainhwnd)
 {
     // Load settings
     TCHAR inipath[MAX_PATH];
@@ -5552,10 +5536,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
 
     if (conf.UseZones&1) { // We are using Zones
         if(conf.UseZones&2) { // Grid Mode
-            unsigned GridNx = GetSectionOptionInt(inisection, "GridNx", 0);
-            unsigned GridNy = GetSectionOptionInt(inisection, "GridNy", 0);
-            if (GridNx && GridNy)
-                GenerateGridZones(GridNx, GridNy);
+            ReadGrids(inisection);
         } else {
             ReadZones(inisection);
         }
@@ -5580,6 +5561,7 @@ __declspec(dllexport) void Load(HWND mainhwnd)
         HookMouse();
         SetTimer(g_timerhwnd, REHOOK_TIMER, 5000, NULL); // Start rehook timer
     }
+    return g_hkhwnd;
 }
 /////////////////////////////////////////////////////////////////////////////
 // Do not forget the -e_DllMain@12 for gcc... -eDllMain for x86_64

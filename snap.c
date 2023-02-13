@@ -1,7 +1,7 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * (C) Raymond GILLIBERT                                                 *
  * Functions to handle Snap/restore informations AltSnap                 *
- * Snapping informations set with Set/GetPropA.                          *
+ * Snapping informations set with Set/GetProp.                          *
  * Window database is used as fallback.                                  *
  * General Public License Version 3 or later (Free Software Foundation)  *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -42,7 +42,7 @@ struct wnddata {
 static struct wnddata wnddb[NUMWNDDB];
 
 /////////////////////////////////////////////////////////////////////////////
-// Database functions: used as fallback if SetPropA fails
+// Database functions: used as fallback if SetProp fails
 
 // Zero-out the database to be called in Load()
 static void ResetDB()
@@ -101,14 +101,14 @@ static void DelWindowFromDB(HWND hwnd)
 // There is also a fallback to a database for some spetial windows.
 static unsigned GetRestoreData(HWND hwnd, int *width, int *height)
 {
-    DorQWORD WH = (DorQWORD)GetPropA(hwnd, APP_PROPPT);
+    DorQWORD WH = (DorQWORD)GetProp(hwnd, APP_PROPPT);
     if (WH) {
         *width  = (int)LOWORDPTR(WH);
         *height = (int)HIWORDPTR(WH);
 
-        return (DorQWORD)GetPropA(hwnd, APP_PROPFL);
+        return (DorQWORD)GetProp(hwnd, APP_PROPFL);
   # ifdef WIN64 // Try fancy zone flag only in 64bit mode!
-    } else if (conf.FancyZone && (WH = (DorQWORD)GetPropA(hwnd, FZ_PROPPT))) {
+    } else if (conf.FancyZone && (WH = (DorQWORD)GetProp(hwnd, FZ_PROPPT))) {
         *width  = (int)LOWORDPTR(WH);
         *height = (int)HIWORDPTR(WH);
         return SNAPPED|SNZONE;
@@ -126,13 +126,13 @@ static unsigned GetRestoreData(HWND hwnd, int *width, int *height)
 }
 static void ClearRestoreData(HWND hwnd)
 {
-    RemovePropA(hwnd, APP_PROPPT);
-    RemovePropA(hwnd, APP_PROPFL);
-    RemovePropA(hwnd, APP_PROPOFFSET);
+    RemoveProp(hwnd, APP_PROPPT);
+    RemoveProp(hwnd, APP_PROPFL);
+    RemoveProp(hwnd, APP_PROPOFFSET);
   # ifdef WIN64
     if(conf.FancyZone) {
-        RemovePropA(hwnd, FZ_PROPPT);
-        RemovePropA(hwnd, FZ_PROPZONES);
+        RemoveProp(hwnd, FZ_PROPPT);
+        RemoveProp(hwnd, FZ_PROPZONES);
     }
   # endif
     DelWindowFromDB(hwnd);
@@ -141,17 +141,17 @@ static void ClearRestoreData(HWND hwnd)
 static void SetRestoreData(HWND hwnd, int width, int height, unsigned restore)
 {
     BOOL ret;
-    ret  = SetPropA(hwnd, APP_PROPFL, (HANDLE)(DorQWORD)restore);
-    ret &= SetPropA(hwnd, APP_PROPPT, (HANDLE)MAKELONGPTR(width, height));
+    ret  = SetProp(hwnd, APP_PROPFL, (HANDLE)(DorQWORD)restore);
+    ret &= SetProp(hwnd, APP_PROPPT, (HANDLE)MAKELONGPTR(width, height));
     if (!ret) AddWindowToDB(hwnd, width, height, restore);
 }
 
 static unsigned GetRestoreFlag(HWND hwnd)
 {
-    unsigned flag = (DorQWORD)GetPropA(hwnd, APP_PROPFL);
+    unsigned flag = (DorQWORD)GetProp(hwnd, APP_PROPFL);
 
   # ifdef WIN64
-    if(conf.FancyZone && GetPropA(hwnd, FZ_PROPPT))
+    if(conf.FancyZone && GetProp(hwnd, FZ_PROPPT))
         flag |= SNAPPED|SNZONE;
   # endif
 
@@ -163,7 +163,7 @@ static unsigned GetRestoreFlag(HWND hwnd)
 }
 static void SetRestoreFlag(HWND hwnd, unsigned flag)
 {
-    BOOL ret = SetPropA(hwnd, APP_PROPFL, (HANDLE)(DorQWORD)flag);
+    BOOL ret = SetProp(hwnd, APP_PROPFL, (HANDLE)(DorQWORD)flag);
     int idx;
     if (!ret && ((idx = GetWindowInDB(hwnd)) >=0)) {
         wnddb[idx].restore = flag;
@@ -173,22 +173,22 @@ static void SetRestoreFlag(HWND hwnd, unsigned flag)
 // borderless flag (saving old GWL_STYLE)
 static void SetBorderlessFlag(HWND hwnd, LONG_PTR flag)
 {
-    SetPropA(hwnd, APP_PRBDLESS,(HANDLE)flag);
+    SetProp(hwnd, APP_PRBDLESS,(HANDLE)flag);
 }
 static LONG_PTR GetBorderlessFlag(HWND hwnd)
 {
-    return (LONG_PTR)GetPropA(hwnd, APP_PRBDLESS);
+    return (LONG_PTR)GetProp(hwnd, APP_PRBDLESS);
 }
 static LONG_PTR ClearBorderlessFlag(HWND hwnd)
 {
-    return (LONG_PTR)RemovePropA(hwnd, APP_PRBDLESS);
+    return (LONG_PTR)RemoveProp(hwnd, APP_PRBDLESS);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 //// Roll unroll stuff
 //static int GetRolledHeight(HWND hwnd)
 //{
-//    int ret = (int)GetPropA(hwnd, APP_ROLLED);
+//    int ret = (int)GetProp(hwnd, APP_ROLLED);
 //    int idx;
 //    if (!ret && ((idx = GetWindowInDB(hwnd)) >=0)) {
 //        ret = wnddb[idx].rolledh;
@@ -197,7 +197,7 @@ static LONG_PTR ClearBorderlessFlag(HWND hwnd)
 //}
 //static int ClearRolledHeight(HWND hwnd)
 //{
-//    int ret = (int)RemovePropA(hwnd, APP_ROLLED);
+//    int ret = (int)RemoveProp(hwnd, APP_ROLLED);
 //
 //    int idx;
 //    if (!ret && ((idx = GetWindowInDB(hwnd)) >=0)) {
@@ -208,7 +208,7 @@ static LONG_PTR ClearBorderlessFlag(HWND hwnd)
 //}
 //static void SetRolledHeight(HWND hwnd, int rolledh)
 //{
-//    BOOL ret = SetPropA(hwnd, APP_ROLLED, (HANDLE)(DorQWORD)rolledh);
+//    BOOL ret = SetProp(hwnd, APP_ROLLED, (HANDLE)(DorQWORD)rolledh);
 //    if (ret) return;
 //
 //    int idx;

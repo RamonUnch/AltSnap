@@ -70,6 +70,7 @@ enum action {
   , AC_XLZONE, AC_XTZONE, AC_XRZONE, AC_XBZONE
   , AC_STEPL, AC_STEPT, AC_STEPR, AC_STEPB
   , AC_SSTEPL, AC_SSTEPT, AC_SSTEPR, AC_SSTEPB
+
   , AC_ROLL, AC_ALTTAB, AC_VOLUME, AC_TRANSPARENCY, AC_HSCROLL
   , AC_ZOOM, AC_ZOOM2, AC_NPSTACKED, AC_NPSTACKED2
   , AC_MAXVALUE
@@ -89,9 +90,53 @@ enum action {
   , "XLZone", "XTZone", "XRZone", "XBZone"                         \
   , "StepL", "StepT", "StepR", "StepB"                             \
   , "SStepL", "SStepT", "SStepR", "SStepB"                         \
+                                                                   \
   , "Roll", "AltTab", "Volume", "Transparency", "HScroll"          \
   , "Zoom", "Zoom2", "NPStacked", "NPStacked2"                     \
 }
+
+// List of extra info options
+#define ACINFO_MOVE     (1)
+#define ACINFO_RESIZE   (2)
+#define ACINFO_ZORDER   (4)
+#define ACINFO_CLOSE    (8)
+#define MV ACINFO_MOVE
+#define RZ ACINFO_RESIZE
+#define ZO ACINFO_ZORDER
+#define CL ACINFO_CLOSE
+
+#define MR (ACINFO_MOVE|ACINFO_RESIZE)
+
+#define ACTION_INFO_MAP {  \
+    00, MR, MR, MR         \
+  , CL, CL, MR             \
+  , MR, ZO, CL, ZO, 00     \
+  , CL, CL, CL, MR, 00, 00 \
+  , MR, MR, ZO, ZO, ZO, ZO \
+  , CL, CL, CL             \
+  , CL, CL                 \
+  , MR, MR, MR, MR         \
+  , MR, MR, MR, MR         \
+  , MR, MR, MR, MR         \
+  , MR, MR, MR, MR         \
+                           \
+  , RZ, ZO, 00, 00, 00     \
+  , MR, MR, ZO, ZO         \
+  , 00                     \
+  , 00                     \
+}
+
+// Helper function to get extra action info
+static xpure UCHAR ActionInfo(enum action action)
+{
+    static const UCHAR action_info[] = ACTION_INFO_MAP;
+    return action_info[action];
+}
+#undef MV
+#undef RZ
+#undef ZO
+#undef CL
+#undef MR
 
 #define MOUVEMENT(action) (action <= AC_RESIZE)
 

@@ -225,9 +225,9 @@ static struct config {
         , MB16[NACPB], MB17[NACPB], MB18[NACPB], MB19[NACPB], MB20[NACPB]
         , Scroll[NACPB], HScroll[NACPB]; // Plus vertical and horizontal wheels
     } Mouse;
-    enum action GrabWithAlt[4]; // Actions without click
-    enum action MoveUp[4];      // Actions on (long) Move Up w/o drag
-    enum action ResizeUp[4];    // Actions on (long) Resize Up w/o drag
+    enum action GrabWithAlt[NACPB]; // Actions without click
+    enum action MoveUp[NACPB];      // Actions on (long) Move Up w/o drag
+    enum action ResizeUp[NACPB];    // Actions on (long) Resize Up w/o drag
 } conf;
 
 struct OptionListItem {
@@ -4391,12 +4391,15 @@ static void DoComboActions(enum action action, enum button button)
 
     enum action accombo = GetActionMR(button);
 
+    UCHAR lock_movement = ActionInfo(accombo) & (ACINFO_MOVE|ACINFO_RESIZE|ACINFO_CLOSE);
+    if (lock_movement) {
+        state.moving = CURSOR_ONLY;
+        LastWin.hwnd = NULL;
+        if(!conf.FullWin) HideTransWin();
+    }
     if (button == BT_WHEEL || button == BT_HWHEEL) {
         // Handle wheel combo.
         if (accombo) {
-            state.moving = CURSOR_ONLY;
-            LastWin.hwnd = NULL;
-            if(!conf.FullWin) HideTransWin();
             DoWheelActions(state.hwnd, accombo);
             // No mouseup to block for wheel actions...
         }
@@ -4406,9 +4409,6 @@ static void DoComboActions(enum action action, enum button button)
             // Special case for Move/Resize combo.
             ClickComboActions(action);
         } else {
-            state.moving = CURSOR_ONLY;
-            LastWin.hwnd = NULL;
-            if(!conf.FullWin) HideTransWin();
             SClickActions(state.hwnd, accombo);
             state.blockmouseup = 1;
         }

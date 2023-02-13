@@ -808,6 +808,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {TEXT("Roll"),         l10n->input_actions_roll},
         {TEXT("Maximize"),     l10n->input_actions_maximize},
         {TEXT("NPStacked"),    l10n->input_actions_npstacked},
+        {TEXT("NPStacked2"),   l10n->input_actions_npstacked2},
         {TEXT("HScroll"),      l10n->input_actions_hscroll},
         {TEXT("Nothing"),      l10n->input_actions_nothing},
         {NULL, NULL}
@@ -1348,9 +1349,8 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
             // Enable or disable buttons if needed
             Button_Enable(GetDlgItem(hwnd, IDC_MDIS), GetPrivateProfileInt(TEXT("General"), TEXT("MDI"), 1, inipath));
             Button_Enable(GetDlgItem(hwnd, IDC_PAUSEBL)
-                       ,  GetPrivateProfileInt(TEXT("Input"), TEXT("AggressivePause"), 0, inipath)
-                       || GetPrivateProfileInt(TEXT("Input"), TEXT("AggressiveKill"), 0, inipath));
-                        // Grayout useless
+                  ,  GetPrivateProfileInt(TEXT("KBShortcuts"), TEXT("Kill"), 0, inipath)
+                  || GetPrivateProfileInt(TEXT("Advanced"), TEXT("ACMenuItems"), -1, inipath)&8192);
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Save to the config
             WriteDialogOptions(hwnd, optlst, ARR_SZ(optlst));

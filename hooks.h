@@ -71,7 +71,7 @@ enum action {
   , AC_STEPL, AC_STEPT, AC_STEPR, AC_STEPB
   , AC_SSTEPL, AC_SSTEPT, AC_SSTEPR, AC_SSTEPB
   , AC_ROLL, AC_ALTTAB, AC_VOLUME, AC_TRANSPARENCY, AC_HSCROLL
-  , AC_ZOOM, AC_ZOOM2, AC_NPSTACKED
+  , AC_ZOOM, AC_ZOOM2, AC_NPSTACKED, AC_NPSTACKED2
   , AC_MAXVALUE
   , AC_ORICLICK
 };
@@ -90,7 +90,7 @@ enum action {
   , "StepL", "StepT", "StepR", "StepB"                             \
   , "SStepL", "SStepT", "SStepR", "SStepB"                         \
   , "Roll", "AltTab", "Volume", "Transparency", "HScroll"          \
-  , "Zoom", "Zoom2", "NPStacked",                                  \
+  , "Zoom", "Zoom2", "NPStacked", "NPStacked2"                     \
 }
 
 #define MOUVEMENT(action) (action <= AC_RESIZE)

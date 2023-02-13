@@ -133,6 +133,7 @@ struct strings {
   TCHAR *input_actions_pstacked;
   TCHAR *input_actions_pstacked2;
   TCHAR *input_actions_npstacked;
+  TCHAR *input_actions_npstacked2;
   TCHAR *input_actions_stacklist;
   TCHAR *input_actions_stacklist2;
   TCHAR *input_actions_alttablist;
@@ -353,6 +354,7 @@ static const char* l10n_inimapping[] = {
     "InputActionPStacked",
     "InputActionPStacked2",
     "InputActionNPStacked",
+    "InputActionNPStacked2",
     "InputActionStackList",
     "InputActionStackList2",
     "InputActionAltTabList",
@@ -574,6 +576,7 @@ static const struct strings en_US = {
  /* pstacked           */ TEXT("Previous stacked window"),
  /* pstacked 2         */ TEXT("Previous laser stacked window"),
  /* npstacked          */ TEXT("Next/Prev stacked window"),
+ /* npstacked          */ TEXT("Next/Prev laser stacked window"),
  /* stacklist          */ TEXT("Stacked windows list"),
  /* stacklist2         */ TEXT("Laser stacked windows list"),
  /* alttablist         */ TEXT("Windows List"),

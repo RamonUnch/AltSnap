@@ -3113,7 +3113,7 @@ static int ActionMove(POINT pt, int button)
         return 1;
     } else if (conf.MMMaximize&2) {
         MouseMove(pt); // Restore with simple Click
-    } else if (conf.DragThreshold == 2 || (conf.DragThreshold == 1 && IsAnySnapped(state.hwnd))) {
+    } else if (conf.DragThreshold >= 2 || (conf.DragThreshold == 1 && IsAnySnapped(state.hwnd))) {
         // Wait some move threshold before drag...
         // If the Window was maximized or if the user enabled the option.
         state.moving = DRAG_WAIT;
@@ -3324,6 +3324,9 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
             // Use diagonals to select pure L/C R/C T/C B/C
             SetEdgeToClosestSide(wnd, pt);
         }
+    }
+    if (conf.DragThreshold >= 3) {
+        state.moving = DRAG_WAIT;
     }
     return -1;
 }
@@ -4404,10 +4407,12 @@ static void ClickComboActions(enum action action)
             MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE, 2);
         }
         state.blockmouseup = 1;
-    } else if (state.action == AC_RESIZE && action == AC_MOVE && !state.moving) {
+    } else if (state.action == AC_RESIZE && action == AC_MOVE && (!state.moving || state.moving == DRAG_WAIT) ) {
+        WaitMovementEnd();
         HideTransWin();
         SnapToCorner(state.hwnd, !state.shift ^ !(conf.AeroTopMaximizes&2));
         HideCursor();
+        LastWin.hwnd = state.hwnd = NULL;
         state.blockmouseup = 2; // block two mouse up events!
     }
 }
@@ -4542,6 +4547,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 
     // Handle another click if we are already busy with an action
     if (buttonstate == STATE_DOWN && state.action && state.action != conf.GrabWithAlt[ModKey()]) {
+
         if ((conf.MMMaximize&1)) {
             DoComboActions(action, button); // Handle click combo!
         } else if (button != BT_WHEEL && button != BT_HWHEEL) {
@@ -4647,7 +4653,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         if((state.action == action || (state.action == AC_MOVE && action == AC_RESIZE))
         &&(!state.moving || state.moving == DRAG_WAIT)// No drag occured
         && !state.ctrl // Ctrl is not down (because of focusing)
-        && IsSamePTT(&pt, &state.clickpt) // same point
+        && IsPtDrag(&pt, &state.clickpt) // same point (within drag)
         && !IsDoubleClick(button)) { // Long click unless PiercingClick=1
             FinishMovement();
             // Mouse UP actions here only in case of MOVEMENT!:

@@ -5542,8 +5542,14 @@ __declspec(dllexport) WINAPI HWND Load(HWND mainhwnd)
     LastWin.hwnd = NULL;
 
     // GET SYSTEM SETTINGS
-    conf.dragXth  = GetSystemMetrics(SM_CXDRAG);
-    conf.dragYth  = GetSystemMetrics(SM_CYDRAG);
+    DWORD dragthreshold=0;
+    if (SystemParametersInfo(/*SPI_GETMOUSEDRAGOUTTHRESHOLD*/0x0084, 0, &dragthreshold, 0)) {
+        conf.dragXth = conf.dragYth = dragthreshold;
+    } else {
+        conf.dragXth  = GetSystemMetrics(SM_CXDRAG);
+        conf.dragYth  = GetSystemMetrics(SM_CYDRAG);
+    }
+
     conf.dbclickX = GetSystemMetrics(SM_CXDOUBLECLK);
     conf.dbclickY = GetSystemMetrics(SM_CYDOUBLECLK);
 

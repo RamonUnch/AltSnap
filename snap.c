@@ -169,6 +169,16 @@ static void SetRestoreFlag(HWND hwnd, unsigned flag)
         wnddb[idx].restore = flag;
     }
 }
+
+static int IsAnySnapped(HWND hwnd)
+{
+    // Any kind of snapping, including maximization.
+    // In short whenever the window will be restored.
+    unsigned flg;
+    return  IsZoomed(hwnd)
+        ||( SNAPPED & (flg=GetRestoreFlag(hwnd)) && !(flg&SNCLEAR) )
+        ||  IsWindowSnapped(hwnd);
+}
 /////////////////////////////////////////////////////////////////////////////
 // borderless flag (saving old GWL_STYLE)
 static void SetBorderlessFlag(HWND hwnd, LONG_PTR flag)

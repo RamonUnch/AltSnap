@@ -8,12 +8,7 @@
 #include <windows.h>
 #include "unfuck.h"
 
-// Undecorated entry name in x64 mode
-#ifdef WIN64
 #define LOW_LEVELK_BPROC "LowLevelKeyboardProc"
-#else
-#define LOW_LEVELK_BPROC "LowLevelKeyboardProc@12"
-#endif
 
 // Extra messages for Action Menu
 #define LP_CURSORPOS   (1<<0)

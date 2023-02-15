@@ -22,6 +22,7 @@ static LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 #define CURSOR_ONLY 66
 #define NOT_MOVED 33
 #define RESET_OFFSET 22
+#define DRAG_WAIT 77
 // Number of actions per button!
 //  2 for Alt+Clikc
 // +2 for Titlebar action
@@ -137,6 +138,11 @@ unsigned numhwnds = 0;
 // Settings
 #define MAXKEYS 15
 static struct config {
+    // System settings
+    short dragXth;
+    short dragYth;
+    short dbclickX;
+    short dbclickY;
     // [General]
     UCHAR AutoFocus;
     UCHAR AutoSnap;
@@ -178,6 +184,7 @@ static struct config {
     UCHAR TopmostIndicator;
     UCHAR RCCloseMItem;
     UCHAR MaxKeysNum;
+    UCHAR DragThreshold;
     // [Performance]
     UCHAR FullWin;
     UCHAR TransWinOpacity;
@@ -277,6 +284,7 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "TopmostIndicator", 0 },
     { "RCCloseMItem", 1 },
     { "MaxKeysNum", 0 },
+    { "DragThreshold", 1 },
 };
 // [Performance]
 static const struct OptionListItem Performance_uchars[] = {
@@ -362,6 +370,20 @@ static pure int CLAMPW(int width)  { return CLAMP(state.mmi.Min.x, width,  state
 static pure int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state.mmi.Max.y); }
 static pure int ISCLAMPEDW(int x)  { return state.mmi.Min.x <= x && x <= state.mmi.Max.x; }
 static pure int ISCLAMPEDH(int y)  { return state.mmi.Min.y <= y && y <= state.mmi.Max.y; }
+
+/* If pt and ptt are it is the same points with 4px tolerence */
+static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
+{
+    const short Tx = conf.dbclickX;
+    const short Ty = conf.dbclickY;
+    return !( pt->x > ptt->x+Tx || pt->y > ptt->y+Ty || pt->x < ptt->x-Tx || pt->y < ptt->y-Ty );
+}
+static xpure int IsPtDrag(const POINT *pt, const POINT *ptt)
+{
+    const short Tx = conf.dragXth;
+    const short Ty = conf.dragYth;
+    return !( pt->x > ptt->x+Tx || pt->y > ptt->y+Ty || pt->x < ptt->x-Tx || pt->y < ptt->y-Ty );
+}
 
 // Specific includes
 #include "snap.c"
@@ -1772,6 +1794,7 @@ static void ShowTransWin(int nCmdShow)
     }
 }
 #define HideTransWin() ShowTransWin(SW_HIDE)
+static BOOL IsTransWinVisible() { return IsVisible(g_transhwnd[0]); }
 
 static void MoveTransWin(int x, int y, int w, int h)
 {
@@ -1991,7 +2014,6 @@ static void MouseMove(POINT pt)
     }
     // LastWin is GLOBAL !
     UCHAR mouse_thread_finished = !LastWin.hwnd;
-    LastWin.hwnd   = state.hwnd;
     LastWin.x      = posx;
     LastWin.y      = posy;
     LastWin.width  = wndwidth;
@@ -2003,6 +2025,9 @@ static void MouseMove(POINT pt)
     wnd.right  = posx + state.mdipt.x + wndwidth;
     wnd.bottom = posy + state.mdipt.y + wndheight;
 
+    // Save hwnd After we are sure movement will occur.
+    LastWin.hwnd   = state.hwnd;
+
     if (!conf.FullWin) {
         static RECT bd;
         if(!state.moving) FixDWMRectLL(state.hwnd, &bd, 0);
@@ -2011,7 +2036,7 @@ static void MouseMove(POINT pt)
         int twidth  = wndwidth - bd.left - bd.right;
         int theight = wndheight - bd.top - bd.bottom;
         MoveTransWin(tx, ty, twidth, theight);
-        if(!state.moving)
+        if (!IsTransWinVisible())
             ShowTransWin(SW_SHOWNA);
         state.moving=1;
         ResizeTouchingWindows(&LastWin);
@@ -2349,7 +2374,7 @@ static void TogglesAlwaysOnTop(HWND hwnd);
 static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_);
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
-__declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
+__declspec(dllexport) CALLBACK LRESULT LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
     if (nCode != HC_ACTION || state.ignorekey) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
@@ -3088,7 +3113,12 @@ static int ActionMove(POINT pt, int button)
         return 1;
     } else if (conf.MMMaximize&2) {
         MouseMove(pt); // Restore with simple Click
+    } else if (conf.DragThreshold == 2 || (conf.DragThreshold == 1 && IsAnySnapped(state.hwnd))) {
+        // Wait some move threshold before drag...
+        // If the Window was maximized or if the user enabled the option.
+        state.moving = DRAG_WAIT;
     }
+
     return -1;
 }
 static void SetEdgeAndOffsetCF(const RECT *wnd, const UCHAR centerfrac, POINT pt)
@@ -4000,12 +4030,12 @@ static void SClickActions(HWND hwnd, enum action action)
             , state.shift?(LPARAM)EnumStackedWindowsProc:(LPARAM)EnumAltTabWindows); break;
     case AC_MLZONE:      MoveWindowToTouchingZone(hwnd, 0, 0); break; // mLeft
     case AC_MTZONE:      MoveWindowToTouchingZone(hwnd, 1, 0); break; // mTop
-    case AC_MRZONE:      MoveWindowToTouchingZone(hwnd, 2, 0); break; // mBottom
-    case AC_MBZONE:      MoveWindowToTouchingZone(hwnd, 3, 0); break; // mBight
+    case AC_MRZONE:      MoveWindowToTouchingZone(hwnd, 2, 0); break; // mRight
+    case AC_MBZONE:      MoveWindowToTouchingZone(hwnd, 3, 0); break; // mBottom
     case AC_XLZONE:      MoveWindowToTouchingZone(hwnd, 0, 1); break; // xLeft
     case AC_XTZONE:      MoveWindowToTouchingZone(hwnd, 1, 1); break; // xTop
-    case AC_XRZONE:      MoveWindowToTouchingZone(hwnd, 2, 1); break; // xBottom
-    case AC_XBZONE:      MoveWindowToTouchingZone(hwnd, 3, 1); break; // xBight
+    case AC_XRZONE:      MoveWindowToTouchingZone(hwnd, 2, 1); break; // xRight
+    case AC_XBZONE:      MoveWindowToTouchingZone(hwnd, 3, 1); break; // xBottom
     case AC_STEPL:       StepWindow(hwnd, -conf.KBMoveStep, 0); break;
     case AC_STEPT:       StepWindow(hwnd, -conf.KBMoveStep, 1); break;
     case AC_STEPR:       StepWindow(hwnd, +conf.KBMoveStep, 0); break;
@@ -4082,7 +4112,7 @@ static int xpure DoubleClamp(int ptx, int left, int right, int rwidth)
     return posx;
 }
 /////////////////////////////////////////////////////////////////////////////
-// If we pass buttonX BT_PROBE is AC_NONE it will tell us if we pass the blacklist.
+// If we pass buttonX BT_PROBE it will tell us if we pass the blacklist.
 static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, int buttonX)
 {
     RECT wnd;
@@ -4150,6 +4180,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
     state.origin.width  = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
     state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
+    state.resizable = IsResizable(state.hwnd);
 
     GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
 
@@ -4175,7 +4206,6 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
 
         // Set action statte.
         state.action = action; // MOVE OR RESIZE
-        state.resizable = IsResizable(state.hwnd);
         // Wether or not we will use the zones
         state.usezones = ((conf.UseZones&9) == 9)^state.shift;
 
@@ -4466,6 +4496,12 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     if (wParam == WM_MOUSEMOVE) {
         if (SamePt(pt, state.prevpt)) return CallNextHookEx(NULL, nCode, wParam, lParam);
         // Store prevpt so we can check if the hook goes stale
+        if( state.moving == DRAG_WAIT ) {
+            if (IsPtDrag(&state.prevpt, &pt))
+                return CallNextHookEx(NULL, nCode, wParam, lParam);
+            state.moving = 0;
+            MouseMove(state.prevpt);
+        }
         state.prevpt = pt;
 
         // Reset double-click time
@@ -4609,7 +4645,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         SetWindowTrans(NULL); // Reset window transparency
 
         if((state.action == action || (state.action == AC_MOVE && action == AC_RESIZE))
-        && !state.moving // No drag occured
+        &&(!state.moving || state.moving == DRAG_WAIT)// No drag occured
         && !state.ctrl // Ctrl is not down (because of focusing)
         && IsSamePTT(&pt, &state.clickpt) // same point
         && !IsDoubleClick(button)) { // Long click unless PiercingClick=1
@@ -5185,7 +5221,7 @@ static void freeblacklists()
 }
 /////////////////////////////////////////////////////////////////////////////
 // To be called before Free Library. Ideally it should free everything
-__declspec(dllexport) void Unload()
+__declspec(dllexport) WINAPI void Unload()
 {
     conf.keepMousehook = 0;
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
@@ -5495,7 +5531,7 @@ static void readalluchars(UCHAR *dest, const TCHAR * const inisection, const str
 
 ///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.
-__declspec(dllexport) HWND Load(HWND mainhwnd)
+__declspec(dllexport) WINAPI HWND Load(HWND mainhwnd)
 {
     // Load settings
     TCHAR inipath[MAX_PATH];
@@ -5504,6 +5540,13 @@ __declspec(dllexport) HWND Load(HWND mainhwnd)
     state.shift = 0;
     state.moving = 0;
     LastWin.hwnd = NULL;
+
+    // GET SYSTEM SETTINGS
+    conf.dragXth  = GetSystemMetrics(SM_CXDRAG);
+    conf.dragYth  = GetSystemMetrics(SM_CYDRAG);
+    conf.dbclickX = GetSystemMetrics(SM_CXDOUBLECLK);
+    conf.dbclickY = GetSystemMetrics(SM_CYDOUBLECLK);
+
 
     // Get ini path
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));

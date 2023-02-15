@@ -4383,7 +4383,7 @@ static void FinishMovement()
 /////////////////////////////////////////////////////////////////////////////
 // state.action is the current action
 // TODO: Generalize click combo...
-static void ClickComboActions(enum action action)
+static int ClickComboActions(enum action action)
 {
     // Maximize/Restore the window if pressing Move, Resize mouse buttons.
     if (state.action == AC_MOVE && action == AC_RESIZE) {
@@ -4407,6 +4407,7 @@ static void ClickComboActions(enum action action)
             MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE, 2);
         }
         state.blockmouseup = 1;
+        return 1;
     } else if (state.action == AC_RESIZE && action == AC_MOVE && (!state.moving || state.moving == DRAG_WAIT) ) {
         WaitMovementEnd();
         HideTransWin();
@@ -4414,7 +4415,9 @@ static void ClickComboActions(enum action action)
         HideCursor();
         LastWin.hwnd = state.hwnd = NULL;
         state.blockmouseup = 2; // block two mouse up events!
+        return 1;
     }
+    return 0;
 }
 
 // Generalization of Click combo.
@@ -4425,6 +4428,8 @@ static void DoComboActions(enum action action, enum button button)
         return;
 
     enum action accombo = GetActionMR(button);
+    if( !action && !(conf.MMMaximize&1) ) {
+    }
 
     UCHAR lock_movement = ActionInfo(accombo) & (ACINFO_MOVE|ACINFO_RESIZE|ACINFO_CLOSE);
     if (lock_movement) {
@@ -4440,14 +4445,20 @@ static void DoComboActions(enum action action, enum button button)
         }
     } else {
         // Other buttons.
-        if( !accombo ) {
-            // Special case for Move/Resize combo.
-            ClickComboActions(action);
-        } else {
+        if (accombo) {
             SClickActions(state.hwnd, accombo);
+            state.blockmouseup = 1;
+        } else {
+            // Try to do Move/Resize combo..
+            if( ClickComboActions(action) )
+                return;
+
+            // Toggle SnapToZones if nothing was overwritten.
+            ActionToggleSnapToZoneMode();
             state.blockmouseup = 1;
         }
     }
+
 }
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -4547,13 +4558,8 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 
     // Handle another click if we are already busy with an action
     if (buttonstate == STATE_DOWN && state.action && state.action != conf.GrabWithAlt[ModKey()]) {
-
-        if ((conf.MMMaximize&1)) {
-            DoComboActions(action, button); // Handle click combo!
-        } else if (button != BT_WHEEL && button != BT_HWHEEL) {
-            ActionToggleSnapToZoneMode();
-            state.blockmouseup = 1;
-        }
+        // Handle click combo action!
+        DoComboActions(action, button);
         return 1; // Block mousedown so altsnap does not remove g_mainhwnd
     }
 

@@ -89,6 +89,8 @@ struct strings {
   TCHAR *input_mouse_btac1;
   TCHAR *input_mouse_btac2;
   TCHAR *input_mouse_inttb;
+  TCHAR *input_mouse_whilem;
+  TCHAR *input_mouse_whiler;
   TCHAR *input_mouse_lmb;
   TCHAR *input_mouse_mmb;
   TCHAR *input_mouse_rmb;
@@ -314,6 +316,8 @@ static const char* l10n_inimapping[] = {
     "InputMouseBtAc1",
     "InputMouseBtAc2",
     "InputMouseINTTB",
+    "InputMouseWhileM",
+    "InputMouseWhileR",
     "InputMouseLMB",
     "InputMouseMMB",
     "InputMouseRMB",
@@ -535,6 +539,8 @@ static const struct strings en_US = {
  /* btac1              */ TEXT("&1. Primary"),
  /* btac2              */ TEXT("&2. Alternate"),
  /* inttb              */ TEXT("&Title bar"),
+ /* whilem             */ TEXT("Whil&e moving"),
+ /* whiler             */ TEXT("While resi&zing"),
  /* lmb                */ TEXT("Left mouse &button:"),
  /* mmb                */ TEXT("&Middle mouse button:"),
  /* rmb                */ TEXT("Ri&ght mouse button:"),

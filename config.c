@@ -72,8 +72,8 @@ static void SetAutostart(int on, int hhide, int eelevate)
         unsigned ll = lstrlen(value);
         value[ll] = '\"'; value[++ll]='\0';
         // Add -hide or -elevate flags
-        if (hhide)    lstrcat(value, TEXT(" -hide"));
-        if (eelevate) lstrcat(value, TEXT(" -elevate"));
+        if (hhide)    lstrcat_s(value, ARR_SZ(value), TEXT(" -hide"));
+        if (eelevate) lstrcat_s(value, ARR_SZ(value), TEXT(" -elevate"));
         // Set autostart
         RegSetValueEx(key, TEXT(APP_NAMEA), 0, REG_SZ, (LPBYTE)value, (lstrlen(value)+1)*sizeof(value[0]));
     } else {
@@ -750,15 +750,15 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     // Mouse actions
     static const struct {
         int control; // Same control
-        TCHAR *option[3]; // Prim/alt/TTB
+        TCHAR *option[5]; // Prim/alt/TTB/WM/WR
     } mouse_buttons[] = {
-        { IDC_LMB,     {TEXT("LMB"), TEXT("LMBB"), TEXT("LMBT")} },
-        { IDC_MMB,     {TEXT("MMB"), TEXT("MMBB"), TEXT("MMBT")} },
-        { IDC_RMB,     {TEXT("RMB"), TEXT("RMBB"), TEXT("RMBT")} },
-        { IDC_MB4,     {TEXT("MB4"), TEXT("MB4B"), TEXT("MB4T")} },
-        { IDC_MB5,     {TEXT("MB5"), TEXT("MB5B"), TEXT("MB5T")} },
-        { IDC_MOVEUP,  {TEXT("MoveUp"), TEXT("MoveUpB"), TEXT("MoveUpT")} },
-        { IDC_RESIZEUP,{TEXT("ResizeUp"), TEXT("ResizeUpB"), TEXT("ResizeUpT")} },
+        { IDC_LMB,     {TEXT("LMB"), TEXT("LMBB"), TEXT("LMBT"), TEXT("LMBM"), TEXT("LMBR")} },
+        { IDC_MMB,     {TEXT("MMB"), TEXT("MMBB"), TEXT("MMBT"), TEXT("MMBM"), TEXT("MMBR")} },
+        { IDC_RMB,     {TEXT("RMB"), TEXT("RMBB"), TEXT("RMBT"), TEXT("RMBM"), TEXT("RMBR")} },
+        { IDC_MB4,     {TEXT("MB4"), TEXT("MB4B"), TEXT("MB4T"), TEXT("MB4M"), TEXT("MB4R")} },
+        { IDC_MB5,     {TEXT("MB5"), TEXT("MB5B"), TEXT("MB5T"), TEXT("MB5M"), TEXT("MB5M")} },
+        { IDC_MOVEUP,  {TEXT("MoveUp"), TEXT("MoveUpB"), TEXT("MoveUpT"), TEXT("MoveUp"), TEXT("MoveUp")} },
+        { IDC_RESIZEUP,{TEXT("ResizeUp"), TEXT("ResizeUpB"), TEXT("ResizeUpT"), TEXT("ResizeUp"), TEXT("ResizeUp")} },
     };
 
     struct actiondl mouse_actions[] = {
@@ -792,10 +792,10 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     // Scroll
     static const struct {
         int control; // Same control
-        TCHAR *option[3]; // Prim/alt/TTB
+        TCHAR *option[5]; // Prim/alt/TTB/WM/WR
     } mouse_wheels[] = {
-        { IDC_SCROLL,  {TEXT("Scroll"),  TEXT("ScrollB"),  TEXT("ScrollT")}  },
-        { IDC_HSCROLL, {TEXT("HScroll"), TEXT("HScrollB"), TEXT("HScrollT")} }
+        { IDC_SCROLL,  {TEXT("Scroll"),  TEXT("ScrollB"),  TEXT("ScrollT"), TEXT("ScrollM"), TEXT("ScrollR")}  },
+        { IDC_HSCROLL, {TEXT("HScroll"), TEXT("HScrollB"), TEXT("HScrollT"), TEXT("HScrollM"), TEXT("HScrollR") } }
     };
 
     struct actiondl scroll_actions[] = {
@@ -831,13 +831,13 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     if (msg == WM_INITDIALOG) {
         // Hotclicks buttons
         ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
-        CheckRadioButton(hwnd, IDC_MBA1, IDC_INTTB, IDC_MBA1); // Check the primary action
+        CheckRadioButton(hwnd, IDC_MBA1, IDC_WHILER, IDC_MBA1); // Check the primary action
         CheckConfigHotKeys(hotclicks, hwnd, TEXT("Hotclicks"), TEXT(""));
     } else if (msg == WM_COMMAND) {
         int event = HIWORD(wParam);
         int id = LOWORD(wParam);
-        if (id >= IDC_MBA1 && id <= IDC_INTTB) {
-            CheckRadioButton(hwnd, IDC_MBA1, IDC_INTTB, id); // Check the selected action
+        if (id >= IDC_MBA1 && id <= IDC_WHILER) {
+            CheckRadioButton(hwnd, IDC_MBA1, IDC_WHILER, id); // Check the selected action
             goto FILLACTIONS;
         }
 
@@ -857,7 +857,16 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             FILLACTIONS:;
             unsigned i;
             // Mouse actions
-            int optoff = IsChecked(IDC_MBA2)? 1:IsChecked(IDC_INTTB)? 2: 0;
+            int optoff = IsChecked(IDC_MBA2)? 1
+                       : IsChecked(IDC_INTTB)? 2
+                       : IsChecked(IDC_WHILEM)? 3
+                       : IsChecked(IDC_WHILER)? 4: 0;
+
+            // We must disable MoveUp and ResizeUp for the
+            // While Moving/While resizing opts.
+            ComboBox_Enable(GetDlgItem(hwnd, IDC_MOVEUP),   optoff < 3);
+            ComboBox_Enable(GetDlgItem(hwnd, IDC_RESIZEUP), optoff < 3);
+
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {
                 FillActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option[optoff], mouse_actions);
             }
@@ -871,6 +880,8 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 { IDC_MBA1,            l10n->input_mouse_btac1 },
                 { IDC_MBA2,            l10n->input_mouse_btac2 },
                 { IDC_INTTB,           l10n->input_mouse_inttb },
+                { IDC_WHILEM,          l10n->input_mouse_whilem },
+                { IDC_WHILER,          l10n->input_mouse_whiler },
 
                 { IDC_MOUSE_BOX,       l10n->input_mouse_box },
                 { IDC_LMB_HEADER,      l10n->input_mouse_lmb },

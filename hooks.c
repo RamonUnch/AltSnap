@@ -92,16 +92,17 @@ static struct {
     HMENU unikeymenu;
     volatile LONG ignorekey;
     volatile LONG ignoreclick;
+
     UCHAR alt;
     UCHAR alt1;
     UCHAR blockaltup;
-
     UCHAR ctrl;
+
     UCHAR shift;
     UCHAR snap;
     UCHAR altsnaponoff;
-
     UCHAR moving;
+
     UCHAR blockmouseup;
     UCHAR fwmouseup;
     UCHAR enumed;
@@ -120,6 +121,7 @@ static struct {
         int bottom;
     } origin;
 
+    UCHAR sactiondone;
     UCHAR xxbutton;
     enum action action;
     struct {
@@ -4003,6 +4005,7 @@ static void ActionMenu(HWND hwnd)
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
 {
+    state.sactiondone = action;
     LOG("Going to perform action %d", (int)action);
     switch (action) {
     case AC_MINIMIZE:    MinimizeWindow(hwnd); break;
@@ -4056,6 +4059,7 @@ static void SClickActions(HWND hwnd, enum action action)
 //
 static int DoWheelActions(HWND hwnd, enum action action)
 {
+    state.sactiondone = action;
     // Return if in the scroll blacklist.
     if (blacklisted(hwnd, &BlkLst.Scroll)) {
         return 0; // Next hook!
@@ -4189,6 +4193,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
 
     // Do things depending on what button was pressed
     if (MOUVEMENT(action)) {
+        state.sactiondone = AC_NONE;
         if (GetProp(state.hwnd, APP_MOVEONOFF)) {
             state.action = AC_NONE;
             return 0; // Movement was disabled for this window.
@@ -4658,6 +4663,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 
         if((state.action == action || (state.action == AC_MOVE && action == AC_RESIZE))
         &&(!state.moving || state.moving == DRAG_WAIT)// No drag occured
+        && !state.sactiondone // No sclick/Wheel action done in the meantime
         && !state.ctrl // Ctrl is not down (because of focusing)
         && IsPtDrag(&pt, &state.clickpt) // same point (within drag)
         && !IsDoubleClick(button)) { // Long click unless PiercingClick=1

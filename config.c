@@ -910,7 +910,11 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             // Mouse actions, for all mouse buttons...
             unsigned i;
             // Add 2 if in titlear add one for secondary action.
-            int optoff = IsChecked(IDC_MBA2)? 1:IsChecked(IDC_INTTB)? 2: 0;
+            // Mouse actions
+            int optoff = IsChecked(IDC_MBA2)? 1
+                       : IsChecked(IDC_INTTB)? 2
+                       : IsChecked(IDC_WHILEM)? 3
+                       : IsChecked(IDC_WHILER)? 4: 0;
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {
                 WriteActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option[optoff], mouse_actions);
             }

@@ -3204,6 +3204,23 @@ static void SetEdgeAndOffset(const RECT *wnd, const POINT pt)
 
 
 }
+
+static void NextBorders(RECT *pos, const RECT *cur, const RECT *def)
+{
+    unsigned i;
+    CopyRect(pos, def);
+    for (i=0; i<numsnwnds; i++) {
+        const RECT *rc = &snwnds[i].wnd;
+        const unsigned flg = snwnds[i].flag;
+        if (!PtInRect(def, (POINT){ rc->left+16, rc->top+16}) )
+            continue;
+
+        if (flg&(SNZONE|SNLEFT)   && rc->right < cur->left) pos->left   = max(pos->left, rc->right);
+        if (flg&(SNZONE|SNTOP)    && rc->bottom < cur->top) pos->top    = max(pos->top, rc->bottom);
+        if (flg&(SNZONE|SNRIGHT)  && rc->left > cur->right) pos->right  = min(pos->right, rc->left);
+        if (flg&(SNZONE|SNBOTTOM) && rc->top > cur->bottom) pos->bottom = min(pos->bottom, rc->top);
+    }
+}
 static void SnapToCorner(HWND hwnd, int extend)
 {
     SetOriginFromRestoreData(hwnd, AC_MOVE);
@@ -3212,7 +3229,7 @@ static void SnapToCorner(HWND hwnd, int extend)
 
     // Get and set new position
     int posx, posy; // wndwidth and wndheight are defined above
-    int restore = 1;
+    unsigned restore = 1;
     RECT *mon = &state.origin.mon;
     RECT bd, wnd;
     GetWindowRect(hwnd, &wnd);
@@ -3223,6 +3240,14 @@ static void SnapToCorner(HWND hwnd, int extend)
 
     if (extend) {
     /* Extend window's borders to monitor */
+        RECT tmp;
+
+        if (extend == 2) {
+            EnumSnapped();
+            // Find next borders in each direction and set it up as mon.
+            NextBorders(&tmp, &wnd, mon);
+            mon = &tmp;
+        }
         posx = wnd.left - state.mdipt.x;
         posy = wnd.top - state.mdipt.y;
 
@@ -4024,6 +4049,7 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_MUTE:        Send_KEY(VK_VOLUME_MUTE); break;
     case AC_SIDESNAP:    SnapToCorner(hwnd, state.shift); break;
     case AC_EXTENDSNAP:  SnapToCorner(hwnd, !state.shift); break;
+    case AC_EXTENDTNEDGE:SnapToCorner(hwnd, 2); break;
     case AC_MENU:        ActionMenu(hwnd); break;
     case AC_NSTACKED:    ActionAltTab(state.prevpt, +120,  state.shift, EnumStackedWindowsProc); break;
     case AC_NSTACKED2:   ActionAltTab(state.prevpt, +120, !state.shift, EnumStackedWindowsProc);  break;

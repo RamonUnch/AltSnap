@@ -57,7 +57,7 @@ enum action {
   , AC_MENU, AC_MINIMIZE, AC_MAXIMIZE
   , AC_CENTER , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_BORDERLESS
   , AC_KILL, AC_PAUSE, AC_RESUME, AC_MAXHV, AC_MINALL, AC_MUTE
-  , AC_SIDESNAP, AC_EXTENDSNAP
+  , AC_SIDESNAP, AC_EXTENDSNAP, AC_EXTENDTNEDGE
   , AC_NSTACKED, AC_NSTACKED2, AC_PSTACKED, AC_PSTACKED2
   , AC_STACKLIST, AC_STACKLIST2, AC_ALTTABLIST
   , AC_ASONOFF, AC_MOVEONOFF
@@ -77,10 +77,11 @@ enum action {
   , "Menu", "Minimize", "Maximize"                                 \
   , "Center", "AlwaysOnTop", "Close", "Lower", "Borderless"        \
   , "Kill", "Pause", "Resume", "MaximizeHV", "MinAllOther", "Mute" \
-  , "SideSnap", "ExtendSnap"                                       \
+  , "SideSnap", "ExtendSnap", "ExtendTNEdge"                       \
   , "NStacked", "NStacked2", "PStacked", "PStacked2"               \
   , "StackList", "StackList2", "AltTabList"                        \
   , "ASOnOff", "MoveOnOff"                                         \
+                                                                   \
   , "MLZone", "MTZone", "MRZone", "MBZone"                         \
   , "XLZone", "XTZone", "XRZone", "XBZone"                         \
   , "StepL", "StepT", "StepR", "StepB"                             \
@@ -107,9 +108,11 @@ enum action {
   , CL, CL, MR             \
   , MR, ZO, CL, ZO, 00     \
   , CL, CL, CL, MR, 00, 00 \
-  , MR, MR, ZO, ZO, ZO, ZO \
+  , MR, MR, MR             \
+  , ZO, ZO, ZO, ZO         \
   , CL, CL, CL             \
   , CL, CL                 \
+                           \
   , MR, MR, MR, MR         \
   , MR, MR, MR, MR         \
   , MR, MR, MR, MR         \
@@ -188,4 +191,3 @@ static enum action MapActionW(const TCHAR *txt)
 }
 
 #endif /* ALTDRAG_RPC_H */
-

@@ -1880,6 +1880,8 @@ static void ClearRestoreFlagOnResizeIfNeeded(HWND hwnd)
     }
 }
 ///////////////////////////////////////////////////////////////////////////
+static void UpdateCursor(POINT pt);
+static void SetEdgeAndOffset(const RECT *wnd, POINT pt);
 static void MouseMove(POINT pt)
 {
     // Check if window still exists
@@ -1889,7 +1891,15 @@ static void MouseMove(POINT pt)
     if (conf.UseCursor) // Draw the invisible cursor window
         MoveWindow(g_mainhwnd, pt.x-128, pt.y-128, 256, 256, FALSE);
 
-    if (state.moving == CURSOR_ONLY) return; // Movement was blocked...
+    if (state.moving == CURSOR_ONLY) {
+        if (state.action == AC_RESIZE) {
+            RECT rc;
+            GetWindowRect(state.hwnd, &rc);
+            SetEdgeAndOffset(&rc, pt);
+            UpdateCursor(pt);
+        }
+        return; // Movement was blocked...
+    }
 
     static RECT wnd; // wnd will be updated and is initialized once.
     if (!state.moving && !GetWindowRect(state.hwnd, &wnd)) return;
@@ -3004,7 +3014,6 @@ static void RollWindow(HWND hwnd, int delta)
     }
 }
 
-static void SetEdgeAndOffset(const RECT *wnd, POINT pt);
 static int ActionZoom(HWND hwnd, int delta, int center)
 {
     if(!IsResizable(hwnd)) return 0;
@@ -3225,7 +3234,6 @@ static void SnapToCorner(HWND hwnd, int extend)
 {
     SetOriginFromRestoreData(hwnd, AC_MOVE);
     GetMinMaxInfo(hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
-    state.action = AC_NONE; // Stop resize action
 
     // Get and set new position
     int posx, posy; // wndwidth and wndheight are defined above
@@ -3330,6 +3338,7 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
     }
     // Aero-move this window if this is a double-click
     if (IsDoubleClick(button)) {
+        state.action = AC_NONE; // Stop resize action
         SnapToCorner(state.hwnd, !state.shift ^ !(conf.AeroTopMaximizes&2));
         state.blockmouseup = 1; // Block mouse up (context menu would pop)
         state.clicktime = 0;    // Reset double-click time
@@ -4202,7 +4211,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
 //    LOGA("Blacklists passed!");
 
     // If no action is to be done then we passed all balcklists
-    if (probemode) return 1;
+    if (probemode || action == AC_NONE) return 1;
 
     // Set state
     state.blockaltup = state.alt; // If alt is down...
@@ -4414,6 +4423,14 @@ static void FinishMovement()
 /////////////////////////////////////////////////////////////////////////////
 // state.action is the current action
 // TODO: Generalize click combo...
+static void LockMovement()
+{
+        state.moving = CURSOR_ONLY;
+        //FinishMovement();
+        //state.action = AC_NONE;
+        LastWin.hwnd = NULL;
+        if(!conf.FullWin) HideTransWin();
+}
 static int ClickComboActions(enum action action)
 {
     // Maximize/Restore the window if pressing Move, Resize mouse buttons.
@@ -4428,9 +4445,7 @@ static int ClickComboActions(enum action action)
                 MouseMove(state.prevpt);
             }
         } else if (state.resizable) {
-            state.moving = CURSOR_ONLY; // So that MouseMove will only move g_mainhwnd
-            LastWin.hwnd = NULL;
-            if (!conf.FullWin) HideTransWin();
+            LockMovement();
             if (IsHotclick(state.alt)) {
                 state.action = AC_NONE;
                 state.moving = 0;
@@ -4439,13 +4454,11 @@ static int ClickComboActions(enum action action)
         }
         state.blockmouseup = 1;
         return 1;
-    } else if (state.action == AC_RESIZE && action == AC_MOVE && (!state.moving || state.moving == DRAG_WAIT) ) {
+    } else if (state.action == AC_RESIZE && action == AC_MOVE /*&& (!state.moving || state.moving == DRAG_WAIT)*/ ) {
         WaitMovementEnd();
-        HideTransWin();
-        SnapToCorner(state.hwnd, !state.shift ^ !(conf.AeroTopMaximizes&2));
-        HideCursor();
-        LastWin.hwnd = state.hwnd = NULL;
-        state.blockmouseup = 2; // block two mouse up events!
+        LockMovement();
+        SClickActions(state.hwnd, AC_SIDESNAP);
+        state.blockmouseup = 1;
         return 1;
     }
     return 0;
@@ -4459,14 +4472,8 @@ static void DoComboActions(enum action action, enum button button)
         return;
 
     enum action accombo = GetActionMR(button);
-    if( !action && !(conf.MMMaximize&1) ) {
-    }
-
-    UCHAR lock_movement = ActionInfo(accombo) & (ACINFO_MOVE|ACINFO_RESIZE|ACINFO_CLOSE);
-    if (lock_movement) {
-        state.moving = CURSOR_ONLY;
-        LastWin.hwnd = NULL;
-        if(!conf.FullWin) HideTransWin();
+    if (ActionInfo(accombo) & (ACINFO_MOVE|ACINFO_RESIZE|ACINFO_CLOSE)) {
+        LockMovement();
     }
     if (button == BT_WHEEL || button == BT_HWHEEL) {
         // Handle wheel combo.
@@ -5548,7 +5555,9 @@ void registerAllHotkeys(const TCHAR* inipath)
 
     conf.UsePtWindow = GetSectionOptionInt(inisection, "UsePtWindow", 0);
 
-    static const char *action_names[] = ACTION_MAP;
+    #define ACVALUE(a, b, c) (b),
+    static const char *action_names[] = { ACTION_MAP };
+    #undef ACVALUE
     unsigned ac;
     for (ac=AC_MENU; ac < ARR_SZ(action_names); ac++) {
         WORD HK = GetSectionOptionInt(inisection, action_names[ac], 0);

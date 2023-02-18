@@ -21,6 +21,14 @@ static LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
 #define CURSOR_ONLY 66
 #define NOT_MOVED 33
+#define RESET_OFFSET 22
+#define DRAG_WAIT 77
+// Number of actions per button!
+//  2 for Alt+Clikc
+// +2 for Titlebar action
+// +2 for Action while moving
+// +2 for action while resizing
+#define NACPB 8
 
 #define STACK 0x1000
 
@@ -84,16 +92,17 @@ static struct {
     HMENU unikeymenu;
     volatile LONG ignorekey;
     volatile LONG ignoreclick;
+
     UCHAR alt;
     UCHAR alt1;
     UCHAR blockaltup;
-
     UCHAR ctrl;
+
     UCHAR shift;
     UCHAR snap;
     UCHAR altsnaponoff;
-
     UCHAR moving;
+
     UCHAR blockmouseup;
     UCHAR fwmouseup;
     UCHAR enumed;
@@ -112,6 +121,7 @@ static struct {
         int bottom;
     } origin;
 
+    UCHAR sactiondone;
     UCHAR xxbutton;
     enum action action;
     struct {
@@ -130,6 +140,11 @@ unsigned numhwnds = 0;
 // Settings
 #define MAXKEYS 15
 static struct config {
+    // System settings
+    short dragXth;
+    short dragYth;
+    short dbclickX;
+    short dbclickY;
     // [General]
     UCHAR AutoFocus;
     UCHAR AutoSnap;
@@ -171,6 +186,7 @@ static struct config {
     UCHAR TopmostIndicator;
     UCHAR RCCloseMItem;
     UCHAR MaxKeysNum;
+    UCHAR DragThreshold;
     // [Performance]
     UCHAR FullWin;
     UCHAR TransWinOpacity;
@@ -212,15 +228,15 @@ static struct config {
 
     struct {
         enum action // Up to 20 BUTTONS!!!
-          LMB[4],  RMB[4],  MMB[4],  MB4[4],  MB5[4]
-        , MB6[4],  MB7[4],  MB8[4],  MB9[4],  MB10[4]
-        , MB11[4], MB12[4], MB13[4], MB14[4], MB15[4]
-        , MB16[4], MB17[4], MB18[4], MB19[4], MB20[4]
-        , Scroll[4], HScroll[4]; // Plus vertical and horizontal wheels
+          LMB[NACPB],  RMB[NACPB],  MMB[NACPB],  MB4[NACPB],  MB5[NACPB]
+        , MB6[NACPB],  MB7[NACPB],  MB8[NACPB],  MB9[NACPB],  MB10[NACPB]
+        , MB11[NACPB], MB12[NACPB], MB13[NACPB], MB14[NACPB], MB15[NACPB]
+        , MB16[NACPB], MB17[NACPB], MB18[NACPB], MB19[NACPB], MB20[NACPB]
+        , Scroll[NACPB], HScroll[NACPB]; // Plus vertical and horizontal wheels
     } Mouse;
-    enum action GrabWithAlt[4]; // Actions without click
-    enum action MoveUp[4];      // Actions on (long) Move Up w/o drag
-    enum action ResizeUp[4];    // Actions on (long) Resize Up w/o drag
+    enum action GrabWithAlt[NACPB]; // Actions without click
+    enum action MoveUp[NACPB];      // Actions on (long) Move Up w/o drag
+    enum action ResizeUp[NACPB];    // Actions on (long) Resize Up w/o drag
 } conf;
 
 struct OptionListItem {
@@ -270,6 +286,7 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "TopmostIndicator", 0 },
     { "RCCloseMItem", 1 },
     { "MaxKeysNum", 0 },
+    { "DragThreshold", 1 },
 };
 // [Performance]
 static const struct OptionListItem Performance_uchars[] = {
@@ -355,6 +372,20 @@ static pure int CLAMPW(int width)  { return CLAMP(state.mmi.Min.x, width,  state
 static pure int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state.mmi.Max.y); }
 static pure int ISCLAMPEDW(int x)  { return state.mmi.Min.x <= x && x <= state.mmi.Max.x; }
 static pure int ISCLAMPEDH(int y)  { return state.mmi.Min.y <= y && y <= state.mmi.Max.y; }
+
+/* If pt and ptt are it is the same points with 4px tolerence */
+static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
+{
+    const short Tx = conf.dbclickX;
+    const short Ty = conf.dbclickY;
+    return !( pt->x > ptt->x+Tx || pt->y > ptt->y+Ty || pt->x < ptt->x-Tx || pt->y < ptt->y-Ty );
+}
+static xpure int IsPtDrag(const POINT *pt, const POINT *ptt)
+{
+    const short Tx = conf.dragXth;
+    const short Ty = conf.dragYth;
+    return !( pt->x > ptt->x+Tx || pt->y > ptt->y+Ty || pt->x < ptt->x-Tx || pt->y < ptt->y-Ty );
+}
 
 // Specific includes
 #include "snap.c"
@@ -1531,7 +1562,7 @@ static pure int ModKey()
 static enum action GetAction(const enum button button)
 {
     if (button) { // Ugly pointer arithmetic (LMB <==> button == 2)
-        return conf.Mouse.LMB[(button-2)*4+ModKey()];
+        return conf.Mouse.LMB[(button-2)*NACPB+ModKey()];
     } else {
         return AC_NONE;
     }
@@ -1539,12 +1570,24 @@ static enum action GetAction(const enum button button)
 static enum action GetActionT(const enum button button)
 {
     if (button) { // Ugly pointer arithmetic +2 compared to non titlebar
-        return conf.Mouse.LMB[2+(button-2)*4+ModKey()];
+        return conf.Mouse.LMB[2+(button-2)*NACPB+ModKey()];
     } else {
         return AC_NONE;
     }
 }
-
+static enum action GetActionMR(const enum button button)
+{
+    if (button) {
+        // Ugly pointer arithmetic
+        // state.action == 1 or 2
+        // MB[4/5] == Action/Alt while moving
+        // MB[6/7] == Action/Alt while Resizing
+        int offset = state.action<<1; // 2 or 4
+        return conf.Mouse.LMB[2+offset+(button-2)*NACPB+ModKey()];
+    } else {
+        return AC_NONE;
+    }
+}
 #define IsHotkey(a)   IsHotkeyy(a, conf.Hotkeys)
 #define IsHotclick(a) IsHotkeyy(a, conf.Hotclick)
 static int pure IsKillkey(unsigned char a)
@@ -1753,6 +1796,7 @@ static void ShowTransWin(int nCmdShow)
     }
 }
 #define HideTransWin() ShowTransWin(SW_HIDE)
+static BOOL IsTransWinVisible() { return IsVisible(g_transhwnd[0]); }
 
 static void MoveTransWin(int x, int y, int w, int h)
 {
@@ -1972,7 +2016,6 @@ static void MouseMove(POINT pt)
     }
     // LastWin is GLOBAL !
     UCHAR mouse_thread_finished = !LastWin.hwnd;
-    LastWin.hwnd   = state.hwnd;
     LastWin.x      = posx;
     LastWin.y      = posy;
     LastWin.width  = wndwidth;
@@ -1984,6 +2027,9 @@ static void MouseMove(POINT pt)
     wnd.right  = posx + state.mdipt.x + wndwidth;
     wnd.bottom = posy + state.mdipt.y + wndheight;
 
+    // Save hwnd After we are sure movement will occur.
+    LastWin.hwnd   = state.hwnd;
+
     if (!conf.FullWin) {
         static RECT bd;
         if(!state.moving) FixDWMRectLL(state.hwnd, &bd, 0);
@@ -1992,7 +2038,7 @@ static void MouseMove(POINT pt)
         int twidth  = wndwidth - bd.left - bd.right;
         int theight = wndheight - bd.top - bd.bottom;
         MoveTransWin(tx, ty, twidth, theight);
-        if(!state.moving)
+        if (!IsTransWinVisible())
             ShowTransWin(SW_SHOWNA);
         state.moving=1;
         ResizeTouchingWindows(&LastWin);
@@ -2330,7 +2376,7 @@ static void TogglesAlwaysOnTop(HWND hwnd);
 static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_);
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
-__declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
+__declspec(dllexport) CALLBACK LRESULT LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
     if (nCode != HC_ACTION || state.ignorekey) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
@@ -2690,7 +2736,7 @@ static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_)
     return hwnd;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int ActionAltTab(POINT pt, int delta, WNDENUMPROC lpEnumFunc)
+static int ActionAltTab(POINT pt, short delta, short laser, WNDENUMPROC lpEnumFunc)
 {
     numhwnds = 0;
 
@@ -2708,7 +2754,7 @@ static int ActionAltTab(POINT pt, int delta, WNDENUMPROC lpEnumFunc)
         }
         // Enumerate and then reorder MDI windows
         if (mdiclient) {
-            EnumChildWindows(mdiclient, lpEnumFunc, 0);
+            EnumChildWindows(mdiclient, lpEnumFunc, laser);
 
             if (numhwnds > 1) {
                 if (delta > 0) {
@@ -2725,7 +2771,7 @@ static int ActionAltTab(POINT pt, int delta, WNDENUMPROC lpEnumFunc)
     if (numhwnds <= 1) {
         state.origin.monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
         numhwnds = 0;
-        EnumDesktopWindows(NULL, lpEnumFunc, 0);
+        EnumDesktopWindows(NULL, lpEnumFunc, laser);
         if (numhwnds <= 1) {
             return 0;
         }
@@ -3069,7 +3115,12 @@ static int ActionMove(POINT pt, int button)
         return 1;
     } else if (conf.MMMaximize&2) {
         MouseMove(pt); // Restore with simple Click
+    } else if (conf.DragThreshold >= 2 || (conf.DragThreshold == 1 && IsAnySnapped(state.hwnd))) {
+        // Wait some move threshold before drag...
+        // If the Window was maximized or if the user enabled the option.
+        state.moving = DRAG_WAIT;
     }
+
     return -1;
 }
 static void SetEdgeAndOffsetCF(const RECT *wnd, const UCHAR centerfrac, POINT pt)
@@ -3275,6 +3326,9 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
             // Use diagonals to select pure L/C R/C T/C B/C
             SetEdgeToClosestSide(wnd, pt);
         }
+    }
+    if (conf.DragThreshold >= 3) {
+        state.moving = DRAG_WAIT;
     }
     return -1;
 }
@@ -3909,7 +3963,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
 
     return;
 }
-static void ActionStackList(LPARAM lasermode)
+static void ActionStackList(int lasermode)
 {
     // Just post the message to the Hotkeys message only window
     // So that we do not get stuck in the hook chain.
@@ -3951,6 +4005,7 @@ static void ActionMenu(HWND hwnd)
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
 {
+    state.sactiondone = action;
     LOG("Going to perform action %d", (int)action);
     switch (action) {
     case AC_MINIMIZE:    MinimizeWindow(hwnd); break;
@@ -3970,18 +4025,10 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_SIDESNAP:    SnapToCorner(hwnd, state.shift); break;
     case AC_EXTENDSNAP:  SnapToCorner(hwnd, !state.shift); break;
     case AC_MENU:        ActionMenu(hwnd); break;
-    case AC_NSTACKED:    ActionAltTab(state.prevpt, +1, EnumStackedWindowsProc); break;
-    case AC_NSTACKED2: {
-        state.shift = 1;
-        ActionAltTab(state.prevpt, +1, EnumStackedWindowsProc);
-        state.shift = 0;
-        } break;
-    case AC_PSTACKED:    ActionAltTab(state.prevpt, -1, EnumStackedWindowsProc);
-    case AC_PSTACKED2: {
-        state.shift = 1;
-        ActionAltTab(state.prevpt, -1, EnumStackedWindowsProc);
-        state.shift = 0;
-        } break;
+    case AC_NSTACKED:    ActionAltTab(state.prevpt, +120,  state.shift, EnumStackedWindowsProc); break;
+    case AC_NSTACKED2:   ActionAltTab(state.prevpt, +120, !state.shift, EnumStackedWindowsProc);  break;
+    case AC_PSTACKED:    ActionAltTab(state.prevpt, -120,  state.shift, EnumStackedWindowsProc); break;
+    case AC_PSTACKED2:   ActionAltTab(state.prevpt, -120, !state.shift, EnumStackedWindowsProc); break;
     case AC_STACKLIST:   ActionStackList(state.shift); break;
     case AC_STACKLIST2:  ActionStackList(!state.shift); break;
     case AC_ALTTABLIST:
@@ -3989,12 +4036,12 @@ static void SClickActions(HWND hwnd, enum action action)
             , state.shift?(LPARAM)EnumStackedWindowsProc:(LPARAM)EnumAltTabWindows); break;
     case AC_MLZONE:      MoveWindowToTouchingZone(hwnd, 0, 0); break; // mLeft
     case AC_MTZONE:      MoveWindowToTouchingZone(hwnd, 1, 0); break; // mTop
-    case AC_MRZONE:      MoveWindowToTouchingZone(hwnd, 2, 0); break; // mBottom
-    case AC_MBZONE:      MoveWindowToTouchingZone(hwnd, 3, 0); break; // mBight
+    case AC_MRZONE:      MoveWindowToTouchingZone(hwnd, 2, 0); break; // mRight
+    case AC_MBZONE:      MoveWindowToTouchingZone(hwnd, 3, 0); break; // mBottom
     case AC_XLZONE:      MoveWindowToTouchingZone(hwnd, 0, 1); break; // xLeft
     case AC_XTZONE:      MoveWindowToTouchingZone(hwnd, 1, 1); break; // xTop
-    case AC_XRZONE:      MoveWindowToTouchingZone(hwnd, 2, 1); break; // xBottom
-    case AC_XBZONE:      MoveWindowToTouchingZone(hwnd, 3, 1); break; // xBight
+    case AC_XRZONE:      MoveWindowToTouchingZone(hwnd, 2, 1); break; // xRight
+    case AC_XBZONE:      MoveWindowToTouchingZone(hwnd, 3, 1); break; // xBottom
     case AC_STEPL:       StepWindow(hwnd, -conf.KBMoveStep, 0); break;
     case AC_STEPT:       StepWindow(hwnd, -conf.KBMoveStep, 1); break;
     case AC_STEPR:       StepWindow(hwnd, +conf.KBMoveStep, 0); break;
@@ -4012,13 +4059,14 @@ static void SClickActions(HWND hwnd, enum action action)
 //
 static int DoWheelActions(HWND hwnd, enum action action)
 {
+    state.sactiondone = action;
     // Return if in the scroll blacklist.
     if (blacklisted(hwnd, &BlkLst.Scroll)) {
         return 0; // Next hook!
     }
     int ret=1;
     switch (action) {
-    case AC_ALTTAB:       ActionAltTab(state.prevpt, state.delta
+    case AC_ALTTAB:       ActionAltTab(state.prevpt, state.delta, /*laser=0*/0
                              , state.shift?EnumStackedWindowsProc:EnumAltTabWindows); break;
     case AC_VOLUME:       ActionVolume(state.delta); break;
     case AC_TRANSPARENCY: ret = ActionTransparency(hwnd, state.delta); break;
@@ -4028,7 +4076,8 @@ static int DoWheelActions(HWND hwnd, enum action action)
     case AC_HSCROLL:      ret = ScrollPointedWindow(state.prevpt, -state.delta, WM_MOUSEHWHEEL); break;
     case AC_ZOOM:         ret = ActionZoom(hwnd, state.delta, 0); break;
     case AC_ZOOM2:        ret = ActionZoom(hwnd, state.delta, 1); break;
-    case AC_NPSTACKED:    ActionAltTab(state.prevpt, state.delta, EnumStackedWindowsProc); break;
+    case AC_NPSTACKED:    ActionAltTab(state.prevpt, state.delta,  state.shift, EnumStackedWindowsProc); break;
+    case AC_NPSTACKED2:   ActionAltTab(state.prevpt, state.delta, !state.shift, EnumStackedWindowsProc); break;
 //    case AC_BRIGHTNESS:   ActionBrightness(state.prevpt, state.delta); break;
     default: ret = 0; // No action
     }
@@ -4070,7 +4119,7 @@ static int xpure DoubleClamp(int ptx, int left, int right, int rwidth)
     return posx;
 }
 /////////////////////////////////////////////////////////////////////////////
-// If we pass buttonX BT_PROBE is AC_NONE it will tell us if we pass the blacklist.
+// If we pass buttonX BT_PROBE it will tell us if we pass the blacklist.
 static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, int buttonX)
 {
     RECT wnd;
@@ -4138,11 +4187,13 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
     state.origin.width  = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
     state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
+    state.resizable = IsResizable(state.hwnd);
 
     GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
 
     // Do things depending on what button was pressed
     if (MOUVEMENT(action)) {
+        state.sactiondone = AC_NONE;
         if (GetProp(state.hwnd, APP_MOVEONOFF)) {
             state.action = AC_NONE;
             return 0; // Movement was disabled for this window.
@@ -4163,7 +4214,6 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
 
         // Set action statte.
         state.action = action; // MOVE OR RESIZE
-        state.resizable = IsResizable(state.hwnd);
         // Wether or not we will use the zones
         state.usezones = ((conf.UseZones&9) == 9)^state.shift;
 
@@ -4338,10 +4388,10 @@ static void FinishMovement()
 /////////////////////////////////////////////////////////////////////////////
 // state.action is the current action
 // TODO: Generalize click combo...
-static void ClickComboActions(enum action action)
+static int ClickComboActions(enum action action)
 {
     // Maximize/Restore the window if pressing Move, Resize mouse buttons.
-    if(state.action == AC_MOVE && action == AC_RESIZE) {
+    if (state.action == AC_MOVE && action == AC_RESIZE) {
         WaitMovementEnd();
         if (IsZoomed(state.hwnd)) {
             if (IsSamePTT(&state.clickpt, &state.prevpt)) {
@@ -4353,7 +4403,8 @@ static void ClickComboActions(enum action action)
             }
         } else if (state.resizable) {
             state.moving = CURSOR_ONLY; // So that MouseMove will only move g_mainhwnd
-            HideTransWin();
+            LastWin.hwnd = NULL;
+            if (!conf.FullWin) HideTransWin();
             if (IsHotclick(state.alt)) {
                 state.action = AC_NONE;
                 state.moving = 0;
@@ -4361,12 +4412,58 @@ static void ClickComboActions(enum action action)
             MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE, 2);
         }
         state.blockmouseup = 1;
-    } else if (state.action == AC_RESIZE && action == AC_MOVE && !state.moving) {
+        return 1;
+    } else if (state.action == AC_RESIZE && action == AC_MOVE && (!state.moving || state.moving == DRAG_WAIT) ) {
+        WaitMovementEnd();
         HideTransWin();
         SnapToCorner(state.hwnd, !state.shift ^ !(conf.AeroTopMaximizes&2));
         HideCursor();
+        LastWin.hwnd = state.hwnd = NULL;
         state.blockmouseup = 2; // block two mouse up events!
+        return 1;
     }
+    return 0;
+}
+
+// Generalization of Click combo.
+static void DoComboActions(enum action action, enum button button)
+{
+    // For safety
+    if( !MOUVEMENT(state.action) )
+        return;
+
+    enum action accombo = GetActionMR(button);
+    if( !action && !(conf.MMMaximize&1) ) {
+    }
+
+    UCHAR lock_movement = ActionInfo(accombo) & (ACINFO_MOVE|ACINFO_RESIZE|ACINFO_CLOSE);
+    if (lock_movement) {
+        state.moving = CURSOR_ONLY;
+        LastWin.hwnd = NULL;
+        if(!conf.FullWin) HideTransWin();
+    }
+    if (button == BT_WHEEL || button == BT_HWHEEL) {
+        // Handle wheel combo.
+        if (accombo) {
+            DoWheelActions(state.hwnd, accombo);
+            // No mouseup to block for wheel actions...
+        }
+    } else {
+        // Other buttons.
+        if (accombo) {
+            SClickActions(state.hwnd, accombo);
+            state.blockmouseup = 1;
+        } else {
+            // Try to do Move/Resize combo..
+            if( ClickComboActions(action) )
+                return;
+
+            // Toggle SnapToZones if nothing was overwritten.
+            ActionToggleSnapToZoneMode();
+            state.blockmouseup = 1;
+        }
+    }
+
 }
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -4420,6 +4517,12 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     if (wParam == WM_MOUSEMOVE) {
         if (SamePt(pt, state.prevpt)) return CallNextHookEx(NULL, nCode, wParam, lParam);
         // Store prevpt so we can check if the hook goes stale
+        if( state.moving == DRAG_WAIT ) {
+            if (IsPtDrag(&state.prevpt, &pt))
+                return CallNextHookEx(NULL, nCode, wParam, lParam);
+            state.moving = 0;
+            MouseMove(state.prevpt);
+        }
         state.prevpt = pt;
 
         // Reset double-click time
@@ -4460,15 +4563,8 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 
     // Handle another click if we are already busy with an action
     if (buttonstate == STATE_DOWN && state.action && state.action != conf.GrabWithAlt[ModKey()]) {
-        if ((conf.MMMaximize&1)) {
-            ClickComboActions(action); // Handle click combo!
-        } else if (conf.UseZones&1 && state.action == AC_MOVE) {
-            state.usezones = !state.usezones;
-            state.blockmouseup = 1;
-            MouseMove(state.prevpt);
-        } else {
-            state.blockmouseup = 1;
-        }
+        // Handle click combo action!
+        DoComboActions(action, button);
         return 1; // Block mousedown so altsnap does not remove g_mainhwnd
     }
 
@@ -4566,9 +4662,10 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         SetWindowTrans(NULL); // Reset window transparency
 
         if((state.action == action || (state.action == AC_MOVE && action == AC_RESIZE))
-        && !state.moving // No drag occured
+        &&(!state.moving || state.moving == DRAG_WAIT)// No drag occured
+        && !state.sactiondone // No sclick/Wheel action done in the meantime
         && !state.ctrl // Ctrl is not down (because of focusing)
-        && IsSamePTT(&pt, &state.clickpt) // same point
+        && IsPtDrag(&pt, &state.clickpt) // same point (within drag)
         && !IsDoubleClick(button)) { // Long click unless PiercingClick=1
             FinishMovement();
             // Mouse UP actions here only in case of MOVEMENT!:
@@ -5142,7 +5239,7 @@ static void freeblacklists()
 }
 /////////////////////////////////////////////////////////////////////////////
 // To be called before Free Library. Ideally it should free everything
-__declspec(dllexport) void Unload()
+__declspec(dllexport) WINAPI void Unload()
 {
     conf.keepMousehook = 0;
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
@@ -5332,16 +5429,27 @@ void readbuttonactions(const TCHAR *inputsection)
         strcpy(key, buttons[i]);
         int len = lstrlenA(key);
         // Read primary action (no sufix)
-        actionptr[4*i+0] = readaction(inputsection, key);
-
+        actionptr[NACPB*i+0] = readaction(inputsection, key);
         key[len] = 'B'; key[len+1] = '\0'; // Secondary B sufixe
-        actionptr[4*i+1] = readaction(inputsection, key);
+        actionptr[NACPB*i+1] = readaction(inputsection, key);
 
+        // Titlbar actions
         key[len] = 'T'; key[len+1] = '\0'; // Titlebar T sufixes
-        actionptr[4*i+2] = readaction(inputsection, key);
+        actionptr[NACPB*i+2] = readaction(inputsection, key);
+        key[len+1] = 'B'; key[len+2] = '\0'; // TB
+        actionptr[NACPB*i+3] = readaction(inputsection, key);
 
-        key[len] = 'T'; key[len+1] = 'B'; key[len+2] = '\0'; // TB
-        actionptr[4*i+3] = readaction(inputsection, key);
+        // Action while moving
+        key[len] = 'M'; key[len+1] = '\0'; // Action while Moving M sufixe
+        actionptr[NACPB*i+4] = readaction(inputsection, key);
+        key[len+1] = 'B'; key[len+2] = '\0'; // MB
+        actionptr[NACPB*i+5] = readaction(inputsection, key);
+
+        // Action while resizing
+        key[len] = 'R'; key[len+1] = '\0'; // Action while Moving M sufixe
+        actionptr[NACPB*i+6] = readaction(inputsection, key);
+        key[len+1] = 'B'; key[len+2] = '\0'; // MB
+        actionptr[NACPB*i+7] = readaction(inputsection, key);
     }
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -5441,7 +5549,7 @@ static void readalluchars(UCHAR *dest, const TCHAR * const inisection, const str
 
 ///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.
-__declspec(dllexport) HWND Load(HWND mainhwnd)
+__declspec(dllexport) WINAPI HWND Load(HWND mainhwnd)
 {
     // Load settings
     TCHAR inipath[MAX_PATH];
@@ -5450,6 +5558,19 @@ __declspec(dllexport) HWND Load(HWND mainhwnd)
     state.shift = 0;
     state.moving = 0;
     LastWin.hwnd = NULL;
+
+    // GET SYSTEM SETTINGS
+    DWORD dragthreshold=0;
+    if (SystemParametersInfo(/*SPI_GETMOUSEDRAGOUTTHRESHOLD*/0x0084, 0, &dragthreshold, 0)) {
+        conf.dragXth = conf.dragYth = dragthreshold;
+    } else {
+        conf.dragXth  = GetSystemMetrics(SM_CXDRAG);
+        conf.dragYth  = GetSystemMetrics(SM_CYDRAG);
+    }
+
+    conf.dbclickX = GetSystemMetrics(SM_CXDOUBLECLK);
+    conf.dbclickY = GetSystemMetrics(SM_CYDOUBLECLK);
+
 
     // Get ini path
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));

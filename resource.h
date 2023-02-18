@@ -79,6 +79,12 @@
 #define IDC_NEWPROGNAME                 1519
 #define IDC_HOTCLICKS_BOX               1520
 
+#define IDC_MBA1                        1601
+#define IDC_MBA2                        1602
+#define IDC_INTTB                       1603
+#define IDC_WHILEM                      1604
+#define IDC_WHILER                      1605
+
 #define IDC_FULLWIN                     2008
 #define IDC_SHOWCURSOR                  2009
 #define IDC_RESIZECENTER                2010
@@ -155,10 +161,6 @@
 #define IDC_LONGCLICKMOVE               2077
 #define IDC_BLMAXIMIZED                 2078
 #define IDC_PIERCINGCLICK               2079
-
-#define IDC_MBA1                        2080
-#define IDC_MBA2                        2081
-#define IDC_INTTB                       2082
 
 #define IDC_OUTTB                       2083
 #define IDC_UNIKEYHOLDMENU              2084

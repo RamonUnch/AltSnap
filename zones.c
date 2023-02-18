@@ -5,6 +5,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "hooks.h"
+static void MouseMove(POINT pt);
 
 #define MAX_ZONES 2048
 #define MAX_LAYOUTS 10
@@ -155,6 +156,13 @@ static unsigned GetZoneFromPoint(POINT pt, RECT *urc, int extend)
 }
 static int pure IsResizable(HWND hwnd);
 
+static void ActionToggleSnapToZoneMode()
+{
+    if (conf.UseZones&1 && state.action == AC_MOVE) {
+        state.usezones = !state.usezones;
+        MouseMove(state.prevpt);
+    }
+}
 static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *height)
 {
     if(!(conf.UseZones&1) || state.mdiclient || !state.resizable) // Zones disabled

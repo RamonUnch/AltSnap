@@ -70,7 +70,7 @@ int HookSystem()
             LOG("Could not load HOOKS.DLL!!!");
             return 1;
         } else {
-            HWND (*Load)(HWND) = (HWND (*)(HWND))GetProcAddress(hinstDLL, "Load");
+            HWND (WINAPI *Load)(HWND) = (HWND (WINAPI *)(HWND))GetProcAddress(hinstDLL, "Load");
             if(Load) {
                 g_dllmsgHKhwnd = Load(g_hwnd);
             }
@@ -117,7 +117,7 @@ int UnhookSystem()
     keyhook = NULL;
 
     // Tell dll file that we are unloading
-    void (*Unload)() = (void (*)()) GetProcAddress(hinstDLL, "Unload");
+    void (WINAPI *Unload)() = (void (WINAPI *)()) GetProcAddress(hinstDLL, "Unload");
     if (Unload) Unload();
 
     // Zero out the message hwnd from DLL.
@@ -403,7 +403,7 @@ int WINAPI WinMainAW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *para
     LOG("\n\nALTSNAP STARTED");
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
     inipath[MAX_PATH-1] = '\0';
-    lstrcpy(&inipath[lstrlen(inipath)-3], TEXT("ini"));
+    lstrcpy_s(&inipath[lstrlen(inipath)-3], 4, TEXT("ini"));
     LOG("ini file: %S", inipath);
 
     // Read parameters on command line

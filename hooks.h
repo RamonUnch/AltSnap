@@ -164,14 +164,14 @@ static int pure IsActionInList(const enum action ac, const enum action *aclst)
     return IsHotkeyy(ac, aclst);
 }
 // Convert zone number to ini name entry
-static TCHAR *ZidxToZonestr(int laynum, int idx, TCHAR *zname)
+static TCHAR *ZidxToZonestr(int laynum, int idx, TCHAR zname[32])
 {
     if (laynum > 9 ) return NULL;
     TCHAR txt[16];
     zname[0] = !laynum?TEXT('\0'): TEXT('A')+laynum-1 ;
     zname[1] = '\0';
-    lstrcat(zname, TEXT("Zone"));
-    lstrcat(zname, itostr(idx, txt, 10)); // Zone Name from zone number
+    lstrcat_s(zname, 32, TEXT("Zone"));
+    lstrcat_s(zname, 32, itostr(idx, txt, 10)); // Zone Name from zone number
 
     return zname;
 }

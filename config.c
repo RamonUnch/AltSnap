@@ -629,19 +629,19 @@ static int IsKeyInList(TCHAR *keys, unsigned vkey)
     }
     return 0;
 }
-static void AddvKeytoList(TCHAR *keys, unsigned vkey)
+static void AddvKeytoList(TCHAR keys[32], unsigned vkey)
 {
     // Check if it is already in the list.
     if (IsKeyInList(keys, vkey))
         return;
     // Add a key to the hotkeys list
     if (*keys != '\0') {
-        lstrcat(keys, TEXT(" "));
+        lstrcat_s(keys, 32, TEXT(" "));
     }
     TCHAR buf[8];
-    lstrcat(keys, itostr(vkey, buf, 16));
+    lstrcat_s(keys, 32, itostr(vkey, buf, 16));
 }
-static void RemoveKeyFromList(TCHAR *keys, unsigned vkey)
+static void RemoveKeyFromList(TCHAR keys[32], unsigned vkey)
 {
     // Remove the key from the hotclick list
     unsigned temp, numread;
@@ -653,7 +653,7 @@ static void RemoveKeyFromList(TCHAR *keys, unsigned vkey)
         while(pos[numread] == ' ') numread++;
         if (temp == vkey) {
             keys[pos - keys] = '\0';
-            lstrcat(keys, pos + numread);
+            lstrcat_s(keys, 32, pos + numread);
             break;
         }
         pos += numread;
@@ -1396,7 +1396,9 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
             TCHAR txt[512];
             txt[0] = '\0';
-            lstrcat(txt, title); lstrcat(txt, TEXT("|")); lstrcat(txt, classname);
+            lstrcat_s(txt, ARR_SZ(txt), title);
+            lstrcat_s(txt, ARR_SZ(txt), TEXT("|"));
+            lstrcat_s(txt, ARR_SZ(txt), classname);
             SetDlgItemText(page, IDC_NEWRULE, txt);
 
             if (GetWindowProgName(window, txt, ARR_SZ(txt))) {
@@ -1408,7 +1410,8 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             itostr(HitTestTimeout(nwindow, pt.x, pt.y), txt, 10);
             TCHAR tt[8];
             itostr(HitTestTimeout(window, pt.x, pt.y), tt, 10);
-            lstrcat(txt, TEXT("/"));lstrcat(txt, tt);
+            lstrcat_s(txt, ARR_SZ(txt), TEXT("/"));
+            lstrcat_s(txt, ARR_SZ(txt), tt);
             SetDlgItemText(page, IDC_NCHITTEST, txt);
             // IDC_DWMCAPBUTTON
             RECT rc;
@@ -1420,9 +1423,12 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 SetDlgItemText(page, IDC_RECT, RectToStr(&rc, txt));
             }
             // IDC_WINHANDLES
-            lstrcpy(txt, TEXT("Hwnd: ")); lstrcat(txt, itostr((DWORD)(DorQWORD)nwindow, tt,16));
-            lstrcat(txt, TEXT(", Root: ")); lstrcat(txt, itostr((DWORD)(DorQWORD)window, tt,16));
-            lstrcat(txt, TEXT(", Owner: ")); lstrcat(txt, itostr((DWORD)(DorQWORD)GetWindow(window, GW_OWNER), tt,16));
+            lstrcpy_s(txt, ARR_SZ(txt), TEXT("Hwnd: "));
+            lstrcat_s(txt, ARR_SZ(txt), itostr((DWORD)(DorQWORD)nwindow, tt,16));
+            lstrcat_s(txt, ARR_SZ(txt), TEXT(", Root: "));
+            lstrcat_s(txt, ARR_SZ(txt), itostr((DWORD)(DorQWORD)window, tt,16));
+            lstrcat_s(txt, ARR_SZ(txt), TEXT(", Owner: "));
+            lstrcat_s(txt, ARR_SZ(txt), itostr((DWORD)(DorQWORD)GetWindow(window, GW_OWNER), tt,16));
             SetDlgItemText(page, IDC_WINHANDLES, txt);
         }
         // Show icon again
@@ -1458,11 +1464,11 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             int i;
             if (langinfo) {
                 for (i = 0; i < nlanguages; i++) {
-                    lstrcat(txt, langinfo[i].lang_english);
-                    lstrcat(txt, TEXT(": "));
-                    lstrcat(txt, langinfo[i].author);
+                    lstrcat_s(txt, ARR_SZ(txt), langinfo[i].lang_english);
+                    lstrcat_s(txt, ARR_SZ(txt), TEXT(": "));
+                    lstrcat_s(txt, ARR_SZ(txt), langinfo[i].author);
                     if (i + 1 != nlanguages) {
-                        lstrcat(txt, TEXT("\r\n"));
+                        lstrcat_s(txt, ARR_SZ(txt), TEXT("\r\n"));
                     }
                 }
             }
@@ -1478,11 +1484,12 @@ static HWND NewTestWindow();
 LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     #define MAXLINES 16
+    #define MAXLL    48
     static UCHAR centerfrac=24;
     static UCHAR sidefrac=100;
     static UCHAR centermode=1;
     static UCHAR idx=0;
-    static TCHAR lastkey[MAXLINES][48];
+    static TCHAR lastkey[MAXLINES][MAXLL];
 
     switch (msg) {
 //    case WM_CREATE:
@@ -1499,16 +1506,16 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_SYSKEYUP:
     case WM_SYSKEYDOWN: {
         TCHAR txt[22];
-        lstrcpy(lastkey[idx], TEXT("vK="));
-        lstrcat(lastkey[idx], itostr((UCHAR)wParam, txt, 16));
-        lstrcat(lastkey[idx], lParam&(1u<<31)? TEXT(" U"): lParam&(1u<<30)? TEXT(" R") :TEXT(" D"));
-        lstrcat(lastkey[idx], TEXT(" sC="));
-        lstrcat(lastkey[idx], itostr(HIWORD(lParam)&0x00FF, txt, 16));
-        lstrcat(lastkey[idx], TEXT(", LP=") );
-        lstrcat(lastkey[idx], itostr(lParam, txt, 16));
+        lstrcpy_s(lastkey[idx], MAXLL, TEXT("vK="));
+        lstrcat_s(lastkey[idx], MAXLL, itostr((UCHAR)wParam, txt, 16));
+        lstrcat_s(lastkey[idx], MAXLL, lParam&(1u<<31)? TEXT(" U"): lParam&(1u<<30)? TEXT(" R") :TEXT(" D"));
+        lstrcat_s(lastkey[idx], MAXLL, TEXT(" sC="));
+        lstrcat_s(lastkey[idx], MAXLL, itostr(HIWORD(lParam)&0x00FF, txt, 16));
+        lstrcat_s(lastkey[idx], MAXLL, TEXT(", LP=") );
+        lstrcat_s(lastkey[idx], MAXLL, itostr(lParam, txt, 16));
         txt[0] = L','; txt[1] = L' '; txt[2] = L'\0';
         if (GetKeyNameText(lParam, txt+2, ARR_SZ(txt)-2))
-            lstrcat(lastkey[idx], txt);
+            lstrcat_s(lastkey[idx], MAXLL, txt);
         RECT crc;
         GetClientRect(hwnd, &crc);
         long lineheight = MulDiv(11, ReallyGetDpiForWindow(hwnd), 72);

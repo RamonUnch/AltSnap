@@ -95,8 +95,8 @@ static void LoadTranslation(const TCHAR *__restrict__ ini)
         if (deststr == &l10n_ini->about_version) {
             // Append version number to version....
             TCHAR tmp[128];
-            lstrcpy(tmp, txt);
-            lstrcat(tmp, TEXT(" "APP_VERSION));
+            lstrcpy_s(tmp, ARR_SZ(tmp), txt);
+            lstrcat_s(tmp, ARR_SZ(tmp), TEXT(" "APP_VERSION));
             txt = (const TCHAR*)tmp;
         }
         *deststr = realloc( *deststr, (lstrlen_resolved(txt)+1)*sizeof(TCHAR) );
@@ -115,7 +115,7 @@ void ListAllTranslations()
 
     HANDLE hFind = INVALID_HANDLE_VALUE;
     WIN32_FIND_DATA ffd;
-    TCHAR szDir[MAX_PATH], fpath[MAX_PATH];
+    TCHAR szDir[MAX_PATH], fpath[MAX_PATH*2];
     LPCTSTR txt;
 
     // First element
@@ -130,8 +130,8 @@ void ListAllTranslations()
 
     GetModuleFileName(NULL, szDir, ARR_SZ(szDir));
     PathRemoveFileSpecL(szDir);
-    lstrcat(szDir, TEXT("\\Lang\\*.ini"));
-    lstrcpy(fpath, szDir);
+    lstrcat_s(szDir, ARR_SZ(szDir), TEXT("\\Lang\\*.ini"));
+    lstrcpy_s(fpath, ARR_SZ(fpath), szDir);
     TCHAR *end = fpath; // not the star!
     end += lstrlen(fpath)-5;
     hFind = FindFirstFile(szDir, &ffd);

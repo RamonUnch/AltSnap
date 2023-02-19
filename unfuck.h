@@ -517,14 +517,19 @@ static BOOL EnableNonClientDpiScalingL(HWND hwnd)
     return FALSE;
     #undef FUNK_TYPE
 }
+/* Only applies to Windows NT for build number */
 static xpure BOOL OredredWinVer()
 {
-    static DWORD WinVer;
-    if (!WinVer) {
-        DWORD ver = GetVersion();
-        WinVer = (ver&0x000000FF) << 24 /* MAJOR */
-               | (ver&0x0000FF00) << 8  /* MINOR */
-               | (ver&0xFFFF0000) >> 16;/* BUILDID */
+    DWORD WinVer;
+    DWORD ver = GetVersion();
+    WinVer = (ver&0x000000FF) << 24 /* MAJOR */
+           | (ver&0x0000FF00) << 8  /* MINOR */
+           | (ver&0xFFFF0000) >> 16;/* BUILDID */
+
+    /* On Windows 9x, no buildID is available in GetVer */
+    if (ver & 0x80000000) {
+        // Only use minor/major ver.
+        WinVer |= 0xFFFF0000;
     }
     return WinVer;
 }
@@ -547,8 +552,16 @@ static BOOL IsDarkModeEnabled(void)
    }
    return value;
 }
+static BOOL IsHighContrastEnabled()
+{
+    HIGHCONTRAST hc = { sizeof(hc) };
+    if (SystemParametersInfo(SPI_GETHIGHCONTRAST, sizeof(hc), &hc, FALSE))
+        return hc.dwFlags & HCF_HIGHCONTRASTON;
+
+    return FALSE;
+}
 /* We can use the DWMWA_USE_IMMERSIVE_DARK_MODE=20 DWM style
- * It is documented for Windows 11 but it also appears to work for Win10
+ * It is documented for Win11 build 22000 but it also appears to work for Win10
  * However from build 1809 to 2004 it the value was =19 and it is =20
  * Since Windows 10 build 20H1 and on Win11
  * DWMWA_USE_IMMERSIVE_DARK_MODE=19 up to Win10 2004
@@ -556,12 +569,20 @@ static BOOL IsDarkModeEnabled(void)
 static HRESULT DwmSetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c);
 static BOOL AllowDarkTitlebar(HWND hwnd)
 {
+    if( IsHighContrastEnabled() )
+        return TRUE; /* Nothing to do */
+
     BOOL DarkMode = IsDarkModeEnabled();
     if ( OredredWinVer() >= 0x0A004A29 ) {
         /* Windows 10 build 10.0.18985 ie 20H1 */
         return S_OK == DwmSetWindowAttributeL(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &DarkMode, sizeof(DarkMode));
     } else if ( OredredWinVer() >= 0x0A004563) {
-        /* Windows 10 build 10.0.17763 ie: 1809 */
+        /* Windows 10 build 10.0.17763 ie: 1809 or later */
+    
+        if ( OredredWinVer() < 0x0A0047BA) {
+            /* Windows 10 build 10.0.18362 ie: before 1903 */
+            SetProp(hwnd, TEXT("UseImmersiveDarkModeColors"), (HANDLE)(LONG_PTR)DarkMode);
+        }
         return S_OK == DwmSetWindowAttributeL(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_PRE20H1, &DarkMode, sizeof(DarkMode));
     }
     return FALSE;
@@ -1136,13 +1157,6 @@ static xpure int SamePt(const POINT a, const POINT b)
     return (a.x == b.x && a.y == b.y);
 }
 
-/* If pt and ptt are it is the same points with 4px tolerence */
-static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
-{
-    #define T 4
-    return !( pt->x > ptt->x+T || pt->y > ptt->y+T || pt->x < ptt->x-T || pt->y < ptt->y-T );
-    #undef T
-}
 /* Limit x between l and h */
 static xpure int CLAMP(int l, int x, int h)
 {
@@ -1284,7 +1298,7 @@ static void GetSectionOptionStr(const TCHAR *section, const char * const oname, 
     if (section) {
         TCHAR name[128];
         str2tchar_s(name, ARR_SZ(name)-1, oname);
-        lstrcat(name, TEXT("=")); /* Add equal at the end of name */
+        lstrcat_s(name, ARR_SZ(name), TEXT("=")); /* Add equal at the end of name */
         const TCHAR *p = section;
         while (p[0] && p[1]) { /* Double NULL treminated string */
             if(!lstrcmpi_samestart(p, name)) {
@@ -1310,7 +1324,7 @@ static const TCHAR* GetSectionOptionCStr(const TCHAR *section, const char * cons
 {
     TCHAR name[128];
     str2tchar_s(name, ARR_SZ(name)-1, oname);
-    lstrcat(name, TEXT("=")); /* Add equal at the end of name */
+    lstrcat_s(name, ARR_SZ(name), TEXT("=")); /* Add equal at the end of name */
     const TCHAR *p = section;
     while (p[0] && p[1]) { /* Double NULL treminated string */
         if(!lstrcmpi_samestart(p, name)) {
@@ -1331,7 +1345,7 @@ static int GetSectionOptionInt(const TCHAR *section, const char * const oname, c
     if (section) {
         TCHAR name[128];
         str2tchar_s(name, ARR_SZ(name)-1, oname);
-        lstrcat(name, TEXT("=")); /* Add equal at the end of name */
+        lstrcat_s(name, ARR_SZ(name), TEXT("=")); /* Add equal at the end of name */
         const TCHAR *p = section;
         while (p[0] && p[1]) { /* Double NULL treminated string */
             if(!lstrcmpi_samestart(p, name)) {

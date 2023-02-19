@@ -55,8 +55,8 @@ static void LoadAllIcons()
             if (len < MAX_PATH-13) { // strlen("TRAY_OFF.ICO")==12
                 UCHAR i;
                 for(i=0; i<3; i++) {
-                    lstrcpy(p, iconstr[i]);
-                    lstrcat(p, TEXT(".ico"));
+                    lstrcpy_s(path, ARR_SZ(path), iconstr[i]);
+                    lstrcat_s(path, ARR_SZ(path), TEXT(".ico"));
                     HICON tmp = LoadImage(g_hinst, path, IMAGE_ICON,0,0, LR_LOADFROMFILE|LR_DEFAULTSIZE|LR_LOADTRANSPARENT);
                     icons[i] = tmp? tmp: LoadIcon(g_hinst, iconstr[i]);
                 }
@@ -104,7 +104,7 @@ static int UpdateTray()
             Index=2;
     }
     // Load info tool tip and tray icon
-    lstrcpy(tray.szTip, traystr[Index]);
+    lstrcpy_s(tray.szTip, ARR_SZ(tray.szTip), traystr[Index]);
     tray.hIcon = icons[Index];
 
     // Only add or modify if not hidden or if balloon will be displayed
@@ -157,22 +157,22 @@ static void WriteCurrentLayoutNumber()
     TCHAR txt[16];
     WritePrivateProfileString(TEXT("Zones"), TEXT("LayoutNumber"), itostr(LayoutNumber, txt, 10), inipath);
 }
-static TCHAR *RectToStr(RECT *rc, TCHAR *rectstr)
+static TCHAR *RectToStr(RECT *rc, TCHAR rectstr[64])
 {
     TCHAR txt[16];
     UCHAR i;
     long *RC = (long *)rc;
     rectstr[0] = '\0';
     for(i = 0; i < 4; i++) {
-        lstrcat(rectstr, itostr(RC[i], txt, 10));
-        lstrcat(rectstr, TEXT(","));
+        lstrcat_s(rectstr, 64, itostr(RC[i], txt, 10));
+        lstrcat_s(rectstr, 64, TEXT(","));
     }
     return rectstr;
 }
 // Save a rect as a string in a Zone<num> entry in the inifile
 static void SaveZone(RECT *rc, unsigned num)
 {
-    TCHAR txt[128], name[32];
+    TCHAR txt[64], name[32];
     WritePrivateProfileString(TEXT("Zones"), ZidxToZonestr(LayoutNumber, num, name), RectToStr(rc, txt), inipath);
 }
 static void ClearAllZones()
@@ -242,21 +242,21 @@ static void ShowContextMenu(HWND hwnd)
             TCHAR txt[128];
             TCHAR istr[16];
 
-            lstrcpy(txt, l10n->menu_snaplayout); // Snap layout &i
-            lstrcat(txt, itostr(i+1, istr, 10));
+            lstrcpy_s(txt, ARR_SZ(txt), l10n->menu_snaplayout); // Snap layout &i
+            lstrcat_s(txt, ARR_SZ(txt), itostr(i+1, istr, 10));
             if (g_dllmsgHKhwnd) {
                 if ((rez = SendMessage(g_dllmsgHKhwnd, WM_GETLAYOUTREZ, i, 0))) {
                     // Add (width:height) to label the layout.
-                    lstrcat(txt, TEXT("  ("));
-                    lstrcat(txt, itostr(LOWORD(rez), istr, 10));
-                    lstrcat(txt, TEXT(":"));
-                    lstrcat(txt, itostr(HIWORD(rez), istr, 10));
-                    lstrcat(txt, TEXT(")"));
+                    lstrcat_s(txt, ARR_SZ(txt), TEXT("  ("));
+                    lstrcat_s(txt, ARR_SZ(txt), itostr(LOWORD(rez), istr, 10));
+                    lstrcat_s(txt, ARR_SZ(txt), TEXT(":"));
+                    lstrcat_s(txt, ARR_SZ(txt), itostr(HIWORD(rez), istr, 10));
+                    lstrcat_s(txt, ARR_SZ(txt), TEXT(")"));
                 } else {
                     lstrcat_s(txt, ARR_SZ(txt), l10n->menu_emptyzone); // (empty)
                 }
             } else {
-                lstrcat(txt, TEXT("  (...)"));
+                lstrcat_s(txt, ARR_SZ(txt), TEXT("  (...)"));
             }
             // Check the current layout We use a simple checkmark,
             // because a radio button is more complex to setup.
@@ -264,10 +264,12 @@ static void ShowContextMenu(HWND hwnd)
             AppendMenu(menu, mfflags, SWM_SNAPLAYOUT+i, txt);
         }
 
-        AppendMenu(menu, MF_SEPARATOR, 0, NULL);
-        AppendMenu(menu, MF_STRING, SWM_TESTWIN,  l10n->advanced_testwindow);
-        AppendMenu(menu, FindWindow(TEXT(APP_NAMEA"-test"), NULL)? MF_STRING :MF_STRING|MF_GRAYED
-                  , SWM_SAVEZONES, l10n->menu_savezones);
+        if (!(UseZones&2)) {
+            AppendMenu(menu, MF_SEPARATOR, 0, NULL);
+            AppendMenu(menu, MF_STRING, SWM_TESTWIN,  l10n->advanced_testwindow);
+            AppendMenu(menu, FindWindow(TEXT(APP_NAMEA"-test"), NULL)? MF_STRING :MF_STRING|MF_GRAYED
+                      , SWM_SAVEZONES, l10n->menu_savezones);
+        }
     }
 
     AppendMenu(menu, MF_SEPARATOR, 0, NULL);

@@ -782,6 +782,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {TEXT("MaximizeHV"),  l10n->input_actions_maximizehv},
         {TEXT("SideSnap"),    l10n->input_actions_sidesnap},
         {TEXT("ExtendSnap"),  l10n->input_actions_extendsnap},
+        {TEXT("ExtendTNEdge"),l10n->input_actions_extendtnedge},
         {TEXT("MinAllOther"), l10n->input_actions_minallother},
         {TEXT("Mute"),        l10n->input_actions_mute},
         {TEXT("Menu"),        l10n->input_actions_menu},
@@ -1484,6 +1485,10 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     static TCHAR lastkey[MAXLINES][48];
 
     switch (msg) {
+//    case WM_CREATE:
+//        AllowDarkTitlebar(hwnd);
+//        break;
+
     case WM_KEYDOWN:
         // Ctrl+N (VK_N = 0x4E)
         if (wParam == 0x4E && (GetKeyState(VK_CONTROL)&0x8000)) {

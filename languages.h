@@ -171,6 +171,7 @@ struct strings {
   TCHAR *input_actions_maximizehv;
   TCHAR *input_actions_sidesnap;
   TCHAR *input_actions_extendsnap;
+  TCHAR *input_actions_extendtnedge;
   TCHAR *input_actions_minallother;
   TCHAR *input_actions_transparency;
   TCHAR *input_actions_zoom;
@@ -391,6 +392,7 @@ static const char* l10n_inimapping[] = {
     "InputActionMaximizeHV",
     "InputActionSideSnap",
     "InputActionExtendSnap",
+    "InputActionExtendTNEdge",
     "InputActionMinAllOther",
     "InputActionTransparency",
     "InputActionZoom",
@@ -615,6 +617,7 @@ static const struct strings en_US = {
  /* maximizehv         */ TEXT("Maximize &Vertically"),
  /* sidesnap           */ TEXT("&Snap to monitor side/corner"),
  /* extendsnap         */ TEXT("Extend to monitor side/corner"),
+ /* extendtnedge       */ TEXT("Extend to next edge"),
  /* minallother        */ TEXT("Minimize &other windows"),
  /* transparency       */ TEXT("Transparency"),
  /* zoom               */ TEXT("Zoom window"),

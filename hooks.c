@@ -4454,12 +4454,6 @@ static int ClickComboActions(enum action action)
         }
         state.blockmouseup = 1;
         return 1;
-    } else if (state.action == AC_RESIZE && action == AC_MOVE /*&& (!state.moving || state.moving == DRAG_WAIT)*/ ) {
-        WaitMovementEnd();
-        LockMovement();
-        SClickActions(state.hwnd, AC_SIDESNAP);
-        state.blockmouseup = 1;
-        return 1;
     }
     return 0;
 }
@@ -5566,8 +5560,8 @@ void registerAllHotkeys(const TCHAR* inipath)
             if(!RegisterHotKey(g_hkhwnd, 0xC000 + ac, HIBYTE(HK), LOBYTE(HK))) {
                 // LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
                 //TCHAR title[128];
-                //lstrcpy(title, TEXT(APP_NAMEA": unable to register hotkey for action "));
-                //lstrcat(title, txt);
+                //lstrcpy_s(title, ARR_SZ(title), TEXT(APP_NAMEA": unable to register hotkey for action "));
+                //lstrcat_s(title, ARR_SZ(title), txt);
                 //ErrorBox(title);
             }
         }

@@ -51,45 +51,71 @@
 #define WM_SETLAYOUTNUM   (WM_USER+16)
 #define WM_GETLAYOUTREZ   (WM_USER+17)
 #define WM_GETBESTLAYOUT  (WM_USER+18)
-// List of possible actions
-enum action {
-    AC_NONE=0, AC_MOVE, AC_RESIZE, AC_RESTORE
-  , AC_MENU, AC_MINIMIZE, AC_MAXIMIZE
-  , AC_CENTER , AC_ALWAYSONTOP, AC_CLOSE, AC_LOWER, AC_BORDERLESS
-  , AC_KILL, AC_PAUSE, AC_RESUME, AC_MAXHV, AC_MINALL, AC_MUTE
-  , AC_SIDESNAP, AC_EXTENDSNAP, AC_EXTENDTNEDGE
-  , AC_NSTACKED, AC_NSTACKED2, AC_PSTACKED, AC_PSTACKED2
-  , AC_STACKLIST, AC_STACKLIST2, AC_ALTTABLIST
-  , AC_ASONOFF, AC_MOVEONOFF
-  , AC_MLZONE, AC_MTZONE, AC_MRZONE, AC_MBZONE
-  , AC_XLZONE, AC_XTZONE, AC_XRZONE, AC_XBZONE
-  , AC_STEPL, AC_STEPT, AC_STEPR, AC_STEPB
-  , AC_SSTEPL, AC_SSTEPT, AC_SSTEPR, AC_SSTEPB
 
-  , AC_ROLL, AC_ALTTAB, AC_VOLUME, AC_TRANSPARENCY, AC_HSCROLL
-  , AC_ZOOM, AC_ZOOM2, AC_NPSTACKED, AC_NPSTACKED2
-  , AC_MAXVALUE
-  , AC_ORICLICK
-};
-// List of actions strings, keep the SAME ORDER than above
-#define ACTION_MAP { \
-    "Nothing", "Move", "Resize", "Restore"                         \
-  , "Menu", "Minimize", "Maximize"                                 \
-  , "Center", "AlwaysOnTop", "Close", "Lower", "Borderless"        \
-  , "Kill", "Pause", "Resume", "MaximizeHV", "MinAllOther", "Mute" \
-  , "SideSnap", "ExtendSnap", "ExtendTNEdge"                       \
-  , "NStacked", "NStacked2", "PStacked", "PStacked2"               \
-  , "StackList", "StackList2", "AltTabList"                        \
-  , "ASOnOff", "MoveOnOff"                                         \
-                                                                   \
-  , "MLZone", "MTZone", "MRZone", "MBZone"                         \
-  , "XLZone", "XTZone", "XRZone", "XBZone"                         \
-  , "StepL", "StepT", "StepR", "StepB"                             \
-  , "SStepL", "SStepT", "SStepR", "SStepB"                         \
-                                                                   \
-  , "Roll", "AltTab", "Volume", "Transparency", "HScroll"          \
-  , "Zoom", "Zoom2", "NPStacked", "NPStacked2"                     \
-}
+// List of possible actions
+// ACVALUE(AC_ENUM, "IniString", Info)
+#define ACTION_MAP \
+    ACVALUE(AC_NONE=0,       "Nothing",     00) \
+    ACVALUE(AC_MOVE,         "Move",        MR) \
+    ACVALUE(AC_RESIZE,       "Resize",      MR) \
+    ACVALUE(AC_RESTORE,      "Restore",     MR) \
+    ACVALUE(AC_MENU,         "Menu",        CL) \
+    ACVALUE(AC_MINIMIZE,     "Minimize",    MR) \
+    ACVALUE(AC_MAXIMIZE,     "Maximize",    MR) \
+    ACVALUE(AC_CENTER,       "Center",      MR) \
+    ACVALUE(AC_ALWAYSONTOP,  "AlwaysOnTop", ZO) \
+    ACVALUE(AC_CLOSE,        "Close",       CL) \
+    ACVALUE(AC_LOWER,        "Lower",       ZO) \
+    ACVALUE(AC_BORDERLESS,   "Borderless",  00) \
+    ACVALUE(AC_KILL,         "Kill",        CL) \
+    ACVALUE(AC_PAUSE,        "Pause",       CL) \
+    ACVALUE(AC_RESUME,       "Resume",      CL) \
+    ACVALUE(AC_MAXHV,        "MaximizeHV",  MR) \
+    ACVALUE(AC_MINALL,       "MinAllOther", 00) \
+    ACVALUE(AC_MUTE,         "Mute",        00) \
+    ACVALUE(AC_SIDESNAP,     "SideSnap",    MR) \
+    ACVALUE(AC_EXTENDSNAP,   "ExtendSnap",  MR) \
+    ACVALUE(AC_EXTENDTNEDGE, "ExtendTNEdge",MR) \
+    ACVALUE(AC_NSTACKED,     "NStacked",    ZO) \
+    ACVALUE(AC_NSTACKED2,    "NStacked2",   ZO) \
+    ACVALUE(AC_PSTACKED,     "PStacked",    ZO) \
+    ACVALUE(AC_PSTACKED2,    "PStacked2",   ZO) \
+    ACVALUE(AC_STACKLIST,    "StackList",   CL) \
+    ACVALUE(AC_STACKLIST2,   "StackList2",  CL) \
+    ACVALUE(AC_ALTTABLIST,   "AltTabList",  CL) \
+    ACVALUE(AC_ASONOFF,      "ASOnOff",     CL) \
+    ACVALUE(AC_MOVEONOFF,    "MoveOnOff",   CL) \
+    \
+    ACVALUE(AC_MLZONE, "MLZone", MR) \
+    ACVALUE(AC_MTZONE, "MTZone", MR) \
+    ACVALUE(AC_MRZONE, "MRZone", MR) \
+    ACVALUE(AC_MBZONE, "MBZone", MR) \
+    ACVALUE(AC_XLZONE, "XLZone", MR) \
+    ACVALUE(AC_XTZONE, "XTZone", MR) \
+    ACVALUE(AC_XRZONE, "XRZone", MR) \
+    ACVALUE(AC_XBZONE, "XBZone", MR) \
+    ACVALUE(AC_STEPL,  "StepL",  MR) \
+    ACVALUE(AC_STEPT,  "StepT",  MR) \
+    ACVALUE(AC_STEPR,  "StepR",  MR) \
+    ACVALUE(AC_STEPB,  "StepB",  MR) \
+    ACVALUE(AC_SSTEPL, "SStepL", MR) \
+    ACVALUE(AC_SSTEPT, "SStepT", MR) \
+    ACVALUE(AC_SSTEPR, "SStepR", MR) \
+    ACVALUE(AC_SSTEPB, "SStepB", MR) \
+    \
+    ACVALUE(AC_ROLL,         "Roll",         MR) \
+    ACVALUE(AC_ALTTAB,       "AltTab",       ZO) \
+    ACVALUE(AC_VOLUME,       "Volume",       00) \
+    ACVALUE(AC_TRANSPARENCY, "Transparency", 00) \
+    ACVALUE(AC_HSCROLL,      "HScroll",      00) \
+    ACVALUE(AC_ZOOM,         "Zoom",         MR) \
+    ACVALUE(AC_ZOOM2,        "Zoom2",        MR) \
+    ACVALUE(AC_NPSTACKED,    "NPStacked",    ZO) \
+    ACVALUE(AC_NPSTACKED2,   "NPStacked2",   ZO)
+
+#define ACVALUE(a, b, c) a,
+enum action { ACTION_MAP AC_MAXVALUE, AC_ORICLICK };
+#undef ACVALUE
 
 // List of extra info options
 #define ACINFO_MOVE     (1)
@@ -103,31 +129,13 @@ enum action {
 
 #define MR (ACINFO_MOVE|ACINFO_RESIZE)
 
-#define ACTION_INFO_MAP {  \
-    00, MR, MR, MR         \
-  , CL, CL, MR             \
-  , MR, ZO, CL, ZO, 00     \
-  , CL, CL, CL, MR, 00, 00 \
-  , MR, MR, MR             \
-  , ZO, ZO, ZO, ZO         \
-  , CL, CL, CL             \
-  , CL, CL                 \
-                           \
-  , MR, MR, MR, MR         \
-  , MR, MR, MR, MR         \
-  , MR, MR, MR, MR         \
-  , MR, MR, MR, MR         \
-                           \
-  , RZ, ZO, 00, 00, 00     \
-  , MR, MR, ZO, ZO         \
-  , 00                     \
-  , 00                     \
-}
-
 // Helper function to get extra action info
 static xpure UCHAR ActionInfo(enum action action)
 {
-    static const UCHAR action_info[] = ACTION_INFO_MAP;
+    #define ACVALUE(a, b, c) (c),
+    static const UCHAR action_info[] = { ACTION_MAP };
+
+    #undef ACVALUE
     return action_info[action];
 }
 #undef MV
@@ -182,7 +190,9 @@ static char *ZidxToZonestrA(int laynum, int idx, char *zname)
 // Map action string to actual action enum
 static enum action MapActionW(const TCHAR *txt)
 {
-    static const char *action_map[] = ACTION_MAP;
+    #define ACVALUE(a, b, c) (b),
+    static const char *action_map[] = { ACTION_MAP };
+    #undef ACVALUE
     enum action ac;
     for (ac=0; ac < ARR_SZ(action_map); ac++) {
         if(!strtotcharicmp(txt, action_map[ac])) return ac;

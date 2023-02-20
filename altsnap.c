@@ -407,6 +407,24 @@ int WINAPI WinMainAW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *para
     LOG("ini file: %S", inipath);
 
     // Read parameters on command line
+    int help    = !!lstrstr(params, TEXT("-help"))
+               || !!lstrstr(params, TEXT("/?"))
+               || !!lstrstr(params, TEXT("-?"));
+    if (help) {
+        static const TCHAR *txthelp = TEXT(
+            "AltSnap command line options:\n\n"
+            "--help\tShow this help!\n"
+            "-h\tHide the tray icon\n"
+            "-q\tQuiet mode\n"
+            "-m\tMultiple instances allowed\n"
+            "-c\tOpen Config dialog\n"
+            "-afX\tExecute action X for the foreground window\n"
+            "-apX\tExecute action X for the pointed window\n"
+        );
+        MessageBox(NULL, txthelp, TEXT(APP_NAMEA" Usage"), MB_OK|MB_ICONINFORMATION);
+        return 0;
+    }
+
     hide        = !!lstrstr(params, TEXT("-h"));
     int quiet   = !!lstrstr(params, TEXT("-q"));
     int elevate = !!lstrstr(params, TEXT("-e"));

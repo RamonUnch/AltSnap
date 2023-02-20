@@ -55,7 +55,7 @@ static void LoadAllIcons()
             if (len < MAX_PATH-13) { // strlen("TRAY_OFF.ICO")==12
                 UCHAR i;
                 for(i=0; i<3; i++) {
-                    lstrcpy_s(path, ARR_SZ(path), iconstr[i]);
+                    lstrcpy_s(p, ARR_SZ(path)-len, iconstr[i]);
                     lstrcat_s(path, ARR_SZ(path), TEXT(".ico"));
                     HICON tmp = LoadImage(g_hinst, path, IMAGE_ICON,0,0, LR_LOADFROMFILE|LR_DEFAULTSIZE|LR_LOADTRANSPARENT);
                     icons[i] = tmp? tmp: LoadIcon(g_hinst, iconstr[i]);

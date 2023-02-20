@@ -1043,6 +1043,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {TEXT("Center"),      l10n->input_actions_center},
         {TEXT("Mute"),        l10n->input_actions_mute},
         {TEXT("Menu"),        l10n->input_actions_menu},
+
         {TEXT("NStacked"),    l10n->input_actions_nstacked},
         {TEXT("NStacked2"),   l10n->input_actions_nstacked2},
         {TEXT("PStacked"),    l10n->input_actions_pstacked},
@@ -1050,6 +1051,13 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {TEXT("StackList"),   l10n->input_actions_stacklist},
         {TEXT("StackList2"),  l10n->input_actions_stacklist2},
         {TEXT("AltTabList"),  l10n->input_actions_alttablist},
+
+        {TEXT("ExtendTNEdge"),l10n->input_actions_extendtnedge},
+        {TEXT("XTNLEdge"),    l10n->input_actions_xtnledge},
+        {TEXT("XTNTEdge"),    l10n->input_actions_xtntedge},
+        {TEXT("XTNREdge"),    l10n->input_actions_xtnredge},
+        {TEXT("XTNBEdge"),    l10n->input_actions_xtnbedge},
+
         {TEXT("MLZone"),      l10n->input_actions_mlzone},
         {TEXT("MTZone"),      l10n->input_actions_mtzone},
         {TEXT("MRZone"),      l10n->input_actions_mrzone},
@@ -1058,6 +1066,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {TEXT("XTZone"),      l10n->input_actions_xtzone},
         {TEXT("XRZone"),      l10n->input_actions_xrzone},
         {TEXT("XBZone"),      l10n->input_actions_xbzone},
+
         {TEXT("StepL"),       l10n->input_actions_stepl},
         {TEXT("StepT"),       l10n->input_actions_stept},
         {TEXT("StepR"),       l10n->input_actions_stepr},

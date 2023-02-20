@@ -69,6 +69,10 @@ static struct windowRR {
     UCHAR snap;
 } LastWin;
 
+struct resizeXY {
+    enum resize x, y;
+};
+#define AUTORESIZE ( (struct resizeXY){RZ_NONE, RZ_NONE} )
 // State
 static struct {
     struct {
@@ -124,9 +128,7 @@ static struct {
     UCHAR sactiondone;
     UCHAR xxbutton;
     enum action action;
-    struct {
-        enum resize x, y;
-    } resize;
+    struct resizeXY resize;
 } state;
 
 // Snap
@@ -3230,7 +3232,7 @@ static void NextBorders(RECT *pos, const RECT *cur, const RECT *def)
         if (flg&(SNZONE|SNBOTTOM) && rc->top > cur->bottom) pos->bottom = min(pos->bottom, rc->top);
     }
 }
-static void SnapToCorner(HWND hwnd, int extend)
+static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR extend)
 {
     SetOriginFromRestoreData(hwnd, AC_MOVE);
     GetMinMaxInfo(hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
@@ -3242,6 +3244,8 @@ static void SnapToCorner(HWND hwnd, int extend)
     RECT bd, wnd;
     GetWindowRect(hwnd, &wnd);
     SetEdgeAndOffset(&wnd, state.prevpt); // state.resize.x/y & state.offset.x/y
+    if (!resize.x && !resize.y)
+        resize = state.resize;
     FixDWMRect(hwnd, &bd);
     int wndwidth  = wnd.right  - wnd.left;
     int wndheight = wnd.bottom - wnd.top;
@@ -3259,18 +3263,18 @@ static void SnapToCorner(HWND hwnd, int extend)
         posx = wnd.left - state.mdipt.x;
         posy = wnd.top - state.mdipt.y;
 
-        if (state.resize.y == RZ_TOP) {
+        if (resize.y == RZ_TOP) {
             posy = mon->top - bd.top;
             wndheight = CLAMPH(wnd.bottom-state.mdipt.y - mon->top + bd.top);
-        } else if (state.resize.y == RZ_BOTTOM) {
+        } else if (resize.y == RZ_BOTTOM) {
             wndheight = CLAMPH(mon->bottom - wnd.top+state.mdipt.y + bd.bottom);
         }
-        if (state.resize.x == RZ_RIGHT) {
+        if (resize.x == RZ_RIGHT) {
             wndwidth =  CLAMPW(mon->right - wnd.left+state.mdipt.x + bd.right);
-        } else if (state.resize.x == RZ_LEFT) {
+        } else if (resize.x == RZ_LEFT) {
             posx = mon->left - bd.left;
             wndwidth =  CLAMPW(wnd.right-state.mdipt.x - mon->left + bd.left);
-        } else if (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER) {
+        } else if (resize.x == RZ_CENTER && resize.y == RZ_CENTER) {
             wndwidth = CLAMPW(mon->right - mon->left + bd.left + bd.right);
             posx = mon->left - bd.left;
             posy = wnd.top - state.mdipt.y + bd.top ;
@@ -3286,24 +3290,24 @@ static void SnapToCorner(HWND hwnd, int extend)
         posy = mon->top;
         restore = SNTOPLEFT;
 
-        if (state.resize.y == RZ_CENTER) {
+        if (resize.y == RZ_CENTER) {
             wndheight = CLAMPH(mon->bottom - mon->top); // Max Height
             posy += (mon->bottom - mon->top)/2 - wndheight/2;
             restore &= ~SNTOP;
-        } else if (state.resize.y == RZ_BOTTOM) {
+        } else if (resize.y == RZ_BOTTOM) {
             wndheight = bottomHeight;
             posy = mon->bottom - wndheight;
             restore &= ~SNTOP;
             restore |= SNBOTTOM;
         }
 
-        if (state.resize.x == RZ_CENTER && state.resize.y != RZ_CENTER) {
+        if (resize.x == RZ_CENTER && resize.y != RZ_CENTER) {
             wndwidth = CLAMPW( (mon->right-mon->left) ); // Max width
             posx += (mon->right - mon->left)/2 - wndwidth/2;
             restore &= ~SNLEFT;
-        } else if (state.resize.x == RZ_CENTER) {
+        } else if (resize.x == RZ_CENTER) {
             restore &= ~SNLEFT;
-            if(state.resize.y == RZ_CENTER) {
+            if(resize.y == RZ_CENTER) {
                 restore |= SNMAXH;
                 if(state.ctrl) {
                     LastWin.hwnd = NULL;
@@ -3313,7 +3317,7 @@ static void SnapToCorner(HWND hwnd, int extend)
             }
             wndwidth = wnd.right - wnd.left - bd.left - bd.right;
             posx = wnd.left - state.mdipt.x + bd.left;
-        } else if (state.resize.x == RZ_RIGHT) {
+        } else if (resize.x == RZ_RIGHT) {
             wndwidth = rightWidth;
             posx = mon->right - wndwidth;
             restore |= SNRIGHT;
@@ -3339,7 +3343,7 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
     // Aero-move this window if this is a double-click
     if (IsDoubleClick(button)) {
         state.action = AC_NONE; // Stop resize action
-        SnapToCorner(state.hwnd, !state.shift ^ !(conf.AeroTopMaximizes&2));
+        SnapToCorner(state.hwnd, AUTORESIZE, !state.shift ^ !(conf.AeroTopMaximizes&2));
         state.blockmouseup = 1; // Block mouse up (context menu would pop)
         state.clicktime = 0;    // Reset double-click time
         // Prevent mousedown from propagating
@@ -4056,9 +4060,9 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_MAXHV:       MaximizeHV(hwnd, state.shift); break;
     case AC_MINALL:      MinimizeAllOtherWindows(hwnd, state.shift); break;
     case AC_MUTE:        Send_KEY(VK_VOLUME_MUTE); break;
-    case AC_SIDESNAP:    SnapToCorner(hwnd, state.shift); break;
-    case AC_EXTENDSNAP:  SnapToCorner(hwnd, !state.shift); break;
-    case AC_EXTENDTNEDGE:SnapToCorner(hwnd, 2); break;
+    case AC_SIDESNAP:    SnapToCorner(hwnd, AUTORESIZE, state.shift); break;
+    case AC_EXTENDSNAP:  SnapToCorner(hwnd, AUTORESIZE, !state.shift); break;
+    case AC_EXTENDTNEDGE:SnapToCorner(hwnd, AUTORESIZE, 2); break;
     case AC_MENU:        ActionMenu(hwnd); break;
     case AC_NSTACKED:    ActionAltTab(state.prevpt, +120,  state.shift, EnumStackedWindowsProc); break;
     case AC_NSTACKED2:   ActionAltTab(state.prevpt, +120, !state.shift, EnumStackedWindowsProc);  break;
@@ -4077,6 +4081,10 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_XTZONE:      MoveWindowToTouchingZone(hwnd, 1, 1); break; // xTop
     case AC_XRZONE:      MoveWindowToTouchingZone(hwnd, 2, 1); break; // xRight
     case AC_XBZONE:      MoveWindowToTouchingZone(hwnd, 3, 1); break; // xBottom
+    case AC_XTNLEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_LEFT,   RZ_CENTER }, 2); break;
+    case AC_XTNTEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_CENTER, RZ_TOP    }, 2); break;
+    case AC_XTNREDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_RIGHT,  RZ_CENTER }, 2); break;
+    case AC_XTNBEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_CENTER, RZ_BOTTOM }, 2); break;
     case AC_STEPL:       StepWindow(hwnd, -conf.KBMoveStep, 0); break;
     case AC_STEPT:       StepWindow(hwnd, -conf.KBMoveStep, 1); break;
     case AC_STEPR:       StepWindow(hwnd, +conf.KBMoveStep, 0); break;
@@ -4425,11 +4433,9 @@ static void FinishMovement()
 // TODO: Generalize click combo...
 static void LockMovement()
 {
-        state.moving = CURSOR_ONLY;
-        //FinishMovement();
-        //state.action = AC_NONE;
-        LastWin.hwnd = NULL;
-        if(!conf.FullWin) HideTransWin();
+    state.moving = CURSOR_ONLY;
+    LastWin.hwnd = NULL;
+    if(!conf.FullWin) HideTransWin();
 }
 static int ClickComboActions(enum action action)
 {
@@ -5209,7 +5215,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             action = wParam - 0x0000; // Remove the Offset
             ptwindow = 0;
         } else if (0x1000 < wParam && wParam < 0x2000) {
-            // The user called AltSnap.exe -afACTION
+            // The user called AltSnap.exe -apACTION
             action = wParam - 0x1000; // Remove the Offset
             ptwindow = 1;
         }

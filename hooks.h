@@ -94,6 +94,12 @@
     ACVALUE(AC_XTZONE, "XTZone", MR) \
     ACVALUE(AC_XRZONE, "XRZone", MR) \
     ACVALUE(AC_XBZONE, "XBZone", MR) \
+    \
+    ACVALUE(AC_XTNLEDGE, "XTNLEdge", MR) \
+    ACVALUE(AC_XTNTEDGE, "XTNTEdge", MR) \
+    ACVALUE(AC_XTNREDGE, "XTNREdge", MR) \
+    ACVALUE(AC_XTNBEDGE, "XTNBEdge", MR) \
+    \
     ACVALUE(AC_STEPL,  "StepL",  MR) \
     ACVALUE(AC_STEPT,  "StepT",  MR) \
     ACVALUE(AC_STEPR,  "StepR",  MR) \
@@ -175,14 +181,14 @@ static TCHAR *ZidxToZonestr(int laynum, int idx, TCHAR zname[32])
 
     return zname;
 }
-static char *ZidxToZonestrA(int laynum, int idx, char *zname)
+static char *ZidxToZonestrA(int laynum, int idx, char zname[32])
 {
     if (laynum > 9 ) return NULL;
     char txt[16];
     zname[0] = !laynum?'\0': 'A'+laynum-1 ;
     zname[1] = '\0';
-    lstrcatA(zname, "Zone");
-    lstrcatA(zname, itostrA(idx, txt, 10)); // Zone Name from zone number
+    lstrcat_sA(zname, 32, "Zone");
+    lstrcat_sA(zname, 32, itostrA(idx, txt, 10)); // Zone Name from zone number
 
     return zname;
 }

@@ -149,6 +149,11 @@ struct strings {
   TCHAR *input_actions_xrzone;
   TCHAR *input_actions_xbzone;
 
+  TCHAR *input_actions_xtnledge;
+  TCHAR *input_actions_xtntedge;
+  TCHAR *input_actions_xtnredge;
+  TCHAR *input_actions_xtnbedge;
+
   TCHAR *input_actions_stepl;
   TCHAR *input_actions_stept;
   TCHAR *input_actions_stepr;
@@ -172,6 +177,7 @@ struct strings {
   TCHAR *input_actions_sidesnap;
   TCHAR *input_actions_extendsnap;
   TCHAR *input_actions_extendtnedge;
+
   TCHAR *input_actions_minallother;
   TCHAR *input_actions_transparency;
   TCHAR *input_actions_zoom;
@@ -371,6 +377,10 @@ static const char* l10n_inimapping[] = {
     "InputActionXTZone",
     "InputActionXRZone",
     "InputActionXBZone",
+    "InputActionXTNLEdge",
+    "InputActionXTNTEdge",
+    "InputActionXTNREdge",
+    "InputActionXTNBEdge",
     "InputActionStepl",
     "InputActionStepT",
     "InputActionStepR",
@@ -596,6 +606,10 @@ static const struct strings en_US = {
  /* xtzone             */ TEXT("Extend to the top zone"),
  /* xrzone             */ TEXT("Extend to the right zone"),
  /* xbzone             */ TEXT("Extend to the bottom zone"),
+ /* xtnledge           */ TEXT("Extend to the next left edge"),
+ /* xtntedge           */ TEXT("Extend to the next top edge"),
+ /* xtnredge           */ TEXT("Extend to the next right edge"),
+ /* xtnbedge           */ TEXT("Extend to the next bottom edge"),
  /* stepl              */ TEXT("Step left"),
  /* stept              */ TEXT("Step up"),
  /* stepr              */ TEXT("Step right"),

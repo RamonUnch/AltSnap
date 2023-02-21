@@ -7,8 +7,8 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "languages.h"
-static struct strings *l10n_ini = NULL;
-static struct strings *l10n = (struct strings *)&en_US;
+static const struct strings *l10n_ini = NULL;
+static const struct strings *l10n = &en_US;
 
 /////////////////////////////////////////////////////////////////////////////
 // Copies and remove the accelerators & sign. and txt between ( ).
@@ -84,12 +84,12 @@ static void LoadTranslation(const TCHAR *__restrict__ ini)
     } while (ret == tsectionlen-2);
     if (!ret) return;
 
-    if(!l10n_ini) l10n_ini = calloc(1, sizeof(struct strings));
+    if(!l10n_ini) l10n_ini = (struct strings *)calloc(1, sizeof(struct strings));
     if(!l10n_ini) return; // Unable to allocate mem
     for (i=0; i < ARR_SZ(l10n_inimapping); i++) {
         // Get pointer to default English string to be used if ini entry doesn't exist
         const TCHAR *const def = ((TCHAR **)&en_US)[i];
-        const TCHAR * txt = GetSectionOptionCStr(tsection, l10n_inimapping[i], def);
+        const TCHAR *txt = GetSectionOptionCStr(tsection, l10n_inimapping[i], def);
 
         TCHAR **deststr = &((TCHAR **)l10n_ini)[i];
         if (deststr == &l10n_ini->about_version) {
@@ -99,7 +99,7 @@ static void LoadTranslation(const TCHAR *__restrict__ ini)
             lstrcat_s(tmp, ARR_SZ(tmp), TEXT(" "APP_VERSION));
             txt = (const TCHAR*)tmp;
         }
-        *deststr = realloc( *deststr, (lstrlen_resolved(txt)+1)*sizeof(TCHAR) );
+        *deststr = (TCHAR *)realloc( *deststr, (lstrlen_resolved(txt)+1)*sizeof(TCHAR) );
         lstrcpy_resolve(*deststr, txt);
     }
     l10n = l10n_ini;
@@ -119,7 +119,7 @@ void ListAllTranslations()
     LPCTSTR txt;
 
     // First element
-    langinfo = malloc(sizeof(struct langinfoitem ));
+    langinfo = (struct langinfoitem *)malloc( sizeof(struct langinfoitem) );
     if (!langinfo) return;
     langinfo[0].code = en_US.code;
     langinfo[0].lang_english = en_US.lang_english;
@@ -141,7 +141,7 @@ void ListAllTranslations()
         do {
             nlanguages++;
             lstrcpy(end, ffd.cFileName); // add filenale at the end of the path
-            struct langinfoitem *tmp = realloc(langinfo, sizeof(struct langinfoitem) * nlanguages);
+            struct langinfoitem *tmp = (struct langinfoitem *)realloc(langinfo, sizeof(*tmp) * nlanguages);
             if (!tmp) break;
             langinfo = tmp;
 
@@ -152,30 +152,30 @@ void ListAllTranslations()
 
             // Short language code such as en-US, fr-FR, it-IT etc.
             txt = GetSectionOptionCStr(tsection, "Code", TEXT(""));
-            langinfo[n].code = calloc(lstrlen(txt)+1, sizeof(TCHAR));
+            langinfo[n].code = (TCHAR *)calloc(lstrlen(txt)+1, sizeof(TCHAR));
             if (!langinfo[n].code) break;
             lstrcpy(langinfo[n].code, txt);
 
             // Language name in English
             txt = GetSectionOptionCStr(tsection, "LangEnglish", TEXT(""));
-            langinfo[n].lang_english = calloc(lstrlen(txt)+1, sizeof(TCHAR));
+            langinfo[n].lang_english = (TCHAR *)calloc(lstrlen(txt)+1, sizeof(TCHAR));
             if (!langinfo[n].lang_english) break;
             lstrcpy(langinfo[n].lang_english, txt);
 
             // Language name in original language
             txt = GetSectionOptionCStr(tsection, "Lang", TEXT(""));
-            langinfo[n].lang = calloc(lstrlen(txt)+1, sizeof(TCHAR));
+            langinfo[n].lang = (TCHAR *)calloc(lstrlen(txt)+1, sizeof(TCHAR));
             if (!langinfo[n].lang) break;
             lstrcpy(langinfo[n].lang, txt);
 
             // Author
             txt = GetSectionOptionCStr(tsection, "Author", TEXT(""));
-            langinfo[n].author = calloc(lstrlen(txt)+1, sizeof(TCHAR));
+            langinfo[n].author = (TCHAR *)calloc(lstrlen(txt)+1, sizeof(TCHAR));
             if (!langinfo[n].author) break;
             lstrcpy(langinfo[n].author, txt);
 
             // Full file path
-            langinfo[n].fn = malloc(lstrlen(fpath)*sizeof(TCHAR)+4);
+            langinfo[n].fn = (TCHAR *)malloc(lstrlen(fpath)*sizeof(TCHAR)+4);
             if (!langinfo[n].fn) break;
             lstrcpy(langinfo[n].fn, fpath);
 

@@ -182,7 +182,7 @@ static void UpdateStrings()
     // tc = PropSheet_GetTabControl(g_cfgwnd);
     HWND tc = (HWND)SendMessage(g_cfgwnd, PSM_GETTABCONTROL, 0, 0);
     int numrows_prev = TabCtrl_GetRowCount(tc);
-    TCHAR *titles[6];
+    const TCHAR *titles[6];
     titles[0] = l10n->tab_general;
     titles[1] = l10n->tab_mouse;
     titles[2] = l10n->tab_keyboard;
@@ -193,7 +193,7 @@ static void UpdateStrings()
     for (i = 0; i < ARR_SZ(titles); i++) {
         TCITEM ti;
         ti.mask = TCIF_TEXT;
-        ti.pszText = titles[i];
+        ti.pszText = (TCHAR *)titles[i];
         TabCtrl_SetItem(tc, i, &ti);
     }
 
@@ -263,7 +263,7 @@ BOOL CALLBACK PropSheetProc(HWND hwnd, UINT msg, LPARAM lParam)
         UpdateStrings();
 
         // Set new icon specifically for the taskbar and Alt+Tab, without changing window icon
-        HICON taskbar_icon = LoadImageA(g_hinst, "APP_ICON", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
+        HICON taskbar_icon = (HICON)LoadImageA(g_hinst, "APP_ICON", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
         SendMessage(g_cfgwnd, WM_SETICON, ICON_BIG, (LPARAM) taskbar_icon);
     }
     return TRUE;
@@ -388,7 +388,7 @@ static HWND CreateInfoTip(HWND hDlg, int toolID, const TCHAR * const pszText)
 
     return hwndTip;
 }
-struct dialogstring { const int idc; const TCHAR *string; /* const TCHAR *helpstr; */ };
+struct dialogstring { const int idc; const TCHAR * const string; /* const TCHAR *const helpstr; */ };
 static void UpdateDialogStrings(HWND hwnd, const struct dialogstring * const strlst, unsigned size)
 {
     unsigned i;
@@ -403,9 +403,9 @@ struct optlst {
     const short idc;
     const enum opttype type;
     const UCHAR bitN;
-    const TCHAR *section;
-    const char *name;
-    const void *def;
+    const TCHAR *const section;
+    const char *const name;
+    const void *const def;
 };
 static void ReadDialogOptions(HWND hwnd,const struct optlst *ol, unsigned size)
 {
@@ -613,7 +613,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     return FALSE;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int IsKeyInList(TCHAR *keys, unsigned vkey)
+static int pure IsKeyInList(TCHAR *keys, unsigned vkey)
 {
     unsigned temp, numread;
     TCHAR *pos = keys;
@@ -667,7 +667,7 @@ struct hk_struct {
     unsigned control;
     unsigned vkey;
 };
-static void SaveHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const TCHAR *name)
+static void SaveHotKeys(const struct hk_struct *const hotkeys, HWND hwnd, const TCHAR *const name)
 {
     TCHAR keys[32];
     // Get the current config in case there are some user added keys.
@@ -707,8 +707,8 @@ static void CheckConfigHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const
 }
 
 struct actiondl {
-    TCHAR *action;
-    TCHAR *l10n;
+    const TCHAR *const action;
+    const TCHAR *const l10n;
 };
 static void FillActionDropListS(HWND hwnd, int idc, TCHAR *inioption, struct actiondl *actions)
 {
@@ -1079,8 +1079,8 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
     };
     // Hotkeys
     const struct {
-        TCHAR *action;
-        TCHAR *l10n;
+        const TCHAR *const action;
+        const TCHAR *const l10n;
     } togglekeys[] = {
         {TEXT(""),      l10n->input_actions_nothing},
         {TEXT("A4 A5"), l10n->input_hotkeys_alt},
@@ -1555,7 +1555,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         ScreenToClient(hwnd, &Offset);
 
         SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
-        HPEN oripen = SelectObject(hdc, pen);
+        HPEN oripen = (HPEN)SelectObject(hdc, pen);
         SetROP2(hdc, R2_COPYPEN);
 
         const int width = wRect.right - wRect.left;
@@ -1634,8 +1634,8 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             Polyline(hdc, pts  , 2);
             Polyline(hdc, pts+2, 2);
 
-            HPEN dotpen = (HPEN) CreatePen(PS_DOT, 1, txtcolor);
-            HPEN prevpen = SelectObject(hdc, dotpen);
+            HPEN dotpen = (HPEN)CreatePen(PS_DOT, 1, txtcolor);
+            HPEN prevpen = (HPEN)SelectObject(hdc, dotpen);
             SetBkColor(hdc, bgcolor);
             Rectangle(hdc // Draw dashed central rectagle
                 , Offset.x+(width-cwidth)/2
@@ -1651,7 +1651,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         GetObject(GetStockObject(DEFAULT_GUI_FONT), sizeof(LOGFONT), &lfont);
         lfont.lfHeight = -MulDiv(11, ReallyGetDpiForWindow(hwnd), 72);
         long lineheight = -(lfont.lfHeight + lfont.lfHeight/8);
-        HFONT oldfont = SelectObject(hdc, CreateFontIndirect(&lfont));
+        HFONT oldfont = (HFONT)SelectObject(hdc, CreateFontIndirect(&lfont));
         SetBkMode(hdc, TRANSPARENT);
         SetTextColor(hdc, txtcolor);
 

@@ -238,7 +238,7 @@ static void ShowUnikeyMenu(HWND hwnd, LPARAM param)
 {
     UCHAR vkey = LOBYTE(LOWORD(param));
     UCHAR capital = HIBYTE(LOWORD(param));
-    TCHAR **ukmap = &l10n->a; //EXTRAKEYS_MAP;
+    TCHAR *const* const ukmap = &l10n->a; //EXTRAKEYS_MAP;
     HMENU menu = CreatePopupMenu();
     if (!menu) return;
 
@@ -542,7 +542,7 @@ int WINAPI WinMainAW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *para
     LOG("GOOD NORMAL EXIT");
     return msg.wParam;
 }
-static const TCHAR *ParamsFromCmdline(const TCHAR *cmdl)
+static pure const TCHAR *ParamsFromCmdline(const TCHAR *cmdl)
 {
     /* in case it starts with " we need to go to the next " */
     if (cmdl[0] == TEXT('"')) {
@@ -561,7 +561,7 @@ static const TCHAR *ParamsFromCmdline(const TCHAR *cmdl)
 
 /////////////////////////////////////////////////////////////////////////////
 // Use -nostdlib and -e_unfuckMain@0 to use this main, -eunfuckMain for x64.
-void WINAPI unfuckWinMain(void)
+void noreturn WINAPI unfuckWinMain(void)
 {
     HINSTANCE hInst;
     HINSTANCE hPrevInstance = NULL;

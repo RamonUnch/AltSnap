@@ -167,7 +167,12 @@ static int pure IsHotkeyy(unsigned char key, const unsigned char *HKlist)
 }
 static int pure IsActionInList(const enum action ac, const enum action *aclst)
 {
-    return IsHotkeyy(ac, aclst);
+    do {
+        if(ac == *aclst)
+            return 1;
+    } while(*aclst++ != AC_NONE);
+    
+    return 0;
 }
 // Convert zone number to ini name entry
 static TCHAR *ZidxToZonestr(int laynum, int idx, TCHAR zname[32])
@@ -199,9 +204,10 @@ static enum action MapActionW(const TCHAR *txt)
     #define ACVALUE(a, b, c) (b),
     static const char *action_map[] = { ACTION_MAP };
     #undef ACVALUE
-    enum action ac;
+    UCHAR ac;
     for (ac=0; ac < ARR_SZ(action_map); ac++) {
-        if(!strtotcharicmp(txt, action_map[ac])) return ac;
+        if(!strtotcharicmp(txt, action_map[ac]))
+            return (enum action)ac;
     }
     return AC_NONE;
 }

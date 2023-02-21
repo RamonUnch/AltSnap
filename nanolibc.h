@@ -8,7 +8,10 @@
 #define noreturn __attribute__((noreturn))
 #define fastcall __attribute__((fastcall))
 #define ainline __attribute__((always_inline))
-#define mallocatrib __attribute__((malloc))
+#define mallocatrib __attribute__((malloc, freeL))
+#define allnonnull __attribute__((nonnull))
+#define nonnull1(x) __attribute__((nonnull (x)))
+#define nonnull2(x, y) __attribute__((nonnull (x, y)))
 #else
 #define flatten
 #define xpure
@@ -17,6 +20,9 @@
 #define fastcall
 #define ainline
 #define mallocatrib
+#define allnonnull
+#define nonnull1(x)
+#define nonnull2(x, y)
 #define __restrict__
 #endif
 /* return +/-1 if x is +/- and 0 if x == 0 */
@@ -90,7 +96,7 @@ static void str2tchar_s(TCHAR *w, size_t N, const char *s)
 }
 #endif
 
-static wchar_t *wcsuprL(wchar_t *s)
+static allnonnull wchar_t *wcsuprL(wchar_t *s)
 {
     while (*s) {
         wchar_t  x = *s - 'a';
@@ -99,7 +105,7 @@ static wchar_t *wcsuprL(wchar_t *s)
     }
     return s;
 }
-static wchar_t *wcslwrL(wchar_t *s)
+static allnonnull wchar_t *wcslwrL(wchar_t *s)
 {
     while (*s) {
         wchar_t  x = *s - 'A';
@@ -109,7 +115,7 @@ static wchar_t *wcslwrL(wchar_t *s)
     return s;
 }
 
-static wchar_t *wcschrL(wchar_t *__restrict__ str, const wchar_t c)
+static nonnull1(1) pure wchar_t *wcschrL(wchar_t *__restrict__ str, const wchar_t c)
 {
     while(*str != c) {
         if(!*str) return NULL;
@@ -119,7 +125,7 @@ static wchar_t *wcschrL(wchar_t *__restrict__ str, const wchar_t c)
 }
 #define wcschr wcschrL
 
-static char *strchrL(char *__restrict__ str, const char c)
+static nonnull1(1) pure char *strchrL(char *__restrict__ str, const char c)
 {
     while(*str != c) {
         if(!*str) return NULL;
@@ -130,7 +136,7 @@ static char *strchrL(char *__restrict__ str, const char c)
 #define strchr strchrL
 
 
-static int atoiL(const char *s)
+static allnonnull pure int atoiL(const char *s)
 {
     long int v=0;
     int sign=1;
@@ -148,7 +154,7 @@ static int atoiL(const char *s)
 }
 #define atoi atoiL
 
-static int wtoiL(const wchar_t *s)
+static pure allnonnull int wtoiL(const wchar_t *s)
 {
     long int v=0;
     int sign=1;
@@ -165,7 +171,7 @@ static int wtoiL(const wchar_t *s)
     return sign*v;
 }
 #define _wtoi wtoiL
-static inline void reverseW(wchar_t *str, int length)
+static nonnull1(1) inline void reverseW(wchar_t *str, int length)
 {
     int start = 0;
     int end = length -1;
@@ -178,7 +184,7 @@ static inline void reverseW(wchar_t *str, int length)
         end--;
     }
 }
-static wchar_t *itowL(unsigned num, wchar_t *str, int base)
+static nonnull1(2) wchar_t *itowL(unsigned num, wchar_t *str, int base)
 {
     int i = 0;
     int isNegative = 0;
@@ -218,7 +224,7 @@ static wchar_t *itowL(unsigned num, wchar_t *str, int base)
     return str;
 }
 #define _itow itowL
-static inline void reverseA(char *str, int length)
+static nonnull1(1) inline void reverseA(char *str, int length)
 {
     int start = 0;
     int end = length -1;
@@ -231,7 +237,7 @@ static inline void reverseA(char *str, int length)
         end--;
     }
 }
-static char *itoaL(unsigned num, char *str, int base)
+static nonnull1(2) char *itoaL(unsigned num, char *str, int base)
 {
     int i = 0;
     int isNegative = 0;
@@ -272,7 +278,7 @@ static char *itoaL(unsigned num, char *str, int base)
 }
 #define _itoa itoaL
 
-static size_t wcslenL(const wchar_t *__restrict__ const str)
+static allnonnull pure size_t wcslenL(const wchar_t *__restrict__ const str)
 {
     const wchar_t *ptr;
     for (ptr=str; *ptr != '\0'; ptr++);
@@ -280,7 +286,7 @@ static size_t wcslenL(const wchar_t *__restrict__ const str)
 }
 #define wcslen wcslenL
 
-static size_t strlenL(const char * const str)
+static allnonnull pure size_t strlenL(const char * const str)
 {
     const char *ptr;
     for (ptr=str; *ptr != '\0'; ptr++);
@@ -295,7 +301,7 @@ __cdecl size_t strlen(const char *str)
     return ptr-str;
 }
 
-static int wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
+static int pure allnonnull wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 {
     while(*a && *a == *b) { a++; b++; }
     return *a - *b;
@@ -303,7 +309,7 @@ static int wcscmpL(const wchar_t *__restrict__ a, const wchar_t *__restrict__ b)
 #define wcscmp wcscmpL
 
 /* Reverse of the next function */
-static int lstrcmp_rstar(const TCHAR *__restrict__ a, const TCHAR *__restrict__ b)
+static nonnull1(1) pure int lstrcmp_rstar(const TCHAR *__restrict__ a, const TCHAR *__restrict__ b)
 {
     const TCHAR *oa = a, *ob=b;
     if(!b) return 0;
@@ -322,7 +328,7 @@ static int lstrcmp_rstar(const TCHAR *__restrict__ a, const TCHAR *__restrict__ 
 /* stops comp at the '*' in the b param.
  * this is a kind of mini regexp that has no performance hit.
  * It also returns 0 (equal) if the b param is NULL */
-static int lstrcmp_star(const TCHAR *__restrict__ a, const TCHAR *__restrict__ b)
+static nonnull1(1) pure int lstrcmp_star(const TCHAR *__restrict__ a, const TCHAR *__restrict__ b)
 {
     if(!b) return 0;
     if(*b == L'*') return lstrcmp_rstar(a, b);
@@ -330,22 +336,23 @@ static int lstrcmp_star(const TCHAR *__restrict__ a, const TCHAR *__restrict__ b
     while(*a && *a == *b) { a++; b++; }
     return (*a != *b) & (*b != '*');
 }
-#define tolower(x) ( x | ('A'<x && x<'Z') << 5 )
+#define tolower(x) ( (x) | ('A'<(x) && (x)<'Z') << 5 )
+#define tolowerevil(x) ( (x) | 1 << 5 )
 
 /* Returns 0 if both strings start the same */
-static int lstrcmpi_samestart(const TCHAR *__restrict__ a, const TCHAR *__restrict__ b)
+static nonnull1(1) int pure lstrcmpi_samestart(const TCHAR *__restrict__ a, const TCHAR *__restrict__ b)
 {
     while(*a && tolower(*a) == tolower(*b)) { a++; b++; }
     return (*a != *b) && (*b != '\0');
 }
 
-static int lstrcmp_samestart(const TCHAR *__restrict__ a, const TCHAR *__restrict__ b)
+static allnonnull int pure lstrcmp_samestart(const TCHAR *__restrict__ a, const TCHAR *__restrict__ b)
 {
     while(*a && *a == *b) { a++; b++; }
     return (*a != *b) && (*b != '\0');
 }
 
-static wchar_t *wcscpyL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ in)
+static allnonnull wchar_t *wcscpyL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ in)
 {
     wchar_t *ret = dest;
     while ((*dest++ = *in++));
@@ -353,7 +360,7 @@ static wchar_t *wcscpyL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ 
 }
 #define wcscpy wcscpyL
 
-static wchar_t *wcsncpyL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src, size_t n)
+static nonnull2(1,2) wchar_t *wcsncpyL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src, size_t n)
 {
     wchar_t *orig = dest;
     for (; dest < orig+n && (*dest=*src); ++src, ++dest) ;
@@ -362,7 +369,7 @@ static wchar_t *wcsncpyL(wchar_t *__restrict__ dest, const wchar_t *__restrict__
 }
 #define wcsncpy wcsncpyL
 
-static char *strcpyL(char *__restrict__ dest, const char *__restrict__ in)
+static allnonnull char *strcpyL(char *__restrict__ dest, const char *__restrict__ in)
 {
     char *ret = dest;
     while ((*dest++ = *in++));
@@ -370,7 +377,7 @@ static char *strcpyL(char *__restrict__ dest, const char *__restrict__ in)
 }
 #define strcpy strcpyL
 
-static int stricmpL(const char* s1, const char* s2)
+static allnonnull pure int stricmpL(const char* s1, const char* s2)
 {
     unsigned x1, x2;
 
@@ -391,7 +398,7 @@ static int stricmpL(const char* s1, const char* s2)
 }
 #define stricmp stricmpL
 
-static int wcsicmpL(const wchar_t* s1, const wchar_t* s2)
+static allnonnull pure int wcsicmpL(const wchar_t* s1, const wchar_t* s2)
 {
     unsigned x1, x2;
 
@@ -412,7 +419,7 @@ static int wcsicmpL(const wchar_t* s1, const wchar_t* s2)
 }
 #define wcsicmp wcsicmpL
 
-static int strtotcharicmp(const TCHAR* s1, const char* s2)
+static allnonnull pure int strtotcharicmp(const TCHAR* s1, const char* s2)
 {
     unsigned x1, x2;
 
@@ -432,14 +439,14 @@ static int strtotcharicmp(const TCHAR* s1, const char* s2)
     return x1 - x2;
 }
 
-wchar_t *wcscat(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
+allnonnull wchar_t *wcscat(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
 {
     wchar_t *orig=dest;
     for (; *dest; ++dest) ;	/* go to end of dest */
     for (; (*dest=*src); ++src,++dest) ;	/* then append from src */
     return orig;
 }
-char *strcat(char *__restrict__ dest, const char *__restrict__ src)
+allnonnull char *strcat(char *__restrict__ dest, const char *__restrict__ src)
 {
     char *orig=dest;
     for (; *dest; ++dest) ;	/* go to end of dest */
@@ -447,7 +454,7 @@ char *strcat(char *__restrict__ dest, const char *__restrict__ src)
     return orig;
 }
 
-char *strcat_sL(char *__restrict__ dest, const size_t N, const char *__restrict__ src)
+static nonnull2(1,3) char *strcat_sL(char *__restrict__ dest, const size_t N, const char *__restrict__ src)
 {
     char *orig=dest;
     char *dmax=dest+N-1; /* keep space for a terminating NULL */
@@ -458,7 +465,7 @@ char *strcat_sL(char *__restrict__ dest, const size_t N, const char *__restrict_
 }
 #define strcat_s strcat_sL
 
-wchar_t *wcscat_sL(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__restrict__ src)
+nonnull2(1,3) wchar_t *wcscat_sL(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__restrict__ src)
 {
     wchar_t *orig=dest;
     wchar_t *dmax=dest+N-1; /* keep space for a terminating NULL */
@@ -469,7 +476,7 @@ wchar_t *wcscat_sL(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__
 }
 #define wcscat_s wcscat_sL
 
-TCHAR *lstrcpy_s(TCHAR *__restrict__ dest, const size_t N, const TCHAR *__restrict__ src)
+static nonnull2(1,3) TCHAR *lstrcpy_s(TCHAR *__restrict__ dest, const size_t N, const TCHAR *__restrict__ src)
 {
     TCHAR *orig=dest;
     TCHAR *dmax=dest+N-1; /* keep space for a terminating NULL */
@@ -478,7 +485,7 @@ TCHAR *lstrcpy_s(TCHAR *__restrict__ dest, const size_t N, const TCHAR *__restri
     return orig;
 }
 
-static int strcmpL(const char *X, const char *Y)
+static allnonnull int strcmpL(const char *X, const char *Y)
 {
     while (*X && *X == *Y) {
         X++;
@@ -488,7 +495,7 @@ static int strcmpL(const char *X, const char *Y)
 }
 #define strcmp strcmpL
 
-static const char *lstrstrA(const char *haystack, const char *needle)
+static allnonnull const char *lstrstrA(const char *haystack, const char *needle)
 {
     size_t i,j;
     for (i=0; haystack[i]; ++i) {
@@ -497,7 +504,7 @@ static const char *lstrstrA(const char *haystack, const char *needle)
     }
     return NULL;
 }
-static const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t *needle)
+static allnonnull const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t *needle)
 {
     size_t i,j;
     for (i=0; haystack[i]; ++i) {
@@ -533,12 +540,14 @@ static const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t *needle)
 #define itostr itostrW
 #define strtoi strtoiW
 #define lstrcat_s lstrcat_sW
+#define _itot itowL
 #else
 #define lstrstr lstrstrA
 #define lstrchr lstrchrA
 #define itostr itostrA
 #define strtoi strtoiA
 #define lstrcat_s lstrcat_sA
+#define _itot itoaL
 #endif
 
 static inline unsigned h2u(const TCHAR c)
@@ -550,7 +559,7 @@ static inline unsigned h2u(const TCHAR c)
 }
 
 /* stops at the end of the string or at a space*/
-static unsigned lstrhex2u(const TCHAR *s)
+static allnonnull pure unsigned lstrhex2u(const TCHAR *s)
 {
     unsigned ret=0;
     while(*s && *s != L' ')

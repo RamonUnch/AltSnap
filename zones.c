@@ -52,7 +52,7 @@ static void ReadZonesFromLayout(const TCHAR *inisection, unsigned laynum)
     Zones[laynum] = NULL;
     RECT tmpzone;
     while (ReadRectFromini(&tmpzone, laynum, nzones[laynum], inisection)) {
-        RECT *tmp = realloc( Zones[laynum], (nzones[laynum]+1) * sizeof(RECT) );
+        RECT *tmp = (RECT *)realloc( Zones[laynum], (nzones[laynum]+1) * sizeof(*tmp) );
         if(!tmp) return;
         Zones[laynum] = tmp;
         CopyRect(&Zones[laynum][nzones[laynum]++], &tmpzone);
@@ -72,7 +72,7 @@ static void GenerateGridZones(unsigned layout, unsigned short Nx, unsigned short
     nummonitors = 0;
     unsigned nz = 0;
     EnumDisplayMonitors(NULL, NULL, EnumMonitorsProc, 0);
-    RECT *tmp = realloc(Zones[layout], nummonitors * Nx * Ny * sizeof(RECT));
+    RECT *tmp = (RECT *)realloc(Zones[layout], nummonitors * Nx * Ny * sizeof(*tmp));
     if(!tmp) return;
     Zones[layout] = tmp;
     if(!Zones[layout]) return;

@@ -57,7 +57,7 @@ static void LoadAllIcons()
                 for(i=0; i<3; i++) {
                     lstrcpy_s(p, ARR_SZ(path)-len, iconstr[i]);
                     lstrcat_s(path, ARR_SZ(path), TEXT(".ico"));
-                    HICON tmp = LoadImage(g_hinst, path, IMAGE_ICON,0,0, LR_LOADFROMFILE|LR_DEFAULTSIZE|LR_LOADTRANSPARENT);
+                    HICON tmp = (HICON)LoadImage(g_hinst, path, IMAGE_ICON,0,0, LR_LOADFROMFILE|LR_DEFAULTSIZE|LR_LOADTRANSPARENT);
                     icons[i] = tmp? tmp: LoadIcon(g_hinst, iconstr[i]);
                 }
                 return;
@@ -112,12 +112,12 @@ static int UpdateTray()
         // Try a few times, sleep 100 ms between each attempt
         int i=1;
         LOG("Updating tray icon");
-        while (!Shell_NotifyIcon(tray_added? NIM_MODIFY: NIM_ADD, (void *)&tray) ) {
+        while (!Shell_NotifyIcon(tray_added? NIM_MODIFY: NIM_ADD, (PNOTIFYICONDATA)&tray) ) {
             LOG("Failed in try No. %d", i);
 
             // Maybe we just tried to add an already existing tray.
             // Happens after DPI change under Win 10 (TaskbarCreated) msg.
-            if (!tray_added && Shell_NotifyIcon(NIM_MODIFY, (void *)&tray)) {
+            if (!tray_added && Shell_NotifyIcon(NIM_MODIFY, (PNOTIFYICONDATA)&tray)) {
                 LOG("Updated tray icon");
                 tray_added = 1;
                 return 0;
@@ -142,7 +142,7 @@ static int RemoveTray()
     if (!tray_added)
         return 1;
 
-    if (!Shell_NotifyIcon(NIM_DELETE, (void *)&tray))
+    if (!Shell_NotifyIcon(NIM_DELETE, (PNOTIFYICONDATA)&tray))
         return 1;
 
     // Success

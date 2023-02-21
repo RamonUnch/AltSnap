@@ -239,7 +239,7 @@ static void ASleep(DWORD duration_ms)
         return;
     }
     if (mtimeGetDevCaps == (MMRESULT (WINAPI *)(LPTIMECAPS ptc, UINT cbtc))IPTR) {
-        HANDLE h=LoadLibraryA("WINMM.DLL");
+        HINSTANCE h=LoadLibraryA("WINMM.DLL");
         if (h) {
             mtimeGetDevCaps =(MMRESULT (WINAPI *)(LPTIMECAPS ptc, UINT cbtc))GetProcAddress(h, "timeGetDevCaps");
             mtimeBeginPeriod=(MMRESULT (WINAPI *)(UINT uPeriod))GetProcAddress(h, "timeBeginPeriod");
@@ -1277,7 +1277,7 @@ static int LCIDToLocaleNameL(LCID Locale, LPWSTR lpName, int cchName, DWORD dwFl
     }
     /* Unable to find KERNEL32.DLL::LCIDToLocaleName
      * Try with NLSDL.DLL::DownlevelLCIDToLocaleName */
-    HANDLE h = LoadLibraryA("NLSDL.DLL");
+    HINSTANCE h = LoadLibraryA("NLSDL.DLL");
     if (h) {
         int ret=0;
         funk = FUNK_TYPE GetProcAddress(h, "DownlevelLCIDToLocaleName");

@@ -8,6 +8,12 @@ WARNINGS=-Wall  \
 	-Wclobbered \
 	-Wempty-body \
 	-Wignored-qualifiers \
+	-Wstringop-overflow=4 \
+	-Wsuggest-attribute=pure \
+	-Wsuggest-attribute=const \
+	-Wsuggest-attribute=noreturn \
+	-Wsuggest-attribute=malloc \
+	-Walloc-zero \
 	-Wuninitialized \
 	-Wtype-limits \
 	-Woverride-init \
@@ -21,7 +27,9 @@ WARNINGS=-Wall  \
 	-Wshadow \
 	-Warray-bounds=2 \
 	-Wstack-usage=4096 \
-	-Werror=vla
+	-Werror=vla \
+	-pedantic \
+	-Wc++-compat
 
 # -Wunused-parameter
 # -Wtraditional-conversion
@@ -29,6 +37,7 @@ WARNINGS=-Wall  \
 # -Wstack-usage=2048
 # -finput-charset=UTF-8
 # -Wc++-compat
+# -fmerge-all-constants
 
 CFLAGS=-Os -std=c99 \
 	-finput-charset=UTF-8 \
@@ -44,6 +53,8 @@ CFLAGS=-Os -std=c99 \
 	-fno-exceptions \
 	-fno-dwarf2-cfi-asm \
 	-fno-asynchronous-unwind-tables \
+	-fmerge-all-constants \
+	-fno-semantic-interposition \
 	-fgcse-sm \
 	-fgcse-las \
 	-fno-plt \
@@ -63,7 +74,7 @@ LDFLAGS=-nostdlib \
 	-Wl,--relax \
 	-Wl,--disable-runtime-pseudo-reloc \
 	-Wl,--enable-auto-import \
-	-Wl,--disable-stdcall-fixup
+	-Wl,--disable-stdcall-fixup \
 
 EXELD = $(LDFLAGS) \
 	-Wl,--tsaware \
@@ -74,8 +85,8 @@ EXELD = $(LDFLAGS) \
 
 default: AltSnap.exe hooks.dll
 
-hooks.dll : hooks.c hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c
-	$(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) $(LDFLAGS) -mdll -e_DllMain@12
+hooks.dll : hooks.c hooks.def hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c
+	$(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) $(LDFLAGS) -mdll -e_DllMain@12 -Wl,--kill-at
 
 AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages.c unfuck.h nanolibc.h
 	$(CC) -o AltSnap.exe altsnap.c altsnapr.o $(CFLAGS) $(EXELD) -mwindows -e_unfuckWinMain@0

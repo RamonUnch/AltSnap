@@ -574,7 +574,7 @@ unsigned monitors_alloc = 0;
 BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
 {
     // Make sure we have enough space allocated
-    monitors = GetEnoughSpace(monitors, nummonitors, &monitors_alloc, sizeof(RECT));
+    monitors = (RECT *)GetEnoughSpace(monitors, nummonitors, &monitors_alloc, sizeof(RECT));
     if (!monitors) return FALSE; // Stop enum, we failed
     // Add monitor
     MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
@@ -606,7 +606,7 @@ unsigned wnds_alloc = 0;
 BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    wnds = GetEnoughSpace(wnds, numwnds, &wnds_alloc, sizeof(RECT));
+    wnds = (RECT *)GetEnoughSpace(wnds, numwnds, &wnds_alloc, sizeof(RECT));
     if (!wnds) return FALSE; // Stop enum, we failed
 
     // Only store window if it's visible, not minimized to taskbar,
@@ -653,7 +653,7 @@ unsigned snwnds_alloc = 0;
 BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    snwnds = GetEnoughSpace(snwnds, numsnwnds, &snwnds_alloc, sizeof(struct snwdata));
+    snwnds = (struct snwdata *)GetEnoughSpace(snwnds, numsnwnds, &snwnds_alloc, sizeof(struct snwdata));
     if (!snwnds) return FALSE; // Stop enum, we failed
 
     RECT wnd;
@@ -702,7 +702,7 @@ static void EnumSnapped()
 BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    snwnds = GetEnoughSpace(snwnds, numsnwnds, &snwnds_alloc, sizeof(struct snwdata));
+    snwnds = (struct snwdata *)GetEnoughSpace(snwnds, numsnwnds, &snwnds_alloc, sizeof(*snwnds));
     if (!snwnds) return FALSE; // Stop enum, we failed
 
     RECT wnd;
@@ -763,7 +763,7 @@ static int ResizeTouchingWindows(LPVOID lwptr)
     RECT *bd;
     EnumOnce(&bd);
     if (!snwnds || !numsnwnds) return 0;
-    struct windowRR *lw = lwptr;
+    struct windowRR *lw = (struct windowRR *)lwptr;
     // posx, posy,  correspond to the VISIBLE rect
     // of the current window...
     int posx = lw->x + bd->left;
@@ -857,7 +857,7 @@ static void ResizeAllSnappedWindowsAsync()
 static void EnumMdi()
 {
     // Make sure we have enough space allocated
-    monitors = GetEnoughSpace(monitors, nummonitors, &monitors_alloc, sizeof(RECT));
+    monitors = (RECT *)GetEnoughSpace(monitors, nummonitors, &monitors_alloc, sizeof(RECT));
     if (!monitors) return; // Fail
 
     // Add MDIClient as the monitor
@@ -1562,7 +1562,7 @@ static pure int ModKey()
 }
 ///////////////////////////////////////////////////////////////////////////
 // Get action of button
-static enum action GetAction(const enum button button)
+static enum action GetAction(const int button)
 {
     if (button) { // Ugly pointer arithmetic (LMB <==> button == 2)
         return conf.Mouse.LMB[(button-2)*NACPB+ModKey()];
@@ -1570,7 +1570,7 @@ static enum action GetAction(const enum button button)
         return AC_NONE;
     }
 }
-static enum action GetActionT(const enum button button)
+static enum action GetActionT(const int button)
 {
     if (button) { // Ugly pointer arithmetic +2 compared to non titlebar
         return conf.Mouse.LMB[2+(button-2)*NACPB+ModKey()];
@@ -1578,7 +1578,7 @@ static enum action GetActionT(const enum button button)
         return AC_NONE;
     }
 }
-static enum action GetActionMR(const enum button button)
+static enum action GetActionMR(const int button)
 {
     if (button) {
         // Ugly pointer arithmetic
@@ -2240,7 +2240,7 @@ DWORD WINAPI ActionKillThread(LPVOID hwnd)
         // taskkill.exe /F /FI "status eq NOT RESPONDING" /FI "IMAGENAME ne AltSnap.exe" /FI "IMAGENAME ne dwm.exe"
     } else {
         DWORD pid;
-        GetWindowThreadProcessId(hwnd, &pid);
+        GetWindowThreadProcessId((HWND)hwnd, &pid);
         //LOG("pid=%lu", pid);
 
         // Open the process
@@ -2667,7 +2667,7 @@ unsigned hwnds_alloc = 0;
 BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    hwnds = GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
+    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
     if (!hwnds) return FALSE; // Stop enum, we failed
 
     // Only store window if it's visible, not minimized
@@ -2682,7 +2682,7 @@ BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 BOOL CALLBACK EnumTopMostWindows(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    hwnds = GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
+    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
     if (!hwnds) return FALSE; // Stop enum, we failed
 
     // Only store window if it's visible, not minimized
@@ -2704,7 +2704,7 @@ BOOL CALLBACK EnumStackedWindowsProc(HWND hwnd, LPARAM lasermode)
 {
     // Make sure we have enough space allocated
 
-    hwnds = GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
+    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
     if (!hwnds) return FALSE; // Stop enum, we failed
     // Only store window if it's visible, not minimized to taskbar
     RECT wnd, refwnd;
@@ -3782,7 +3782,7 @@ struct MinimizeWindowProcParams {
 };
 BOOL CALLBACK MinimizeWindowProc(HWND hwnd, LPARAM lParam)
 {
-    minhwnds = GetEnoughSpace(minhwnds, numminhwnds, &minhwnds_alloc, sizeof(HWND));
+    minhwnds = (HWND *)GetEnoughSpace(minhwnds, numminhwnds, &minhwnds_alloc, sizeof(HWND));
     if (!minhwnds) return FALSE; // Stop enum, we failed
     struct MinimizeWindowProcParams *p = (struct MinimizeWindowProcParams *) lParam;
     hwnd = GetRootOwner(hwnd);
@@ -3838,7 +3838,7 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
     }
 }
 
-static BOOL IsRectInMonitors(const RECT *rc)
+static pure BOOL IsRectInMonitors(const RECT *rc)
 {
     unsigned i;
     for(i=0; i < nummonitors; i++) {
@@ -3938,7 +3938,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
 
         // 5 + textlen + 1 * null
         // Allocate some memory
-        data[i].txtptr = malloc((textlen + 6) * sizeof(TCHAR));
+        data[i].txtptr = (TCHAR *)malloc((textlen + 6) * sizeof(TCHAR));
         if (data[i].txtptr) {
             // Allocation succeeded
             TCHAR *txt = data[i].txtptr;
@@ -4503,7 +4503,7 @@ static void DoComboActions(enum action action, enum button button)
 }
 /////////////////////////////////////////////////////////////////////////////
 //
-static xpure enum button GetButton(WPARAM wp, LPARAM lp)
+static xpure int GetButton(WPARAM wp, LPARAM lp)
 {
     PMSLLHOOKSTRUCT msg = (PMSLLHOOKSTRUCT)lp;
     return
@@ -4586,7 +4586,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 
     //Get Button state and data.
     enum buttonstate buttonstate = GetButtonState(wParam);
-    enum button button = GetButton(wParam, lParam);
+    enum button button = (enum button)GetButton(wParam, lParam);
     // Get wheel delta
     state.delta = GET_WHEEL_DELTA_WPARAM(msg->mouseData);
 
@@ -4906,7 +4906,7 @@ static LPARAM MeasureMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi,
 
     // Select proper font.
 //    HFONT mfont = CreateNCMenuFont(dpi);
-    HFONT oldfont=SelectObject(dc, mfont);
+    HFONT oldfont=(HFONT)SelectObject(dc, mfont);
 
     int xmargin = GetSystemMetricsForDpi(SM_CXFIXEDFRAME, dpi);
     int ymargin = GetSystemMetricsForDpi(SM_CYFIXEDFRAME, dpi);
@@ -4965,12 +4965,12 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi, H
     SetTextColor(di->hDC, GetSysColor(txcol));
 
     // Highlight menu entry
-    HPEN oldpen=SelectObject(di->hDC, GetStockObject(NULL_PEN));
-    HBRUSH oldbrush=SelectObject(di->hDC, bgbrush);
+    HPEN oldpen=(HPEN)SelectObject(di->hDC, GetStockObject(NULL_PEN));
+    HBRUSH oldbrush=(HBRUSH)SelectObject(di->hDC, bgbrush);
     Rectangle(di->hDC, di->rcItem.left, di->rcItem.top, di->rcItem.right+1, di->rcItem.bottom+1);
 
 //    HFONT mfont = CreateNCMenuFont(dpi);
-    HFONT oldfont=SelectObject(di->hDC, mfont);
+    HFONT oldfont=(HFONT)SelectObject(di->hDC, mfont);
 
     SIZE sz;
     GetTextExtentPoint32(di->hDC, data->txtptr, lstrlen(data->txtptr), &sz);
@@ -4990,7 +4990,7 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi, H
         , 0, NULL, DI_NORMAL);
     if (IsIconic(hwnds[di->itemID-1])) {
         HPEN npen = CreatePen(PS_SOLID, yicosz/5, GetSysColor(txcol));
-        HPEN prevpen = SelectObject(di->hDC, npen);
+        HPEN prevpen = (HPEN)SelectObject(di->hDC, npen);
         MoveToEx(di->hDC, di->rcItem.left+xmargin, di->rcItem.top + yicooffset+yicosz-1, NULL);
         LineTo(di->hDC, di->rcItem.left+xmargin+xicosz,di->rcItem.top + yicooffset+yicosz-1);
         DeleteObject(SelectObject(di->hDC, prevpen));
@@ -5078,7 +5078,7 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         } else if (HIWORD(wParam) && IsWindow(state.sclickhwnd) ) {
             // ACTION MENU LOWORD(wParam) has to be zero to differenctiae with unikey menu
             LOG("Action Menu WM_COMMAND, wp=%X, lp=%X", (UINT)wParam, (UINT)lParam);
-            enum action action = HIWORD(wParam);
+            enum action action = (enum action)HIWORD(wParam);
             if (action) {
                 state.prevpt = state.clickpt;
                 if(action == AC_ORICLICK) {
@@ -5206,22 +5206,23 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_HOTKEY) {
-        int action = 0;
+        int actionint = 0;
         int ptwindow = 0;
         if (wParam > 0xC000) { // HOTKEY
             // The user Pressed a hotkey.
-            action = wParam - 0xC000; // Remove the Offset
+            actionint = wParam - 0xC000; // Remove the Offset
             ptwindow = conf.UsePtWindow;
             LOG("Hotkey Pressed, action = %d", action);
         } else if (0x0000 < wParam && wParam < 0x1000) {
             // The user called AltSnap.exe -afACTION
-            action = wParam - 0x0000; // Remove the Offset
+            actionint = wParam - 0x0000; // Remove the Offset
             ptwindow = 0;
         } else if (0x1000 < wParam && wParam < 0x2000) {
             // The user called AltSnap.exe -apACTION
-            action = wParam - 0x1000; // Remove the Offset
+            actionint = wParam - 0x1000; // Remove the Offset
             ptwindow = 1;
         }
+        enum action action =  (enum action)actionint;
 
         if (action > AC_RESIZE) { // Exclude resize action in case...
             POINT pt;
@@ -5229,7 +5230,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             DWORD msgpos = GetMessagePos();
             pt.x = GET_X_LPARAM(msgpos);
             pt.y = GET_Y_LPARAM(msgpos);
-            static const enum action noinitactions[] = { AC_KILL, AC_PAUSE, AC_RESUME, AC_ASONOFF, 0 };
+            static const enum action noinitactions[] = { AC_KILL, AC_PAUSE, AC_RESUME, AC_ASONOFF, AC_NONE };
             if (IsActionInList(action, noinitactions)) {
                 // Some actions pass directly through the default blacklists...
                 HWND targethwnd = ptwindow? WindowFromPoint(pt): GetForegroundWindow();
@@ -5242,7 +5243,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 if (!ptwindow) {
                     target_hwnd = GetForegroundWindow();
                     // List of actions for which point should default to center.
-                    static const enum action resetPTaclist[] = {AC_MENU, AC_NSTACKED, AC_PSTACKED, 0 };
+                    static const enum action resetPTaclist[] = {AC_MENU, AC_NSTACKED, AC_PSTACKED, AC_NONE };
                     if (IsActionInList(action, resetPTaclist)) {
                         state.ignorept = 1;
                     }
@@ -5281,7 +5282,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 static void freeblacklists()
 {
-    struct blacklist *list = (void *)&BlkLst;
+    struct blacklist *list = (struct blacklist *)&BlkLst;
     unsigned i;
     for (i=0; i< sizeof(BlkLst)/sizeof(struct blacklist); i++) {
         free(list->data);
@@ -5334,7 +5335,7 @@ static void readblacklist(const TCHAR *section, struct blacklist *blacklist, con
     if (!txt || !*txt) {
         return;
     }
-    blacklist->data = malloc((lstrlen(txt)+1)*sizeof(TCHAR));
+    blacklist->data = (TCHAR *)malloc((lstrlen(txt)+1)*sizeof(TCHAR));
     if (!blacklist->data) return;
     lstrcpy(blacklist->data, txt);
     TCHAR *pos = blacklist->data;
@@ -5397,7 +5398,7 @@ static void readblacklist(const TCHAR *section, struct blacklist *blacklist, con
         }
         // Allocate space
         struct blacklistitem *olditem = blacklist->items;
-        blacklist->items = realloc(blacklist->items, (blacklist->length+1)*sizeof(struct blacklistitem));
+        blacklist->items = (struct blacklistitem *)realloc(blacklist->items, (blacklist->length+1)*sizeof(struct blacklistitem));
         if (!blacklist->items) {
             // restore old item if realloc failed
             // It will jst be a shorter blacklist

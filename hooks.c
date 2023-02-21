@@ -127,6 +127,7 @@ static struct {
 
     UCHAR sactiondone;
     UCHAR xxbutton;
+    UCHAR ignorept;
     enum action action;
     struct resizeXY resize;
 } state;
@@ -2713,11 +2714,13 @@ BOOL CALLBACK EnumStackedWindowsProc(HWND hwnd, LPARAM lasermode)
     && GetWindowRectL(hwnd, &wnd)
     && (lasermode || StackedRectsT(&refwnd, &wnd, conf.SnapThreshold/2) )
     && InflateRect(&wnd, conf.SnapThreshold, conf.SnapThreshold)
-    && PtInRect(&wnd, state.prevpt)
+    &&(state.ignorept || PtInRect(&wnd, state.prevpt))
     ){
         hwnds[numhwnds++] = hwnd;
+        LOG("EnumStackedWindowsProc found");
+    } else {
+        LOG("EnumStackedWindowsProc skip");
     }
-    LOG("EnumStackedWindowsProc");
     return TRUE;
 }
 ////////////////////////////////////////////////////////////////////////////
@@ -4030,7 +4033,7 @@ static void ActionMenu(HWND hwnd)
     ReallySetForegroundWindow(g_mainhwnd);
     PostMessage(
         g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd,
-       ( state.prevpt.x != MAXLONG )                            // LP_CURSORPOS
+       ( !state.ignorept )                                            // LP_CURSORPOS
        | !!(GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST)<<1 // LP_TOPMOST
        | !!GetBorderlessFlag(hwnd) << 2                        // LP_BORDERLESS
        | IsZoomed(hwnd) << 3                                    // LP_MAXIMIZED
@@ -5226,10 +5229,6 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             DWORD msgpos = GetMessagePos();
             pt.x = GET_X_LPARAM(msgpos);
             pt.y = GET_Y_LPARAM(msgpos);
-            if (!ptwindow
-            && (action == AC_MENU)) {
-                pt.x = MAXLONG;
-            }
             static const enum action noinitactions[] = { AC_KILL, AC_PAUSE, AC_RESUME, AC_ASONOFF, 0 };
             if (IsActionInList(action, noinitactions)) {
                 // Some actions pass directly through the default blacklists...
@@ -5238,9 +5237,29 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     SClickActions(targethwnd, action);
                 }
             } else {
+                // For all other actions.
+                HWND target_hwnd = NULL;
+                if (!ptwindow) {
+                    target_hwnd = GetForegroundWindow();
+                    // List of actions for which point should default to center.
+                    static const enum action resetPTaclist[] = {AC_MENU, AC_NSTACKED, AC_PSTACKED, 0 };
+                    if (IsActionInList(action, resetPTaclist)) {
+                        state.ignorept = 1;
+                    }
+                    // Might be of use for something?
+                    //} else if (IsActionInList(action, ptCenterAcList)) {
+                    //    // We must select the center of the current window as the point
+                    //    // pt to which the action will be done.
+                    //    RECT rc;
+                    //    GetWindowRect(target_hwnd, &rc);
+                    //    pt.x = (rc.left+rc.right)/2;
+                    //    pt.y = (rc.top+rc.bottom)/2;
+                    //}
+                }
                 state.shift = state.ctrl = 0; // In case...
-                init_movement_and_actions(pt, ptwindow? NULL: GetForegroundWindow(), action, 0);
+                init_movement_and_actions(pt, target_hwnd, action, 0);
                 state.blockmouseup = 0; // We must not block mouseup in this case...
+                state.ignorept = 0; // Reset...
             }
             return 0;
         }

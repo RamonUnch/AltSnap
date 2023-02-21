@@ -153,6 +153,10 @@ struct strings {
   TCHAR *input_actions_xtntedge;
   TCHAR *input_actions_xtnredge;
   TCHAR *input_actions_xtnbedge;
+  TCHAR *input_actions_mtnledge;
+  TCHAR *input_actions_mtntedge;
+  TCHAR *input_actions_mtnredge;
+  TCHAR *input_actions_mtnbedge;
 
   TCHAR *input_actions_stepl;
   TCHAR *input_actions_stept;
@@ -177,6 +181,7 @@ struct strings {
   TCHAR *input_actions_sidesnap;
   TCHAR *input_actions_extendsnap;
   TCHAR *input_actions_extendtnedge;
+  TCHAR *input_actions_movetnedge;
 
   TCHAR *input_actions_minallother;
   TCHAR *input_actions_transparency;
@@ -381,6 +386,10 @@ static const char* l10n_inimapping[] = {
     "InputActionXTNTEdge",
     "InputActionXTNREdge",
     "InputActionXTNBEdge",
+    "InputActionMTNLEdge",
+    "InputActionMTNTEdge",
+    "InputActionMTNREdge",
+    "InputActionMTNBEdge",
     "InputActionStepl",
     "InputActionStepT",
     "InputActionStepR",
@@ -403,6 +412,7 @@ static const char* l10n_inimapping[] = {
     "InputActionSideSnap",
     "InputActionExtendSnap",
     "InputActionExtendTNEdge",
+    "InputActionMoveTNEdge",
     "InputActionMinAllOther",
     "InputActionTransparency",
     "InputActionZoom",
@@ -610,6 +620,10 @@ static const struct strings en_US = {
  /* xtntedge           */ TEXT("Extend to the next top edge"),
  /* xtnredge           */ TEXT("Extend to the next right edge"),
  /* xtnbedge           */ TEXT("Extend to the next bottom edge"),
+ /* mtnledge           */ TEXT("Move to the next left edge"),
+ /* mtntedge           */ TEXT("Move to the next top edge"),
+ /* mtnredge           */ TEXT("Move to the next right edge"),
+ /* mtnbedge           */ TEXT("Move to the next bottom edge"),
  /* stepl              */ TEXT("Step left"),
  /* stept              */ TEXT("Step up"),
  /* stepr              */ TEXT("Step right"),
@@ -632,6 +646,7 @@ static const struct strings en_US = {
  /* sidesnap           */ TEXT("&Snap to monitor side/corner"),
  /* extendsnap         */ TEXT("Extend to monitor side/corner"),
  /* extendtnedge       */ TEXT("Extend to next edge"),
+ /* movedtnedge        */ TEXT("Move to next edge"),
  /* minallother        */ TEXT("Minimize &other windows"),
  /* transparency       */ TEXT("Transparency"),
  /* zoom               */ TEXT("Zoom window"),

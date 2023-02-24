@@ -355,11 +355,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         } else if (wmId == SWM_EXIT) {
             DestroyWindow(hwnd);
         } else if (wmId == SWM_SAVEZONES) {
-            TCHAR txt[256], numstr[16];
+            TCHAR txt[256];
             lstrcpy_s(txt, ARR_SZ(txt), l10n->zone_confirmation);
-            lstrcat_s(txt, ARR_SZ(txt), TEXT("\n"));
-            lstrcat_s(txt, ARR_SZ(txt), TEXT("Snap Layout "));
-            lstrcat_s(txt, ARR_SZ(txt), itostr(LayoutNumber+1, numstr, 10));
+            lstrcat_s(txt, ARR_SZ(txt), TEXT("\n\n"));
+            catFullLayoutName(txt, ARR_SZ(txt), LayoutNumber);
             int ret = MessageBox(NULL, txt, TEXT(APP_NAMEA), MB_OKCANCEL);
             if (ret == IDOK) {
                 UnhookSystem();
@@ -403,7 +402,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 /////////////////////////////////////////////////////////////////////////////
-int WINAPI WinMainAW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *params, int iCmdShow)
+int WINAPI WinMainAW(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int iCmdShow)
 {
     g_hinst = hInst;
 
@@ -582,5 +581,5 @@ void noreturn WINAPI unfuckWinMain(void)
     hInst = GetModuleHandle(NULL);
     szCmdLine = ParamsFromCmdline(GetCommandLine());
 
-    ExitProcess(WinMainAW(hInst, hPrevInstance, szCmdLine, iCmdShow));
+    ExitProcess(WinMainAW(hInst, hPrevInstance, (TCHAR *)szCmdLine, iCmdShow));
 }

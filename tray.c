@@ -214,6 +214,28 @@ static void SaveCurrentLayout()
     EnumThreadWindows(GetCurrentThreadId(), SaveTestWindow, 0);
 }
 
+static void catFullLayoutName(TCHAR *txt, size_t len, int laynum)
+{
+    TCHAR numstr[16];
+    lstrcat_s(txt, len, TEXT("Snap Layout "));
+    lstrcat_s(txt, len, itostr(laynum+1, numstr, 10));
+    if (g_dllmsgHKhwnd) {
+        DWORD rez =0;
+        if ((rez = SendMessage(g_dllmsgHKhwnd, WM_GETLAYOUTREZ, laynum, 0))) {
+            // Add (width:height) to label the layout.
+            lstrcat_s(txt, len, TEXT("  ("));
+            lstrcat_s(txt, len, itostr(LOWORD(rez), numstr, 10));
+            lstrcat_s(txt, len, TEXT(":"));
+            lstrcat_s(txt, len, itostr(HIWORD(rez), numstr, 10));
+            lstrcat_s(txt, len, TEXT(")"));
+        } else {
+            lstrcat_s(txt, len, l10n->menu_emptyzone); // (empty)
+        }
+    } else {
+        lstrcat_s(txt, len, TEXT("  (...)"));
+    }
+}
+
 /////////////////////////////////////////////////////////////////////////////
 static void ShowContextMenu(HWND hwnd)
 {
@@ -235,29 +257,11 @@ static void ShowContextMenu(HWND hwnd)
     if (UseZones&1) { // Zones section
         if(MaxLayouts)
             AppendMenu(menu, MF_SEPARATOR, 0, NULL);
-        UCHAR i;
-        DWORD rez =0;
-
+        int i;
         for (i=0; i < MaxLayouts; i++) {
             TCHAR txt[128];
-            TCHAR istr[16];
-
-            lstrcpy_s(txt, ARR_SZ(txt), l10n->menu_snaplayout); // Snap layout &i
-            lstrcat_s(txt, ARR_SZ(txt), itostr(i+1, istr, 10));
-            if (g_dllmsgHKhwnd) {
-                if ((rez = SendMessage(g_dllmsgHKhwnd, WM_GETLAYOUTREZ, i, 0))) {
-                    // Add (width:height) to label the layout.
-                    lstrcat_s(txt, ARR_SZ(txt), TEXT("  ("));
-                    lstrcat_s(txt, ARR_SZ(txt), itostr(LOWORD(rez), istr, 10));
-                    lstrcat_s(txt, ARR_SZ(txt), TEXT(":"));
-                    lstrcat_s(txt, ARR_SZ(txt), itostr(HIWORD(rez), istr, 10));
-                    lstrcat_s(txt, ARR_SZ(txt), TEXT(")"));
-                } else {
-                    lstrcat_s(txt, ARR_SZ(txt), l10n->menu_emptyzone); // (empty)
-                }
-            } else {
-                lstrcat_s(txt, ARR_SZ(txt), TEXT("  (...)"));
-            }
+            txt[0] = '\0';
+            catFullLayoutName(txt, ARR_SZ(txt), i);
             // Check the current layout We use a simple checkmark,
             // because a radio button is more complex to setup.
             UINT mfflags = i==LayoutNumber? MF_STRING|MF_CHECKED: MF_STRING|MF_UNCHECKED;

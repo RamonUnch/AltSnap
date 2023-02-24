@@ -76,6 +76,7 @@
     ACVALUE(AC_SIDESNAP,     "SideSnap",    MR) \
     ACVALUE(AC_EXTENDSNAP,   "ExtendSnap",  MR) \
     ACVALUE(AC_EXTENDTNEDGE, "ExtendTNEdge",MR) \
+    ACVALUE(AC_MOVETNEDGE,   "MoveTNEdge",  MV) \
     ACVALUE(AC_NSTACKED,     "NStacked",    ZO) \
     ACVALUE(AC_NSTACKED2,    "NStacked2",   ZO) \
     ACVALUE(AC_PSTACKED,     "PStacked",    ZO) \
@@ -99,6 +100,10 @@
     ACVALUE(AC_XTNTEDGE, "XTNTEdge", MR) \
     ACVALUE(AC_XTNREDGE, "XTNREdge", MR) \
     ACVALUE(AC_XTNBEDGE, "XTNBEdge", MR) \
+    ACVALUE(AC_MTNLEDGE, "MTNLEdge", MV) \
+    ACVALUE(AC_MTNTEDGE, "MTNTEdge", MV) \
+    ACVALUE(AC_MTNREDGE, "MTNREdge", MV) \
+    ACVALUE(AC_MTNBEDGE, "MTNBEdge", MV) \
     \
     ACVALUE(AC_STEPL,  "StepL",  MR) \
     ACVALUE(AC_STEPT,  "StepT",  MR) \

@@ -3235,7 +3235,11 @@ static void NextBorders(RECT *pos, const RECT *cur, const RECT *def)
         if (flg&(SNZONE|SNBOTTOM) && rc->top > cur->bottom) pos->bottom = min(pos->bottom, rc->top);
     }
 }
-static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR extend)
+#define SNTO_CNSNAP 0
+#define SNTO_EXTEND 1
+#define SNTO_NEXTBD 2
+#define SNTO_MOVETO 4
+static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
 {
     SetOriginFromRestoreData(hwnd, AC_MOVE);
     GetMinMaxInfo(hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
@@ -3253,16 +3257,18 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR extend)
     int wndwidth  = wnd.right  - wnd.left;
     int wndheight = wnd.bottom - wnd.top;
 
-    if (extend) {
-    /* Extend window's borders to monitor */
-        RECT tmp;
+    RECT tmp;
 
-        if (extend == 2) {
-            EnumSnapped();
-            // Find next borders in each direction and set it up as mon.
-            NextBorders(&tmp, &wnd, mon);
-            mon = &tmp;
-        }
+    if (flags & SNTO_NEXTBD) {
+        // Find next borders in each direction and set it up as monitor.
+        EnumSnapped();
+        RECT vwnd;
+        GetWindowRectL(hwnd, &vwnd);
+        NextBorders(&tmp, &vwnd, mon);
+        mon = &tmp;
+    }
+    if (flags & SNTO_EXTEND) {
+    /* Extend window's borders to monitor */
         posx = wnd.left - state.mdipt.x;
         posy = wnd.top - state.mdipt.y;
 
@@ -3282,6 +3288,19 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR extend)
             posx = mon->left - bd.left;
             posy = wnd.top - state.mdipt.y + bd.top ;
             restore |= SNMAXW;
+        }
+    } else if (flags & SNTO_MOVETO) {
+        posx = wnd.left - state.mdipt.x;
+        posy = wnd.top - state.mdipt.y;
+        if (resize.x == RZ_LEFT) {
+            posx =  mon->left - bd.left;
+        } else if (resize.x == RZ_RIGHT) {
+            posx = mon->right + bd.right - wndwidth;
+        }
+        if (resize.y == RZ_TOP) {
+            posy =  mon->top - bd.top;
+        } else if (resize.y == RZ_BOTTOM) {
+            posy = mon->bottom - bd.bottom - wndheight;
         }
     } else { /* Aero Snap to corresponding side/corner */
         int leftWidth, rightWidth, topHeight, bottomHeight;
@@ -4063,12 +4082,13 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_MAXHV:       MaximizeHV(hwnd, state.shift); break;
     case AC_MINALL:      MinimizeAllOtherWindows(hwnd, state.shift); break;
     case AC_MUTE:        Send_KEY(VK_VOLUME_MUTE); break;
-    case AC_SIDESNAP:    SnapToCorner(hwnd, AUTORESIZE, state.shift); break;
+    case AC_SIDESNAP:    SnapToCorner(hwnd, AUTORESIZE, !!state.shift); break;
     case AC_EXTENDSNAP:  SnapToCorner(hwnd, AUTORESIZE, !state.shift); break;
-    case AC_EXTENDTNEDGE:SnapToCorner(hwnd, AUTORESIZE, 2); break;
+    case AC_EXTENDTNEDGE:SnapToCorner(hwnd, AUTORESIZE, state.shift?SNTO_MOVETO|SNTO_NEXTBD:SNTO_EXTEND|SNTO_NEXTBD); break;
+    case AC_MOVETNEDGE:  SnapToCorner(hwnd, AUTORESIZE, state.shift?SNTO_EXTEND|SNTO_NEXTBD:SNTO_MOVETO|SNTO_NEXTBD); break;
     case AC_MENU:        ActionMenu(hwnd); break;
     case AC_NSTACKED:    ActionAltTab(state.prevpt, +120,  state.shift, EnumStackedWindowsProc); break;
-    case AC_NSTACKED2:   ActionAltTab(state.prevpt, +120, !state.shift, EnumStackedWindowsProc);  break;
+    case AC_NSTACKED2:   ActionAltTab(state.prevpt, +120, !state.shift, EnumStackedWindowsProc); break;
     case AC_PSTACKED:    ActionAltTab(state.prevpt, -120,  state.shift, EnumStackedWindowsProc); break;
     case AC_PSTACKED2:   ActionAltTab(state.prevpt, -120, !state.shift, EnumStackedWindowsProc); break;
     case AC_STACKLIST:   ActionStackList(state.shift); break;
@@ -4084,10 +4104,14 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_XTZONE:      MoveWindowToTouchingZone(hwnd, 1, 1); break; // xTop
     case AC_XRZONE:      MoveWindowToTouchingZone(hwnd, 2, 1); break; // xRight
     case AC_XBZONE:      MoveWindowToTouchingZone(hwnd, 3, 1); break; // xBottom
-    case AC_XTNLEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_LEFT,   RZ_CENTER }, 2); break;
-    case AC_XTNTEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_CENTER, RZ_TOP    }, 2); break;
-    case AC_XTNREDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_RIGHT,  RZ_CENTER }, 2); break;
-    case AC_XTNBEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_CENTER, RZ_BOTTOM }, 2); break;
+    case AC_XTNLEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_LEFT,   RZ_CENTER }, SNTO_EXTEND|SNTO_NEXTBD); break;
+    case AC_XTNTEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_CENTER, RZ_TOP    }, SNTO_EXTEND|SNTO_NEXTBD); break;
+    case AC_XTNREDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_RIGHT,  RZ_CENTER }, SNTO_EXTEND|SNTO_NEXTBD); break;
+    case AC_XTNBEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_CENTER, RZ_BOTTOM }, SNTO_EXTEND|SNTO_NEXTBD); break;
+    case AC_MTNLEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_LEFT,   RZ_CENTER }, SNTO_MOVETO|SNTO_NEXTBD); break;
+    case AC_MTNTEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_CENTER, RZ_TOP    }, SNTO_MOVETO|SNTO_NEXTBD); break;
+    case AC_MTNREDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_RIGHT,  RZ_CENTER }, SNTO_MOVETO|SNTO_NEXTBD); break;
+    case AC_MTNBEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_CENTER, RZ_BOTTOM }, SNTO_MOVETO|SNTO_NEXTBD); break;
     case AC_STEPL:       StepWindow(hwnd, -conf.KBMoveStep, 0); break;
     case AC_STEPT:       StepWindow(hwnd, -conf.KBMoveStep, 1); break;
     case AC_STEPR:       StepWindow(hwnd, +conf.KBMoveStep, 0); break;
@@ -5440,7 +5464,7 @@ static void readhotkeys(const TCHAR *inisection, const char *name, const TCHAR *
 {
     LPCTSTR txt = GetSectionOptionCStr(inisection, name, def);
     if(!txt || !*txt) return;
-    UCHAR i=0;
+    int i=0;
     const TCHAR *pos = txt;
     while (*pos) {
         // Store key

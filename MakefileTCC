@@ -1,0 +1,36 @@
+CC=tcc
+# You still need a resource builder, gcc's windres works just fine.
+WR=windres
+
+CFLAGS=-w -m32 -Os -DNO_VISTA
+
+DLLEXP=-DLOAD_PROC=\"_Load@4\" -DLOW_LEVEL_KB_PROC=\"_LowLevelKeyboardProc@12\" -DUNLOAD_PROC=\"_Unload@0\"
+
+LDFLAGS= \
+	-lmsvcrt \
+	-lkernel32 \
+	-luser32 \
+	-lgdi32 \
+	-ladvapi32 \
+
+EXELD = $(LDFLAGS) \
+	-lcomctl32 \
+	-ladvapi32 \
+	-lshell32
+
+default: AltSnap.exe hooks.dll
+
+hooks.dll : hooks.c hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c
+	$(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) $(LDFLAGS) -shared
+
+AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages.c unfuck.h nanolibc.h
+	$(CC) -o AltSnap.exe altsnap.c altsnapr.o $(DLLEXP) $(CFLAGS) $(EXELD) -Wl,-subsystem=gui -DWinMainAW=wWinMain
+
+altsnapr.o : altsnap.rc window.rc resource.h AltSnap.exe.manifest media/find.cur media/find.ico media/icon.ico media/tray-disabled.ico media/tray-enabled.ico
+	$(WR) altsnap.rc altsnapr.o -Fpe-i386
+
+hooksr.o: hooks.rc
+	$(WR) hooks.rc hooksr.o -Fpe-i386
+
+clean :
+	rm altsnapr.o AltSnap.exe hooksr.o hooks.dll

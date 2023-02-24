@@ -9,6 +9,7 @@
 #define _UNFUCK_NT_
 
 #include <windows.h>
+#include <oleacc.h>
 #include <stdio.h>
 #include "nanolibc.h"
 
@@ -60,7 +61,7 @@ enum MONITOR_DPI_TYPE {
 
 /* Invalid pointer with which we initialize
  * all dynamically imported functions */
-#define IPTR (1)
+#define IPTR ((FARPROC)(1))
 
 #define QWORD unsigned long long
 #ifdef WIN64
@@ -92,12 +93,36 @@ enum MONITOR_DPI_TYPE {
 #define ARR_SZ(x) (sizeof(x) / sizeof((x)[0]))
 #define IDAPPLY 0x3021
 
+#ifndef IS_SURROGATE_PAIR
+#define IS_HIGH_SURROGATE(wch) (((wch) >= 0xd800) && ((wch) <= 0xdbff))
+#define IS_LOW_SURROGATE(wch) (((wch) >= 0xdc00) && ((wch) <= 0xdfff))
+#define IS_SURROGATE_PAIR(hs, ls) (IS_HIGH_SURROGATE (hs) && IS_LOW_SURROGATE (ls))
+#endif
+
 #ifndef NIIF_USER
 #define NIIF_USER 0x00000004
 #endif
 
+#ifndef TTM_SETMAXTIPWIDTH
+#define TTM_SETMAXTIPWIDTH (WM_USER+24)
+#endif
+#ifndef PSH_NOCONTEXTHELP
+#define PSH_NOCONTEXTHELP 0x02000000
+#endif
+#ifndef WPF_ASYNCWINDOWPLACEMENT
+#define WPF_ASYNCWINDOWPLACEMENT 0x0004
+#endif
 #ifndef WM_DPICHANGED
 #define WM_DPICHANGED 0x02E0
+#endif
+
+#ifndef MSAA_MENU_SIG
+#define MSAA_MENU_SIG 0xAA0DF00D
+typedef struct tagMSAAMENUINFO {
+  DWORD dwMSAASignature;
+  DWORD cchWText;
+  LPWSTR pszWText;
+} MSAAMENUINFO,*LPMSAAMENUINFO;
 #endif
 
 #ifndef SUBCLASSPROC
@@ -980,20 +1005,6 @@ static DWORD GetWindowProgName(HWND hwnd, TCHAR *title, size_t title_len)
     return ret? pid: 0;
 }
 
-/* Helper function to get the Min and Max tracking sizes */
-static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
-{
-    MINMAXINFO mmi;
-    memset(&mmi, 0, sizeof(mmi));
-    mmi.ptMinTrackSize.x = GetSystemMetrics(SM_CXMINTRACK);
-    mmi.ptMinTrackSize.y = GetSystemMetrics(SM_CYMINTRACK);
-    mmi.ptMaxTrackSize.x = GetSystemMetrics(SM_CXMAXTRACK);
-    mmi.ptMaxTrackSize.y = GetSystemMetrics(SM_CYMAXTRACK);
-    DWORD_PTR ret;
-    SendMessageTimeout(hwnd, WM_GETMINMAXINFO, 0, (LPARAM)&mmi, SMTO_ABORTIFHUNG, 32, &ret);
-    *Min = mmi.ptMinTrackSize;
-    *Max = mmi.ptMaxTrackSize;
-}
 /* Function to get the best possible small icon associated with a window
  * We always use SendMessageTimeout to ensure we do not get  locked
  * We start with ICON_SMALL, then ICON_SMALL2, then ICON_BIG and finally
@@ -1150,6 +1161,23 @@ static int IsWindowSnapped(HWND hwnd)
     nH = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
 
     return wndpl.showCmd != SW_MAXIMIZE && (W != nW || H != nH);
+}
+
+/* Helper function to get the Min and Max tracking sizes */
+static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
+{
+    MINMAXINFO mmi;
+    memset(&mmi, 0, sizeof(mmi));
+    UINT dpi = GetDpiForWindow(hwnd);
+    mmi.ptMinTrackSize.x = GetSystemMetricsForDpi(SM_CXMINTRACK, dpi);
+    mmi.ptMinTrackSize.y = GetSystemMetricsForDpi(SM_CYMINTRACK, dpi);
+    mmi.ptMaxTrackSize.x = GetSystemMetricsForDpi(SM_CXMAXTRACK, dpi);
+    mmi.ptMaxTrackSize.y = GetSystemMetricsForDpi(SM_CYMAXTRACK, dpi);
+    DWORD_PTR ret; // 32ms timeout
+    SendMessageTimeout(hwnd, WM_GETMINMAXINFO, 0, (LPARAM)&mmi, SMTO_ABORTIFHUNG, 32, &ret);
+    *Min = mmi.ptMinTrackSize;
+    *Max = mmi.ptMaxTrackSize;
+
 }
 
 static xpure int SamePt(const POINT a, const POINT b)

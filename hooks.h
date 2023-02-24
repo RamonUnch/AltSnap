@@ -8,7 +8,15 @@
 #include <windows.h>
 #include "unfuck.h"
 
-#define LOW_LEVELK_BPROC "LowLevelKeyboardProc"
+#ifndef LOW_LEVEL_KB_PROC
+#define LOW_LEVEL_KB_PROC "LowLevelKeyboardProc"
+#endif
+#ifndef LOAD_PROC
+#define LOAD_PROC "Load"
+#endif
+#ifndef UNLOAD_PROC
+#define UNLOAD_PROC "Unload"
+#endif
 
 // Extra messages for Action Menu
 #define LP_CURSORPOS   (1<<0)
@@ -176,7 +184,7 @@ static int pure IsActionInList(const enum action ac, const enum action *aclst)
         if(ac == *aclst)
             return 1;
     } while(*aclst++ != AC_NONE);
-    
+
     return 0;
 }
 // Convert zone number to ini name entry

@@ -52,37 +52,49 @@ static BYTE WinVer = 0;
 #include "tray.c"
 #include "config.c"
 
+static HINSTANCE LoadHooksDLL()
+{
+    // Load library
+    TCHAR path[MAX_PATH];
+    DWORD ret = GetModuleFileName(NULL, path, ARR_SZ(path));
+    if(!ret || ret == ARR_SZ(path))
+        return NULL;
+    PathRemoveFileSpecL(path);
+    lstrcat_s(path, ARR_SZ(path), TEXT("\\hooks.dll"));
+    return LoadLibrary(path);
+}
+static void FreeHooksDLL()
+{
+    if (hinstDLL) {
+        FreeLibrary(hinstDLL);
+        hinstDLL = NULL;
+    }
+}
 /////////////////////////////////////////////////////////////////////////////
 int HookSystem()
 {
     if (keyhook) return 1; // System already hooked
     LOG("Going to Hook the system...");
 
-    // Load library
     if (!hinstDLL) {
-        TCHAR path[MAX_PATH];
-        DWORD ret = GetModuleFileName(NULL, path, ARR_SZ(path));
-        if(!ret || ret == ARR_SZ(path)) return 1;
-        PathRemoveFileSpecL(path);
-        lstrcat_s(path, ARR_SZ(path), TEXT("\\hooks.dll"));
-        hinstDLL = LoadLibrary(path);
+        hinstDLL = LoadHooksDLL();
         if (!hinstDLL) {
             LOG("Could not load HOOKS.DLL!!!");
             return 1;
-        } else {
-            HWND (WINAPI *Load)(HWND) = (HWND (WINAPI *)(HWND))GetProcAddress(hinstDLL, "Load");
-            if(Load) {
-                g_dllmsgHKhwnd = Load(g_hwnd);
-            }
         }
     }
+    HWND (WINAPI *Load)(HWND) = (HWND (WINAPI *)(HWND))GetProcAddress(hinstDLL, LOAD_PROC);
+    if(Load) {
+        g_dllmsgHKhwnd = Load(g_hwnd);
+    }
+
     LOG("HOOKS.DLL Loaded");
 
     // Load keyboard hook
     HOOKPROC procaddr;
     if (!keyhook) {
         // Get address to keyboard hook (beware name mangling)
-        procaddr = (HOOKPROC) GetProcAddress(hinstDLL, LOW_LEVELK_BPROC);
+        procaddr = (HOOKPROC) GetProcAddress(hinstDLL, LOW_LEVEL_KB_PROC);
         if (procaddr == NULL) {
             LOG("Could not find "LOW_LEVELK_BPROC" entry point in HOOKS.DLL");
             return 1;
@@ -117,16 +129,13 @@ int UnhookSystem()
     keyhook = NULL;
 
     // Tell dll file that we are unloading
-    void (WINAPI *Unload)() = (void (WINAPI *)()) GetProcAddress(hinstDLL, "Unload");
-    if (Unload) Unload();
-
-    // Zero out the message hwnd from DLL.
-    g_dllmsgHKhwnd = NULL;
-
-    // Free library
-    if (hinstDLL) FreeLibrary(hinstDLL);
-
-    hinstDLL = NULL;
+    void (WINAPI *Unload)() = (void (WINAPI *)()) GetProcAddress(hinstDLL, UNLOAD_PROC);
+    if (Unload) {
+        Unload();
+        // Zero out the message hwnd from DLL.
+        g_dllmsgHKhwnd = NULL;
+    }
+    FreeHooksDLL();
 
     // Success
     UpdateTray();
@@ -310,7 +319,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         // Reload hooks
         if (ENABLED()) {
             UnhookSystem();
-            Sleep(16);
             HookSystem();
         }
     } else if (msg == WM_ADDTRAY) {
@@ -434,6 +442,7 @@ int WINAPI WinMainAW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *para
     // Check if elevated if in >= WinVer
     WinVer = LOBYTE(LOWORD(GetVersion()));
     LOG("Running with Windows version %lX", GetVersion());
+    #ifndef NO_VISTA
     if (WinVer >= 6) { // Vista +
         HANDLE token;
         TOKEN_ELEVATION elevation;
@@ -445,6 +454,7 @@ int WINAPI WinMainAW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *para
         }
         LOG("Process started %s elevated", elevated? "already": "non");
     }
+    #endif // NO_VISTA
     LOG("Command line parameters read, hide=%d, quiet=%d, elevate=%d, multi=%d, config=%d"
                                      , hide, quiet, elevate, multi, config);
 
@@ -538,6 +548,7 @@ int WINAPI WinMainAW(HINSTANCE hInst, HINSTANCE hPrevInstance, const TCHAR *para
     }
 
     UnhookSystem();
+    FreeHooksDLL();
     DestroyWindow(g_hwnd);
     LOG("GOOD NORMAL EXIT");
     return msg.wParam;

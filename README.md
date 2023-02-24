@@ -35,15 +35,17 @@ Many new features can be seen in the option dialog box, however some of them are
 AltSnap builds with gcc, I use Mingw-w64 (for i686).
 Just install the latest version (I use TDM-gcc 10.3, MinGW64 based) and use:
 
-`> make` for i386 Win32 build.
+`> make` for i386 Win32 GCC build.
 
-`> make -fMakefiledb` for i386 Win32 debug build.
+`> make -fMakefiledb` for i386 GCC debug build.
 
-`> make -fMakefileX64` for x86_64 build.
+`> make -fMakefileX64` for x86_64 GCC build.
 
-`> make -fMakefileX64db` for x86_64 debug build.
+`> make -fMakefileX64db` for x86_64 GCC debug build.
 
 `> make -fMakefileClang` for i386 build using LLVM Clang.
+
+`> make -fMakefileTCC` for i386 build using tcc, [Bellard's thiny c compiler](https://bellard.org/tcc/)
 
 You can also use mk.bat and mk64.bat files.
 For Clang, I use LLVM5.0.1 with the headers and libs from Mingw-w64.

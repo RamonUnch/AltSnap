@@ -24,7 +24,7 @@ hooks.dll : hooks.c hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c
 	$(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) $(LDFLAGS) -shared
 
 AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages.c unfuck.h nanolibc.h
-	$(CC) -o AltSnap.exe altsnap.c altsnapr.o $(DLLEXP) $(CFLAGS) $(EXELD) -Wl,-subsystem=gui -DWinMainAW=wWinMain
+	$(CC) -o AltSnap.exe altsnap.c altsnapr.o $(DLLEXP) $(CFLAGS) $(EXELD) -Wl,-subsystem=gui -DtWinMain=wWinMain
 
 altsnapr.o : altsnap.rc window.rc resource.h AltSnap.exe.manifest media/find.cur media/find.ico media/icon.ico media/tray-disabled.ico media/tray-enabled.ico
 	$(WR) altsnap.rc altsnapr.o -Fpe-i386

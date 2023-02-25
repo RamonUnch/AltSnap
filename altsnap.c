@@ -402,7 +402,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 /////////////////////////////////////////////////////////////////////////////
-int WINAPI WinMainAW(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int iCmdShow)
+int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int iCmdShow)
 {
     g_hinst = hInst;
 
@@ -581,5 +581,5 @@ void noreturn WINAPI unfuckWinMain(void)
     hInst = GetModuleHandle(NULL);
     szCmdLine = ParamsFromCmdline(GetCommandLine());
 
-    ExitProcess(WinMainAW(hInst, hPrevInstance, (TCHAR *)szCmdLine, iCmdShow));
+    ExitProcess(tWinMain(hInst, hPrevInstance, (TCHAR *)szCmdLine, iCmdShow));
 }

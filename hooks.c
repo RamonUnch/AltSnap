@@ -72,7 +72,7 @@ static struct windowRR {
 struct resizeXY {
     enum resize x, y;
 };
-#define AUTORESIZE ( (struct resizeXY){RZ_NONE, RZ_NONE} )
+static const struct resizeXY AUTORESIZE =   {RZ_NONE, RZ_NONE};
 // State
 static struct {
     struct {
@@ -1186,7 +1186,7 @@ static void MaximizeRestore_atpt(HWND hwnd, UINT sw_cmd, int origin)
 }
 static void RestoreWindowToRect(HWND hwnd, const RECT *rc, UINT flags)
 {
-    WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
+    WINDOWPLACEMENT wndpl; wndpl.length = sizeof(WINDOWPLACEMENT);
     GetWindowPlacement(hwnd, &wndpl);
     wndpl.showCmd = SW_RESTORE;
     wndpl.flags |= flags;
@@ -2389,7 +2389,7 @@ static void TogglesAlwaysOnTop(HWND hwnd);
 static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_);
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
-__declspec(dllexport) CALLBACK LRESULT LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
+__declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
     if (nCode != HC_ACTION || state.ignorekey) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
@@ -3226,7 +3226,9 @@ static void NextBorders(RECT *pos, const RECT *cur, const RECT *def)
     for (i=0; i<numsnwnds; i++) {
         const RECT *rc = &snwnds[i].wnd;
         const unsigned flg = snwnds[i].flag;
-        if (!PtInRect(def, (POINT){ rc->left+16, rc->top+16}) )
+        POINT tpt;
+        tpt.x =  rc->left+16; tpt.y = rc->top+16;
+        if (!PtInRect(def, tpt) )
             continue;
 
         if (flg&(SNZONE|SNLEFT)   && rc->right < cur->left) pos->left   = max(pos->left, rc->right);
@@ -4065,6 +4067,11 @@ static void ActionMenu(HWND hwnd)
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
 {
+    const struct resizeXY RXY_LEFT_CENTER =   {RZ_LEFT, RZ_CENTER};
+    const struct resizeXY RXY_RIGHT_CENTER =  {RZ_RIGHT, RZ_CENTER};
+    const struct resizeXY RXY_CENTER_TOP =    {RZ_CENTER, RZ_TOP};
+    const struct resizeXY RXY_CENTER_BOTTOM = {RZ_CENTER, RZ_BOTTOM};
+
     state.sactiondone = action;
     LOG("Going to perform action %d", (int)action);
     switch (action) {
@@ -4104,14 +4111,14 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_XTZONE:      MoveWindowToTouchingZone(hwnd, 1, 1); break; // xTop
     case AC_XRZONE:      MoveWindowToTouchingZone(hwnd, 2, 1); break; // xRight
     case AC_XBZONE:      MoveWindowToTouchingZone(hwnd, 3, 1); break; // xBottom
-    case AC_XTNLEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_LEFT,   RZ_CENTER }, SNTO_EXTEND|SNTO_NEXTBD); break;
-    case AC_XTNTEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_CENTER, RZ_TOP    }, SNTO_EXTEND|SNTO_NEXTBD); break;
-    case AC_XTNREDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_RIGHT,  RZ_CENTER }, SNTO_EXTEND|SNTO_NEXTBD); break;
-    case AC_XTNBEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_CENTER, RZ_BOTTOM }, SNTO_EXTEND|SNTO_NEXTBD); break;
-    case AC_MTNLEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_LEFT,   RZ_CENTER }, SNTO_MOVETO|SNTO_NEXTBD); break;
-    case AC_MTNTEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_CENTER, RZ_TOP    }, SNTO_MOVETO|SNTO_NEXTBD); break;
-    case AC_MTNREDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_RIGHT,  RZ_CENTER }, SNTO_MOVETO|SNTO_NEXTBD); break;
-    case AC_MTNBEDGE:    SnapToCorner(hwnd, (struct resizeXY){ RZ_CENTER, RZ_BOTTOM }, SNTO_MOVETO|SNTO_NEXTBD); break;
+    case AC_XTNLEDGE:    SnapToCorner(hwnd, RXY_LEFT_CENTER,   SNTO_EXTEND|SNTO_NEXTBD); break;
+    case AC_XTNTEDGE:    SnapToCorner(hwnd, RXY_CENTER_TOP,    SNTO_EXTEND|SNTO_NEXTBD); break;
+    case AC_XTNREDGE:    SnapToCorner(hwnd, RXY_RIGHT_CENTER,  SNTO_EXTEND|SNTO_NEXTBD); break;
+    case AC_XTNBEDGE:    SnapToCorner(hwnd, RXY_CENTER_BOTTOM, SNTO_EXTEND|SNTO_NEXTBD); break;
+    case AC_MTNLEDGE:    SnapToCorner(hwnd, RXY_LEFT_CENTER,   SNTO_MOVETO|SNTO_NEXTBD); break;
+    case AC_MTNTEDGE:    SnapToCorner(hwnd, RXY_CENTER_TOP,    SNTO_MOVETO|SNTO_NEXTBD); break;
+    case AC_MTNREDGE:    SnapToCorner(hwnd, RXY_RIGHT_CENTER,  SNTO_MOVETO|SNTO_NEXTBD); break;
+    case AC_MTNBEDGE:    SnapToCorner(hwnd, RXY_CENTER_BOTTOM, SNTO_MOVETO|SNTO_NEXTBD); break;
     case AC_STEPL:       StepWindow(hwnd, -conf.KBMoveStep, 0); break;
     case AC_STEPT:       StepWindow(hwnd, -conf.KBMoveStep, 1); break;
     case AC_STEPR:       StepWindow(hwnd, +conf.KBMoveStep, 0); break;
@@ -5236,7 +5243,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             // The user Pressed a hotkey.
             actionint = wParam - 0xC000; // Remove the Offset
             ptwindow = conf.UsePtWindow;
-            LOG("Hotkey Pressed, action = %d", action);
+            LOG("Hotkey Pressed, action = %d", actionint);
         } else if (0x0000 < wParam && wParam < 0x1000) {
             // The user called AltSnap.exe -afACTION
             actionint = wParam - 0x0000; // Remove the Offset
@@ -5316,7 +5323,7 @@ static void freeblacklists()
 }
 /////////////////////////////////////////////////////////////////////////////
 // To be called before Free Library. Ideally it should free everything
-__declspec(dllexport) WINAPI void Unload()
+__declspec(dllexport) void WINAPI Unload()
 {
     conf.keepMousehook = 0;
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
@@ -5628,7 +5635,7 @@ static void readalluchars(UCHAR *dest, const TCHAR * const inisection, const str
 
 ///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.
-__declspec(dllexport) WINAPI HWND Load(HWND mainhwnd)
+__declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
 {
     // Load settings
     TCHAR inipath[MAX_PATH];

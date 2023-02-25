@@ -1,7 +1,9 @@
 CC=clang
 WR=llvm-rc
 
-# We need to include MINGW headers files (for i386 here)
+# We need to include GCC headers files (for i386 here)
+#MINGW=-ID:\Straw\tdm64\x86_64-w64-mingw32\include \
+#	-LD:\Straw\tdm64\x86_64-w64-mingw32\lib32
 MINGW=-ID:\Straw\llvm-mingw\include \
 	-LD:\Straw\llvm-mingw\i686-w64-mingw32\lib
 
@@ -33,19 +35,14 @@ WARNINGS=-Wall \
 # -finput-charset=UTF-8
 # -Wc++-compat
 
-CFLAGS=-Os -std=c99 \
+CFLAGS=-Og -g -std=c99 \
 	-target i386-pc-windows-gnu \
 	-finput-charset=UTF-8 \
 	-m32 -march=i386 -mtune=i686 \
-	-momit-leaf-frame-pointer \
-	-fno-stack-check \
-	-fno-stack-protector \
-	-fno-ident \
-	-fomit-frame-pointer \
 	-fshort-enums \
-	-fno-exceptions \
-	-fno-dwarf2-cfi-asm \
 	-fno-asynchronous-unwind-tables \
+	-fsanitize=address \
+	-fno-omit-frame-pointer \
 	-D__USE_MINGW_ANSI_STDIO=0 \
 	-Wp,-D_FORTIFY_SOURCE=2 \
 	$(WARNINGS) \
@@ -53,21 +50,18 @@ CFLAGS=-Os -std=c99 \
 	-DCLANG
 
 
-LDFLAGS=-nostdlib \
-	-lkernel32 \
+LDFLAGS=-lkernel32 \
 	-luser32 \
 	-lgdi32 \
-	-s \
-	-Wl,-s,-dynamicbase \
+	-Wl,-dynamicbase \
 	-Wl,-nxcompat \
-	-Wl,--no-seh \
-	-Wl,--enable-auto-import
+	-Wl,--no-seh
 
 EXELD = $(LDFLAGS) \
 	-Wl,--tsaware \
 	-lcomctl32 \
 	-ladvapi32 \
-	-lshell32
+	-lshell32 \
 
 default: AltSnap.exe hooks.dll
 
@@ -84,4 +78,4 @@ hooksr.o: hooks.rc
 	$(WR) hooks.rc
 
 clean :
-	rm altsnap.res AltSnap.exe hooks.res hooks.dll
+	rm altsnapr.o AltSnap.exe hooksr.o hooks.dll

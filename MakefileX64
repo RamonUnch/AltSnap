@@ -3,9 +3,9 @@ CC=gcc
 WARNINGS=-Wall -Wformat-security -Wstrict-overflow -Wsign-compare -Wclobbered \
     -Wempty-body -Wignored-qualifiers -Wuninitialized -Wtype-limits -Woverride-init \
     -Wlogical-op -Wno-multichar -Wno-attributes -Wduplicated-cond -Wduplicated-branches \
-    -Wnull-dereference -Wno-unused-function -Wshadow -Wstack-usage=4096
+    -Wnull-dereference -Wno-unused-function -Wshadow -Wstack-usage=4096 -pedantic -Wc++-compat
 
-CFLAGS=-Os -fno-stack-check -fno-stack-protector -fno-ident -fomit-frame-pointer \
+CFLAGS=-Os -fno-stack-check -fno-stack-protector -fno-ident -fomit-frame-pointer -fmerge-all-constants \
     -mno-stack-arg-probe -momit-leaf-frame-pointer -m64 -march=x86-64 -mtune=generic \
     -nostdlib -lmsvcrt -lkernel32 -luser32 -lgdi32 -lmsvcrt -lwinmm -s -fgcse-sm -fgcse-las -fno-plt \
     -Wl,-dynamicbase,-nxcompat,--no-seh,--relax,--disable-runtime-pseudo-reloc,--enable-auto-import,--disable-stdcall-fixup \
@@ -15,7 +15,7 @@ CFLAGS=-Os -fno-stack-check -fno-stack-protector -fno-ident -fomit-frame-pointer
 default: AltSnap.exe hooks.dll
 
 hooks.dll : hooks.c hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c
-	$(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) -mdll -eDllMain
+	$(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) -mdll -eDllMain -Wl,--kill-at
 
 AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages.c unfuck.h nanolibc.h
 	$(CC) -o AltSnap.exe altsnap.c altsnapr.o $(CFLAGS) -Wl,--tsaware,--disable-reloc-section -mwindows -lcomctl32 -ladvapi32 -lshell32 -eunfuckWinMain

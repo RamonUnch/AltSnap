@@ -11,17 +11,18 @@ WARNINGS=-Wall -Wformat-security -Wstrict-overflow -Wsign-compare -Wclobbered \
 # -Wstack-usage=2048
 
 ## DEBUG FLAGS
-CFLAGS= -Os -g -DLOG_STUFF=1 -m32 -march=i386 -mtune=generic \
-	-fsanitize=address -fno-omit-frame-pointer \
-    -lmsvcrt -lkernel32 -luser32 -lgdi32 -fgcse-sm -fgcse-las -fno-plt \
+#    -Wl,--print-memory-usage -fstack-usage -fcallgraph-info 
+CFLAGS= -nostdlib -Og -g -ggdb -DLOG_STUFF=1 -m32 -march=i686 -mtune=generic \
+	-fno-omit-frame-pointer -lgcc -ftrapv -fbounds-check \
+    -lmsvcrt -lkernel32 -luser32 -lgdi32 \
     -Wl,-dynamicbase,-nxcompat,--no-seh,--relax,--enable-auto-import,--disable-stdcall-fixup \
 	-D__USE_MINGW_ANSI_STDIO=0 -Wp,-D_FORTIFY_SOURCE=2 -fshort-enums\
-    $(INCLUDE) $(WARNINGS)
+    $(INCLUDE) $(WARNINGS) -DDEBUG
 
 default: AltSnap.exe hooks.dll
 
 hooks.dll : hooks.c hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c
-	$(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) -mdll -e_DllMain@12
+	$(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) -mdll -e_DllMain@12 -Wl,--kill-at
 
 #--disable-reloc-section,  -mwindows
 AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages.c unfuck.h nanolibc.h

@@ -8,21 +8,15 @@ WARNINGS=-Wall  \
 	-Wclobbered \
 	-Wempty-body \
 	-Wignored-qualifiers \
-	-Wstringop-overflow=4 \
 	-Wsuggest-attribute=pure \
 	-Wsuggest-attribute=const \
 	-Wsuggest-attribute=noreturn \
-	-Wsuggest-attribute=malloc \
-	-Walloc-zero \
 	-Wuninitialized \
 	-Wtype-limits \
 	-Woverride-init \
 	-Wlogical-op \
 	-Wno-multichar \
 	-Wno-attributes \
-	-Wduplicated-cond \
-	-Wduplicated-branches \
-	-Wnull-dereference \
 	-Wno-unused-function \
 	-Wshadow \
 	-Warray-bounds=2 \
@@ -30,6 +24,10 @@ WARNINGS=-Wall  \
 	-Werror=vla \
 	-pedantic \
 	-Wc++-compat
+	-Wstringop-overflow=4 \
+	-Wduplicated-cond \
+	-Wduplicated-branches \
+	-Wnull-dereference \
 
 # -Wunused-parameter
 # -Wtraditional-conversion
@@ -41,6 +39,7 @@ WARNINGS=-Wall  \
 
 CFLAGS=-Os -std=c99 \
 	-finput-charset=UTF-8 \
+	-fshort-wchar \
 	-m32 -march=i386 -mtune=i686 \
 	-mno-stack-arg-probe \
 	-mpreferred-stack-boundary=2 \
@@ -57,10 +56,10 @@ CFLAGS=-Os -std=c99 \
 	-fno-semantic-interposition \
 	-fgcse-sm \
 	-fgcse-las \
-	-fno-plt \
 	-D__USE_MINGW_ANSI_STDIO=0 \
 	-Wp,-D_FORTIFY_SOURCE=2 \
-	$(WARNINGS)
+	$(WARNINGS) \
+	-fno-plt
 
 LDFLAGS=-nostdlib \
 	-lmsvcrt \
@@ -85,7 +84,7 @@ EXELD = $(LDFLAGS) \
 
 default: AltSnap.exe hooks.dll
 
-hooks.dll : hooks.c hooks.def hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c
+hooks.dll : hooks.c hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c
 	$(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) $(LDFLAGS) -mdll -e_DllMain@12 -Wl,--kill-at
 
 AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages.c unfuck.h nanolibc.h

@@ -31,6 +31,9 @@ WHAT'S NEW
 
 Many new features can be seen in the option dialog box, however some of them are only available through editing the AltSnap.ini file (middle click on tyhe tray icon for this).
 
+# VirusTotal false positive
+You will see with the latest builds that there are some allerts, usually from SecureAge APEX sometime also from another vendor. Those are false positive and I stopped to contact the APEX team for every release becase it is a loss of time I would rather spend on improving the program.
+
 # Build
 AltSnap builds with gcc, I use Mingw-w64 (for i686).
 Just install the latest version (I use TDM-gcc 10.3, MinGW64 based) and use:

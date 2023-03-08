@@ -10,6 +10,13 @@
 #include <windowsx.h>
 #include "resource.h"
 
+#ifndef TTM_SETMAXTIPWIDTH
+#define TTM_SETMAXTIPWIDTH (WM_USER+24)
+#endif
+#ifndef PSH_NOCONTEXTHELP
+#define PSH_NOCONTEXTHELP 0x02000000
+#endif
+
 BOOL    CALLBACK PropSheetProc(HWND, UINT, LPARAM);
 INT_PTR CALLBACK GeneralPageDialogProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK MousePageDialogProc(HWND, UINT, WPARAM, LPARAM);
@@ -159,10 +166,7 @@ static void CloseConfig()
 {
     PostMessage(g_cfgwnd, WM_CLOSE, 0, 0);
 }
-static void UpdateSettings()
-{
-    PostMessage(g_hwnd, WM_UPDATESETTINGS, 0, 0);
-}
+
 static void MoveButtonUporDown(WORD id, WINDOWPLACEMENT *wndpl, int diffrows)
 {
     HWND button = GetDlgItem(g_cfgwnd, id);

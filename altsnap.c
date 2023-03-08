@@ -46,6 +46,7 @@ static BYTE WinVer = 0;
 
 #define ENABLED() (!!keyhook)
 #define GetWindowRectL(hwnd, rect) GetWindowRectLL(hwnd, rect, SnapGap)
+static void UpdateSettings();
 
 // Include stuff
 #include "languages.c"
@@ -96,7 +97,7 @@ int HookSystem()
         // Get address to keyboard hook (beware name mangling)
         procaddr = (HOOKPROC) GetProcAddress(hinstDLL, LOW_LEVEL_KB_PROC);
         if (procaddr == NULL) {
-            LOG("Could not find "LOW_LEVELK_BPROC" entry point in HOOKS.DLL");
+            LOG("Could not find "LOW_LEVEL_KB_PROC" entry point in HOOKS.DLL");
             return 1;
         }
         // Set up the keyboard hook
@@ -147,7 +148,16 @@ void ToggleState()
     if (ENABLED()) {
         UnhookSystem();
     } else {
-        SendMessage(g_hwnd, WM_UPDATESETTINGS, 0, 0);
+        // SendMessage(g_hwnd, WM_UPDATESETTINGS, 0, 0);
+        HookSystem();
+    }
+}
+/////////////////////////////////////////////////////////////////////////////
+static void UpdateSettings()
+{
+    //PostMessage(g_hwnd, WM_UPDATESETTINGS, 0, 0);
+    if (ENABLED()) {
+        UnhookSystem();
         HookSystem();
     }
 }
@@ -317,10 +327,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         ShowUnikeyMenu((HWND)wParam, lParam);
     } else if (msg == WM_UPDATESETTINGS) {
         // Reload hooks
-        if (ENABLED()) {
-            UnhookSystem();
-            HookSystem();
-        }
+        UpdateSettings();
     } else if (msg == WM_ADDTRAY) {
         hide = 0;
         UpdateTray();
@@ -474,7 +481,7 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
                 }
             }
             // Update old instance if no action to be made.
-            LOG("Previous instance found and no -multi mode")
+            LOG("Previous instance found and no -multi mode");
             if(hide)   PostMessage(previnst, WM_CLOSECONFIG, 0, 0);
             if(config) PostMessage(previnst, WM_OPENCONFIG, 0, 0);
             PostMessage(previnst, hide? WM_HIDETRAY : WM_ADDTRAY, 0, 0);

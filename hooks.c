@@ -5729,6 +5729,16 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
     conf.ResizeRate   = max(1, conf.ResizeRate);
 
     // [Performance]
+    if (conf.RezTimer == 2) {
+        conf.RezTimer = 0;
+        DEVMODE dvm;
+        memset(&dvm, 0, sizeof(dvm));
+        dvm.dmSize = sizeof(DEVMODE);
+        if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dvm)) {
+            LOG("Display Frequency = %dHz", dvm.dmDisplayFrequency);
+            conf.RezTimer = dvm.dmDisplayFrequency == 60;
+        }
+    }
     if (conf.RezTimer) conf.RefreshRate=0; // Ignore the refresh rate in RezTimer mode.
     if (conf.FullWin == 2) { // Use current config to determine if we use FullWin.
         BOOL drag_full_win=1;  // Default to ON if unable to detect

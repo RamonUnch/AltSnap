@@ -15,7 +15,8 @@ static LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 #define REHOOK_TIMER    WM_APP+1
 #define SPEED_TIMER     WM_APP+2
 #define GRAB_TIMER      WM_APP+3
-#define POOL_TIMER      WM_APP+4
+//#define ALTUP_TIMER     WM_APP+4
+#define POOL_TIMER      WM_APP+5
 
 // #define NO_HOOK_LL
 
@@ -190,6 +191,7 @@ static struct config {
     UCHAR RCCloseMItem;
     UCHAR MaxKeysNum;
     UCHAR DragThreshold;
+    UCHAR AblockHotclick;
     // [Performance]
     UCHAR FullWin;
     UCHAR TransWinOpacity;
@@ -290,6 +292,7 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "RCCloseMItem", 1 },
     { "MaxKeysNum", 0 },
     { "DragThreshold", 1 },
+    { "AblockHotclick", 0 },
 };
 // [Performance]
 static const struct OptionListItem Performance_uchars[] = {
@@ -2416,6 +2419,24 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             state.sclickhwnd = NULL;
             KillAltSnapMenu(); // Hide unikey menu in case...
 
+            // Release ALt even if we receave no AltUP message because of.
+            // Stupid software that like to steal Alt.
+            #ifdef ALTUP_TIMER
+            DWORD kbspeed=2;
+            if (GetKeyState(state.alt) & 0x8000) {
+               // If the key is autorepeating
+               SystemParametersInfo( SPI_GETKEYBOARDSPEED, 0, &kbspeed, 0 );
+               kbspeed = 33 + kbspeed * 12; // [0-31] -> 33 - 400 ms
+               //LOGA("Set ALTUP_TIMER to %u (autorepeat)", kbspeed);
+            } else {
+               SystemParametersInfo( SPI_GETKEYBOARDDELAY, 0, &kbspeed, 0 );
+               kbspeed = 250 + kbspeed * 250; // [0-3] -> 250 - 1000 ms
+               //LOGA("Set ALTUP_TIMER to %u (First)", kbspeed);
+            }
+            KillTimer(g_timerhwnd, ALTUP_TIMER);
+            SetTimer(g_timerhwnd, ALTUP_TIMER, kbspeed, NULL);
+            #endif
+
             // Hook mouse
             HookMouse();
             if (conf.GrabWithAlt[0] || conf.GrabWithAlt[1]) {
@@ -4270,7 +4291,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
 
     // Do things depending on what button was pressed
     if (MOUVEMENT(action)) {
-        state.sactiondone = AC_NONE;
+        state.sactiondone = action;
         if (GetProp(state.hwnd, APP_MOVEONOFF)) {
             state.action = AC_NONE;
             return 0; // Movement was disabled for this window.
@@ -4640,6 +4661,8 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     int is_hotclick = IsHotclick(button);
     if (!state.alt && is_hotclick && buttonstate == STATE_DOWN) {
         state.alt = button;
+        state.clickpt = pt;
+        state.sactiondone = AC_NONE;
         // Start an action now if hotclick is also an action.
         // If action == AC_NONE, we are checking for blacklists...
         int ret = init_movement_and_actions(pt, NULL, action, button);
@@ -4658,7 +4681,9 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         state.alt = 0;
         // Block hotclick up if not an action
         // Because it will not be done by state.blockmouseup
-        if (!action) return 1;
+        // if (!action) return 1;
+        if (!action && (conf.AblockHotclick || state.sactiondone))
+            return 1;
     }
 
     // Check if we must BLOCK MOUSE UP... (after releasing hotclicks)
@@ -4730,7 +4755,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 
         if((state.action == action || (state.action == AC_MOVE && action == AC_RESIZE))
         &&(!state.moving || state.moving == DRAG_WAIT)// No drag occured
-        && !state.sactiondone // No sclick/Wheel action done in the meantime
+        &&  state.sactiondone <= AC_RESIZE // Only move/resize may have happened in the meantime
         && !state.ctrl // Ctrl is not down (because of focusing)
         && IsPtDrag(&pt, &state.clickpt) // same point (within drag)
         && !IsDoubleClick(button)) { // Long click unless PiercingClick=1
@@ -4878,6 +4903,13 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             KillTimer(g_timerhwnd, GRAB_TIMER);
             return 0;
             } break;
+        #ifdef ALTUP_TIMER
+        case ALTUP_TIMER : {
+            // Simulate AltUp (dumb)
+            HotkeyUp();
+            KillTimer(g_timerhwnd, ALTUP_TIMER);
+            } break;
+        #endif
         #ifdef NO_HOOK_LL
         case POOL_TIMER: {
             static MSLLHOOKSTRUCT omsll; // old state
@@ -5305,7 +5337,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     } else if (msg == WM_GETLAYOUTREZ) {
         return GetLayoutRez(wParam);
     } else if (msg == WM_GETBESTLAYOUT) {
-        return GetBestLayoutFromMonitors(lParam);
+        return GetBestLayoutFromMonitors();
     }
 
     return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -5331,9 +5363,13 @@ __declspec(dllexport) void WINAPI Unload()
     KillAltSnapMenu();
     if (conf.TransWinOpacity) {
         DestroyWindow(g_transhwnd[0]);
+        g_transhwnd[0] = NULL;
     } else {
         int i;
-        for (i=0; i<4; i++) DestroyWindow(g_transhwnd[i]);
+        for (i=0; i<4; i++) {
+            DestroyWindow(g_transhwnd[i]);
+            g_transhwnd[i] = NULL;
+        }
     }
 
     unsigned ac;

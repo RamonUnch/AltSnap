@@ -1507,13 +1507,22 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     static UCHAR centerfrac=24;
     static UCHAR sidefrac=100;
     static UCHAR centermode=1;
-    static UCHAR idx=0;
-    static TCHAR lastkey[MAXLINES][MAXLL];
+    struct lastkeyss {
+        int idx;
+        TCHAR lastkey[MAXLINES][MAXLL];
+    };
+    // static UCHAR idx=0;
+    // static TCHAR lastkey[MAXLINES][MAXLL];
 
     switch (msg) {
-//    case WM_CREATE:
-//        AllowDarkTitlebar(hwnd);
-//        break;
+    case WM_CREATE: {
+        //AllowDarkTitlebar(hwnd);
+
+        // Allocate sace for the list of last keys.
+        void *lastkeys = calloc(1, sizeof(struct lastkeyss));
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)lastkeys);
+
+        } break;
 
     case WM_KEYDOWN:
         // Ctrl+N (VK_N = 0x4E)
@@ -1525,6 +1534,11 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_SYSKEYUP:
     case WM_SYSKEYDOWN: {
         TCHAR txt[22];
+        struct lastkeyss *lks = (struct lastkeyss *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+        if (!lks) break;
+        int idx = lks->idx;
+        TCHAR (*lastkey)[MAXLL] = lks->lastkey;
+
         lstrcpy_s(lastkey[idx], MAXLL, TEXT("vK="));
         lstrcat_s(lastkey[idx], MAXLL, itostr((UCHAR)wParam, txt, 16));
         lstrcat_s(lastkey[idx], MAXLL, lParam&(1u<<31)? TEXT(" U"): lParam&(1u<<30)? TEXT(" R") :TEXT(" D"));
@@ -1545,6 +1559,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         InvalidateRect(hwnd, &trc, TRUE);
         idx++;
         idx = idx%MAXLINES;
+        lks->idx = idx;
     } break;
 
     case WM_PAINT: {
@@ -1555,6 +1570,11 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         const COLORREF txtcolor = GetSysColor(COLOR_BTNTEXT);
         const COLORREF bgcolor  = GetSysColor(COLOR_BTNFACE);
         const HPEN pen = (HPEN) CreatePen(PS_SOLID, penwidth, txtcolor);
+
+        struct lastkeyss *lks = (struct lastkeyss *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+        if (!lks) break;
+        int idx = lks->idx;
+        TCHAR (*lastkey)[MAXLL] = lks->lastkey;
 
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
@@ -1700,13 +1720,12 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         if (sidefrac == 255) sidefrac = centerfrac;
         return 0;
     } break;
-//    case WM_NCHITTEST: {
-//        // Let DWM try to handles the hittest message...
-//        // !!USELESS Win10 is still BUGGY
-//        LRESULT result;
-//        if (DwmDefWindowProcL(hwnd, msg, wParam, lParam, &result))
-//            return result;
-//    } break;
+    case WM_DESTROY : {
+        // Free the allocatde memory for the key list.
+        void *lastkeyss = (void *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+        free(lastkeyss);
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)NULL); // In case
+    } break;
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }

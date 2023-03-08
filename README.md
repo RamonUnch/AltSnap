@@ -33,6 +33,7 @@ Many new features can be seen in the option dialog box, however some of them are
 
 # VirusTotal false positive
 You will see with the latest builds that there are some allerts, usually from SecureAge APEX sometime also from another vendor. Those are false positive and I stopped to contact the APEX team for every release becase it is a loss of time I would rather spend on improving the program.
+I already redued a lot the numberof false positive, simply by changing build flags and by switching to an older version of NSIS installer system. This is an indication of the impertinance of some modern antivirus solutions. Chocolatey considers that up to 5 positives on VirusTotal is not even suspicious.
 
 # Build
 AltSnap builds with gcc, I use Mingw-w64 (for i686).

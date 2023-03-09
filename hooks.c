@@ -4494,6 +4494,7 @@ static void LockMovement()
 }
 static int ClickComboActions(enum action action)
 {
+    if (!(conf.MMMaximize&1)) return 0;
     // Maximize/Restore the window if pressing Move, Resize mouse buttons.
     if (state.action == AC_MOVE && action == AC_RESIZE) {
         WaitMovementEnd();

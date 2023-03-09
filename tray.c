@@ -217,7 +217,7 @@ static void SaveCurrentLayout()
 static void catFullLayoutName(TCHAR *txt, size_t len, int laynum)
 {
     TCHAR numstr[UINT_DIGITS+1];
-    lstrcat_s(txt, len, TEXT("Snap Layout "));
+    lstrcat_s(txt, len, l10n->menu_snaplayout);
     lstrcat_s(txt, len, Uint2lStr(numstr, laynum+1));
     if (g_dllmsgHKhwnd) {
         DWORD rez =0;

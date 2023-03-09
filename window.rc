@@ -16,7 +16,7 @@ BEGIN
     LTEXT           "",IDC_AUTHOR, 10, 40, 200, 8
     LTEXT           "https://stefansundin.com/", 0, 10,50,200,10
 
-    LTEXT           "Modified By Raymond Gillibert",0, 10, 65, 200, 8
+    LTEXT           "",IDC_AUTHOR2, 10, 65, 200, 8
 
     LTEXT           "", IDC_LICENSE,10, 80, 200, 20
 

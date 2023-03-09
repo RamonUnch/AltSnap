@@ -252,6 +252,7 @@ struct strings {
   TCHAR *about_box;
   TCHAR *about_version;
   TCHAR *about_author;
+  TCHAR *about_author2;
   TCHAR *about_license;
   TCHAR *about_translation_credit;
 
@@ -477,6 +478,7 @@ static const char* l10n_inimapping[] = {
     "AboutBox",
     "AboutVersion",
     "AboutAuthor",
+    "AboutAuthor2",
     "AboutLicense",
     "AboutTranslationCredit",
 
@@ -715,6 +717,7 @@ static const struct strings en_US = {
  /* box                */ TEXT("About "APP_NAME),
  /* version            */ TEXT("Version "APP_VERSION),
  /* author             */ TEXT("Created by Stefan Sundin"),
+ /* author2            */ TEXT("Maintained by Raymond Gillibert"),
  /* license            */ TEXT( APP_NAMEA " is free and open source software!\nFeel free to redistribute!"),
  /* translation_credit */ TEXT("Translation credit"),
 

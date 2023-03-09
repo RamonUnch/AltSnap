@@ -78,6 +78,7 @@
 #define IDC_URL                         1518
 #define IDC_NEWPROGNAME                 1519
 #define IDC_HOTCLICKS_BOX               1520
+#define IDC_AUTHOR2                     1521
 
 #define IDC_MBA1                        1601
 #define IDC_MBA2                        1602

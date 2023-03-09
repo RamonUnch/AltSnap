@@ -1474,6 +1474,7 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             SetDlgItemText(hwnd, IDC_VERSION,          l10n->about_version);
             SetDlgItemText(hwnd, IDC_URL,              TEXT("https://github.com/RamonUnch/AltSnap"));
             SetDlgItemText(hwnd, IDC_AUTHOR,           l10n->about_author);
+            SetDlgItemText(hwnd, IDC_AUTHOR2,          l10n->about_author2);
             SetDlgItemText(hwnd, IDC_LICENSE,          l10n->about_license);
             SetDlgItemText(hwnd, IDC_TRANSLATIONS_BOX, l10n->about_translation_credit);
 

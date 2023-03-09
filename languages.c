@@ -107,6 +107,7 @@ static void LoadTranslation(const TCHAR *__restrict__ ini)
 }
 struct langinfoitem *langinfo = NULL;
 int nlanguages;
+int clanguage_idx;
 
 /////////////////////////////////////////////////////////////////////////////
 void ListAllTranslations()
@@ -191,6 +192,7 @@ void UpdateLanguage()
 {
     TCHAR txt[16];
     GetPrivateProfileString(TEXT("General"), TEXT("Language"), TEXT("Auto"), txt, ARR_SZ(txt), inipath);
+    clanguage_idx = 0;
 
     // Determine which language should be used
     // based on current user's LCID
@@ -207,6 +209,7 @@ void UpdateLanguage()
     int i;
     for (i=0; i < nlanguages; i++) {
         if (!lstrcmpi(txt, langinfo[i].code)) {
+            clanguage_idx = i;
             LoadTranslation(langinfo[i].fn);
             break;
         }

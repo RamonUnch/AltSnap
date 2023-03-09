@@ -550,7 +550,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
             // Load selected Language
             int i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_LANGUAGE));
-            if (i < nlanguages && langinfo) {
+            if (i < nlanguages && langinfo && i != clanguage_idx) {
                 LoadTranslation(langinfo[i].fn);
                 WritePrivateProfileString(TEXT("General"), TEXT("Language"), l10n->code, inipath);
                 updatestrings = 1;

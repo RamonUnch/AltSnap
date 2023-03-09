@@ -292,18 +292,17 @@ static DWORD IsUACEnabled()
 /////////////////////////////////////////////////////////////////////////////
 // Helper functions and Macro
 #define IsChecked(idc) Button_GetCheck(GetDlgItem(hwnd, idc))
-#define IsCheckedW(idc) itostr(IsChecked(idc), txt, 10)
+//#define IsCheckedW(idc) itostr(IsChecked(idc), txt, 10)
 static void WriteOptionBoolW(HWND hwnd, WORD id, const TCHAR *section, const char *name_s)
 {
-    TCHAR txt[8];
     TCHAR name[64];
     str2tchar(name, name_s);
-    WritePrivateProfileString(section, name,itostr(Button_GetCheck(GetDlgItem(hwnd, id)), txt, 10), inipath);
+    WritePrivateProfileString(section, name, Button_GetCheck(GetDlgItem(hwnd, id))? TEXT("1"): TEXT("0"), inipath);
 }
 #define WriteOptionBool(id, section, name) WriteOptionBoolW(hwnd, id, section, name)
 static int WriteOptionBoolBW(HWND hwnd, WORD id, const TCHAR *section, const char *name_s, int bit)
 {
-    TCHAR txt[8];
+    TCHAR txt[UINT_DIGITS+1];
     TCHAR name[64];
     str2tchar(name, name_s);
     int val = GetPrivateProfileInt(section, name, 0, inipath);
@@ -312,7 +311,7 @@ static int WriteOptionBoolBW(HWND hwnd, WORD id, const TCHAR *section, const cha
     else
         val = clearBit(val, bit);
 
-    WritePrivateProfileString(section, name, itostr(val, txt, 10), inipath);
+    WritePrivateProfileString(section, name, Uint2lStr(txt, val), inipath);
     return val;
 }
 #define WriteOptionBoolB(id, section, name, bit) WriteOptionBoolBW(hwnd, id, section, name, bit)
@@ -542,12 +541,12 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             // all bool options (checkboxes).
             WriteDialogOptions(hwnd, optlst, ARR_SZ(optlst));
 
-            TCHAR txt[8];
+            TCHAR txt[UINT_DIGITS+1];
             int val = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_AUTOSNAP));
-            WritePrivateProfileString(TEXT("General"),    TEXT("AutoSnap"), itostr(val, txt, 10), inipath);
+            WritePrivateProfileString(TEXT("General"),    TEXT("AutoSnap"), Uint2lStr(txt, val), inipath);
 
             val = IsChecked(IDC_RZCENTER_NORM)? 1: IsChecked(IDC_RZCENTER_MOVE)? 2:IsChecked(IDC_RZCENTER_CLOSE)? 3: 0;
-            WritePrivateProfileString(TEXT("General"),    TEXT("ResizeCenter"), itostr(val, txt, 10), inipath);
+            WritePrivateProfileString(TEXT("General"),    TEXT("ResizeCenter"), Uint2lStr(txt, val), inipath);
 
             // Load selected Language
             int i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_LANGUAGE));
@@ -642,8 +641,8 @@ static void AddvKeytoList(TCHAR keys[32], unsigned vkey)
     if (*keys != '\0') {
         lstrcat_s(keys, 32, TEXT(" "));
     }
-    TCHAR buf[8];
-    lstrcat_s(keys, 32, itostr(vkey, buf, 16));
+    TCHAR buf[LPTR_HDIGITS+1];
+    lstrcat_s(keys, 32, LPTR2Hex(buf, vkey));
 }
 static void RemoveKeyFromList(TCHAR keys[32], unsigned vkey)
 {
@@ -971,9 +970,9 @@ static LRESULT WINAPI PickShortcutWinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
         break;
     case WM_KEYUP: {
         if (!IsHotkeyy((UCHAR)wp, vkbl)) {
-            TCHAR txt[16];
+            TCHAR txt[LPTR_HDIGITS+1];
             HWND phwnd = GetParent(hwnd);
-            SetDlgItemText(phwnd, IDC_SHORTCUTS_VK, itostr(wp, txt, 16));
+            SetDlgItemText(phwnd, IDC_SHORTCUTS_VK, LPTR2Hex(txt, wp));
 
             Button_SetCheck(GetDlgItem(phwnd, IDC_SHIFT),  GetKeyState(VK_SHIFT)&0x8000? BST_CHECKED: BST_UNCHECKED);
             Button_SetCheck(GetDlgItem(phwnd, IDC_CONTROL),GetKeyState(VK_CONTROL)&0x8000? BST_CHECKED: BST_UNCHECKED);
@@ -1154,8 +1153,8 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             WORD shortcut= GetPrivateProfileInt(TEXT("KBShortcuts"), kbshortcut_actions[i].action, 0, inipath);
             BYTE vKey = LOBYTE(shortcut);
             BYTE mod = HIBYTE(shortcut);
-            TCHAR txt[8];
-            SetDlgItemText(hwnd, IDC_SHORTCUTS_VK, itostr(vKey, txt, 16));
+            TCHAR txt[LPTR_HDIGITS+1];
+            SetDlgItemText(hwnd, IDC_SHORTCUTS_VK, LPTR2Hex(txt, vKey));
 
             Button_SetCheck(GetDlgItem(hwnd, IDC_CONTROL),(mod&MOD_CONTROL)? BST_CHECKED: BST_UNCHECKED);
             Button_SetCheck(GetDlgItem(hwnd, IDC_SHIFT),  (mod&MOD_SHIFT)? BST_CHECKED: BST_UNCHECKED);
@@ -1165,7 +1164,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         }
         // WRITE Current Keyboard Shortcut
         if (id == IDC_SHORTCUTS_SET) {
-            TCHAR txt[8];
+            TCHAR txt[UINT_DIGITS+1];
             // MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
             Edit_GetText(GetDlgItem(hwnd, IDC_SHORTCUTS_VK), txt, 3);
             BYTE vKey = lstrhex2u(txt);
@@ -1176,7 +1175,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             WORD shortcut = vKey | (mod << 8);
             int i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_SHORTCUTS_AC));
             if (kbshortcut_actions[i].action && kbshortcut_actions[i].action[0] != '\0')
-                WritePrivateProfileString(TEXT("KBShortcuts"), kbshortcut_actions[i].action, itostr(shortcut, txt, 10), inipath);
+                WritePrivateProfileString(TEXT("KBShortcuts"), kbshortcut_actions[i].action, Uint2lStr(txt, shortcut), inipath);
             Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 0);
             SetFocus(GetDlgItem(hwnd, IDC_SHORTCUTS_AC));
             goto APPLY_ALL;
@@ -1423,14 +1422,13 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             if (GetWindowProgName(window, txt, ARR_SZ(txt))) {
                 SetDlgItemText(page, IDC_NEWPROGNAME, txt);
             }
-            SetDlgItemText(page, IDC_GWLSTYLE, itostr(GetWindowLongPtr(window, GWL_STYLE), txt, 16));
-            SetDlgItemText(page, IDC_GWLEXSTYLE, itostr(GetWindowLongPtr(window, GWL_EXSTYLE), txt, 16));
+            SetDlgItemText(page, IDC_GWLSTYLE, LPTR2Hex(txt, GetWindowLongPtr(window, GWL_STYLE)));
+            SetDlgItemText(page, IDC_GWLEXSTYLE, LPTR2Hex(txt, GetWindowLongPtr(window, GWL_EXSTYLE)));
             // WM_NCHITTEST messages info at current pt
-            itostr(HitTestTimeout(nwindow, pt.x, pt.y), txt, 10);
-            TCHAR tt[8];
-            itostr(HitTestTimeout(window, pt.x, pt.y), tt, 10);
+            TCHAR tt[32];
+            lstrcpy_s(txt, ARR_SZ(txt), Int2lStr(tt, HitTestTimeout(nwindow, pt.x, pt.y)) );
             lstrcat_s(txt, ARR_SZ(txt), TEXT("/"));
-            lstrcat_s(txt, ARR_SZ(txt), tt);
+            lstrcat_s(txt, ARR_SZ(txt), Int2lStr(tt, HitTestTimeout(window, pt.x, pt.y)) );
             SetDlgItemText(page, IDC_NCHITTEST, txt);
             // IDC_DWMCAPBUTTON
             RECT rc;
@@ -1442,12 +1440,12 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                 SetDlgItemText(page, IDC_RECT, RectToStr(&rc, txt));
             }
             // IDC_WINHANDLES
-            lstrcpy_s(txt, ARR_SZ(txt), TEXT("Hwnd: "));
-            lstrcat_s(txt, ARR_SZ(txt), itostr((DWORD)(DorQWORD)nwindow, tt,16));
-            lstrcat_s(txt, ARR_SZ(txt), TEXT(", Root: "));
-            lstrcat_s(txt, ARR_SZ(txt), itostr((DWORD)(DorQWORD)window, tt,16));
-            lstrcat_s(txt, ARR_SZ(txt), TEXT(", Owner: "));
-            lstrcat_s(txt, ARR_SZ(txt), itostr((DWORD)(DorQWORD)GetWindow(window, GW_OWNER), tt,16));
+            lstrcpy_s( txt, ARR_SZ(txt), TEXT("Hwnd: ") );
+            lstrcat_s( txt, ARR_SZ(txt), LPTR2Hex(tt, (ULONG_PTR)nwindow) );
+            lstrcat_s( txt, ARR_SZ(txt), TEXT(", Root: ") );
+            lstrcat_s( txt, ARR_SZ(txt), LPTR2Hex(tt, (ULONG_PTR)window) );
+            lstrcat_s( txt, ARR_SZ(txt), TEXT(", Owner: ") );
+            lstrcat_s( txt, ARR_SZ(txt), LPTR2Hex(tt, (ULONG_PTR)GetWindow(window, GW_OWNER)) );
             SetDlgItemText(page, IDC_WINHANDLES, txt);
         }
         // Show icon again
@@ -1533,19 +1531,19 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_KEYUP:
     case WM_SYSKEYUP:
     case WM_SYSKEYDOWN: {
-        TCHAR txt[22];
+        TCHAR txt[32];
         struct lastkeyss *lks = (struct lastkeyss *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
         if (!lks) break;
         int idx = lks->idx;
         TCHAR (*lastkey)[MAXLL] = lks->lastkey;
 
         lstrcpy_s(lastkey[idx], MAXLL, TEXT("vK="));
-        lstrcat_s(lastkey[idx], MAXLL, itostr((UCHAR)wParam, txt, 16));
+        lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, (UCHAR)wParam));
         lstrcat_s(lastkey[idx], MAXLL, lParam&(1u<<31)? TEXT(" U"): lParam&(1u<<30)? TEXT(" R") :TEXT(" D"));
         lstrcat_s(lastkey[idx], MAXLL, TEXT(" sC="));
-        lstrcat_s(lastkey[idx], MAXLL, itostr(HIWORD(lParam)&0x00FF, txt, 16));
+        lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, HIWORD(lParam)&0x00FF));
         lstrcat_s(lastkey[idx], MAXLL, TEXT(", LP=") );
-        lstrcat_s(lastkey[idx], MAXLL, itostr(lParam, txt, 16));
+        lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, lParam));
         txt[0] = L','; txt[1] = L' '; txt[2] = L'\0';
         if (GetKeyNameText(lParam, txt+2, ARR_SZ(txt)-2))
             lstrcat_s(lastkey[idx], MAXLL, txt);

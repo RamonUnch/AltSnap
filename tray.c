@@ -154,17 +154,17 @@ static int RemoveTray()
 // Zones functions
 static void WriteCurrentLayoutNumber()
 {
-    TCHAR txt[16];
-    WritePrivateProfileString(TEXT("Zones"), TEXT("LayoutNumber"), itostr(LayoutNumber, txt, 10), inipath);
+    TCHAR txt[UINT_DIGITS+1];
+    WritePrivateProfileString(TEXT("Zones"), TEXT("LayoutNumber"), Uint2lStr(txt, LayoutNumber), inipath);
 }
 static TCHAR *RectToStr(RECT *rc, TCHAR rectstr[64])
 {
-    TCHAR txt[16];
+    TCHAR txt[INT_DIGITS+1];
     UCHAR i;
     long *RC = (long *)rc;
     rectstr[0] = '\0';
     for(i = 0; i < 4; i++) {
-        lstrcat_s(rectstr, 64, itostr(RC[i], txt, 10));
+        lstrcat_s(rectstr, 64, Int2lStr(txt, (int)RC[i]));
         lstrcat_s(rectstr, 64, TEXT(","));
     }
     return rectstr;
@@ -216,17 +216,17 @@ static void SaveCurrentLayout()
 
 static void catFullLayoutName(TCHAR *txt, size_t len, int laynum)
 {
-    TCHAR numstr[16];
+    TCHAR numstr[UINT_DIGITS+1];
     lstrcat_s(txt, len, TEXT("Snap Layout "));
-    lstrcat_s(txt, len, itostr(laynum+1, numstr, 10));
+    lstrcat_s(txt, len, Uint2lStr(numstr, laynum+1));
     if (g_dllmsgHKhwnd) {
         DWORD rez =0;
         if ((rez = SendMessage(g_dllmsgHKhwnd, WM_GETLAYOUTREZ, laynum, 0))) {
             // Add (width:height) to label the layout.
             lstrcat_s(txt, len, TEXT("  ("));
-            lstrcat_s(txt, len, itostr(LOWORD(rez), numstr, 10));
+            lstrcat_s(txt, len, Uint2lStr(numstr, LOWORD(rez)));
             lstrcat_s(txt, len, TEXT(":"));
-            lstrcat_s(txt, len, itostr(HIWORD(rez), numstr, 10));
+            lstrcat_s(txt, len, Uint2lStr(numstr, HIWORD(rez)));
             lstrcat_s(txt, len, TEXT(")"));
         } else {
             lstrcat_s(txt, len, l10n->menu_emptyzone); // (empty)

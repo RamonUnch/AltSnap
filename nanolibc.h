@@ -54,7 +54,7 @@ static xpure int Iabs(int a)
 #endif
 #define abs(x) Iabs(x)
 #else
-#define abs(x) ((x)>0? (x): -(x));
+#define abs(x) ((x)>0? (x): -(x))
 #endif // x86
 /* Function to set the kth bit of n */
 static int setBit(int n, int k)
@@ -85,14 +85,32 @@ static void str2tchar_s(TCHAR *w, size_t N, const char *s)
     while(w < wmax && (*w++ = *s++));
 }
 
+static void *memsetL(void *dst, int s, size_t count)
+{
+    register char * a = (char *)dst;
+    count++;
+    while (--count)
+        *a++ = s;
+    return dst;
+}
+#define memset memsetL
+
 #ifdef CLANG
- void * __cdecl memset(void *dst, int s, size_t count)
+#undef memset
+void * __cdecl memset(void *dst, int s, size_t count)
 {
     register char * a = dst;
     count++;
     while (--count)
         *a++ = s;
     return dst;
+}
+/* in case */
+__cdecl size_t strlen(const char *str)
+{
+    const char *ptr;
+    for (ptr=str; *ptr != '\0'; ptr++);
+    return ptr-str;
 }
 #endif
 
@@ -259,8 +277,8 @@ static nonnull1(2) char *itoaL(unsigned num, char *str, int base)
     /* Process individual digits */
     while (num != 0) {
         int rem = num % base;
-        /* str[i++] = (rem > 9)? (rem-10) + 'A' : rem + '0'; */
-        str[i++] = rem + '0' + (rem > 9) * ('A' - '0' - 10); /* branchless version */
+        str[i++] = (rem > 9)? (rem-10) + 'A' : rem + '0';
+        /* str[i++] = rem + '0' + (rem > 9) * ('A' - '0' - 10);*//* branchless version */
 
         num = num/base;
     }
@@ -278,6 +296,85 @@ static nonnull1(2) char *itoaL(unsigned num, char *str, int base)
 }
 #define _itoa itoaL
 
+#define INT_DIGITS 11
+#define UINT_DIGITS 10
+static const TCHAR *Int2lStr(TCHAR str[INT_DIGITS+1], int n)
+{
+    int i = 0;
+    BOOL minus;
+    minus = (n<0);
+    str[INT_DIGITS] = TEXT('\0');
+
+    for( i=INT_DIGITS-1; i>0; --i )
+    {
+        str[i] = TEXT('0') + (minus ? -1*(n%10) : n%10);
+        n /= 10;
+        if( n==0 )
+            break;
+    }
+
+    if( minus )
+        str[--i] = TEXT('-');
+
+    return str+i;
+}
+
+static const wchar_t *Uint2lStrW(wchar_t str[UINT_DIGITS+1], unsigned n)
+{
+    int i = 0;
+    str[UINT_DIGITS] = TEXT('\0');
+
+    for( i=UINT_DIGITS-1; i>=0; --i )
+    {
+        str[i] = TEXT('0') + (wchar_t)(n%10);
+        if( n < 10 )
+            break;
+        n /= 10;
+    }
+
+    return str+i;
+}
+static const char *Uint2lStrA(char str[UINT_DIGITS+1], unsigned n)
+{
+    int i = 0;
+    str[UINT_DIGITS] = TEXT('\0');
+
+    for( i=UINT_DIGITS-1; i>=0; --i )
+    {
+        str[i] = TEXT('0') + (char)(n%10);
+        if( n < 10 )
+            break;
+        n /= 10;
+    }
+
+    return str+i;
+}
+
+#ifdef WIN64
+#define LPTR_HDIGITS 16
+#else
+#define LPTR_HDIGITS 8
+#endif
+static const TCHAR *LPTR2Hex(TCHAR str[LPTR_HDIGITS+1], ULONG_PTR n)
+{
+    int i = 0;
+    str[LPTR_HDIGITS] = TEXT('\0');
+
+    for( i=LPTR_HDIGITS-1; i>=0; --i )
+    {
+        TCHAR rem = n & 15; // MD 16
+        str[i] = (rem > 9)? (rem-10) + 'A' : rem + '0';
+        /*str[i++] = rem + '0' + (rem > 9) * ('A' - '0' - 10); *//* branchless version */
+
+        n >>=4 ; // Divide by 16.
+        if (n==0)
+            break;
+    }
+
+    return str+i;
+}
+
+
 static allnonnull pure size_t wcslenL(const wchar_t *__restrict__ const str)
 {
     const wchar_t *ptr;
@@ -287,14 +384,6 @@ static allnonnull pure size_t wcslenL(const wchar_t *__restrict__ const str)
 #define wcslen wcslenL
 
 static allnonnull pure size_t strlenL(const char * const str)
-{
-    const char *ptr;
-    for (ptr=str; *ptr != '\0'; ptr++);
-    return ptr-str;
-}
-
-/* in case */
-__cdecl size_t strlen(const char *str)
 {
     const char *ptr;
     for (ptr=str; *ptr != '\0'; ptr++);
@@ -442,15 +531,15 @@ static allnonnull pure int strtotcharicmp(const TCHAR* s1, const char* s2)
 allnonnull wchar_t *wcscat(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
 {
     wchar_t *orig=dest;
-    for (; *dest; ++dest) ;	/* go to end of dest */
-    for (; (*dest=*src); ++src,++dest) ;	/* then append from src */
+    for (; *dest; ++dest) ;    /* go to end of dest */
+    for (; (*dest=*src); ++src,++dest) ;    /* then append from src */
     return orig;
 }
 allnonnull char *strcat(char *__restrict__ dest, const char *__restrict__ src)
 {
     char *orig=dest;
-    for (; *dest; ++dest) ;	/* go to end of dest */
-    for (; (*dest=*src); ++src,++dest) ;	/* then append from src */
+    for (; *dest; ++dest) ;    /* go to end of dest */
+    for (; (*dest=*src); ++src,++dest) ;    /* then append from src */
     return orig;
 }
 
@@ -485,7 +574,7 @@ static nonnull2(1,3) TCHAR *lstrcpy_s(TCHAR *__restrict__ dest, const size_t N, 
     return orig;
 }
 
-static allnonnull int strcmpL(const char *X, const char *Y)
+static allnonnull pure int strcmpL(const char *X, const char *Y)
 {
     while (*X && *X == *Y) {
         X++;
@@ -541,6 +630,7 @@ static allnonnull const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t
 #define strtoi strtoiW
 #define lstrcat_s lstrcat_sW
 #define _itot itowL
+#define Uint2lStr Uint2lStrW
 #else
 #define lstrstr lstrstrA
 #define lstrchr lstrchrA
@@ -548,6 +638,7 @@ static allnonnull const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t
 #define strtoi strtoiA
 #define lstrcat_s lstrcat_sA
 #define _itot itoaL
+#define Uint2lStr Uint2lStrA
 #endif
 
 static inline unsigned h2u(const TCHAR c)

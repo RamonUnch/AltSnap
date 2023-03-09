@@ -191,11 +191,11 @@ static int pure IsActionInList(const enum action ac, const enum action *aclst)
 static TCHAR *ZidxToZonestr(int laynum, int idx, TCHAR zname[32])
 {
     if (laynum > 9 ) return NULL;
-    TCHAR txt[16];
+    TCHAR txt[UINT_DIGITS+1];
     zname[0] = !laynum?TEXT('\0'): TEXT('A')+laynum-1 ;
     zname[1] = '\0';
     lstrcat_s(zname, 32, TEXT("Zone"));
-    lstrcat_s(zname, 32, itostr(idx, txt, 10)); // Zone Name from zone number
+    lstrcat_s(zname, 32, Uint2lStr(txt, idx)); // Zone Name from zone number
 
     return zname;
 }
@@ -206,7 +206,7 @@ static char *ZidxToZonestrA(int laynum, int idx, char zname[32])
     zname[0] = !laynum?'\0': 'A'+laynum-1 ;
     zname[1] = '\0';
     lstrcat_sA(zname, 32, "Zone");
-    lstrcat_sA(zname, 32, itostrA(idx, txt, 10)); // Zone Name from zone number
+    lstrcat_sA(zname, 32, Uint2lStrA(txt, idx)); // Zone Name from zone number
 
     return zname;
 }

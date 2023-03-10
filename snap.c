@@ -176,7 +176,7 @@ static int IsAnySnapped(HWND hwnd)
     // In short whenever the window will be restored.
     unsigned flg;
     return  IsZoomed(hwnd)
-        ||( SNAPPED & (flg=GetRestoreFlag(hwnd)) && !(flg&SNCLEAR) )
+        ||( !(conf.SmartAero&4) && SNAPPED & (flg=GetRestoreFlag(hwnd)) && !(flg&SNCLEAR) )
         ||  IsWindowSnapped(hwnd);
 }
 /////////////////////////////////////////////////////////////////////////////

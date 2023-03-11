@@ -3497,7 +3497,10 @@ static void CALLBACK HandleWinEvent(
 }
 #endif // EVENT_HOOK
 
-static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser);
+// Used with TrackMenuOfWindows
+#define TRK_LASERMODE (1<<0)
+
+static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags);
 /////////////////////////////////////////////////////////////////////////////
 // Pin window callback function
 // We store the old owner window style in GWLP_USERDATA
@@ -3957,7 +3960,7 @@ struct menuitemdata {
     TCHAR *txtptr;
     HICON icon;
 };
-static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
+static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
 {
     state.sclickhwnd = NULL;
     KillAltSnapMenu();
@@ -3967,9 +3970,9 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
     numhwnds = 0;
     HWND mdiclient = state.mdiclient;
     if (mdiclient) {
-        EnumChildWindows(mdiclient, EnumProc, laser);
+        EnumChildWindows(mdiclient, EnumProc, flags & TRK_LASERMODE);
     } else {
-        EnumDesktopWindows(NULL, EnumProc, laser);
+        EnumDesktopWindows(NULL, EnumProc, flags & TRK_LASERMODE);
     }
     if (!hwnds) return; // Enum failed
 
@@ -4132,8 +4135,8 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_NSTACKED2:   ActionAltTab(state.prevpt, +120, !state.shift, EnumStackedWindowsProc); break;
     case AC_PSTACKED:    ActionAltTab(state.prevpt, -120,  state.shift, EnumStackedWindowsProc); break;
     case AC_PSTACKED2:   ActionAltTab(state.prevpt, -120, !state.shift, EnumStackedWindowsProc); break;
-    case AC_STACKLIST:   ActionStackList(state.shift); break;
-    case AC_STACKLIST2:  ActionStackList(!state.shift); break;
+    case AC_STACKLIST:   ActionStackList(state.shift ? TRK_LASERMODE : 0); break;
+    case AC_STACKLIST2:  ActionStackList(state.shift ? 0 : TRK_LASERMODE); break;
     case AC_ALTTABLIST:
         PostMessage(g_hkhwnd, WM_STACKLIST, 0,
             state.shift?(LPARAM)EnumAllAltTabWindows:(LPARAM)EnumAltTabWindows); break;

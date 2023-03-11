@@ -3499,6 +3499,7 @@ static void CALLBACK HandleWinEvent(
 
 // Used with TrackMenuOfWindows
 #define TRK_LASERMODE (1<<0)
+#define TRK_MOVETOMONITOR (1<<1)
 
 static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags);
 /////////////////////////////////////////////////////////////////////////////
@@ -3960,6 +3961,44 @@ struct menuitemdata {
     TCHAR *txtptr;
     HICON icon;
 };
+static void MoveToCurrentMonitorIfNeeded(HWND hwnd) {
+    RECT rc;
+    GetWindowRect(hwnd, &rc);
+
+    POINT pt;
+    pt.x = rc.left + (rc.right - rc.left) / 2;
+    pt.y = rc.top + (rc.bottom - rc.top) / 2;
+
+    assert(state.origin.monitor != 0);
+
+    // If the window centre is outside the current monitor
+    // (use the point instead of window, since MonitorFromWindow
+    // returns ones that are only touching, which are still not
+    // accessible for the user)
+    if (MonitorFromPoint(pt, MONITOR_DEFAULTTONULL) != state.origin.monitor && !state.mdiclient) {
+        // Put the window on-screen
+        MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
+        GetMonitorInfo(state.origin.monitor, &mi);
+
+        int left = mi.rcWork.left + ((mi.rcWork.right - mi.rcWork.left) - (rc.right - rc.left))/2;
+        int top = mi.rcWork.top + ((mi.rcWork.bottom - mi.rcWork.top) - (rc.bottom - rc.top))/2;
+        int width = rc.right - rc.left;
+        int height = rc.bottom - rc.top;
+
+        // Trim the window to the current monitor
+        if (left < mi.rcWork.left) {
+            left = mi.rcWork.left;
+            width = mi.rcWork.right - mi.rcWork.left;
+        }
+
+        if (top < mi.rcWork.top) {
+            top = mi.rcWork.top;
+            height = mi.rcWork.bottom - mi.rcWork.top;
+        }
+
+        MoveWindowAsync(hwnd, left, top, width, height);
+    }
+}
 static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
 {
     state.sclickhwnd = NULL;
@@ -4048,6 +4087,9 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
         if(IsIconic(hwnd))
             RestoreWindow(hwnd);
         SetForegroundWindowL(hwnd);
+
+        if (flags & TRK_MOVETOMONITOR)
+            MoveToCurrentMonitorIfNeeded(hwnd);
     }
 
     DestroyMenu(menu);
@@ -4138,10 +4180,10 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_STACKLIST:   ActionStackList(state.shift ? TRK_LASERMODE : 0); break;
     case AC_STACKLIST2:  ActionStackList(state.shift ? 0 : TRK_LASERMODE); break;
     case AC_ALTTABLIST:
-        PostMessage(g_hkhwnd, WM_STACKLIST, 0,
+        PostMessage(g_hkhwnd, WM_STACKLIST, TRK_MOVETOMONITOR,
             state.shift?(LPARAM)EnumAllAltTabWindows:(LPARAM)EnumAltTabWindows); break;
     case AC_ALTTABFULLLIST:
-        PostMessage(g_hkhwnd, WM_STACKLIST, 0,
+        PostMessage(g_hkhwnd, WM_STACKLIST, TRK_MOVETOMONITOR,
             state.shift?(LPARAM)EnumAltTabWindows:(LPARAM)EnumAllAltTabWindows); break;
     case AC_MLZONE:      MoveWindowToTouchingZone(hwnd, 0, 0); break; // mLeft
     case AC_MTZONE:      MoveWindowToTouchingZone(hwnd, 1, 0); break; // mTop

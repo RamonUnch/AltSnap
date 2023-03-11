@@ -509,7 +509,7 @@ static const struct strings en_US = {
  /* about              */ TEXT("&About"),
  /* open ini file      */ TEXT("&Open ini file"),
  /* savezones          */ TEXT("&Save test windows as snap layout"),
- /* emptyzone          */ TEXT("  (empty)"),
+ /* emptyzone          */ TEXT("(empty)"),
  /* snaplayout         */ TEXT("Snap layout &"),
  /* exit               */ TEXT("E&xit"),
 

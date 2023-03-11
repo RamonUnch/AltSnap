@@ -179,7 +179,7 @@ static void ClearAllZones()
 {
     int i;
     TCHAR txt[128], name[32];
-    for (i = 0; i < 32; i++) {
+    for (i = 0; i < 2048; i++) {
         ZidxToZonestr(LayoutNumber, i, name);
         if (GetPrivateProfileString(TEXT("Zones"), name, TEXT(""), txt, ARR_SZ(txt), inipath)) {
             WritePrivateProfileString(TEXT("Zones"), name, TEXT(""), inipath);
@@ -229,6 +229,7 @@ static void catFullLayoutName(TCHAR *txt, size_t len, int laynum)
             lstrcat_s(txt, len, Uint2lStr(numstr, HIWORD(rez)));
             lstrcat_s(txt, len, TEXT(")"));
         } else {
+            lstrcat_s(txt, len, TEXT("  "));
             lstrcat_s(txt, len, l10n->menu_emptyzone); // (empty)
         }
     } else {

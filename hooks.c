@@ -192,6 +192,7 @@ static struct config {
     UCHAR MaxKeysNum;
     UCHAR DragThreshold;
     UCHAR AblockHotclick;
+    UCHAR IgnoreOffscreenWindows;
     // [Performance]
     UCHAR FullWin;
     UCHAR TransWinOpacity;
@@ -293,6 +294,7 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "MaxKeysNum", 0 },
     { "DragThreshold", 1 },
     { "AblockHotclick", 0 },
+    { "IgnoreOffscreenWindows", 0 },
 };
 // [Performance]
 static const struct OptionListItem Performance_uchars[] = {
@@ -2697,7 +2699,8 @@ BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
     // to taskbar and on the same monitor as the cursor
     if (IsAltTabAble(window)
     && (!IsIconic(window) || (lParam && !IsToolWindow(window)))
-    && state.origin.monitor == MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST)) {
+    && state.origin.monitor == MonitorFromWindow(window,
+            conf.IgnoreOffscreenWindows ? MONITOR_DEFAULTTONULL : MONITOR_DEFAULTTONEAREST)) {
         hwnds[numhwnds++] = window;
     }
     return TRUE;
@@ -2705,12 +2708,16 @@ BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 BOOL CALLBACK EnumAllAltTabWindows(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    hwnds = GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
+    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
     if (!hwnds) return FALSE; // Stop enum, we failed
 
-    // Only store window if it's visible and not minimized to taskbar
+    // Only store window if it's visible, not minimized
+    // to taskbar, and either:
+    //   offscreen windows are not ignored, or
+    //   the window touches a monitor
     if (IsAltTabAble(window)
-    && (!IsIconic(window) || (lParam && !IsToolWindow(window)))) {
+    && (!IsIconic(window) || (lParam && !IsToolWindow(window)))
+    && (!conf.IgnoreOffscreenWindows || MonitorFromWindow(window, MONITOR_DEFAULTTONULL))) {
         hwnds[numhwnds++] = window;
     }
     return TRUE;

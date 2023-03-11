@@ -2700,6 +2700,19 @@ BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
     }
     return TRUE;
 }
+BOOL CALLBACK EnumAllAltTabWindows(HWND window, LPARAM lParam)
+{
+    // Make sure we have enough space allocated
+    hwnds = GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
+    if (!hwnds) return FALSE; // Stop enum, we failed
+
+    // Only store window if it's visible and not minimized to taskbar
+    if (IsAltTabAble(window)
+    && (!IsIconic(window) || (lParam && !IsToolWindow(window)))) {
+        hwnds[numhwnds++] = window;
+    }
+    return TRUE;
+}
 BOOL CALLBACK EnumTopMostWindows(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
@@ -4122,8 +4135,11 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_STACKLIST:   ActionStackList(state.shift); break;
     case AC_STACKLIST2:  ActionStackList(!state.shift); break;
     case AC_ALTTABLIST:
-        PostMessage(g_hkhwnd, WM_STACKLIST, 1
-            , state.shift?(LPARAM)EnumStackedWindowsProc:(LPARAM)EnumAltTabWindows); break;
+        PostMessage(g_hkhwnd, WM_STACKLIST, 0,
+            state.shift?(LPARAM)EnumAllAltTabWindows:(LPARAM)EnumAltTabWindows); break;
+    case AC_ALTTABFULLLIST:
+        PostMessage(g_hkhwnd, WM_STACKLIST, 0,
+            state.shift?(LPARAM)EnumAltTabWindows:(LPARAM)EnumAllAltTabWindows); break;
     case AC_MLZONE:      MoveWindowToTouchingZone(hwnd, 0, 0); break; // mLeft
     case AC_MTZONE:      MoveWindowToTouchingZone(hwnd, 1, 0); break; // mTop
     case AC_MRZONE:      MoveWindowToTouchingZone(hwnd, 2, 0); break; // mRight

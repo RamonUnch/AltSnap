@@ -2695,7 +2695,7 @@ BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
     // to taskbar and on the same monitor as the cursor
     if (IsAltTabAble(window)
     && (!IsIconic(window) || (lParam && !IsToolWindow(window)))
-    && state.origin.monitor == MonitorFromWindow(window, MONITOR_DEFAULTTONULL)) {
+    && state.origin.monitor == MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST)) {
         hwnds[numhwnds++] = window;
     }
     return TRUE;

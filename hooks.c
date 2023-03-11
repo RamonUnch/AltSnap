@@ -2685,6 +2685,8 @@ static int IsToolWindow(HWND hwnd)
 }
 /////////////////////////////////////////////////////////////////////////////
 unsigned hwnds_alloc = 0;
+
+// lParam means to include minimized windows (pass TRK_LASERMODE to TrackMenuOfWindows)
 BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
@@ -4180,10 +4182,10 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_STACKLIST:   ActionStackList(state.shift ? TRK_LASERMODE : 0); break;
     case AC_STACKLIST2:  ActionStackList(state.shift ? 0 : TRK_LASERMODE); break;
     case AC_ALTTABLIST:
-        PostMessage(g_hkhwnd, WM_STACKLIST, TRK_MOVETOMONITOR,
+        PostMessage(g_hkhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
             state.shift?(LPARAM)EnumAllAltTabWindows:(LPARAM)EnumAltTabWindows); break;
     case AC_ALTTABFULLLIST:
-        PostMessage(g_hkhwnd, WM_STACKLIST, TRK_MOVETOMONITOR,
+        PostMessage(g_hkhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
             state.shift?(LPARAM)EnumAltTabWindows:(LPARAM)EnumAllAltTabWindows); break;
     case AC_MLZONE:      MoveWindowToTouchingZone(hwnd, 0, 0); break; // mLeft
     case AC_MTZONE:      MoveWindowToTouchingZone(hwnd, 1, 0); break; // mTop

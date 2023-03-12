@@ -139,6 +139,7 @@ struct strings {
   TCHAR *input_actions_stacklist;
   TCHAR *input_actions_stacklist2;
   TCHAR *input_actions_alttablist;
+  TCHAR *input_actions_alttabfulllist;
 
   TCHAR *input_actions_mlzone;
   TCHAR *input_actions_mtzone;
@@ -375,6 +376,7 @@ static const char* l10n_inimapping[] = {
     "InputActionStackList",
     "InputActionStackList2",
     "InputActionAltTabList",
+    "InputActionAltTabFullList",
     "InputActionMLZone",
     "InputActionMTZone",
     "InputActionMRZone",
@@ -610,6 +612,7 @@ static const struct strings en_US = {
  /* stacklist          */ TEXT("Stacked windows list"),
  /* stacklist2         */ TEXT("Laser stacked windows list"),
  /* alttablist         */ TEXT("Windows List"),
+ /* alttabfulllist     */ TEXT("All Windows List"),
  /* mlzone             */ TEXT("Move to the left zone"),
  /* mtzone             */ TEXT("Move to the top zone"),
  /* mrzone             */ TEXT("Move to the right zone"),

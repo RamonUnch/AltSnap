@@ -778,6 +778,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {TEXT("StackList"),   l10n->input_actions_stacklist},
         {TEXT("StackList2"),  l10n->input_actions_stacklist2},
         {TEXT("AltTabList"),  l10n->input_actions_alttablist},
+        {TEXT("AltTabFullList"), l10n->input_actions_alttabfulllist},
         {TEXT("Roll"),        l10n->input_actions_roll},
         {TEXT("AlwaysOnTop"), l10n->input_actions_alwaysontop},
         {TEXT("Borderless"),  l10n->input_actions_borderless},
@@ -1055,6 +1056,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {TEXT("StackList"),   l10n->input_actions_stacklist},
         {TEXT("StackList2"),  l10n->input_actions_stacklist2},
         {TEXT("AltTabList"),  l10n->input_actions_alttablist},
+        {TEXT("AltTabFullList"), l10n->input_actions_alttabfulllist},
 
         {TEXT("ExtendTNEdge"),l10n->input_actions_extendtnedge},
         {TEXT("XTNLEdge"),    l10n->input_actions_xtnledge},

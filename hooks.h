@@ -92,6 +92,7 @@
     ACVALUE(AC_STACKLIST,    "StackList",   CL) \
     ACVALUE(AC_STACKLIST2,   "StackList2",  CL) \
     ACVALUE(AC_ALTTABLIST,   "AltTabList",  CL) \
+    ACVALUE(AC_ALTTABFULLLIST, "AltTabFullList",  CL) \
     ACVALUE(AC_ASONOFF,      "ASOnOff",     CL) \
     ACVALUE(AC_MOVEONOFF,    "MoveOnOff",   CL) \
     \

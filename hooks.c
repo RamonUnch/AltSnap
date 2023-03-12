@@ -192,6 +192,7 @@ static struct config {
     UCHAR MaxKeysNum;
     UCHAR DragThreshold;
     UCHAR AblockHotclick;
+    UCHAR MenuShowOffscreenWin;
     // [Performance]
     UCHAR FullWin;
     UCHAR TransWinOpacity;
@@ -293,6 +294,7 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "MaxKeysNum", 0 },
     { "DragThreshold", 1 },
     { "AblockHotclick", 0 },
+    { "MenuShowOffscreenWin", 0 },
 };
 // [Performance]
 static const struct OptionListItem Performance_uchars[] = {
@@ -2691,6 +2693,8 @@ static int IsToolWindow(HWND hwnd)
 }
 /////////////////////////////////////////////////////////////////////////////
 unsigned hwnds_alloc = 0;
+
+// lParam means to include minimized windows (pass TRK_LASERMODE to TrackMenuOfWindows)
 BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
@@ -2701,7 +2705,25 @@ BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
     // to taskbar and on the same monitor as the cursor
     if (IsAltTabAble(window)
     && (!IsIconic(window) || (lParam && !IsToolWindow(window)))
-    && state.origin.monitor == MonitorFromWindow(window, MONITOR_DEFAULTTONULL)) {
+    && state.origin.monitor == MonitorFromWindow(window,
+            conf.MenuShowOffscreenWin ? MONITOR_DEFAULTTONEAREST : MONITOR_DEFAULTTONULL)) {
+        hwnds[numhwnds++] = window;
+    }
+    return TRUE;
+}
+BOOL CALLBACK EnumAllAltTabWindows(HWND window, LPARAM lParam)
+{
+    // Make sure we have enough space allocated
+    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
+    if (!hwnds) return FALSE; // Stop enum, we failed
+
+    // Only store window if it's visible, not minimized
+    // to taskbar, and either:
+    //   offscreen windows are shown, or
+    //   the window touches a monitor
+    if (IsAltTabAble(window)
+    && (!IsIconic(window) || (lParam && !IsToolWindow(window)))
+    && (conf.MenuShowOffscreenWin || MonitorFromWindow(window, MONITOR_DEFAULTTONULL))) {
         hwnds[numhwnds++] = window;
     }
     return TRUE;
@@ -3490,7 +3512,11 @@ static void CALLBACK HandleWinEvent(
 }
 #endif // EVENT_HOOK
 
-static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser);
+// Used with TrackMenuOfWindows
+#define TRK_LASERMODE (1<<0)
+#define TRK_MOVETOMONITOR (1<<1)
+
+static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags);
 /////////////////////////////////////////////////////////////////////////////
 // Pin window callback function
 // We store the old owner window style in GWLP_USERDATA
@@ -3950,7 +3976,45 @@ struct menuitemdata {
     TCHAR *txtptr;
     HICON icon;
 };
-static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
+static void MoveToCurrentMonitorIfNeeded(HWND hwnd) {
+    RECT rc;
+    GetWindowRect(hwnd, &rc);
+
+    POINT pt;
+    pt.x = rc.left + (rc.right - rc.left) / 2;
+    pt.y = rc.top + (rc.bottom - rc.top) / 2;
+
+    assert(state.origin.monitor != 0);
+
+    // If the window centre is outside the current monitor
+    // (use the point instead of window, since MonitorFromWindow
+    // returns ones that are only touching, which are still not
+    // accessible for the user)
+    if (MonitorFromPoint(pt, MONITOR_DEFAULTTONULL) != state.origin.monitor && !state.mdiclient) {
+        // Put the window on-screen
+        MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
+        GetMonitorInfo(state.origin.monitor, &mi);
+
+        int left = mi.rcWork.left + ((mi.rcWork.right - mi.rcWork.left) - (rc.right - rc.left))/2;
+        int top = mi.rcWork.top + ((mi.rcWork.bottom - mi.rcWork.top) - (rc.bottom - rc.top))/2;
+        int width = rc.right - rc.left;
+        int height = rc.bottom - rc.top;
+
+        // Trim the window to the current monitor
+        if (left < mi.rcWork.left) {
+            left = mi.rcWork.left;
+            width = mi.rcWork.right - mi.rcWork.left;
+        }
+
+        if (top < mi.rcWork.top) {
+            top = mi.rcWork.top;
+            height = mi.rcWork.bottom - mi.rcWork.top;
+        }
+
+        MoveWindowAsync(hwnd, left, top, width, height);
+    }
+}
+static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
 {
     state.sclickhwnd = NULL;
     KillAltSnapMenu();
@@ -3960,9 +4024,9 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
     numhwnds = 0;
     HWND mdiclient = state.mdiclient;
     if (mdiclient) {
-        EnumChildWindows(mdiclient, EnumProc, laser);
+        EnumChildWindows(mdiclient, EnumProc, flags & TRK_LASERMODE);
     } else {
-        EnumDesktopWindows(NULL, EnumProc, laser);
+        EnumDesktopWindows(NULL, EnumProc, flags & TRK_LASERMODE);
     }
     if (!hwnds) return; // Enum failed
 
@@ -4038,6 +4102,9 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM laser)
         if(IsIconic(hwnd))
             RestoreWindow(hwnd);
         SetForegroundWindowL(hwnd);
+
+        if (flags & TRK_MOVETOMONITOR)
+            MoveToCurrentMonitorIfNeeded(hwnd);
     }
 
     DestroyMenu(menu);
@@ -4126,11 +4193,14 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_NSTACKED2:   ActionAltTab(state.prevpt, +120, !state.shift, EnumStackedWindowsProc); break;
     case AC_PSTACKED:    ActionAltTab(state.prevpt, -120,  state.shift, EnumStackedWindowsProc); break;
     case AC_PSTACKED2:   ActionAltTab(state.prevpt, -120, !state.shift, EnumStackedWindowsProc); break;
-    case AC_STACKLIST:   ActionStackList(state.shift); break;
-    case AC_STACKLIST2:  ActionStackList(!state.shift); break;
+    case AC_STACKLIST:   ActionStackList(state.shift ? TRK_LASERMODE : 0); break;
+    case AC_STACKLIST2:  ActionStackList(state.shift ? 0 : TRK_LASERMODE); break;
     case AC_ALTTABLIST:
-        PostMessage(g_hkhwnd, WM_STACKLIST, 1
-            , state.shift?(LPARAM)EnumStackedWindowsProc:(LPARAM)EnumAltTabWindows); break;
+        PostMessage(g_hkhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
+            state.shift?(LPARAM)EnumAllAltTabWindows:(LPARAM)EnumAltTabWindows); break;
+    case AC_ALTTABFULLLIST:
+        PostMessage(g_hkhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
+            state.shift?(LPARAM)EnumAltTabWindows:(LPARAM)EnumAllAltTabWindows); break;
     case AC_MLZONE:      MoveWindowToTouchingZone(hwnd, 0, 0); break; // mLeft
     case AC_MTZONE:      MoveWindowToTouchingZone(hwnd, 1, 0); break; // mTop
     case AC_MRZONE:      MoveWindowToTouchingZone(hwnd, 2, 0); break; // mRight

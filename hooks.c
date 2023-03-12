@@ -231,6 +231,7 @@ static struct config {
     UCHAR XXButtons[MAXKEYS+1];
     UCHAR ModKey[MAXKEYS+1];
     UCHAR HScrollKey[MAXKEYS+1];
+    UCHAR ESCkeys[MAXKEYS+1];
 
     struct {
         enum action // Up to 20 BUTTONS!!!
@@ -2484,7 +2485,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
            // Release Hook on Alt+KillKey
            // eg: DisplayFusion Alt+Tab elevated windows captures AltUp
             HotkeyUp();
-        } else if (vkey == VK_ESCAPE) { // USER PRESSED ESCAPE!
+        } else if ( IsHotkeyy(vkey, conf.ESCkeys) ) { // USER PRESSED ESCAPE! (vkey == VK_ESCAPE)
             // Alsays disable shift and ctrl, in case of Ctrl+Shift+ESC.
             // LogState("ESCAPE KEY WAS PRESSED:\n"); // Debug stuff....
             state.ctrl = 0;
@@ -5842,13 +5843,14 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
     static const struct hklst {
         char *name; TCHAR *def;
     } hklst[] = {
-        { "Hotkeys",   TEXT("A4 A5") },
-        { "Shiftkeys", TEXT("A0 A1") },
+        { "Hotkeys",   TEXT("A4 A5") }, // VK_LMENU VK_RMENU
+        { "Shiftkeys", TEXT("A0 A1") }, // VK_LSHIFT VK_RSHIFT
         { "Hotclicks", NULL },
-        { "Killkeys",  TEXT("09 2E") },
+        { "Killkeys",  TEXT("09 2E") }, // VK_TAB VK_DELETE
         { "XXButtons", NULL },
         { "ModKey",    NULL },
-        { "HScrollKey", TEXT("10") },
+        { "HScrollKey", TEXT("10") }, // VK_SHIFT
+        { "ESCKeys",   TEXT("1B") }, // VK_ESCAPE = 1B
     };
     for (i=0; i < ARR_SZ(hklst); i++) {
         readhotkeys(inisection, hklst[i].name, hklst[i].def, &conf.Hotkeys[i*(MAXKEYS+1)]);

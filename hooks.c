@@ -192,7 +192,7 @@ static struct config {
     UCHAR MaxKeysNum;
     UCHAR DragThreshold;
     UCHAR AblockHotclick;
-    UCHAR IgnoreOffscreenWindows;
+    UCHAR MenuShowOffscreenWin;
     // [Performance]
     UCHAR FullWin;
     UCHAR TransWinOpacity;
@@ -294,7 +294,7 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "MaxKeysNum", 0 },
     { "DragThreshold", 1 },
     { "AblockHotclick", 0 },
-    { "IgnoreOffscreenWindows", 0 },
+    { "MenuShowOffscreenWin", 0 },
 };
 // [Performance]
 static const struct OptionListItem Performance_uchars[] = {
@@ -2700,7 +2700,7 @@ BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
     if (IsAltTabAble(window)
     && (!IsIconic(window) || (lParam && !IsToolWindow(window)))
     && state.origin.monitor == MonitorFromWindow(window,
-            conf.IgnoreOffscreenWindows ? MONITOR_DEFAULTTONULL : MONITOR_DEFAULTTONEAREST)) {
+            conf.MenuShowOffscreenWin ? MONITOR_DEFAULTTONEAREST : MONITOR_DEFAULTTONULL)) {
         hwnds[numhwnds++] = window;
     }
     return TRUE;
@@ -2713,11 +2713,11 @@ BOOL CALLBACK EnumAllAltTabWindows(HWND window, LPARAM lParam)
 
     // Only store window if it's visible, not minimized
     // to taskbar, and either:
-    //   offscreen windows are not ignored, or
+    //   offscreen windows are shown, or
     //   the window touches a monitor
     if (IsAltTabAble(window)
     && (!IsIconic(window) || (lParam && !IsToolWindow(window)))
-    && (!conf.IgnoreOffscreenWindows || MonitorFromWindow(window, MONITOR_DEFAULTTONULL))) {
+    && (conf.MenuShowOffscreenWin || MonitorFromWindow(window, MONITOR_DEFAULTTONULL))) {
         hwnds[numhwnds++] = window;
     }
     return TRUE;

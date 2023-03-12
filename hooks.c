@@ -2308,10 +2308,16 @@ static void SetForegroundWindowL(HWND hwnd)
 // otherwise it is enabled by Scroll lock.
 static int ScrollLockState()
 {
-    return state.altsnaponoff// AltSnap was disabled by AC_ASONOFF
-         || ( (conf.ScrollLockState&1)
-            && !( !(GetKeyState(VK_SCROLL)&1) ^ !(conf.ScrollLockState&2) )
-            );
+    if (state.altsnaponoff)
+        return 1; // AltSnap was disabled by AC_ASONOFF
+
+    if( (conf.ScrollLockState&1)
+    && !( !(GetKeyState(VK_SCROLL)&1) ^ !(conf.ScrollLockState&2) ) ) {
+        if (state.action)
+            FinishMovement();
+        return 1;
+    }
+    return 0;
 }
 static void LogState(const char *Title)
 {
@@ -4054,6 +4060,7 @@ static void ActionStackList(int lasermode)
 }
 static void ActionASOnOff()
 {
+    if (state.action) FinishMovement();
     state.altsnaponoff = !GetProp(g_mainhwnd, APP_ASONOFF);
     SetProp(g_mainhwnd, APP_ASONOFF, (HANDLE)(DorQWORD)state.altsnaponoff);
     PostMessage(g_mainhwnd, WM_UPDATETRAY, 0, 0);

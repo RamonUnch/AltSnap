@@ -3475,18 +3475,42 @@ static void ActionBorderless(HWND hwnd)
                , SWP_ASYNCWINDOWPOS|SWP_NOMOVE|SWP_NOZORDER);
 }
 /////////////////////////////////////////////////////////////////////////////
-static void CenterWindow(HWND hwnd)
+#define CW_RESTORE (1<<0)
+#define CW_TRIM    (1<<1)
+static void CenterWindow(HWND hwnd, unsigned flags)
 {
     RECT mon;
     POINT pt;
-    SetOriginFromRestoreData(hwnd, AC_MOVE);
+    int width, height;
+    if (flags & CW_RESTORE) {
+        SetOriginFromRestoreData(hwnd, AC_MOVE);
+        width = state.origin.width;
+        height = state.origin.height;
+    } else {
+        RECT rc;
+        GetWindowRect(hwnd, &rc);
+        width = rc.right - rc.left;
+        height = rc.bottom - rc.top;
+    }
     GetCursorPos(&pt);
     GetMonitorRect(&pt, 0, &mon);
-    MoveWindowAsync(hwnd
-        , mon.left+ ((mon.right-mon.left)-state.origin.width)/2
-        , mon.top + ((mon.bottom-mon.top)-state.origin.height)/2
-        , state.origin.width
-        , state.origin.height);
+
+    int x = mon.left+ ((mon.right-mon.left)-width)/2;
+    int y = mon.top + ((mon.bottom-mon.top)-height)/2;
+
+    if (flags & CW_TRIM) {
+        // Trim the window to the current monitor
+        if (x < mon.left) {
+            x = mon.left;
+            width = mon.right - mon.left;
+        }
+
+        if (y < mon.top) {
+            y = mon.top;
+            height = mon.bottom - mon.top;
+        }
+    }
+    MoveWindowAsync(hwnd, x, y, width, height);
 }
 
 //#define EVENT_HOOK
@@ -3977,7 +4001,9 @@ struct menuitemdata {
     TCHAR *txtptr;
     HICON icon;
 };
-static void MoveToCurrentMonitorIfNeeded(HWND hwnd) {
+static void MoveToCurrentMonitorIfNeeded(HWND hwnd)
+{
+    if (state.mdiclient) return;
     RECT rc;
     GetWindowRect(hwnd, &rc);
 
@@ -3991,28 +4017,9 @@ static void MoveToCurrentMonitorIfNeeded(HWND hwnd) {
     // (use the point instead of window, since MonitorFromWindow
     // returns ones that are only touching, which are still not
     // accessible for the user)
-    if (MonitorFromPoint(pt, MONITOR_DEFAULTTONULL) != state.origin.monitor && !state.mdiclient) {
+    if (MonitorFromPoint(pt, MONITOR_DEFAULTTONULL) != state.origin.monitor) {
         // Put the window on-screen
-        MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
-        GetMonitorInfo(state.origin.monitor, &mi);
-
-        int left = mi.rcWork.left + ((mi.rcWork.right - mi.rcWork.left) - (rc.right - rc.left))/2;
-        int top = mi.rcWork.top + ((mi.rcWork.bottom - mi.rcWork.top) - (rc.bottom - rc.top))/2;
-        int width = rc.right - rc.left;
-        int height = rc.bottom - rc.top;
-
-        // Trim the window to the current monitor
-        if (left < mi.rcWork.left) {
-            left = mi.rcWork.left;
-            width = mi.rcWork.right - mi.rcWork.left;
-        }
-
-        if (top < mi.rcWork.top) {
-            top = mi.rcWork.top;
-            height = mi.rcWork.bottom - mi.rcWork.top;
-        }
-
-        MoveWindowAsync(hwnd, left, top, width, height);
+        CenterWindow(hwnd, CW_TRIM);
     }
 }
 static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
@@ -4150,7 +4157,7 @@ static void ActionMenu(HWND hwnd)
     ReallySetForegroundWindow(g_mainhwnd);
     PostMessage(
         g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd,
-       ( !state.ignorept )                                            // LP_CURSORPOS
+       ( !state.ignorept )                                      // LP_CURSORPOS
        | !!(GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST)<<1 // LP_TOPMOST
        | !!GetBorderlessFlag(hwnd) << 2                        // LP_BORDERLESS
        | IsZoomed(hwnd) << 3                                    // LP_MAXIMIZED
@@ -4173,7 +4180,7 @@ static void SClickActions(HWND hwnd, enum action action)
     switch (action) {
     case AC_MINIMIZE:    MinimizeWindow(hwnd); break;
     case AC_MAXIMIZE:    ActionMaximize(hwnd); break;
-    case AC_CENTER:      CenterWindow(hwnd); break;
+    case AC_CENTER:      CenterWindow(hwnd, !!state.shift /*state.shift? 0: CW_RESTORE*/); break;
     case AC_ALWAYSONTOP: TogglesAlwaysOnTop(hwnd); break;
     case AC_CLOSE:       PostMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0); break;
     case AC_LOWER:       ActionLower(hwnd, 0, state.shift); break;

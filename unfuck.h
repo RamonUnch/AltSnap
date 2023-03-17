@@ -103,12 +103,6 @@ enum MONITOR_DPI_TYPE {
 #define NIIF_USER 0x00000004
 #endif
 
-#ifndef TTM_SETMAXTIPWIDTH
-#define TTM_SETMAXTIPWIDTH (WM_USER+24)
-#endif
-#ifndef PSH_NOCONTEXTHELP
-#define PSH_NOCONTEXTHELP 0x02000000
-#endif
 #ifndef WPF_ASYNCWINDOWPLACEMENT
 #define WPF_ASYNCWINDOWPLACEMENT 0x0004
 #endif
@@ -131,11 +125,38 @@ typedef LRESULT (CALLBACK *SUBCLASSPROC)
     , UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 #endif
 
-#define LOGA(X, ...) {DWORD err=GetLastError(); FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fprintf(LOG,", LastError=%lu\n",err); fclose(LOG); SetLastError(0); }
+//#define LOGA(X, ...) {DWORD err=GetLastError(); FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fprintf(LOG,", LastError=%lu\n",err); fclose(LOG); SetLastError(0); }
+#define LOGA LOGfunk
+/* Cool warpper for wvsprintf */
+static void LOGfunk( const char *fmt, ... )
+{
+    DWORD lerr = GetLastError();
+    va_list arglist;
+    char str[512];
+
+    va_start( arglist, fmt );
+    wvsprintfA( str, fmt, arglist );
+    va_end( arglist );
+
+    HANDLE h = CreateFileA( "ad.log",
+        FILE_APPEND_DATA, FILE_SHARE_READ, NULL, OPEN_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+    if( h == INVALID_HANDLE_VALUE )
+        return;
+    char lerrorstr[16];
+    lstrcat_sA(str, ARR_SZ(str), " (");
+    lstrcat_sA(str, ARR_SZ(str), itostrA(lerr, lerrorstr, 16));
+    lstrcat_sA(str, ARR_SZ(str), ")\n");
+    DWORD dummy;
+    WriteFile( h, str, lstrlenA(str), &dummy, NULL );
+    CloseHandle(h);
+    SetLastError(0);
+}
 #ifdef LOG_STUFF
-#define LOG(X, ...) if(LOG_STUFF) LOGA(X, ##__VA_ARGS__)
+#define LOG LOGfunk
 #else
-#define LOG(...)
+    #define LOG if(0) LOGdummy
+    static void LOGdummy(const char *fmt, ...) {}
 #endif
 
 #ifdef DEBUG
@@ -183,6 +204,27 @@ static void ErrorBox(const TCHAR * const title)
     LocalFree( lpMsgBuf );
 }
 
+/* Helper functiont to strcat variable amount of TCHAR*s */
+static size_t lstrcatM_s(TCHAR *d, size_t dl, ...)
+{
+    while( *d && dl-- ) d++;
+    va_list arglist;
+    va_start( arglist, dl );
+
+    while(1) {
+        if(dl == 0) break; /* End of string! */
+        const TCHAR *s = (const TCHAR *)va_arg(arglist, const TCHAR*);
+        if (s == NULL) break;
+        /* inline naive strcpy_s */
+        for (; dl && (*d=*s); ++s,++d,--dl);
+    }
+    *d = TEXT('\0'); /* Ensure NULL termination */
+
+    va_end( arglist );
+
+    return dl; /* Remaining TCHARs */
+}
+
 static int PrintHwndDetails(HWND hwnd, TCHAR *buf)
 {
     TCHAR klass[256], title[256];
@@ -195,6 +237,19 @@ static int PrintHwndDetails(HWND hwnd, TCHAR *buf)
         , (UINT)GetWindowLongPtr(hwnd, GWL_STYLE)
         , (UINT)GetWindowLongPtr(hwnd, GWL_EXSTYLE));
 }
+
+/* Helper to be able to enable/disable dialog items
+ * easily while ensuring we move keyboard focus to
+ * the next control if it was selected */
+BOOL EnableDlgItem(HWND hdlg, UINT id, BOOL enable)
+{
+    HWND hwndControl = GetDlgItem(hdlg, id);
+    if (!enable && hwndControl == GetFocus()) {
+        SendMessage(hdlg, WM_NEXTDLGCTL, 0, FALSE);
+    }
+    return EnableWindow(hwndControl, enable);
+}
+
 
 /* Removes the trailing file name from a path */
 static BOOL PathRemoveFileSpecL(TCHAR *p)
@@ -494,7 +549,8 @@ static UINT GetDpiForWindowL(const HWND hwnd)
     }
 
     /* Windows 8.1 / Server2012 R2 Fallback */
-    UINT dpiX=0, dpiY=0;
+    UINT dpiX=0;
+    UINT dpiY=0;
     HMONITOR hmon;
     if ((hmon = MonitorFromWindowL(hwnd, MONITOR_DEFAULTTONEAREST))
     && S_OK == GetDpiForMonitorL(hmon, MDT_DEFAULT, &dpiX, &dpiY)) {
@@ -603,7 +659,7 @@ static BOOL AllowDarkTitlebar(HWND hwnd)
         return S_OK == DwmSetWindowAttributeL(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &DarkMode, sizeof(DarkMode));
     } else if ( OredredWinVer() >= 0x0A004563) {
         /* Windows 10 build 10.0.17763 ie: 1809 or later */
-    
+
         if ( OredredWinVer() < 0x0A0047BA) {
             /* Windows 10 build 10.0.18362 ie: before 1903 */
             SetProp(hwnd, TEXT("UseImmersiveDarkModeColors"), (HANDLE)(LONG_PTR)DarkMode);

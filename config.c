@@ -7,7 +7,6 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include <commctrl.h>
-#include <windowsx.h>
 #include "resource.h"
 
 #ifndef TTM_SETMAXTIPWIDTH
@@ -291,13 +290,21 @@ static DWORD IsUACEnabled()
 }
 /////////////////////////////////////////////////////////////////////////////
 // Helper functions and Macro
-#define IsChecked(idc) Button_GetCheck(GetDlgItem(hwnd, idc))
+#define IsChecked(idc) IsDlgButtonChecked(hwnd, idc)
 //#define IsCheckedW(idc) itostr(IsChecked(idc), txt, 10)
+
+#define CB_ResetContent(hwnd) SendMessage(hwnd, CB_RESETCONTENT, 0, 0)
+#define CB_AddString(hwnd, txt) SendMessage(hwnd, CB_ADDSTRING, 0, (LPARAM)(LPCTSTR)txt)
+#define CB_DeleteString(hwnd, i) SendMessage(hwnd, CB_DELETESTRING, i, 0)
+#define CB_SetCurSel(hwnd, i) SendMessage(hwnd, CB_SETCURSEL, i, 0)
+#define CB_GetCurSel(hwnd) (int)(DWORD)SendMessage(hwnd, CB_GETCURSEL, 0, 0)
+static int CB_GetCurSelDlgItem(HWND hwnd, UINT id) { return (int)(DWORD)SendMessage(GetDlgItem(hwnd, id), CB_GETCURSEL, 0, 0); }
+#define CB_GetCurSelId(id) CB_GetCurSelDlgItem(hwnd, id)
 static void WriteOptionBoolW(HWND hwnd, WORD id, const TCHAR *section, const char *name_s)
 {
     TCHAR name[64];
     str2tchar(name, name_s);
-    WritePrivateProfileString(section, name, Button_GetCheck(GetDlgItem(hwnd, id))? TEXT("1"): TEXT("0"), inipath);
+    WritePrivateProfileString(section, name, IsDlgButtonChecked(hwnd, id)? TEXT("1"): TEXT("0"), inipath);
 }
 #define WriteOptionBool(id, section, name) WriteOptionBoolW(hwnd, id, section, name)
 static int WriteOptionBoolBW(HWND hwnd, WORD id, const TCHAR *section, const char *name_s, int bit)
@@ -306,7 +313,7 @@ static int WriteOptionBoolBW(HWND hwnd, WORD id, const TCHAR *section, const cha
     TCHAR name[64];
     str2tchar(name, name_s);
     int val = GetPrivateProfileInt(section, name, 0, inipath);
-    if (Button_GetCheck(GetDlgItem(hwnd, id)))
+    if (IsDlgButtonChecked(hwnd, id))
         val = setBit(val, bit);
     else
         val = clearBit(val, bit);
@@ -321,7 +328,7 @@ static void WriteOptionStrW(HWND hwnd, WORD id, const TCHAR *section, const char
     TCHAR txt[1024];
     TCHAR name[64];
     str2tchar(name, name_s);
-    Edit_GetText(GetDlgItem(hwnd, id), txt, ARR_SZ(txt));
+    GetDlgItemText(hwnd, id, txt, ARR_SZ(txt));
     WritePrivateProfileString(section, name, txt, inipath);
 }
 #define WriteOptionStr(id, section, name)  WriteOptionStrW(hwnd, id, section, name)
@@ -341,7 +348,7 @@ static int ReadOptionIntW(HWND hwnd, WORD id, const TCHAR *section, const char *
     TCHAR name[64];
     str2tchar(name, name_s);
     int ret = GetPrivateProfileInt(section, name, def, inipath);
-    Button_SetCheck(GetDlgItem(hwnd, id), (ret&mask)? BST_CHECKED: BST_UNCHECKED);
+    CheckDlgButton(hwnd, id, (ret&mask)? BST_CHECKED: BST_UNCHECKED);
     return ret;
 }
 #define ReadOptionInt(id, section, name, def, mask) ReadOptionIntW(hwnd, id, section, name, def, mask)
@@ -480,26 +487,25 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         CheckRadioButton(hwnd, IDC_RZCENTER_NORM, IDC_RZCENTER_CLOSE, ret);
 
         HWND control = GetDlgItem(hwnd, IDC_LANGUAGE);
-        ComboBox_ResetContent(control);
-        ComboBox_Enable(control, TRUE);
+        CB_ResetContent(control);
+        EnableWindow(control, TRUE);
         int i;
         if (langinfo) {
             for (i = 0; i < nlanguages; i++) {
-                ComboBox_AddString(control, langinfo[i].lang);
+                CB_AddString(control, langinfo[i].lang);
                 if (langinfo[i].code && !lstrcmpi(l10n->code, langinfo[i].code) ) {
-                    ComboBox_SetCurSel(control, i);
+                    CB_SetCurSel(control, i);
                 }
             }
         }
-        Button_Enable(GetDlgItem(hwnd, IDC_ELEVATE), VISTA && !elevated);
+        EnableDlgItem(hwnd, IDC_ELEVATE, VISTA && !elevated);
 
     } else if (msg == WM_COMMAND) {
         int id = LOWORD(wParam);
         int event = HIWORD(wParam);
-        HWND control = GetDlgItem(hwnd, id);
-        int val = Button_GetCheck(control);
+        int val = IsDlgButtonChecked(hwnd, id);
         if (id == IDC_SMARTAERO) {
-            Button_Enable(GetDlgItem(hwnd, IDC_SMARTERAERO), IsChecked(IDC_SMARTAERO));
+            EnableDlgItem(hwnd, IDC_SMARTERAERO, IsChecked(IDC_SMARTAERO));
         }
 
         if (id != IDC_ELEVATE && (event == 0 ||  event == CBN_SELCHANGE)) {
@@ -509,11 +515,11 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         if (IDC_RZCENTER_NORM <= id && id <= IDC_RZCENTER_CLOSE) {
             CheckRadioButton(hwnd, IDC_RZCENTER_NORM, IDC_RZCENTER_CLOSE, id);
         } else if (id == IDC_AUTOSTART) {
-            Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE), val);
-            Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), val && VISTA);
+            EnableDlgItem(hwnd, IDC_AUTOSTART_HIDE, val);
+            EnableDlgItem(hwnd, IDC_AUTOSTART_ELEVATE, val && VISTA);
             if (!val) {
-                Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE), BST_UNCHECKED);
-                Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), BST_UNCHECKED);
+                CheckDlgButton(hwnd, IDC_AUTOSTART_HIDE, BST_UNCHECKED);
+                CheckDlgButton(hwnd, IDC_AUTOSTART_ELEVATE, BST_UNCHECKED);
             }
         } else if (id == IDC_AUTOSTART_ELEVATE) {
             if (val && IsUACEnabled()) {
@@ -531,25 +537,25 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             // Autostart
             int autostart = 0, hidden = 0, eelevated = 0;
             CheckAutostart(&autostart, &hidden, &eelevated);
-            Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOSTART), autostart ? BST_CHECKED : BST_UNCHECKED);
-            Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE), hidden ? BST_CHECKED : BST_UNCHECKED);
-            Button_SetCheck(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), eelevated ? BST_CHECKED : BST_UNCHECKED);
-            Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_HIDE), autostart);
-            Button_Enable(GetDlgItem(hwnd, IDC_AUTOSTART_ELEVATE), autostart && VISTA);
-            if(WIN10) Button_Enable(GetDlgItem(hwnd, IDC_INACTIVESCROLL), IsChecked(IDC_INACTIVESCROLL));
+            CheckDlgButton(hwnd, IDC_AUTOSTART, autostart ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(hwnd, IDC_AUTOSTART_HIDE, hidden ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(hwnd, IDC_AUTOSTART_ELEVATE, eelevated ? BST_CHECKED : BST_UNCHECKED);
+            EnableDlgItem(hwnd, IDC_AUTOSTART_HIDE, autostart);
+            EnableDlgItem(hwnd, IDC_AUTOSTART_ELEVATE, autostart && VISTA);
+            if(WIN10) EnableDlgItem(hwnd, IDC_INACTIVESCROLL, IsChecked(IDC_INACTIVESCROLL));
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // all bool options (checkboxes).
             WriteDialogOptions(hwnd, optlst, ARR_SZ(optlst));
 
             TCHAR txt[UINT_DIGITS+1];
-            int val = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_AUTOSNAP));
+            int val = CB_GetCurSelId(IDC_AUTOSNAP);
             WritePrivateProfileString(TEXT("General"),    TEXT("AutoSnap"), Uint2lStr(txt, val), inipath);
 
             val = IsChecked(IDC_RZCENTER_NORM)? 1: IsChecked(IDC_RZCENTER_MOVE)? 2:IsChecked(IDC_RZCENTER_CLOSE)? 3: 0;
             WritePrivateProfileString(TEXT("General"),    TEXT("ResizeCenter"), Uint2lStr(txt, val), inipath);
 
             // Load selected Language
-            int i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_LANGUAGE));
+            int i = CB_GetCurSelId(IDC_LANGUAGE);
             if (i < nlanguages && langinfo && lstrcmp(l10n->code, langinfo[i].code)) {
                 LoadTranslation(langinfo[i].fn);
                 WritePrivateProfileString(TEXT("General"), TEXT("Language"), l10n->code, inipath);
@@ -600,18 +606,18 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
         // AutoSnap
         HWND control = GetDlgItem(hwnd, IDC_AUTOSNAP);
-        ComboBox_ResetContent(control);
-        ComboBox_AddString(control, l10n->general_autosnap0);
-        ComboBox_AddString(control, l10n->general_autosnap1);
-        ComboBox_AddString(control, l10n->general_autosnap2);
-        ComboBox_AddString(control, l10n->general_autosnap3);
+        CB_ResetContent(control);
+        CB_AddString(control, l10n->general_autosnap0);
+        CB_AddString(control, l10n->general_autosnap1);
+        CB_AddString(control, l10n->general_autosnap2);
+        CB_AddString(control, l10n->general_autosnap3);
         TCHAR txt[8];
         GetPrivateProfileString(TEXT("General"), TEXT("AutoSnap"), TEXT("0"), txt, ARR_SZ(txt), inipath);
-        ComboBox_SetCurSel(control, strtoi(txt));
+        CB_SetCurSel(control, strtoi(txt));
 
         // Language
         control = GetDlgItem(hwnd, IDC_LANGUAGE);
-        ComboBox_DeleteString(control, nlanguages);
+        CB_DeleteString(control, nlanguages);
     }
     return FALSE;
 }
@@ -702,7 +708,7 @@ static void CheckConfigHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const
         // What key was that?
         for (i = 0; hotkeys[i].control ; i++) {
             if (temp == hotkeys[i].vkey) {
-                Button_SetCheck(GetDlgItem(hwnd, hotkeys[i].control), BST_CHECKED);
+                CheckDlgButton(hwnd, hotkeys[i].control, BST_CHECKED);
                 break;
             }
         }
@@ -718,7 +724,7 @@ static void FillActionDropListS(HWND hwnd, int idc, TCHAR *inioption, struct act
     HWND control = GetDlgItem(hwnd, idc);
     TCHAR txt[64];
     int sel=0, j;
-    ComboBox_ResetContent(control);
+    CB_ResetContent(control);
     if (inioption) {
         sel = -1; // Selection to be made
         GetPrivateProfileString(TEXT("Input"), inioption, TEXT("Nothing"), txt, ARR_SZ(txt), inipath);
@@ -726,7 +732,7 @@ static void FillActionDropListS(HWND hwnd, int idc, TCHAR *inioption, struct act
     for (j = 0; actions[j].action; j++) {
         TCHAR action_name[256];
         lstrcpy_noaccel(action_name, actions[j].l10n, ARR_SZ(action_name));
-        ComboBox_AddString(control, action_name);
+        CB_AddString(control, action_name);
         if (inioption && !lstrcmp(txt, actions[j].action)) {
             sel = j;
         }
@@ -734,16 +740,16 @@ static void FillActionDropListS(HWND hwnd, int idc, TCHAR *inioption, struct act
     if (sel < 0) {
         // sel is negative if the string was not found in the struct actiondl:
         // UNKNOWN ACTION, so we add it manually at the end of the list
-        ComboBox_AddString(control, txt);
+        CB_AddString(control, txt);
         sel = j; // And select this unknown action.
     }
-    ComboBox_SetCurSel(control, sel);
+    CB_SetCurSel(control, sel);
 }
 static void WriteActionDropListS(HWND hwnd, int idc, TCHAR *inioption, struct actiondl *actions)
 {
-    HWND control = GetDlgItem(hwnd, idc);
-    int j = ComboBox_GetCurSel(control);
-    if (actions[j].action) // Inside of known values
+    // HWND control = GetDlgItem(hwnd, idc);
+    int j = CB_GetCurSelId(idc);
+    if (j >= 0 && actions[j].action) // Inside of known values
         WritePrivateProfileString(TEXT("Input"), inioption, actions[j].action, inipath);
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -856,9 +862,9 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         if (pnmh->code == PSN_SETACTIVE) {
             TCHAR txt[8];
             GetPrivateProfileString(TEXT("Input"), TEXT("ModKey"), TEXT(""), txt, ARR_SZ(txt), inipath);
-            Button_Enable(GetDlgItem(hwnd, IDC_MBA2), txt[0]);
+            EnableDlgItem(hwnd, IDC_MBA2, txt[0]);
             // Disable inside ttb
-            Button_Enable(GetDlgItem(hwnd, IDC_INTTB), IsChecked(IDC_TTBACTIONSNA)||IsChecked(IDC_TTBACTIONSWA));
+            EnableDlgItem(hwnd, IDC_INTTB, IsChecked(IDC_TTBACTIONSNA)||IsChecked(IDC_TTBACTIONSWA));
 
             FILLACTIONS:;
             unsigned i;
@@ -870,8 +876,8 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 
             // We must disable MoveUp and ResizeUp for the
             // While Moving/While resizing opts.
-            ComboBox_Enable(GetDlgItem(hwnd, IDC_MOVEUP),   optoff < 3);
-            ComboBox_Enable(GetDlgItem(hwnd, IDC_RESIZEUP), optoff < 3);
+            EnableDlgItem(hwnd, IDC_MOVEUP,   optoff < 3);
+            EnableDlgItem(hwnd, IDC_RESIZEUP, optoff < 3);
 
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {
                 FillActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option[optoff], mouse_actions);
@@ -975,10 +981,10 @@ static LRESULT WINAPI PickShortcutWinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
             HWND phwnd = GetParent(hwnd);
             SetDlgItemText(phwnd, IDC_SHORTCUTS_VK, LPTR2Hex(txt, wp));
 
-            Button_SetCheck(GetDlgItem(phwnd, IDC_SHIFT),  GetKeyState(VK_SHIFT)&0x8000? BST_CHECKED: BST_UNCHECKED);
-            Button_SetCheck(GetDlgItem(phwnd, IDC_CONTROL),GetKeyState(VK_CONTROL)&0x8000? BST_CHECKED: BST_UNCHECKED);
-            Button_SetCheck(GetDlgItem(phwnd, IDC_WINKEY), GetKeyState(VK_LWIN)&0x8000||GetKeyState(VK_RWIN)&0x8000? BST_CHECKED: BST_UNCHECKED);
-            Button_SetCheck(GetDlgItem(phwnd, IDC_ALT),    GetKeyState(VK_MENU)&0x8000? BST_CHECKED: BST_UNCHECKED);
+            CheckDlgButton(phwnd, IDC_SHIFT,  GetKeyState(VK_SHIFT)&0x8000? BST_CHECKED: BST_UNCHECKED);
+            CheckDlgButton(phwnd, IDC_CONTROL,GetKeyState(VK_CONTROL)&0x8000? BST_CHECKED: BST_UNCHECKED);
+            CheckDlgButton(phwnd, IDC_WINKEY, GetKeyState(VK_LWIN)&0x8000||GetKeyState(VK_RWIN)&0x8000? BST_CHECKED: BST_UNCHECKED);
+            CheckDlgButton(phwnd, IDC_ALT,    GetKeyState(VK_MENU)&0x8000? BST_CHECKED: BST_UNCHECKED);
             DestroyWindow(hwnd);
         }
     } break;
@@ -989,7 +995,7 @@ static LRESULT WINAPI PickShortcutWinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
 
     case WM_DESTROY: {
         HWND phwnd = GetParent(hwnd);
-        Button_Enable(GetDlgItem(phwnd, IDC_SHORTCUTS_PICK), 1);
+        EnableDlgItem(phwnd, IDC_SHORTCUTS_PICK, 1);
         EnumChildWindows(phwnd, EnableAllControlsProc, 1);
         NMHDR lpn;
         lpn.hwndFrom = NULL; lpn.code = PSN_SETACTIVE;
@@ -1122,24 +1128,24 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 
       # ifndef WIN64
         // Always enabled in 64 bit mode.
-        Button_Enable(GetDlgItem(hwnd, IDC_AGGRESSIVEPAUSE), HaveProc("NTDLL.DLL", "NtResumeProcess"));
-        Button_Enable(GetDlgItem(hwnd, IDC_UNIKEYHOLDMENU), WIN2K);
+        EnableDlgItem(hwnd, IDC_AGGRESSIVEPAUSE, HaveProc("NTDLL.DLL", "NtResumeProcess"));
+        EnableDlgItem(hwnd, IDC_UNIKEYHOLDMENU, WIN2K);
       # endif
 
     } else if (msg == WM_COMMAND) {
         int event = HIWORD(wParam);
         int id = LOWORD(wParam);
         if (id == IDC_ALT ||  id == IDC_WINKEY || id == IDC_CONTROL || id == IDC_SHIFT) {
-            Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 1);
+            EnableDlgItem(hwnd, IDC_SHORTCUTS_SET, 1);
         } else if (event == EN_UPDATE && id == IDC_SHORTCUTS_VK) {
             TCHAR txt[4];
-            Edit_GetText(GetDlgItem(hwnd, IDC_SHORTCUTS_VK), txt, 3);
+            GetDlgItemText(hwnd, IDC_SHORTCUTS_VK, txt, 3);
             BYTE vKey = lstrhex2u(txt);
             TCHAR keyname[32]; keyname[0] = L'\0';
             GetKeyNameText(MapVirtualKey(vKey, 0)<<16, keyname, ARR_SZ(keyname)-8);
             SetDlgItemText(hwnd, IDC_SHORTCUTS, keyname);
 
-            Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 1);
+            EnableDlgItem(hwnd, IDC_SHORTCUTS_SET, 1);
         } else if ((event == 0 || event == EN_UPDATE || event == CBN_SELCHANGE)
             && (IDC_SHORTCUTS > id || id > IDC_SHORTCUTS_CLEAR)) {
             PropSheet_Changed(g_cfgwnd, hwnd);
@@ -1150,7 +1156,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         // READ Keyboard Shortcut
         if (id == IDC_SHORTCUTS_AC && event == CBN_SELCHANGE) {
             // Update the shortcut with the current one.
-            int i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_SHORTCUTS_AC));
+            int i = CB_GetCurSelId(IDC_SHORTCUTS_AC);
             edit_shortcut_idx = i;
             WORD shortcut= GetPrivateProfileInt(TEXT("KBShortcuts"), kbshortcut_actions[i].action, 0, inipath);
             BYTE vKey = LOBYTE(shortcut);
@@ -1158,27 +1164,27 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             TCHAR txt[LPTR_HDIGITS+1];
             SetDlgItemText(hwnd, IDC_SHORTCUTS_VK, LPTR2Hex(txt, vKey));
 
-            Button_SetCheck(GetDlgItem(hwnd, IDC_CONTROL),(mod&MOD_CONTROL)? BST_CHECKED: BST_UNCHECKED);
-            Button_SetCheck(GetDlgItem(hwnd, IDC_SHIFT),  (mod&MOD_SHIFT)? BST_CHECKED: BST_UNCHECKED);
-            Button_SetCheck(GetDlgItem(hwnd, IDC_WINKEY), (mod&MOD_WIN)? BST_CHECKED: BST_UNCHECKED);
-            Button_SetCheck(GetDlgItem(hwnd, IDC_ALT),    (mod&MOD_ALT)? BST_CHECKED: BST_UNCHECKED);
-            Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 0);
+            CheckDlgButton(hwnd, IDC_CONTROL,(mod&MOD_CONTROL)? BST_CHECKED: BST_UNCHECKED);
+            CheckDlgButton(hwnd, IDC_SHIFT,  (mod&MOD_SHIFT)? BST_CHECKED: BST_UNCHECKED);
+            CheckDlgButton(hwnd, IDC_WINKEY, (mod&MOD_WIN)? BST_CHECKED: BST_UNCHECKED);
+            CheckDlgButton(hwnd, IDC_ALT,    (mod&MOD_ALT)? BST_CHECKED: BST_UNCHECKED);
+            EnableDlgItem(hwnd, IDC_SHORTCUTS_SET, 0);
         }
         // WRITE Current Keyboard Shortcut
         if (id == IDC_SHORTCUTS_SET) {
             TCHAR txt[UINT_DIGITS+1];
             // MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
-            Edit_GetText(GetDlgItem(hwnd, IDC_SHORTCUTS_VK), txt, 3);
+            GetDlgItemText(hwnd, IDC_SHORTCUTS_VK, txt, 3);
             BYTE vKey = lstrhex2u(txt);
             BYTE mod =  IsChecked(IDC_ALT)
                      | (IsChecked(IDC_CONTROL)<<1)
                      | (IsChecked(IDC_SHIFT)<<2)
                      | (IsChecked(IDC_WINKEY)<<3);
             WORD shortcut = vKey | (mod << 8);
-            int i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_SHORTCUTS_AC));
+            int i = CB_GetCurSelId(IDC_SHORTCUTS_AC);
             if (kbshortcut_actions[i].action && kbshortcut_actions[i].action[0] != '\0')
                 WritePrivateProfileString(TEXT("KBShortcuts"), kbshortcut_actions[i].action, Uint2lStr(txt, shortcut), inipath);
-            Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 0);
+            EnableDlgItem(hwnd, IDC_SHORTCUTS_SET, 0);
             SetFocus(GetDlgItem(hwnd, IDC_SHORTCUTS_AC));
             goto APPLY_ALL;
         }
@@ -1211,16 +1217,16 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             SetFocus(pickhwnd);
             SetActiveWindow(pickhwnd);
             // SetDlgItemText(hwnd, IDC_SHORTCUTS, TEXT("Press Keys..."));
-            Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_PICK), 0);
+            EnableDlgItem(hwnd, IDC_SHORTCUTS_PICK, 0);
         }
         if (id == IDC_SHORTCUTS_CLEAR) {
             // We must clear the current shotrcut
-            Button_SetCheck(GetDlgItem(hwnd, IDC_SHIFT), BST_UNCHECKED);
-            Button_SetCheck(GetDlgItem(hwnd, IDC_CONTROL), BST_UNCHECKED);
-            Button_SetCheck(GetDlgItem(hwnd, IDC_WINKEY),BST_UNCHECKED);
-            Button_SetCheck(GetDlgItem(hwnd, IDC_ALT),   BST_UNCHECKED);
+            CheckDlgButton(hwnd, IDC_SHIFT, BST_UNCHECKED);
+            CheckDlgButton(hwnd, IDC_CONTROL, BST_UNCHECKED);
+            CheckDlgButton(hwnd, IDC_WINKEY,BST_UNCHECKED);
+            CheckDlgButton(hwnd, IDC_ALT,   BST_UNCHECKED);
             SetDlgItemText(hwnd, IDC_SHORTCUTS_VK, TEXT(""));
-            Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 1);
+            EnableDlgItem(hwnd, IDC_SHORTCUTS_SET, 1);
         }
 
     } else if (msg == WM_NOTIFY) {
@@ -1230,34 +1236,34 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             TCHAR txt[64];
 
             GetPrivateProfileString(TEXT("Input"), TEXT("ModKey"), TEXT(""), txt, ARR_SZ(txt), inipath);
-            Static_Enable(GetDlgItem(hwnd, IDC_GRABWITHALTB_H), txt[0]);
-            ListBox_Enable(GetDlgItem(hwnd, IDC_GRABWITHALTB), txt[0]);
+            EnableDlgItem(hwnd, IDC_GRABWITHALTB_H, txt[0]);
+            EnableDlgItem(hwnd, IDC_GRABWITHALTB,   txt[0]);
 
             FillActionDropListS(hwnd, IDC_GRABWITHALT, TEXT("GrabWithAlt"), kb_actions);
             FillActionDropListS(hwnd, IDC_GRABWITHALTB, TEXT("GrabWithAltB"), kb_actions);
             FillActionDropListS(hwnd, IDC_SHORTCUTS_AC, NULL, kbshortcut_actions);
-            ComboBox_SetCurSel(GetDlgItem(hwnd, IDC_SHORTCUTS_AC), edit_shortcut_idx);
-            Button_Enable(GetDlgItem(hwnd, IDC_SHORTCUTS_SET), 0);
+            CB_SetCurSel(GetDlgItem(hwnd, IDC_SHORTCUTS_AC), edit_shortcut_idx);
+            EnableDlgItem(hwnd, IDC_SHORTCUTS_SET, 0);
             if(pnmh->hwndFrom != NULL)PostMessage(hwnd, WM_COMMAND, IDC_SHORTCUTS_AC|CBN_SELCHANGE<<16, 0);
 
             // ModKey init
             HWND control = GetDlgItem(hwnd, IDC_MODKEY);
-            ComboBox_ResetContent(control);
+            CB_ResetContent(control);
             unsigned j, sel = 0;
             for (j = 0; j < ARR_SZ(togglekeys); j++) {
                 TCHAR key_name[256];
                 lstrcpy_noaccel(key_name, togglekeys[j].l10n, ARR_SZ(key_name));
-                ComboBox_AddString(control, key_name);
+                CB_AddString(control, key_name);
                 if (!lstrcmp(txt, togglekeys[j].action)) {
                     sel = j;
                 }
             }
             // Add the current ModKey string to the list if not found!
             if (sel == 0 && txt[0]) {
-                ComboBox_AddString(control, &txt[0]);
+                CB_AddString(control, &txt[0]);
                 sel = ARR_SZ(togglekeys);
             }
-            ComboBox_SetCurSel(control, sel); // select current ModKey
+            CB_SetCurSel(control, sel); // select current ModKey
 
             // Update text
             const struct dialogstring strlst[] = {
@@ -1299,7 +1305,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             WriteDialogOptions(hwnd, optlst, ARR_SZ(optlst));
             ScrollLockState = WriteOptionBoolB(IDC_SCROLLLOCKSTATE, TEXT("Input"), "ScrollLockState", 0);
             // Modifier key
-            i = ComboBox_GetCurSel(GetDlgItem(hwnd, IDC_MODKEY));
+            i = CB_GetCurSelId(IDC_MODKEY);
             if(i < (int)ARR_SZ(togglekeys))
                 WritePrivateProfileString(TEXT("Input"), TEXT("ModKey"), togglekeys[i].action, inipath);
             // Hotkeys
@@ -1330,8 +1336,8 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
     if (msg == WM_INITDIALOG) {
         ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
         BOOL haveProcessBL = HaveProc("PSAPI.DLL", "GetModuleFileNameExW");
-        Button_Enable(GetDlgItem(hwnd, IDC_PROCESSBLACKLIST), haveProcessBL);
-        Button_Enable(GetDlgItem(hwnd, IDC_PAUSEBL), haveProcessBL);
+        EnableDlgItem(hwnd, IDC_PROCESSBLACKLIST, haveProcessBL);
+        EnableDlgItem(hwnd, IDC_PAUSEBL, haveProcessBL);
     } else if (msg == WM_COMMAND) {
         int id = LOWORD(wParam);
         int event = HIWORD(wParam);
@@ -1383,8 +1389,8 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
             };
             UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
             // Enable or disable buttons if needed
-            Button_Enable(GetDlgItem(hwnd, IDC_MDIS), GetPrivateProfileInt(TEXT("General"), TEXT("MDI"), 1, inipath));
-            Button_Enable(GetDlgItem(hwnd, IDC_PAUSEBL)
+            EnableDlgItem(hwnd, IDC_MDIS, GetPrivateProfileInt(TEXT("General"), TEXT("MDI"), 1, inipath));
+            EnableDlgItem(hwnd, IDC_PAUSEBL
                   ,  GetPrivateProfileInt(TEXT("KBShortcuts"), TEXT("Kill"), 0, inipath)
                   || GetPrivateProfileInt(TEXT("Advanced"), TEXT("ACMenuItems"), -1, inipath)&8192);
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
@@ -1794,7 +1800,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
     if (msg == WM_INITDIALOG) {
       ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
       # ifndef WIN64
-        Button_Enable(GetDlgItem(hwnd, IDC_FANCYZONE), 0);
+        EnableDlgItem(hwnd, IDC_FANCYZONE, 0);
       # endif
 
     } else if (msg == WM_COMMAND) {

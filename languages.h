@@ -12,6 +12,11 @@
 
 #include <windows.h>
 
+// Resolve index from entry name.
+#define L10NIDX(entryname) (short)(LONG_PTR)((TCHAR**)&en_US.entryname - (TCHAR**)&en_US.code)
+// Resolve entry name from index.
+#define L10NSTR(i) ( ((const TCHAR*const*const)l10n)[i] )
+
 struct langinfoitem {
   TCHAR *code;
   TCHAR *lang_english;

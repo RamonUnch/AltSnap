@@ -398,12 +398,12 @@ static HWND CreateInfoTip(HWND hDlg, int toolID, const TCHAR * const pszText)
 
     return hwndTip;
 }
-struct dialogstring { const int idc; const TCHAR * const string; /* const TCHAR *const helpstr; */ };
+struct dialogstring { const short idc; const short l10nidx; /* const TCHAR *const helpstr; */ };
 static void UpdateDialogStrings(HWND hwnd, const struct dialogstring * const strlst, unsigned size)
 {
     unsigned i;
     for (i=0; i < size; i++) {
-        SetDlgItemText(hwnd, strlst[i].idc, strlst[i].string);
+        SetDlgItemText(hwnd, strlst[i].idc, L10NSTR(strlst[i].l10nidx));
         //CreateInfoTip(hwnd, strlst[i].idc, strlst[i].helpstr);
     }
 }
@@ -575,29 +575,29 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     }
     if (updatestrings) {
         // Update text
-        const struct dialogstring strlst[] = {
-            { IDC_GENERAL_BOX,      l10n->general_box },
-            { IDC_AUTOFOCUS,        l10n->general_autofocus},
-            { IDC_AERO,             l10n->general_aero },
-            { IDC_SMARTAERO,        l10n->general_smartaero },
-            { IDC_SMARTERAERO,      l10n->general_smarteraero },
-            { IDC_STICKYRESIZE,     l10n->general_stickyresize },
-            { IDC_INACTIVESCROLL,   l10n->general_inactivescroll },
-            { IDC_MDI,              l10n->general_mdi },
-            { IDC_AUTOSNAP_HEADER,  l10n->general_autosnap },
-            { IDC_LANGUAGE_HEADER,  l10n->general_language },
-            { IDC_USEZONES,         l10n->general_usezones },
-            { IDC_PIERCINGCLICK,    l10n->general_piercingclick },
-            { IDC_RESIZEALL,        l10n->general_resizeall },
-            { IDC_RESIZECENTER,     l10n->general_resizecenter },
-            { IDC_RZCENTER_NORM,    l10n->general_resizecenter_norm },
-            { IDC_RZCENTER_BR,      l10n->general_resizecenter_br },
-            { IDC_RZCENTER_MOVE,    l10n->general_resizecenter_move },
-            { IDC_RZCENTER_CLOSE,   l10n->general_resizecenter_close },
-            { IDC_AUTOSTART_BOX,    l10n->general_autostart_box },
-            { IDC_AUTOSTART,        l10n->general_autostart },
-            { IDC_AUTOSTART_HIDE,   l10n->general_autostart_hide },
-            { IDC_AUTOSTART_ELEVATE,l10n->general_autostart_elevate }
+        static const struct dialogstring strlst[] = {
+            { IDC_GENERAL_BOX,      L10NIDX(general_box) },
+            { IDC_AUTOFOCUS,        L10NIDX(general_autofocus) },
+            { IDC_AERO,             L10NIDX(general_aero) },
+            { IDC_SMARTAERO,        L10NIDX(general_smartaero) },
+            { IDC_SMARTERAERO,      L10NIDX(general_smarteraero) },
+            { IDC_STICKYRESIZE,     L10NIDX(general_stickyresize) },
+            { IDC_INACTIVESCROLL,   L10NIDX(general_inactivescroll) },
+            { IDC_MDI,              L10NIDX(general_mdi) },
+            { IDC_AUTOSNAP_HEADER,  L10NIDX(general_autosnap) },
+            { IDC_LANGUAGE_HEADER,  L10NIDX(general_language) },
+            { IDC_USEZONES,         L10NIDX(general_usezones) },
+            { IDC_PIERCINGCLICK,    L10NIDX(general_piercingclick) },
+            { IDC_RESIZEALL,        L10NIDX(general_resizeall) },
+            { IDC_RESIZECENTER,     L10NIDX(general_resizecenter) },
+            { IDC_RZCENTER_NORM,    L10NIDX(general_resizecenter_norm) },
+            { IDC_RZCENTER_BR,      L10NIDX(general_resizecenter_br) },
+            { IDC_RZCENTER_MOVE,    L10NIDX(general_resizecenter_move) },
+            { IDC_RZCENTER_CLOSE,   L10NIDX(general_resizecenter_close) },
+            { IDC_AUTOSTART_BOX,    L10NIDX(general_autostart_box) },
+            { IDC_AUTOSTART,        L10NIDX(general_autostart) },
+            { IDC_AUTOSTART_HIDE,   L10NIDX(general_autostart_hide) },
+            { IDC_AUTOSTART_ELEVATE,L10NIDX(general_autostart_elevate) }
         };
         UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
         // spetial case...
@@ -715,11 +715,14 @@ static void CheckConfigHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const
     }
 }
 
+
 struct actiondl {
     const TCHAR *const action;
-    const TCHAR *const l10n;
+    const short l10nidx;
+//    const unsigned short flgs;
+//    const TCHAR *const l10n;
 };
-static void FillActionDropListS(HWND hwnd, int idc, TCHAR *inioption, struct actiondl *actions)
+static void FillActionDropListS(HWND hwnd, int idc, TCHAR *inioption, const struct actiondl *actions)
 {
     HWND control = GetDlgItem(hwnd, idc);
     TCHAR txt[64];
@@ -731,7 +734,7 @@ static void FillActionDropListS(HWND hwnd, int idc, TCHAR *inioption, struct act
     }
     for (j = 0; actions[j].action; j++) {
         TCHAR action_name[256];
-        lstrcpy_noaccel(action_name, actions[j].l10n, ARR_SZ(action_name));
+        lstrcpy_noaccel(action_name, L10NSTR(actions[j].l10nidx), ARR_SZ(action_name));
         CB_AddString(control, action_name);
         if (inioption && !lstrcmp(txt, actions[j].action)) {
             sel = j;
@@ -745,7 +748,7 @@ static void FillActionDropListS(HWND hwnd, int idc, TCHAR *inioption, struct act
     }
     CB_SetCurSel(control, sel);
 }
-static void WriteActionDropListS(HWND hwnd, int idc, TCHAR *inioption, struct actiondl *actions)
+static void WriteActionDropListS(HWND hwnd, int idc, TCHAR *inioption, const struct actiondl *actions)
 {
     // HWND control = GetDlgItem(hwnd, idc);
     int j = CB_GetCurSelId(idc);
@@ -770,35 +773,35 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         { IDC_RESIZEUP,{TEXT("ResizeUp"), TEXT("ResizeUpB"), TEXT("ResizeUpT"), TEXT("ResizeUp"), TEXT("ResizeUp")} },
     };
 
-    struct actiondl mouse_actions[] = {
-        {TEXT("Move"),        l10n->input_actions_move},
-        {TEXT("Resize"),      l10n->input_actions_resize},
-        {TEXT("Restore"),     l10n->input_actions_restore},
-        {TEXT("Close"),       l10n->input_actions_close},
-        {TEXT("Kill"),        l10n->input_actions_kill},
-        {TEXT("Minimize"),    l10n->input_actions_minimize},
-        {TEXT("Maximize"),    l10n->input_actions_maximize},
-        {TEXT("Lower"),       l10n->input_actions_lower},
-        {TEXT("NStacked"),    l10n->input_actions_nstacked},
-        {TEXT("PStacked"),    l10n->input_actions_pstacked},
-        {TEXT("StackList"),   l10n->input_actions_stacklist},
-        {TEXT("StackList2"),  l10n->input_actions_stacklist2},
-        {TEXT("AltTabList"),  l10n->input_actions_alttablist},
-        {TEXT("AltTabFullList"), l10n->input_actions_alttabfulllist},
-        {TEXT("Roll"),        l10n->input_actions_roll},
-        {TEXT("AlwaysOnTop"), l10n->input_actions_alwaysontop},
-        {TEXT("Borderless"),  l10n->input_actions_borderless},
-        {TEXT("Center"),      l10n->input_actions_center},
-        {TEXT("MaximizeHV"),  l10n->input_actions_maximizehv},
-        {TEXT("SideSnap"),    l10n->input_actions_sidesnap},
-        {TEXT("ExtendSnap"),  l10n->input_actions_extendsnap},
-        {TEXT("ExtendTNEdge"),l10n->input_actions_extendtnedge},
-        {TEXT("MoveTNEdge"),  l10n->input_actions_movetnedge},
-        {TEXT("MinAllOther"), l10n->input_actions_minallother},
-        {TEXT("Mute"),        l10n->input_actions_mute},
-        {TEXT("Menu"),        l10n->input_actions_menu},
-        {TEXT("Nothing"),     l10n->input_actions_nothing},
-        {NULL, NULL}
+    static const struct actiondl mouse_actions[] = {
+        {TEXT("Move"),        L10NIDX(input_actions_move) },
+        {TEXT("Resize"),      L10NIDX(input_actions_resize) },
+        {TEXT("Restore"),     L10NIDX(input_actions_restore) },
+        {TEXT("Close"),       L10NIDX(input_actions_close) },
+        {TEXT("Kill"),        L10NIDX(input_actions_kill) },
+        {TEXT("Minimize"),    L10NIDX(input_actions_minimize) },
+        {TEXT("Maximize"),    L10NIDX(input_actions_maximize) },
+        {TEXT("Lower"),       L10NIDX(input_actions_lower) },
+        {TEXT("NStacked"),    L10NIDX(input_actions_nstacked) },
+        {TEXT("PStacked"),    L10NIDX(input_actions_pstacked) },
+        {TEXT("StackList"),   L10NIDX(input_actions_stacklist) },
+        {TEXT("StackList2"),  L10NIDX(input_actions_stacklist2) },
+        {TEXT("AltTabList"),  L10NIDX(input_actions_alttablist) },
+        {TEXT("AltTabFullList"), L10NIDX(input_actions_alttabfulllist) },
+        {TEXT("Roll"),        L10NIDX(input_actions_roll) },
+        {TEXT("AlwaysOnTop"), L10NIDX(input_actions_alwaysontop) },
+        {TEXT("Borderless"),  L10NIDX(input_actions_borderless) },
+        {TEXT("Center"),      L10NIDX(input_actions_center) },
+        {TEXT("MaximizeHV"),  L10NIDX(input_actions_maximizehv) },
+        {TEXT("SideSnap"),    L10NIDX(input_actions_sidesnap) },
+        {TEXT("ExtendSnap"),  L10NIDX(input_actions_extendsnap) },
+        {TEXT("ExtendTNEdge"),L10NIDX(input_actions_extendtnedge) },
+        {TEXT("MoveTNEdge"),  L10NIDX(input_actions_movetnedge) },
+        {TEXT("MinAllOther"), L10NIDX(input_actions_minallother) },
+        {TEXT("Mute"),        L10NIDX(input_actions_mute) },
+        {TEXT("Menu"),        L10NIDX(input_actions_menu) },
+        {TEXT("Nothing"),     L10NIDX(input_actions_nothing) },
+        {NULL, 0}
     };
 
     // Scroll
@@ -810,20 +813,20 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         { IDC_HSCROLL, {TEXT("HScroll"), TEXT("HScrollB"), TEXT("HScrollT"), TEXT("HScrollM"), TEXT("HScrollR") } }
     };
 
-    struct actiondl scroll_actions[] = {
-        {TEXT("AltTab"),       l10n->input_actions_alttab},
-        {TEXT("Volume"),       l10n->input_actions_volume},
-        {TEXT("Transparency"), l10n->input_actions_transparency},
-        {TEXT("Zoom"),         l10n->input_actions_zoom},
-        {TEXT("Zoom2"),        l10n->input_actions_zoom2},
-        {TEXT("Lower"),        l10n->input_actions_lower},
-        {TEXT("Roll"),         l10n->input_actions_roll},
-        {TEXT("Maximize"),     l10n->input_actions_maximize},
-        {TEXT("NPStacked"),    l10n->input_actions_npstacked},
-        {TEXT("NPStacked2"),   l10n->input_actions_npstacked2},
-        {TEXT("HScroll"),      l10n->input_actions_hscroll},
-        {TEXT("Nothing"),      l10n->input_actions_nothing},
-        {NULL, NULL}
+    static const struct actiondl scroll_actions[] = {
+        {TEXT("AltTab"),       L10NIDX(input_actions_alttab) },
+        {TEXT("Volume"),       L10NIDX(input_actions_volume) },
+        {TEXT("Transparency"), L10NIDX(input_actions_transparency) },
+        {TEXT("Zoom"),         L10NIDX(input_actions_zoom) },
+        {TEXT("Zoom2"),        L10NIDX(input_actions_zoom2) },
+        {TEXT("Lower"),        L10NIDX(input_actions_lower) },
+        {TEXT("Roll"),         L10NIDX(input_actions_roll) },
+        {TEXT("Maximize"),     L10NIDX(input_actions_maximize) },
+        {TEXT("NPStacked"),    L10NIDX(input_actions_npstacked) },
+        {TEXT("NPStacked2"),   L10NIDX(input_actions_npstacked2) },
+        {TEXT("HScroll"),      L10NIDX(input_actions_hscroll) },
+        {TEXT("Nothing"),      L10NIDX(input_actions_nothing) },
+        {NULL, 0}
     };
 
     // Hotkeys
@@ -889,32 +892,32 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 
             // Update text
             const struct dialogstring strlst[] = {
-                { IDC_MBA1,            l10n->input_mouse_btac1 },
-                { IDC_MBA2,            l10n->input_mouse_btac2 },
-                { IDC_INTTB,           l10n->input_mouse_inttb },
-                { IDC_WHILEM,          l10n->input_mouse_whilem },
-                { IDC_WHILER,          l10n->input_mouse_whiler },
+                { IDC_MBA1,            L10NIDX(input_mouse_btac1 ) },
+                { IDC_MBA2,            L10NIDX(input_mouse_btac2 ) },
+                { IDC_INTTB,           L10NIDX(input_mouse_inttb ) },
+                { IDC_WHILEM,          L10NIDX(input_mouse_whilem ) },
+                { IDC_WHILER,          L10NIDX(input_mouse_whiler ) },
 
-                { IDC_MOUSE_BOX,       l10n->input_mouse_box },
-                { IDC_LMB_HEADER,      l10n->input_mouse_lmb },
-                { IDC_MMB_HEADER,      l10n->input_mouse_mmb },
-                { IDC_RMB_HEADER,      l10n->input_mouse_rmb },
-                { IDC_MB4_HEADER,      l10n->input_mouse_mb4 },
-                { IDC_MB5_HEADER,      l10n->input_mouse_mb5 },
-                { IDC_SCROLL_HEADER,   l10n->input_mouse_scroll },
-                { IDC_HSCROLL_HEADER,  l10n->input_mouse_hscroll },
-                { IDC_MOVEUP_HEADER,   l10n->input_mouse_moveup },
-                { IDC_RESIZEUP_HEADER, l10n->input_mouse_resizeup },
-                { IDC_TTBACTIONS_BOX,  l10n->input_mouse_ttbactions_box },
-                { IDC_TTBACTIONSNA,    l10n->input_mouse_ttbactionsna },
-                { IDC_TTBACTIONSWA,    l10n->input_mouse_ttbactionswa },
+                { IDC_MOUSE_BOX,       L10NIDX(input_mouse_box ) },
+                { IDC_LMB_HEADER,      L10NIDX(input_mouse_lmb ) },
+                { IDC_MMB_HEADER,      L10NIDX(input_mouse_mmb ) },
+                { IDC_RMB_HEADER,      L10NIDX(input_mouse_rmb ) },
+                { IDC_MB4_HEADER,      L10NIDX(input_mouse_mb4 ) },
+                { IDC_MB5_HEADER,      L10NIDX(input_mouse_mb5 ) },
+                { IDC_SCROLL_HEADER,   L10NIDX(input_mouse_scroll ) },
+                { IDC_HSCROLL_HEADER,  L10NIDX(input_mouse_hscroll ) },
+                { IDC_MOVEUP_HEADER,   L10NIDX(input_mouse_moveup ) },
+                { IDC_RESIZEUP_HEADER, L10NIDX(input_mouse_resizeup ) },
+                { IDC_TTBACTIONS_BOX,  L10NIDX(input_mouse_ttbactions_box ) },
+                { IDC_TTBACTIONSNA,    L10NIDX(input_mouse_ttbactionsna ) },
+                { IDC_TTBACTIONSWA,    L10NIDX(input_mouse_ttbactionswa ) },
 
-                { IDC_HOTCLICKS_BOX,   l10n->input_hotclicks_box },
-                { IDC_HOTCLICKS_MORE,  l10n->input_hotclicks_more },
-                { IDC_MMB_HC,          l10n->input_mouse_mmb_hc },
-                { IDC_MB4_HC,          l10n->input_mouse_mb4_hc },
-                { IDC_MB5_HC,          l10n->input_mouse_mb5_hc },
-                { IDC_LONGCLICKMOVE,   l10n->input_mouse_longclickmove },
+                { IDC_HOTCLICKS_BOX,   L10NIDX(input_hotclicks_box ) },
+                { IDC_HOTCLICKS_MORE,  L10NIDX(input_hotclicks_more ) },
+                { IDC_MMB_HC,          L10NIDX(input_mouse_mmb_hc ) },
+                { IDC_MB4_HC,          L10NIDX(input_mouse_mb4_hc ) },
+                { IDC_MB5_HC,          L10NIDX(input_mouse_mb5_hc ) },
+                { IDC_LONGCLICKMOVE,   L10NIDX(input_mouse_longclickmove ) },
             };
             UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
 
@@ -1025,93 +1028,94 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         { IDC_RIGHTCTRL,   VK_RCONTROL },
         { 0, 0 }
     };
-    struct actiondl kb_actions[] = {
-        {TEXT("Move"),        l10n->input_actions_move},
-        {TEXT("Resize"),      l10n->input_actions_resize},
-        {TEXT("Close"),       l10n->input_actions_close},
-        {TEXT("Minimize"),    l10n->input_actions_minimize},
-        {TEXT("Maximize"),    l10n->input_actions_maximize},
-        {TEXT("Lower"),       l10n->input_actions_lower},
-        {TEXT("Roll"),        l10n->input_actions_roll},
-        {TEXT("AlwaysOnTop"), l10n->input_actions_alwaysontop},
-        {TEXT("Borderless"),  l10n->input_actions_borderless},
-        {TEXT("Center"),      l10n->input_actions_center},
-        {TEXT("MaximizeHV"),  l10n->input_actions_maximizehv},
-        {TEXT("MinAllOther"), l10n->input_actions_minallother},
-        {TEXT("Menu"),        l10n->input_actions_menu},
-        {TEXT("Nothing"),     l10n->input_actions_nothing},
-        {NULL, NULL}
+    static const struct actiondl kb_actions[] = {
+        {TEXT("Move"),        L10NIDX(input_actions_move) },
+        {TEXT("Resize"),      L10NIDX(input_actions_resize) },
+        {TEXT("Close"),       L10NIDX(input_actions_close) },
+        {TEXT("Minimize"),    L10NIDX(input_actions_minimize) },
+        {TEXT("Maximize"),    L10NIDX(input_actions_maximize) },
+        {TEXT("Lower"),       L10NIDX(input_actions_lower) },
+        {TEXT("Roll"),        L10NIDX(input_actions_roll) },
+        {TEXT("AlwaysOnTop"), L10NIDX(input_actions_alwaysontop) },
+        {TEXT("Borderless"),  L10NIDX(input_actions_borderless) },
+        {TEXT("Center"),      L10NIDX(input_actions_center) },
+        {TEXT("MaximizeHV"),  L10NIDX(input_actions_maximizehv) },
+        {TEXT("MinAllOther"), L10NIDX(input_actions_minallother) },
+        {TEXT("Menu"),        L10NIDX(input_actions_menu) },
+        {TEXT("Nothing"),     L10NIDX(input_actions_nothing) },
+        {NULL, 0}
     };
     struct actiondl kbshortcut_actions[] = {
-        {TEXT("Kill"),        l10n->input_actions_kill},
-        {TEXT("Pause"),       l10n->input_actions_pause},
-        {TEXT("Resume"),      l10n->input_actions_resume},
-        {TEXT("ASOnOff"),     l10n->input_actions_asonoff},
-        {TEXT("Lower"),       l10n->input_actions_lower},
-        {TEXT("Roll"),        l10n->input_actions_roll},
-        {TEXT("AlwaysOnTop"), l10n->input_actions_alwaysontop},
-        {TEXT("Borderless"),  l10n->input_actions_borderless},
-        {TEXT("Center"),      l10n->input_actions_center},
-        {TEXT("Mute"),        l10n->input_actions_mute},
-        {TEXT("Menu"),        l10n->input_actions_menu},
+        {TEXT("Kill"),        L10NIDX(input_actions_kill) },
+        {TEXT("Pause"),       L10NIDX(input_actions_pause) },
+        {TEXT("Resume"),      L10NIDX(input_actions_resume) },
+        {TEXT("ASOnOff"),     L10NIDX(input_actions_asonoff) },
+        {TEXT("Lower"),       L10NIDX(input_actions_lower) },
+        {TEXT("Roll"),        L10NIDX(input_actions_roll) },
+        {TEXT("AlwaysOnTop"), L10NIDX(input_actions_alwaysontop) },
+        {TEXT("Borderless"),  L10NIDX(input_actions_borderless) },
+        {TEXT("Center"),      L10NIDX(input_actions_center) },
+        {TEXT("Mute"),        L10NIDX(input_actions_mute) },
+        {TEXT("Menu"),        L10NIDX(input_actions_menu) },
 
-        {TEXT("NStacked"),    l10n->input_actions_nstacked},
-        {TEXT("NStacked2"),   l10n->input_actions_nstacked2},
-        {TEXT("PStacked"),    l10n->input_actions_pstacked},
-        {TEXT("PStacked2"),   l10n->input_actions_pstacked2},
-        {TEXT("StackList"),   l10n->input_actions_stacklist},
-        {TEXT("StackList2"),  l10n->input_actions_stacklist2},
-        {TEXT("AltTabList"),  l10n->input_actions_alttablist},
-        {TEXT("AltTabFullList"), l10n->input_actions_alttabfulllist},
+        {TEXT("NStacked"),    L10NIDX(input_actions_nstacked) },
+        {TEXT("NStacked2"),   L10NIDX(input_actions_nstacked2) },
+        {TEXT("PStacked"),    L10NIDX(input_actions_pstacked) },
+        {TEXT("PStacked2"),   L10NIDX(input_actions_pstacked2) },
+        {TEXT("StackList"),   L10NIDX(input_actions_stacklist) },
+        {TEXT("StackList2"),  L10NIDX(input_actions_stacklist2) },
+        {TEXT("AltTabList"),  L10NIDX(input_actions_alttablist) },
+        {TEXT("AltTabFullList"),L10NIDX(input_actions_alttabfulllist) },
 
-        {TEXT("ExtendTNEdge"),l10n->input_actions_extendtnedge},
-        {TEXT("XTNLEdge"),    l10n->input_actions_xtnledge},
-        {TEXT("XTNTEdge"),    l10n->input_actions_xtntedge},
-        {TEXT("XTNREdge"),    l10n->input_actions_xtnredge},
-        {TEXT("XTNBEdge"),    l10n->input_actions_xtnbedge},
-        {TEXT("MoveTNEdge"),  l10n->input_actions_movetnedge},
-        {TEXT("MTNLEdge"),    l10n->input_actions_mtnledge},
-        {TEXT("MTNTEdge"),    l10n->input_actions_mtntedge},
-        {TEXT("MTNREdge"),    l10n->input_actions_mtnredge},
-        {TEXT("MTNBEdge"),    l10n->input_actions_mtnbedge},
+        {TEXT("ExtendTNEdge"),L10NIDX(input_actions_extendtnedge) },
+        {TEXT("XTNLEdge"),    L10NIDX(input_actions_xtnledge) },
+        {TEXT("XTNTEdge"),    L10NIDX(input_actions_xtntedge) },
+        {TEXT("XTNREdge"),    L10NIDX(input_actions_xtnredge) },
+        {TEXT("XTNBEdge"),    L10NIDX(input_actions_xtnbedge) },
+        {TEXT("MoveTNEdge"),  L10NIDX(input_actions_movetnedge) },
+        {TEXT("MTNLEdge"),    L10NIDX(input_actions_mtnledge) },
+        {TEXT("MTNTEdge"),    L10NIDX(input_actions_mtntedge) },
+        {TEXT("MTNREdge"),    L10NIDX(input_actions_mtnredge) },
+        {TEXT("MTNBEdge"),    L10NIDX(input_actions_mtnbedge) },
 
-        {TEXT("MLZone"),      l10n->input_actions_mlzone},
-        {TEXT("MTZone"),      l10n->input_actions_mtzone},
-        {TEXT("MRZone"),      l10n->input_actions_mrzone},
-        {TEXT("MBZone"),      l10n->input_actions_mbzone},
-        {TEXT("XLZone"),      l10n->input_actions_xlzone},
-        {TEXT("XTZone"),      l10n->input_actions_xtzone},
-        {TEXT("XRZone"),      l10n->input_actions_xrzone},
-        {TEXT("XBZone"),      l10n->input_actions_xbzone},
+        {TEXT("MLZone"),      L10NIDX(input_actions_mlzone) },
+        {TEXT("MTZone"),      L10NIDX(input_actions_mtzone) },
+        {TEXT("MRZone"),      L10NIDX(input_actions_mrzone) },
+        {TEXT("MBZone"),      L10NIDX(input_actions_mbzone) },
+        {TEXT("XLZone"),      L10NIDX(input_actions_xlzone) },
+        {TEXT("XTZone"),      L10NIDX(input_actions_xtzone) },
+        {TEXT("XRZone"),      L10NIDX(input_actions_xrzone) },
+        {TEXT("XBZone"),      L10NIDX(input_actions_xbzone) },
 
-        {TEXT("StepL"),       l10n->input_actions_stepl},
-        {TEXT("StepT"),       l10n->input_actions_stept},
-        {TEXT("StepR"),       l10n->input_actions_stepr},
-        {TEXT("StepB"),       l10n->input_actions_stepb},
-        {TEXT("SStepL"),      l10n->input_actions_sstepl},
-        {TEXT("SStepT"),      l10n->input_actions_sstept},
-        {TEXT("SStepR"),      l10n->input_actions_sstepr},
-        {TEXT("SStepB"),      l10n->input_actions_sstepb},
-        {NULL, NULL}
+        {TEXT("StepL"),       L10NIDX(input_actions_stepl) },
+        {TEXT("StepT"),       L10NIDX(input_actions_stept) },
+        {TEXT("StepR"),       L10NIDX(input_actions_stepr) },
+        {TEXT("StepB"),       L10NIDX(input_actions_stepb) },
+        {TEXT("SStepL"),      L10NIDX(input_actions_sstepl) },
+        {TEXT("SStepT"),      L10NIDX(input_actions_sstept) },
+        {TEXT("SStepR"),      L10NIDX(input_actions_sstepr) },
+        {TEXT("SStepB"),      L10NIDX(input_actions_sstepb) },
+        {NULL, 0}
     };
+
     // Hotkeys
-    const struct {
+    static const struct {
         const TCHAR *const action;
-        const TCHAR *const l10n;
+        const short lidx;
     } togglekeys[] = {
-        {TEXT(""),      l10n->input_actions_nothing},
-        {TEXT("A4 A5"), l10n->input_hotkeys_alt},
-        {TEXT("5B 5C"), l10n->input_hotkeys_winkey},
-        {TEXT("A2 A3"), l10n->input_hotkeys_ctrl},
-        {TEXT("A0 A1"), l10n->input_hotkeys_shift},
-        {TEXT("A4"),    l10n->input_hotkeys_leftalt},
-        {TEXT("A5"),    l10n->input_hotkeys_rightalt},
-        {TEXT("5B"),    l10n->input_hotkeys_leftwinkey},
-        {TEXT("5C"),    l10n->input_hotkeys_rightwinkey},
-        {TEXT("A2"),    l10n->input_hotkeys_leftctrl},
-        {TEXT("A3"),    l10n->input_hotkeys_rightctrl},
-        {TEXT("A0"),    l10n->input_hotkeys_leftshift},
-        {TEXT("A1"),    l10n->input_hotkeys_rightshift},
+        {TEXT(""),      L10NIDX(input_actions_nothing)},
+        {TEXT("A4 A5"), L10NIDX(input_hotkeys_alt)},
+        {TEXT("5B 5C"), L10NIDX(input_hotkeys_winkey)},
+        {TEXT("A2 A3"), L10NIDX(input_hotkeys_ctrl)},
+        {TEXT("A0 A1"), L10NIDX(input_hotkeys_shift)},
+        {TEXT("A4"),    L10NIDX(input_hotkeys_leftalt)},
+        {TEXT("A5"),    L10NIDX(input_hotkeys_rightalt)},
+        {TEXT("5B"),    L10NIDX(input_hotkeys_leftwinkey)},
+        {TEXT("5C"),    L10NIDX(input_hotkeys_rightwinkey)},
+        {TEXT("A2"),    L10NIDX(input_hotkeys_leftctrl)},
+        {TEXT("A3"),    L10NIDX(input_hotkeys_rightctrl)},
+        {TEXT("A0"),    L10NIDX(input_hotkeys_leftshift)},
+        {TEXT("A1"),    L10NIDX(input_hotkeys_rightshift)},
     };
     static const struct optlst optlst[] = {
         { IDC_SCROLLLOCKSTATE,  T_BMK, 0, TEXT("Input"), "ScrollLockState", 0},
@@ -1252,7 +1256,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             unsigned j, sel = 0;
             for (j = 0; j < ARR_SZ(togglekeys); j++) {
                 TCHAR key_name[256];
-                lstrcpy_noaccel(key_name, togglekeys[j].l10n, ARR_SZ(key_name));
+                lstrcpy_noaccel(key_name, L10NSTR(togglekeys[j].lidx), ARR_SZ(key_name));
                 CB_AddString(control, key_name);
                 if (!lstrcmp(txt, togglekeys[j].action)) {
                     sel = j;
@@ -1266,32 +1270,32 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             CB_SetCurSel(control, sel); // select current ModKey
 
             // Update text
-            const struct dialogstring strlst[] = {
-                { IDC_KEYBOARD_BOX,    l10n->tab_keyboard},
-                { IDC_SCROLLLOCKSTATE, l10n->input_scrolllockstate},
-                { IDC_UNIKEYHOLDMENU,  l10n->input_unikeyholdmenu},
-                { IDC_HOTKEYS_BOX,     l10n->input_hotkeys_box},
-                { IDC_MODKEY_H,        l10n->input_hotkeys_modkey},
+            static const struct dialogstring strlst[] = {
+                { IDC_KEYBOARD_BOX,    L10NIDX(tab_keyboard) },
+                { IDC_SCROLLLOCKSTATE, L10NIDX(input_scrolllockstate) },
+                { IDC_UNIKEYHOLDMENU,  L10NIDX(input_unikeyholdmenu) },
+                { IDC_HOTKEYS_BOX,     L10NIDX(input_hotkeys_box) },
+                { IDC_MODKEY_H,        L10NIDX(input_hotkeys_modkey) },
 
-                { IDC_ALT,             l10n->input_hotkeys_alt},
-                { IDC_SHIFT,           l10n->input_hotkeys_shift},
-                { IDC_CONTROL,         l10n->input_hotkeys_ctrl},
-                { IDC_WINKEY,          l10n->input_hotkeys_winkey},
-                { IDC_SHORTCUTS_H,     l10n->input_hotkeys_shortcuts},
-                { IDC_SHORTCUTS_PICK,  l10n->input_hotkeys_shortcutspick},
-                { IDC_SHORTCUTS_CLEAR, l10n->input_hotkeys_shortcutsclear},
-                { IDC_SHORTCUTS_SET,   l10n->input_hotkeys_shortcutset},
-                { IDC_USEPTWINDOW,     l10n->input_hotkeys_useptwindow},
-                { IDC_LEFTALT,         l10n->input_hotkeys_leftalt},
-                { IDC_RIGHTALT,        l10n->input_hotkeys_rightalt},
-                { IDC_LEFTWINKEY,      l10n->input_hotkeys_leftwinkey},
-                { IDC_RIGHTWINKEY,     l10n->input_hotkeys_rightwinkey},
-                { IDC_LEFTCTRL,        l10n->input_hotkeys_leftctrl},
-                { IDC_RIGHTCTRL,       l10n->input_hotkeys_rightctrl},
-                { IDC_HOTKEYS_MORE,    l10n->input_hotkeys_more},
-                { IDC_KEYCOMBO,        l10n->input_keycombo},
-                { IDC_GRABWITHALT_H,   l10n->input_grabwithalt},
-                { IDC_GRABWITHALTB_H,  l10n->input_grabwithaltb}
+                { IDC_ALT,             L10NIDX(input_hotkeys_alt) },
+                { IDC_SHIFT,           L10NIDX(input_hotkeys_shift) },
+                { IDC_CONTROL,         L10NIDX(input_hotkeys_ctrl) },
+                { IDC_WINKEY,          L10NIDX(input_hotkeys_winkey) },
+                { IDC_SHORTCUTS_H,     L10NIDX(input_hotkeys_shortcuts) },
+                { IDC_SHORTCUTS_PICK,  L10NIDX(input_hotkeys_shortcutspick) },
+                { IDC_SHORTCUTS_CLEAR, L10NIDX(input_hotkeys_shortcutsclear) },
+                { IDC_SHORTCUTS_SET,   L10NIDX(input_hotkeys_shortcutset) },
+                { IDC_USEPTWINDOW,     L10NIDX(input_hotkeys_useptwindow) },
+                { IDC_LEFTALT,         L10NIDX(input_hotkeys_leftalt) },
+                { IDC_RIGHTALT,        L10NIDX(input_hotkeys_rightalt) },
+                { IDC_LEFTWINKEY,      L10NIDX(input_hotkeys_leftwinkey) },
+                { IDC_RIGHTWINKEY,     L10NIDX(input_hotkeys_rightwinkey) },
+                { IDC_LEFTCTRL,        L10NIDX(input_hotkeys_leftctrl) },
+                { IDC_RIGHTCTRL,       L10NIDX(input_hotkeys_rightctrl) },
+                { IDC_HOTKEYS_MORE,    L10NIDX(input_hotkeys_more) },
+                { IDC_KEYCOMBO,        L10NIDX(input_keycombo) },
+                { IDC_GRABWITHALT_H,   L10NIDX(input_grabwithalt) },
+                { IDC_GRABWITHALTB_H,  L10NIDX(input_grabwithaltb) }
             };
             UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
 
@@ -1378,14 +1382,14 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // Update text
-            const struct dialogstring strlst[] = {
-                { IDC_BLACKLIST_BOX          , l10n->blacklist_box },
-                { IDC_PROCESSBLACKLIST_HEADER, l10n->blacklist_processblacklist },
-                { IDC_BLACKLIST_HEADER       , l10n->blacklist_blacklist },
-                { IDC_SCROLLLIST_HEADER      , l10n->blacklist_scrolllist },
-                { IDC_MDISBL_HEADER          , l10n->blacklist_mdis },
-                { IDC_PAUSEBL_HEADER         , l10n->blacklist_pause },
-                { IDC_FINDWINDOW_BOX         , l10n->blacklist_findwindow_box }
+            static const struct dialogstring strlst[] = {
+                { IDC_BLACKLIST_BOX          , L10NIDX(blacklist_box ) },
+                { IDC_PROCESSBLACKLIST_HEADER, L10NIDX(blacklist_processblacklist ) },
+                { IDC_BLACKLIST_HEADER       , L10NIDX(blacklist_blacklist ) },
+                { IDC_SCROLLLIST_HEADER      , L10NIDX(blacklist_scrolllist ) },
+                { IDC_MDISBL_HEADER          , L10NIDX(blacklist_mdis ) },
+                { IDC_PAUSEBL_HEADER         , L10NIDX(blacklist_pause ) },
+                { IDC_FINDWINDOW_BOX         , L10NIDX(blacklist_findwindow_box ) }
             };
             UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
             // Enable or disable buttons if needed
@@ -1518,8 +1522,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         int idx;
         TCHAR lastkey[MAXLINES][MAXLL];
     };
-    // static UCHAR idx=0;
-    // static TCHAR lastkey[MAXLINES][MAXLL];
+    TCHAR *buttonstr=NULL;
 
     switch (msg) {
     case WM_CREATE: {
@@ -1532,14 +1535,35 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         } break;
 
     case WM_KEYDOWN:
+
         // Ctrl+N (VK_N = 0x4E)
         if (wParam == 0x4E && (GetKeyState(VK_CONTROL)&0x8000)) {
             NewTestWindow();
             break;
-        } /* Fall through */
+        }
+        goto PRINTT;
+    case WM_LBUTTONDOWN:
+        buttonstr = TEXT(", LClick Dwn"); goto PRINTT;
+    case WM_RBUTTONDOWN:
+        buttonstr = TEXT(", RClick Dwn"); goto PRINTT;
+    case WM_MBUTTONDOWN:
+        buttonstr = TEXT(", MClick Dwn"); goto PRINTT;
+    case WM_XBUTTONDOWN:
+        buttonstr = HIWORD(wParam) == 1? TEXT(", XClick 1 Dwn"): TEXT(", XClick 2 Dwn");
+        goto PRINTT;
+    case WM_LBUTTONUP:
+        buttonstr = TEXT(", LClick Up"); goto PRINTT;
+    case WM_RBUTTONUP:
+        buttonstr = TEXT(", RClick Up"); goto PRINTT;
+    case WM_MBUTTONUP:
+        buttonstr = TEXT(", MClick Up"); goto PRINTT;
+    case WM_XBUTTONUP:
+        buttonstr = HIWORD(wParam) == 1? TEXT(", XClick 1 Up"): TEXT(", XClick 2 Up");
+        goto PRINTT;
     case WM_KEYUP:
     case WM_SYSKEYUP:
-    case WM_SYSKEYDOWN: {
+    case WM_SYSKEYDOWN:
+    PRINTT: {
         TCHAR txt[32];
         struct lastkeyss *lks = (struct lastkeyss *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
         if (!lks) break;
@@ -1548,14 +1572,20 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
         lstrcpy_s(lastkey[idx], MAXLL, TEXT("vK="));
         lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, (UCHAR)wParam));
-        lstrcat_s(lastkey[idx], MAXLL, lParam&(1u<<31)? TEXT(" U"): lParam&(1u<<30)? TEXT(" R") :TEXT(" D"));
-        lstrcat_s(lastkey[idx], MAXLL, TEXT(" sC="));
-        lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, HIWORD(lParam)&0x00FF));
-        lstrcat_s(lastkey[idx], MAXLL, TEXT(", LP=") );
-        lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, lParam));
-        txt[0] = L','; txt[1] = L' '; txt[2] = L'\0';
-        if (GetKeyNameText(lParam, txt+2, ARR_SZ(txt)-2))
-            lstrcat_s(lastkey[idx], MAXLL, txt);
+        if (!buttonstr) {
+            lstrcat_s(lastkey[idx], MAXLL, lParam&(1u<<31)? TEXT(" U"): lParam&(1u<<30)? TEXT(" R") :TEXT(" D"));
+            lstrcat_s(lastkey[idx], MAXLL, TEXT(" sC="));
+            lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, HIWORD(lParam)&0x00FF));
+            lstrcat_s(lastkey[idx], MAXLL, TEXT(", LP=") );
+            lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, lParam));
+            txt[0] = L','; txt[1] = L' '; txt[2] = L'\0';
+            if (GetKeyNameText(lParam, txt+2, ARR_SZ(txt)-2))
+                lstrcat_s(lastkey[idx], MAXLL, txt);
+        } else {
+            lstrcat_s(lastkey[idx], MAXLL, TEXT(", LP=") );
+            lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, lParam));
+            lstrcat_s(lastkey[idx], MAXLL, buttonstr);
+        }
         RECT crc;
         GetClientRect(hwnd, &crc);
         long lineheight = MulDiv(11, ReallyGetDpiForWindow(hwnd), 72);
@@ -1818,30 +1848,30 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // Update text
-            const struct dialogstring strlst[] = {
-                { IDC_METRICS_BOX,      l10n->advanced_metrics_box },
-                { IDC_CENTERFRACTION_H, l10n->advanced_centerfraction },
-                { IDC_AEROHOFFSET_H,    l10n->advanced_aerohoffset },
-                { IDC_AEROVOFFSET_H,    l10n->advanced_aerovoffset },
-                { IDC_SNAPTHRESHOLD_H,  l10n->advanced_snapthreshold },
-                { IDC_AEROTHRESHOLD_H,  l10n->advanced_aerothreshold },
-                { IDC_SNAPGAP_H,        l10n->advanced_snapgap },
-                { IDC_AEROSPEED_H,      l10n->advanced_aerospeed },
-                { IDC_MOVETRANS_H,      l10n->advanced_movetrans },
-                { IDC_TESTWINDOW,       l10n->advanced_testwindow },
+            static const struct dialogstring strlst[] = {
+                { IDC_METRICS_BOX,      L10NIDX(advanced_metrics_box ) },
+                { IDC_CENTERFRACTION_H, L10NIDX(advanced_centerfraction ) },
+                { IDC_AEROHOFFSET_H,    L10NIDX(advanced_aerohoffset ) },
+                { IDC_AEROVOFFSET_H,    L10NIDX(advanced_aerovoffset ) },
+                { IDC_SNAPTHRESHOLD_H,  L10NIDX(advanced_snapthreshold ) },
+                { IDC_AEROTHRESHOLD_H,  L10NIDX(advanced_aerothreshold ) },
+                { IDC_SNAPGAP_H,        L10NIDX(advanced_snapgap ) },
+                { IDC_AEROSPEED_H,      L10NIDX(advanced_aerospeed ) },
+                { IDC_MOVETRANS_H,      L10NIDX(advanced_movetrans ) },
+                { IDC_TESTWINDOW,       L10NIDX(advanced_testwindow ) },
 
-                { IDC_BEHAVIOR_BOX,     l10n->advanced_behavior_box },
-                { IDC_MULTIPLEINSTANCES,l10n->advanced_multipleinstances },
-                { IDC_AUTOREMAXIMIZE,   l10n->advanced_autoremaximize },
-                { IDC_AEROTOPMAXIMIZES, l10n->advanced_aerotopmaximizes },
-                { IDC_AERODBCLICKSHIFT, l10n->advanced_aerodbclickshift },
-                { IDC_MAXWITHLCLICK,    l10n->advanced_maxwithlclick },
-                { IDC_RESTOREONCLICK,   l10n->advanced_restoreonclick },
-                { IDC_FULLSCREEN,       l10n->advanced_fullscreen },
-                { IDC_BLMAXIMIZED,      l10n->advanced_blmaximized },
-                { IDC_FANCYZONE,        l10n->advanced_fancyzone },
-                { IDC_NORESTORE,        l10n->advanced_norestore },
-                { IDC_TOPMOSTINDICATOR, l10n->advanced_topmostindicator },
+                { IDC_BEHAVIOR_BOX,     L10NIDX(advanced_behavior_box ) },
+                { IDC_MULTIPLEINSTANCES,L10NIDX(advanced_multipleinstances ) },
+                { IDC_AUTOREMAXIMIZE,   L10NIDX(advanced_autoremaximize ) },
+                { IDC_AEROTOPMAXIMIZES, L10NIDX(advanced_aerotopmaximizes ) },
+                { IDC_AERODBCLICKSHIFT, L10NIDX(advanced_aerodbclickshift ) },
+                { IDC_MAXWITHLCLICK,    L10NIDX(advanced_maxwithlclick ) },
+                { IDC_RESTOREONCLICK,   L10NIDX(advanced_restoreonclick ) },
+                { IDC_FULLSCREEN,       L10NIDX(advanced_fullscreen ) },
+                { IDC_BLMAXIMIZED,      L10NIDX(advanced_blmaximized ) },
+                { IDC_FANCYZONE,        L10NIDX(advanced_fancyzone ) },
+                { IDC_NORESTORE,        L10NIDX(advanced_norestore ) },
+                { IDC_TOPMOSTINDICATOR, L10NIDX(advanced_topmostindicator ) },
             };
             UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
 

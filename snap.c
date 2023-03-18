@@ -109,8 +109,17 @@ static unsigned GetRestoreData(HWND hwnd, int *width, int *height)
         return (DorQWORD)GetProp(hwnd, APP_PROPFL);
   # ifdef WIN64 // Try fancy zone flag only in 64bit mode!
     } else if (conf.FancyZone && (WH = (DorQWORD)GetProp(hwnd, FZ_PROPPT))) {
+        // It seems FancyZones stores size info in points, not pixels.
         *width  = (int)LOWORDPTR(WH);
         *height = (int)HIWORDPTR(WH);
+        if (conf.FancyZone != 2) {
+            int dpi = GetDpiForWindow(hwnd);
+            if (dpi) {
+                // Scale bcak to current dpi from 96
+                *width  = MulDiv(*width,  dpi, 96);
+                *height = MulDiv(*height, dpi, 96);
+            }
+        }
         return SNAPPED|SNZONE;
   # endif
     } else { // fallback to database

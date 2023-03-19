@@ -1220,7 +1220,7 @@ static int IsWindowSnapped(HWND hwnd)
 }
 
 /* Helper function to get the Min and Max tracking sizes */
-static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
+static void GetMinMaxInfoF(HWND hwnd, POINT *Min, POINT *Max, UCHAR flags)
 {
     MINMAXINFO mmi;
     memset(&mmi, 0, sizeof(mmi));
@@ -1229,10 +1229,14 @@ static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
     mmi.ptMinTrackSize.y = GetSystemMetricsForDpi(SM_CYMINTRACK, dpi);
     mmi.ptMaxTrackSize.x = GetSystemMetricsForDpi(SM_CXMAXTRACK, dpi);
     mmi.ptMaxTrackSize.y = GetSystemMetricsForDpi(SM_CYMAXTRACK, dpi);
-    DWORD_PTR ret; // 32ms timeout
-    SendMessageTimeout(hwnd, WM_GETMINMAXINFO, 0, (LPARAM)&mmi, SMTO_ABORTIFHUNG, 32, &ret);
     *Min = mmi.ptMinTrackSize;
     *Max = mmi.ptMaxTrackSize;
+    if ((flags&3) != 3) {
+        DWORD_PTR ret; // 32ms timeout
+        SendMessageTimeout(hwnd, WM_GETMINMAXINFO, 0, (LPARAM)&mmi, SMTO_ABORTIFHUNG, 32, &ret);
+        if(!(flags&1)) *Min = mmi.ptMinTrackSize;
+        if(!(flags&2)) *Max = mmi.ptMaxTrackSize;
+    }
 
 }
 

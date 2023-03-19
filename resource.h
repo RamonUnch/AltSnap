@@ -2,6 +2,9 @@
 #define IDC_STATIC (-1)
 #endif
 
+#define VERSIONRC     1,6,0,0
+#define APP_VERSION  "1.60"
+
 #define IDD_GENERALPAGE                  201
 #define IDD_MOUSEPAGE                    202
 #define IDD_KBPAGE                       203

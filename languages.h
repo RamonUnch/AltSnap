@@ -11,7 +11,7 @@
 #define ALTSNAP_STRINGS_H
 
 #include <windows.h>
-
+#include "resource.h"
 // Resolve index from entry name.
 #define L10NIDX(entryname) (short)(LONG_PTR)((TCHAR**)&en_US.entryname - (TCHAR**)&en_US.code)
 // Resolve entry name from index.

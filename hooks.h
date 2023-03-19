@@ -30,7 +30,6 @@
 // App
 #define APP_NAME       TEXT("AltSnap")
 #define APP_NAMEA      "AltSnap"
-#define APP_VERSION    "1.59"
 #define APP_PROPPT     TEXT(APP_NAMEA"-RDim")
 #define APP_PROPFL     TEXT(APP_NAMEA"-RFlag")
 #define APP_PROPOFFSET TEXT(APP_NAMEA"-ROffset")

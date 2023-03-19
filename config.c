@@ -1558,6 +1558,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     static UCHAR centerfrac=24;
     static UCHAR sidefrac=100;
     static UCHAR centermode=1;
+    static UCHAR uDarkMode = 0; // Using dark mode?
     struct lastkeyss {
         int idx;
         TCHAR lastkey[MAXLINES][MAXLL];
@@ -1566,7 +1567,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
     switch (msg) {
     case WM_CREATE: {
-        //AllowDarkTitlebar(hwnd);
+        // uDarkMode = AllowDarkTitlebar(hwnd);
 
         // Allocate sace for the list of last keys.
         void *lastkeys = calloc(1, sizeof(struct lastkeyss));
@@ -1583,23 +1584,27 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
         goto PRINTT;
     case WM_LBUTTONDOWN:
-        buttonstr = TEXT("LClick D ("); goto PRINTT;
+        buttonstr = TEXT("LClick D"); goto PRINTT;
     case WM_RBUTTONDOWN:
-        buttonstr = TEXT("RClick D ("); goto PRINTT;
+        buttonstr = TEXT("RClick D"); goto PRINTT;
     case WM_MBUTTONDOWN:
-        buttonstr = TEXT("MClick D ("); goto PRINTT;
+        buttonstr = TEXT("MClick D"); goto PRINTT;
     case WM_XBUTTONDOWN:
-        buttonstr = HIWORD(wParam) == 1? TEXT("XClick 1 D ("): TEXT("XClick 2 D (");
+        buttonstr = HIWORD(wParam) == 1? TEXT("XClick 1 D"): TEXT("XClick 2 D");
         goto PRINTT;
     case WM_LBUTTONUP:
-        buttonstr = TEXT("LClick U ("); goto PRINTT;
+        buttonstr = TEXT("LClick U"); goto PRINTT;
     case WM_RBUTTONUP:
-        buttonstr = TEXT("RClick U ("); goto PRINTT;
+        buttonstr = TEXT("RClick U"); goto PRINTT;
     case WM_MBUTTONUP:
-        buttonstr = TEXT("MClick U ("); goto PRINTT;
+        buttonstr = TEXT("MClick U"); goto PRINTT;
     case WM_XBUTTONUP:
-        buttonstr = HIWORD(wParam) == 1? TEXT("XClick 1 U ("): TEXT("XClick 2 U (");
+        buttonstr = HIWORD(wParam) == 1? TEXT("XClick 1 U"): TEXT("XClick 2 U");
         goto PRINTT;
+    case WM_MOUSEWHEEL:
+        buttonstr = TEXT("Wheel"); goto PRINTT;
+    case WM_MOUSEHWHEEL:
+        buttonstr = TEXT("HWheel"); goto PRINTT;
     case WM_KEYUP:
     case WM_SYSKEYUP:
     case WM_SYSKEYDOWN:
@@ -1622,9 +1627,20 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             if (GetKeyNameText(lParam, txt+2, ARR_SZ(txt)-2))
                 lstrcat_s(lastkey[idx], MAXLL, txt);
         } else {
-            int x = LOWORD(lParam);
-            int y = HIWORD(lParam);
+            short x = LOWORD(lParam);
+            short y = HIWORD(lParam);
             lstrcpy_s(lastkey[idx], MAXLL, buttonstr);
+            if (msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL) {
+                short delta = HIWORD(wParam);
+                if (delta >= 0) {
+                    lstrcat_s(lastkey[idx], MAXLL, TEXT(" +"));
+                } else {
+                    delta = -delta;
+                    lstrcat_s(lastkey[idx], MAXLL, TEXT(" -"));
+                }
+                lstrcat_s(lastkey[idx], MAXLL, Int2lStr(txt, delta));
+            }
+            lstrcat_s(lastkey[idx], MAXLL, TEXT(" ("));
             lstrcat_s(lastkey[idx], MAXLL, Int2lStr(txt, x));
             lstrcat_s(lastkey[idx], MAXLL, TEXT(", "));
             lstrcat_s(lastkey[idx], MAXLL, Int2lStr(txt, y));
@@ -1649,8 +1665,9 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         /* We must keep track of pens and delete them. */
         const UINT dpi = GetDpiForWindow(hwnd);
         const UINT penwidth = GetSystemMetricsForDpi(SM_CXEDGE, dpi);
-        const COLORREF txtcolor = GetSysColor(COLOR_BTNTEXT);
-        const COLORREF bgcolor  = GetSysColor(COLOR_BTNFACE);
+
+        const COLORREF txtcolor = uDarkMode? RGB(255, 255, 255): GetSysColor(COLOR_BTNTEXT);
+        const HBRUSH bgbrush =    uDarkMode? CreateSolidBrush(RGB(32, 32, 32)): (HBRUSH)(COLOR_BTNFACE+1);
         const HPEN pen = (HPEN) CreatePen(PS_SOLID, penwidth, txtcolor);
 
         struct lastkeyss *lks = (struct lastkeyss *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
@@ -1675,7 +1692,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         const int cwidth = width*centerfrac/100;
         const int cheight = height*centerfrac/100;
 
-        FillRect(hdc, &ps.rcPaint, (HBRUSH)(COLOR_BTNFACE+1));
+        FillRect(hdc, &ps.rcPaint, bgbrush);
         if (centermode != 3)
             Rectangle(hdc // Draw central rectangle
                 , Offset.x + (width-cwidth)/2
@@ -1748,13 +1765,14 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
             HPEN dotpen = (HPEN)CreatePen(PS_DOT, 1, txtcolor);
             HPEN prevpen = (HPEN)SelectObject(hdc, dotpen);
-            SetBkColor(hdc, bgcolor);
+            int oldbkmode = SetBkMode(hdc, TRANSPARENT);
             Rectangle(hdc // Draw dashed central rectagle
                 , Offset.x+(width-cwidth)/2
                 , Offset.y+(height-cheight)/2
                 , (width+cwidth)/2 + Offset.x+1
                 , (height+cheight)/2 + Offset.y+1);
             // restore oldpen and delete dotpen
+            SetBkMode(hdc, oldbkmode);
             DeleteObject(SelectObject(hdc, prevpen));
         }
 
@@ -1787,6 +1805,8 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         EndPaint(hwnd, &ps);
 
         DeleteObject(pen); // delete pen
+        if (bgbrush != (HBRUSH)(COLOR_BTNFACE+1))
+            DeleteObject(bgbrush);// Delete brush if needed.
 
         return 0;
     } break;

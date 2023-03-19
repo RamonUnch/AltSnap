@@ -769,40 +769,70 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         { IDC_RMB,     {TEXT("RMB"), TEXT("RMBB"), TEXT("RMBT"), TEXT("RMBM"), TEXT("RMBR")} },
         { IDC_MB4,     {TEXT("MB4"), TEXT("MB4B"), TEXT("MB4T"), TEXT("MB4M"), TEXT("MB4R")} },
         { IDC_MB5,     {TEXT("MB5"), TEXT("MB5B"), TEXT("MB5T"), TEXT("MB5M"), TEXT("MB5M")} },
+    };
+    static const struct {
+        int control; // Same control
+        TCHAR *option[5]; // Prim/alt/TTB/WM/WR
+    } mouse_buttonsUP[] = {
         { IDC_MOVEUP,  {TEXT("MoveUp"), TEXT("MoveUpB"), TEXT("MoveUpT"), TEXT("MoveUp"), TEXT("MoveUp")} },
         { IDC_RESIZEUP,{TEXT("ResizeUp"), TEXT("ResizeUpB"), TEXT("ResizeUpT"), TEXT("ResizeUp"), TEXT("ResizeUp")} },
     };
 
+    #define COMMON_ACTIONS \
+        {TEXT("Close"),       L10NIDX(input_actions_close) },   \
+        {TEXT("Kill"),        L10NIDX(input_actions_kill) },    \
+        {TEXT("Minimize"),    L10NIDX(input_actions_minimize) }, \
+        {TEXT("Maximize"),    L10NIDX(input_actions_maximize) }, \
+        {TEXT("Lower"),       L10NIDX(input_actions_lower) },    \
+        {TEXT("NStacked"),    L10NIDX(input_actions_nstacked) }, \
+        {TEXT("PStacked"),    L10NIDX(input_actions_pstacked) }, \
+        {TEXT("StackList"),   L10NIDX(input_actions_stacklist) }, \
+        {TEXT("StackList2"),  L10NIDX(input_actions_stacklist2) }, \
+        {TEXT("AltTabList"),  L10NIDX(input_actions_alttablist) }, \
+        {TEXT("AltTabFullList"), L10NIDX(input_actions_alttabfulllist) }, \
+        {TEXT("Roll"),        L10NIDX(input_actions_roll) },  \
+        {TEXT("AlwaysOnTop"), L10NIDX(input_actions_alwaysontop) }, \
+        {TEXT("Borderless"),  L10NIDX(input_actions_borderless) }, \
+        {TEXT("Center"),      L10NIDX(input_actions_center) }, \
+        {TEXT("MaximizeHV"),  L10NIDX(input_actions_maximizehv) }, \
+        {TEXT("SideSnap"),    L10NIDX(input_actions_sidesnap) }, \
+        {TEXT("ExtendSnap"),  L10NIDX(input_actions_extendsnap) }, \
+        {TEXT("ExtendTNEdge"),L10NIDX(input_actions_extendtnedge) }, \
+        {TEXT("MoveTNEdge"),  L10NIDX(input_actions_movetnedge) }, \
+        {TEXT("MinAllOther"), L10NIDX(input_actions_minallother) }, \
+        {TEXT("Mute"),        L10NIDX(input_actions_mute) }, \
+        {TEXT("Menu"),        L10NIDX(input_actions_menu) }, \
+
+
     static const struct actiondl mouse_actions[] = {
+        // Specific to the Primary/Alternate/Titlebar
+        // And not available for the MoveUp/ResizeUp
         {TEXT("Move"),        L10NIDX(input_actions_move) },
         {TEXT("Resize"),      L10NIDX(input_actions_resize) },
         {TEXT("Restore"),     L10NIDX(input_actions_restore) },
-        {TEXT("Close"),       L10NIDX(input_actions_close) },
-        {TEXT("Kill"),        L10NIDX(input_actions_kill) },
-        {TEXT("Minimize"),    L10NIDX(input_actions_minimize) },
-        {TEXT("Maximize"),    L10NIDX(input_actions_maximize) },
-        {TEXT("Lower"),       L10NIDX(input_actions_lower) },
-        {TEXT("NStacked"),    L10NIDX(input_actions_nstacked) },
-        {TEXT("PStacked"),    L10NIDX(input_actions_pstacked) },
-        {TEXT("StackList"),   L10NIDX(input_actions_stacklist) },
-        {TEXT("StackList2"),  L10NIDX(input_actions_stacklist2) },
-        {TEXT("AltTabList"),  L10NIDX(input_actions_alttablist) },
-        {TEXT("AltTabFullList"), L10NIDX(input_actions_alttabfulllist) },
-        {TEXT("Roll"),        L10NIDX(input_actions_roll) },
-        {TEXT("AlwaysOnTop"), L10NIDX(input_actions_alwaysontop) },
-        {TEXT("Borderless"),  L10NIDX(input_actions_borderless) },
-        {TEXT("Center"),      L10NIDX(input_actions_center) },
-        {TEXT("MaximizeHV"),  L10NIDX(input_actions_maximizehv) },
-        {TEXT("SideSnap"),    L10NIDX(input_actions_sidesnap) },
-        {TEXT("ExtendSnap"),  L10NIDX(input_actions_extendsnap) },
-        {TEXT("ExtendTNEdge"),L10NIDX(input_actions_extendtnedge) },
-        {TEXT("MoveTNEdge"),  L10NIDX(input_actions_movetnedge) },
-        {TEXT("MinAllOther"), L10NIDX(input_actions_minallother) },
-        {TEXT("Mute"),        L10NIDX(input_actions_mute) },
-        {TEXT("Menu"),        L10NIDX(input_actions_menu) },
+        // Common mouse actions
+        COMMON_ACTIONS
+
         {TEXT("Nothing"),     L10NIDX(input_actions_nothing) },
         {NULL, 0}
     };
+
+    // Actions on MoveUp/ResizeUP
+    const struct actiondl *mouse_actionsUP = &mouse_actions[3];
+
+    // While moving/resizing
+    const struct actiondl *mouse_actionsWMR = &mouse_actions[3];
+
+//    static const struct actiondl mouse_actionsWMR[] = {
+//        // Spetial actions first
+//        {TEXT("ZoneSnapTogg"), L10NIDX(input_actions_zonesnaptog) },
+//        {TEXT("SnapTogg"),     L10NIDX(input_actions_snaptogg) },
+//        // Then the common mouse actions
+//        COMMON_ACTIONS
+//
+//        {TEXT("Nothing"),     L10NIDX(input_actions_nothing) },
+//        {NULL, 0}
+//    };
 
     // Scroll
     static const struct {
@@ -881,11 +911,15 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             // While Moving/While resizing opts.
             EnableDlgItem(hwnd, IDC_MOVEUP,   optoff < 3);
             EnableDlgItem(hwnd, IDC_RESIZEUP, optoff < 3);
-
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {
-                FillActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option[optoff], mouse_actions);
+                FillActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option[optoff], optoff<3?mouse_actions:mouse_actionsWMR);
             }
-            // Scroll actions
+	        if (optoff < 3) {
+	            for (i = 0; i < ARR_SZ(mouse_buttonsUP); i++) {
+	                FillActionDropListS(hwnd, mouse_buttonsUP[i].control, mouse_buttonsUP[i].option[optoff], mouse_actionsUP);
+	            }
+	        }
+            // Scroll actions, always the same.
             for (i = 0; i < ARR_SZ(mouse_wheels); i++) {
                 FillActionDropListS(hwnd, mouse_wheels[i].control, mouse_wheels[i].option[optoff], scroll_actions);
             }
@@ -931,8 +965,14 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                        : IsChecked(IDC_WHILEM)? 3
                        : IsChecked(IDC_WHILER)? 4: 0;
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {
-                WriteActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option[optoff], mouse_actions);
+                WriteActionDropListS(hwnd, mouse_buttons[i].control , mouse_buttons[i].option[optoff]
+                                   , optoff<3? mouse_actions: mouse_actionsWMR);
             }
+            if (optoff < 3) {
+	            for (i = 0; i < ARR_SZ(mouse_buttonsUP); i++) {
+	                WriteActionDropListS(hwnd, mouse_buttonsUP[i].control, mouse_buttonsUP[i].option[optoff], mouse_actionsUP);
+	            }
+	        }
             // Scroll
             for (i = 0; i < ARR_SZ(mouse_wheels); i++) {
                 WriteActionDropListS(hwnd, mouse_wheels[i].control, mouse_wheels[i].option[optoff], scroll_actions);
@@ -1543,22 +1583,22 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
         goto PRINTT;
     case WM_LBUTTONDOWN:
-        buttonstr = TEXT(", LClick Dwn"); goto PRINTT;
+        buttonstr = TEXT("LClick D ("); goto PRINTT;
     case WM_RBUTTONDOWN:
-        buttonstr = TEXT(", RClick Dwn"); goto PRINTT;
+        buttonstr = TEXT("RClick D ("); goto PRINTT;
     case WM_MBUTTONDOWN:
-        buttonstr = TEXT(", MClick Dwn"); goto PRINTT;
+        buttonstr = TEXT("MClick D ("); goto PRINTT;
     case WM_XBUTTONDOWN:
-        buttonstr = HIWORD(wParam) == 1? TEXT(", XClick 1 Dwn"): TEXT(", XClick 2 Dwn");
+        buttonstr = HIWORD(wParam) == 1? TEXT("XClick 1 D ("): TEXT("XClick 2 D (");
         goto PRINTT;
     case WM_LBUTTONUP:
-        buttonstr = TEXT(", LClick Up"); goto PRINTT;
+        buttonstr = TEXT("LClick U ("); goto PRINTT;
     case WM_RBUTTONUP:
-        buttonstr = TEXT(", RClick Up"); goto PRINTT;
+        buttonstr = TEXT("RClick U ("); goto PRINTT;
     case WM_MBUTTONUP:
-        buttonstr = TEXT(", MClick Up"); goto PRINTT;
+        buttonstr = TEXT("MClick U ("); goto PRINTT;
     case WM_XBUTTONUP:
-        buttonstr = HIWORD(wParam) == 1? TEXT(", XClick 1 Up"): TEXT(", XClick 2 Up");
+        buttonstr = HIWORD(wParam) == 1? TEXT("XClick 1 U ("): TEXT("XClick 2 U (");
         goto PRINTT;
     case WM_KEYUP:
     case WM_SYSKEYUP:
@@ -1570,9 +1610,9 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         int idx = lks->idx;
         TCHAR (*lastkey)[MAXLL] = lks->lastkey;
 
-        lstrcpy_s(lastkey[idx], MAXLL, TEXT("vK="));
-        lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, (UCHAR)wParam));
         if (!buttonstr) {
+            lstrcpy_s(lastkey[idx], MAXLL, TEXT("vK="));
+            lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, (BYTE)wParam));
             lstrcat_s(lastkey[idx], MAXLL, lParam&(1u<<31)? TEXT(" U"): lParam&(1u<<30)? TEXT(" R") :TEXT(" D"));
             lstrcat_s(lastkey[idx], MAXLL, TEXT(" sC="));
             lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, HIWORD(lParam)&0x00FF));
@@ -1582,9 +1622,14 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             if (GetKeyNameText(lParam, txt+2, ARR_SZ(txt)-2))
                 lstrcat_s(lastkey[idx], MAXLL, txt);
         } else {
-            lstrcat_s(lastkey[idx], MAXLL, TEXT(", LP=") );
-            lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, lParam));
-            lstrcat_s(lastkey[idx], MAXLL, buttonstr);
+            int x = LOWORD(lParam);
+            int y = HIWORD(lParam);
+            lstrcpy_s(lastkey[idx], MAXLL, buttonstr);
+            lstrcat_s(lastkey[idx], MAXLL, Int2lStr(txt, x));
+            lstrcat_s(lastkey[idx], MAXLL, TEXT(", "));
+            lstrcat_s(lastkey[idx], MAXLL, Int2lStr(txt, y));
+            lstrcat_s(lastkey[idx], MAXLL, TEXT("), WP="));
+            lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, wParam));
         }
         RECT crc;
         GetClientRect(hwnd, &crc);

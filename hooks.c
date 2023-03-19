@@ -147,6 +147,8 @@ static struct config {
     // System settings
     short dragXth;
     short dragYth;
+    short ldragXth;
+    short ldragYth;
     short dbclickX;
     short dbclickY;
     // [General]
@@ -383,16 +385,23 @@ static pure int ISCLAMPEDW(int x)  { return state.mmi.Min.x <= x && x <= state.m
 static pure int ISCLAMPEDH(int y)  { return state.mmi.Min.y <= y && y <= state.mmi.Max.y; }
 
 /* If pt and ptt are it is the same points with 4px tolerence */
-static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
+static xpure int IsSamePTT4(const POINT *pt, const POINT *ptt)
 {
     const short Tx = conf.dbclickX;
     const short Ty = conf.dbclickY;
     return !( pt->x > ptt->x+Tx || pt->y > ptt->y+Ty || pt->x < ptt->x-Tx || pt->y < ptt->y-Ty );
 }
-static xpure int IsPtDrag(const POINT *pt, const POINT *ptt)
+static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
 {
     const short Tx = conf.dragXth;
     const short Ty = conf.dragYth;
+    return !( pt->x > ptt->x+Tx || pt->y > ptt->y+Ty || pt->x < ptt->x-Tx || pt->y < ptt->y-Ty );
+}
+
+static xpure int IsPtDragOut(const POINT *pt, const POINT *ptt)
+{
+    const short Tx = conf.ldragXth;
+    const short Ty = conf.ldragYth;
     return !( pt->x > ptt->x+Tx || pt->y > ptt->y+Ty || pt->x < ptt->x-Tx || pt->y < ptt->y-Ty );
 }
 
@@ -4180,7 +4189,7 @@ static void SClickActions(HWND hwnd, enum action action)
     switch (action) {
     case AC_MINIMIZE:    MinimizeWindow(hwnd); break;
     case AC_MAXIMIZE:    ActionMaximize(hwnd); break;
-    case AC_CENTER:      CenterWindow(hwnd, !!state.shift /*state.shift? 0: CW_RESTORE*/); break;
+    case AC_CENTER:      CenterWindow(hwnd, !state.shift /*state.shift? 0: CW_RESTORE*/); break;
     case AC_ALWAYSONTOP: TogglesAlwaysOnTop(hwnd); break;
     case AC_CLOSE:       PostMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0); break;
     case AC_LOWER:       ActionLower(hwnd, 0, state.shift); break;
@@ -4692,7 +4701,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         if (SamePt(pt, state.prevpt)) return CallNextHookEx(NULL, nCode, wParam, lParam);
         // Store prevpt so we can check if the hook goes stale
         if( state.moving == DRAG_WAIT ) {
-            if (IsPtDrag(&state.prevpt, &pt))
+            if (IsPtDragOut(&state.prevpt, &pt))
                 return CallNextHookEx(NULL, nCode, wParam, lParam);
             state.moving = 0;
             MouseMove(state.prevpt);
@@ -4747,10 +4756,15 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     int is_hotclick = IsHotclick(button);
     if (!state.alt && is_hotclick && buttonstate == STATE_DOWN) {
         state.alt = button;
-        state.clickpt = pt;
-        state.sactiondone = AC_NONE;
         // Start an action now if hotclick is also an action.
         // If action == AC_NONE, we are checking for blacklists...
+        if (!action) {
+            // If no action is to be made,we must reset
+            // clickpt and actiondone for the Click UP
+            // to be forwarded.
+            state.sactiondone = AC_NONE;
+            state.clickpt = pt;
+        }
         int ret = init_movement_and_actions(pt, NULL, action, button);
         if (ret) {
             // Not balcklisted, action may have been performed!
@@ -4770,6 +4784,9 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         // if (!action) return 1;
         if (!action && (conf.AblockHotclick || state.sactiondone))
             return 1;
+        // If no action is to be done, we forward the click
+        Send_Click_Thread(button);
+        return 1;
     }
 
     // Check if we must BLOCK MOUSE UP... (after releasing hotclicks)
@@ -4839,11 +4856,12 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         //LogState("BUTTON UP:\n");
         SetWindowTrans(NULL); // Reset window transparency
 
-        if((state.action == action || (state.action == AC_MOVE && action == AC_RESIZE))
+        if( action
+        &&( state.action == action || (state.action == AC_MOVE && action == AC_RESIZE))
         &&(!state.moving || state.moving == DRAG_WAIT)// No drag occured
         &&  state.sactiondone <= AC_RESIZE // Only move/resize may have happened in the meantime
         && !state.ctrl // Ctrl is not down (because of focusing)
-        && IsPtDrag(&pt, &state.clickpt) // same point (within drag)
+        && IsSamePTT(&pt, &state.clickpt) // same point (within drag)
         && !IsDoubleClick(button)) { // Long click unless PiercingClick=1
             FinishMovement();
             // Mouse UP actions here only in case of MOVEMENT!:
@@ -4855,6 +4873,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             if (action > AC_RESIZE) {
                 SClickActions(state.hwnd, action);
             } else {
+                LOG("Forwarding the %d the click!", button);
                 // Forward the click if no action was Mapped!
                 // Win 10+ does not like receaving button down
                 // when the button is already down, so we create a thread.
@@ -5769,11 +5788,15 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
 
     // GET SYSTEM SETTINGS
     DWORD dragthreshold=0;
+    conf.dragXth  = GetSystemMetrics(SM_CXDRAG);
+    conf.dragYth  = GetSystemMetrics(SM_CYDRAG);
     if (SystemParametersInfo(/*SPI_GETMOUSEDRAGOUTTHRESHOLD*/0x0084, 0, &dragthreshold, 0)) {
-        conf.dragXth = conf.dragYth = dragthreshold;
+        conf.ldragXth = conf.ldragYth = dragthreshold;
     } else {
-        conf.dragXth  = GetSystemMetrics(SM_CXDRAG);
-        conf.dragYth  = GetSystemMetrics(SM_CYDRAG);
+        // Unable to retreave the new drag-out Threshold
+        // Default to twice the usual drag threshold.
+        conf.ldragXth  = conf.dragXth << 1;
+        conf.ldragYth  = conf.dragXth << 1;
     }
 
     conf.dbclickX = GetSystemMetrics(SM_CXDOUBLECLK);

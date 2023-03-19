@@ -195,6 +195,7 @@ static struct config {
     UCHAR DragThreshold;
     UCHAR AblockHotclick;
     UCHAR MenuShowOffscreenWin;
+    UCHAR MenuShowEmptyLabelWin;
     UCHAR IgnoreMinMaxInfo;
     // [Performance]
     UCHAR FullWin;
@@ -299,6 +300,7 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "DragThreshold", 1 },
     { "AblockHotclick", 0 },
     { "MenuShowOffscreenWin", 0 },
+    { "MenuShowEmptyLabelWin", 0 },
     { "IgnoreMinMaxInfo", 0 },
 };
 // [Performance]
@@ -2704,7 +2706,7 @@ static int IsAltTabAble(HWND window)
           ||(xstyle&WS_EX_APPWINDOW) == WS_EX_APPWINDOW // Or is forced in taskbar
           || GetBorderlessFlag(window) // Or we made it borderless
        )
-       && GetWindowText(window, txt, ARR_SZ(txt)) && txt[0]
+       && (conf.MenuShowEmptyLabelWin || (GetWindowText(window, txt, ARR_SZ(txt)) && txt[0]))
        && !blacklisted(window, &BlkLst.Bottommost); // Exclude bottommost windows
 }
 static int IsToolWindow(HWND hwnd)

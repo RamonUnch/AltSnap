@@ -1549,6 +1549,30 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     return FALSE;
 }
 static HWND NewTestWindow();
+
+static void ToggleFullScreen(HWND hwnd)
+{
+    LONG_PTR fs = GetWindowLongPtr(hwnd, 0);
+    LONG_PTR fl = GetWindowLongPtr(hwnd, GWL_STYLE);
+    if (fs) {
+        // We are fullscreen, we need to restore olfd style
+        if ( !(fs & WS_MAXIMIZE) )
+            SendMessage(hwnd, WM_SYSCOMMAND, SC_RESTORE, 0);
+        if ( !(fl & WS_MAXIMIZE) )
+            fs &=~WS_MAXIMIZE; //
+        SetWindowLongPtr(hwnd, GWL_STYLE, fs|(WS_CAPTION|WS_THICKFRAME));
+        SetWindowLongPtr(hwnd, 0, 0); // Clear fs falg.
+        SetWindowPos(hwnd, NULL, 0, 0, 0, 0
+               , SWP_ASYNCWINDOWPOS|SWP_NOSIZE|SWP_NOMOVE|SWP_FRAMECHANGED|SWP_NOZORDER);
+    } else {
+        SetWindowLongPtr(hwnd, 0, fl); // store fs falg.
+        SetWindowLongPtr(hwnd, GWL_STYLE, fl&~(WS_CAPTION|WS_THICKFRAME));
+        SetWindowPos(hwnd, NULL, 0, 0, 0, 0
+               , SWP_ASYNCWINDOWPOS|SWP_NOSIZE|SWP_NOMOVE|SWP_FRAMECHANGED|SWP_NOZORDER);
+        SendMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+    }
+
+}
 /////////////////////////////////////////////////////////////////////////////
 // Simple windows proc that draws the resizing regions.
 LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -1582,6 +1606,9 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             NewTestWindow();
             break;
         }
+        if (wParam == VK_F11)
+            ToggleFullScreen(hwnd);
+
         goto PRINTT;
     case WM_LBUTTONDOWN:
         buttonstr = TEXT("LClick D"); goto PRINTT;
@@ -1811,9 +1838,9 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return 0;
     } break;
 
-    case WM_ERASEBKGND:
+//    case WM_ERASEBKGND:
 //        Sleep(200); break;
-        return 1;
+//        return 1;
 
     case WM_UPDCFRACTION: {
         centerfrac = GetPrivateProfileInt(TEXT("General"), TEXT("CenterFraction"), 24, inipath);
@@ -1838,9 +1865,10 @@ static HWND NewTestWindow()
     if (!GetClassInfoEx(g_hinst, TEXT(APP_NAMEA"-Test"), &wnd)) {
         WNDCLASSEX wndd = {
             sizeof(WNDCLASSEX)
-          , CS_HREDRAW|CS_VREDRAW|CS_BYTEALIGNCLIENT
+          , CS_HREDRAW|CS_VREDRAW
           , TestWindowProc
-          , 0, 0, g_hinst, icons[1] //LoadIcon(g_hinst, iconstr[1])
+          , 0, sizeof(LONG_PTR) // To store old GWL_STYLE
+          , g_hinst, icons[1] //LoadIcon(g_hinst, iconstr[1])
           , LoadCursor(NULL, IDC_ARROW)
           , NULL //(HBRUSH)(COLOR_BACKGROUND+1)
           , NULL, TEXT(APP_NAMEA"-Test"), NULL
@@ -1851,7 +1879,7 @@ static HWND NewTestWindow()
     lstrcpy_noaccel(wintitle, l10n->advanced_testwindow, ARR_SZ(wintitle));
     testwnd = CreateWindowEx(0
          , TEXT(APP_NAMEA"-Test"), wintitle
-         , WS_CAPTION|WS_OVERLAPPEDWINDOW
+         , WS_OVERLAPPEDWINDOW
          , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT
          , NULL, NULL, g_hinst, NULL);
     PostMessage(testwnd, WM_UPDCFRACTION, 0, 0);

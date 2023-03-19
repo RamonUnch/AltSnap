@@ -548,7 +548,7 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
         if (ret == -1) {
             break;
         } else {
-         // TranslateMessage(&msg);
+            TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
     }

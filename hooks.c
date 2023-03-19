@@ -195,6 +195,7 @@ static struct config {
     UCHAR DragThreshold;
     UCHAR AblockHotclick;
     UCHAR MenuShowOffscreenWin;
+    UCHAR IgnoreMinMaxInfo;
     // [Performance]
     UCHAR FullWin;
     UCHAR TransWinOpacity;
@@ -298,6 +299,7 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "DragThreshold", 1 },
     { "AblockHotclick", 0 },
     { "MenuShowOffscreenWin", 0 },
+    { "IgnoreMinMaxInfo", 0 },
 };
 // [Performance]
 static const struct OptionListItem Performance_uchars[] = {
@@ -532,6 +534,12 @@ static int HitTestTimeoutbl(HWND hwnd, POINT pt)
         }
     }
     return area;
+}
+/////////////////////////////////////////////////////////////////////////////
+// 
+static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
+{
+    GetMinMaxInfoF(hwnd, Min, Max, conf.IgnoreMinMaxInfo);
 }
 /////////////////////////////////////////////////////////////////////////////
 // Use NULL to restore old transparency.
@@ -1223,8 +1231,9 @@ static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h)
         RECT rc = {x, y, x+w, y+h };
         RestoreWindowToRect(hwnd, &rc, WPF_ASYNCWINDOWPLACEMENT);
     } else {
-        SetWindowPos(hwnd, NULL, x, y, w, h
-                   , SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOZORDER|SWP_ASYNCWINDOWPOS);
+        UINT flags = SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOZORDER|SWP_ASYNCWINDOWPOS;
+        if (conf.IgnoreMinMaxInfo) flags |= SWP_NOSENDCHANGING;
+        SetWindowPos(hwnd, NULL, x, y, w, h, flags);
     }
 }
 
@@ -1268,6 +1277,7 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
     if(GetWindowRect(lw->hwnd, &rc))
         notsamesize = rc.right-rc.left != lw->width || rc.bottom-rc.top != lw->height;
     UINT flag = notsamesize? RESIZEFLAG: state.resizable&2 ? MOVETHICKBORDERS: MOVEASYNC;
+    if (conf.IgnoreMinMaxInfo) flag |= SWP_NOSENDCHANGING;
 
     MoveResizeWindowThread(lw, flag);
     return 0;
@@ -1818,7 +1828,7 @@ static BOOL IsTransWinVisible() { return IsVisible(g_transhwnd[0]); }
 
 static void MoveTransWin(int x, int y, int w, int h)
 {
-    #define f SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER //|SWP_DEFERERASE
+    #define f SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOSENDCHANGING //|SWP_DEFERERASE
 //      HDWP hwndSS = BeginDeferWindowPos(4);
     if(conf.TransWinOpacity) {
         SetWindowPos(g_transhwnd[0],NULL, x, y, w, h, f);
@@ -3988,9 +3998,9 @@ static void StepWindow(HWND hwnd, short step, UCHAR direction)
 
     if(IsRectInMonitors(&rc)) {
         // Do not move if target rect is not in a monitor.
-        SetWindowPos(hwnd, NULL
-            , x, y, 0, 0
-            , SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS);
+        UINT flags = SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS;
+        if (conf.IgnoreMinMaxInfo) flags |= SWP_NOSENDCHANGING;
+        SetWindowPos(hwnd, NULL, x, y, 0, 0, flags);
     }
 }
 // Make a menu filled with the windows that are enumed through EnumProc

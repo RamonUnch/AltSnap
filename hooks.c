@@ -2197,7 +2197,7 @@ static void RestrictToCurentMonitor()
 {
     if (state.action || state.alt) {
         POINT pt;
-        GetCursorPos(&pt);
+        GetMsgPT(&pt);
         state.origin.maximized = 0; // To prevent auto-remax on Ctrl
         state.origin.monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
     }
@@ -2398,7 +2398,7 @@ static int SimulateXButton(WPARAM wp, WORD xbtidx)
 {
 //    WORD xbtidx = XXButtonIndex(vkey);
     MSLLHOOKSTRUCT msg;
-    GetCursorPos(&msg.pt);
+    GetMsgPT(&msg.pt);
     // XButton number is in HIWORD(mouseData)
     msg.mouseData= xbtidx << 16;
     msg.flags=0;
@@ -2476,7 +2476,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 enum action action = conf.GrabWithAlt[IsModKey(vkey) || (!IsHotkey(conf.ModKey[0])&&ModKey())];
                 if (action) {
                     state.blockmouseup = 0; // In case.
-                    GetCursorPos(&pt);
+                    GetMsgPT(&pt);
                     if (!init_movement_and_actions(pt, NULL, action, vkey)) {
                         UnhookMouse();
                     }
@@ -3540,7 +3540,7 @@ static void CenterWindow(HWND hwnd, unsigned flags)
         width = rc.right - rc.left;
         height = rc.bottom - rc.top;
     }
-    GetCursorPos(&pt);
+    GetMsgPT(&pt);
     GetMonitorRect(&pt, 0, &mon);
 
     int x = mon.left+ ((mon.right-mon.left)-width)/2;
@@ -3896,7 +3896,7 @@ static void MaximizeHV(HWND hwnd, int horizontal)
     OffsetRectMDI(&rc);
 
     POINT pt;
-    GetCursorPos(&pt);
+    GetMsgPT(&pt);
     GetMonitorRect(&pt, 0, &mon);
     SetOriginFromRestoreData(hwnd, AC_MOVE);
 
@@ -4142,7 +4142,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
         InsertMenuItem(menu, i+1, FALSE, &lpmi);
     }
     POINT pt;
-    GetCursorPos(&pt);
+    GetMsgPT(&pt);
     ReallySetForegroundWindow(g_mchwnd);
     i = (unsigned)TrackPopupMenu(menu,
         TPM_RETURNCMD/*|TPM_NONOTIFY*/|GetSystemMetrics(SM_MENUDROPALIGNMENT)
@@ -5003,7 +5003,7 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             // Silently rehook hooks if they have been stopped (>= Win7 and LowLevelHooksTimeout)
             // This can often happen if locking or sleeping the computer a lot
             POINT pt;
-            GetCursorPos(&pt);
+            GetCursorPos(&pt); // I donot know if we should really use the ASYN version.
             if (mousehook && !SamePt(state.prevpt, pt)) {
                 UnhookWindowsHookEx(mousehook);
                 mousehook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, hinstDLL, 0);
@@ -5028,7 +5028,7 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             HWND ptwnd;
             UCHAR buttonswaped;
             POINT pt;
-            GetCursorPos(&pt); // Hopefully the real current cursor position
+            GetMsgPT(&pt); // Hopefully the real current cursor position
             if (IsSamePTT(&pt, &state.clickpt)
             &&  GetAsyncKeyState(1 + (buttonswaped = !!GetSystemMetrics(SM_SWAPBUTTON)))
             && (ptwnd = WindowFromPoint(pt))
@@ -5433,10 +5433,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
         if (action > AC_RESIZE) { // Exclude resize action in case...
             POINT pt;
-            //GetCursorPos(&pt);
-            DWORD msgpos = GetMessagePos();
-            pt.x = GET_X_LPARAM(msgpos);
-            pt.y = GET_Y_LPARAM(msgpos);
+            GetMsgPT(&pt);
             static const enum action noinitactions[] = { AC_KILL, AC_PAUSE, AC_RESUME, AC_ASONOFF, AC_NONE };
             if (IsActionInList(action, noinitactions)) {
                 // Some actions pass directly through the default blacklists...

@@ -241,7 +241,7 @@ static int PrintHwndDetails(HWND hwnd, TCHAR *buf)
 /* Helper to be able to enable/disable dialog items
  * easily while ensuring we move keyboard focus to
  * the next control if it was selected */
-BOOL EnableDlgItem(HWND hdlg, UINT id, BOOL enable)
+static BOOL EnableDlgItem(HWND hdlg, UINT id, BOOL enable)
 {
     HWND hwndControl = GetDlgItem(hdlg, id);
     if (!enable && hwndControl == GetFocus()) {
@@ -250,6 +250,14 @@ BOOL EnableDlgItem(HWND hdlg, UINT id, BOOL enable)
     return EnableWindow(hwndControl, enable);
 }
 
+static DWORD GetMsgPT(POINT *pt)
+{
+    DWORD point = GetMessagePos();
+    pt->x = GET_X_LPARAM(point);
+    pt->y = GET_X_LPARAM(point);
+
+    return point;
+}
 
 /* Removes the trailing file name from a path */
 static BOOL PathRemoveFileSpecL(TCHAR *p)
@@ -651,12 +659,12 @@ static HRESULT DwmSetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c);
 static BOOL AllowDarkTitlebar(HWND hwnd)
 {
     if( IsHighContrastEnabled() )
-        return TRUE; /* Nothing to do */
+        return FALSE; /* Nothing to do and ignore DarkMode */
 
     BOOL DarkMode = IsDarkModeEnabled();
     if ( OredredWinVer() >= 0x0A004A29 ) {
         /* Windows 10 build 10.0.18985 ie 20H1 */
-        return S_OK == DwmSetWindowAttributeL(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &DarkMode, sizeof(DarkMode));
+        DwmSetWindowAttributeL(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &DarkMode, sizeof(DarkMode));
     } else if ( OredredWinVer() >= 0x0A004563) {
         /* Windows 10 build 10.0.17763 ie: 1809 or later */
 
@@ -664,9 +672,10 @@ static BOOL AllowDarkTitlebar(HWND hwnd)
             /* Windows 10 build 10.0.18362 ie: before 1903 */
             SetProp(hwnd, TEXT("UseImmersiveDarkModeColors"), (HANDLE)(LONG_PTR)DarkMode);
         }
-        return S_OK == DwmSetWindowAttributeL(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_PRE20H1, &DarkMode, sizeof(DarkMode));
+        DwmSetWindowAttributeL(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_PRE20H1, &DarkMode, sizeof(DarkMode));
     }
-    return FALSE;
+    /* We must return the actual state of the Dark mode */
+    return DarkMode;
 }
 
 /* Helper function */

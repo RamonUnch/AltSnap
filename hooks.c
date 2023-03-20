@@ -538,7 +538,7 @@ static int HitTestTimeoutbl(HWND hwnd, POINT pt)
     return area;
 }
 /////////////////////////////////////////////////////////////////////////////
-// 
+//
 static void GetMinMaxInfo(HWND hwnd, POINT *Min, POINT *Max)
 {
     GetMinMaxInfoF(hwnd, Min, Max, conf.IgnoreMinMaxInfo);
@@ -2872,28 +2872,53 @@ static int ActionAltTab(POINT pt, short delta, short laser, WNDENUMPROC lpEnumFu
     }
     return 1;
 }
+/////////////////////////////////////////////////////////////////////////////
+// Helper function with a stupid static accululator for
+// The wheel in case we have a fine wheel that is unable to
+// trigger a single step.
+static short ScaleDeltaAndAccum(short delta, short tar_delta)
+{
+    short step = ((int)tar_delta * (int)delta) / WHEEL_DELTA;
+    // Only accumulate
+    if( step == 0 )
+    { // step is too small, we need to accumulate delta
+        static short delta_acc = 0;
+        delta_acc += delta;
+        // Recalculate the step.
+        step = (tar_delta * delta_acc) / WHEEL_DELTA;
+        if( step == 0 )
+            return 0;
+        else // Reset the value (simpler)
+            delta_acc = 0;
+    }
+    return step;
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // Changes the Volume on Windows 2000+ using VK_VOLUME_UP/VK_VOLUME_DOWN
-static void ActionVolume(int delta)
+static void ActionVolume(short delta)
 {
-    UCHAR num = (state.shift)?5:1;
+    short num = (state.shift)?5:1;
+    num = ScaleDeltaAndAccum(delta, num);
+    num = abs(num);
     while (num--)
         Send_KEY(delta>0? VK_VOLUME_UP: VK_VOLUME_DOWN);
 
     return;
 }
+
 /////////////////////////////////////////////////////////////////////////////
 // Windows 2000+ Only
-static int ActionTransparency(HWND hwnd, int delta)
+static int ActionTransparency(HWND hwnd, short delta)
 {
     static int alpha=255;
 
     if (blacklisted(hwnd, &BlkLst.Windows)) return 0; // Spetial
     if (MOUVEMENT(state.action)) SetWindowTrans((HWND)-1);
 
-    int alpha_delta = (state.shift)? conf.AlphaDeltaShift: conf.AlphaDelta;
-    alpha_delta *= sign(delta);
+    short pre_delta = (state.shift)? conf.AlphaDeltaShift: conf.AlphaDelta;
+    int alpha_delta = ScaleDeltaAndAccum(delta, pre_delta);
+    if (!alpha_delta) return 1;
 
     LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
     if (alpha_delta < 0 && !(exstyle&WS_EX_LAYERED)) {
@@ -3090,7 +3115,7 @@ static void RollWindow(HWND hwnd, int delta)
     }
 }
 
-static int ActionZoom(HWND hwnd, int delta, int center)
+static int ActionZoom(HWND hwnd, short delta, short center)
 {
     if(!IsResizable(hwnd)) return 0;
 

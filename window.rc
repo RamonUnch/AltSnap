@@ -3,7 +3,7 @@
 #include "resource.h"
 
 /////////////////////////////////////////////////////////////////////////////
-IDD_ABOUTPAGE DIALOGEX 0, 0, 220, 225
+IDD_ABOUTPAGE DIALOG 0, 0, 220, 225
 STYLE WS_CHILD | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | DS_3DLOOK
 CAPTION "" // ABOUT
 FONT 8, "Ms Shell Dlg"
@@ -58,11 +58,11 @@ BEGIN
     EDITTEXT    IDC_GWLEXSTYLE,  160,180,50,12,ES_AUTOHSCROLL
     LTEXT       "RECT:", 0, 102,197,22,8
     EDITTEXT    IDC_RECT,  125,195,85,12,ES_AUTOHSCROLL
-    LTEXT       "", IDC_WINHANDLES, 10,208,200,8
+    LTEXT       "", IDC_WINHANDLES, 6,208,206,8
 END
 
 /////////////////////////////////////////////////////////////////////////////
-IDD_GENERALPAGE DIALOGEX 0, 0, 220, 225
+IDD_GENERALPAGE DIALOG 0, 0, 220, 225
 STYLE WS_CHILD | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | DS_3DLOOK
 EXSTYLE WS_EX_WINDOWEDGE
 CAPTION "" // GENERAL

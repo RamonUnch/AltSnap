@@ -50,7 +50,8 @@ enum button { BT_NONE=0, BT_LMB=0x02, BT_RMB=0x03, BT_MMB=0x04, BT_MB4=0x05
             , BT_MB13=0x0E, BT_MB14=0x0F, BT_MB15=0x10, BT_MB16=0x11
             , BT_MB17=0x12, BT_MB18=0x13, BT_MB19=0x14, BT_MB20=0x15
             , BT_WHEEL=0x16, BT_HWHEEL=0x17 };
-enum resize { RZ_NONE=0, RZ_TOP, RZ_RIGHT, RZ_BOTTOM, RZ_LEFT, RZ_CENTER };
+enum resizeX { RZ_XNONE=0, RZ_LEFT=1, RZ_RIGHT= 2, RZ_XCENTER=3 };
+enum resizeY { RZ_YNONE=0, RZ_TOP= 1, RZ_BOTTOM=2, RZ_YCENTER=3 };
 enum buttonstate {STATE_NONE, STATE_DOWN, STATE_UP};
 
 #define BT_PROBE (1<<16)
@@ -71,9 +72,10 @@ static struct windowRR {
 } LastWin;
 
 struct resizeXY {
-    enum resize x, y;
+    enum resizeX x;
+    enum resizeY y;
 };
-static const struct resizeXY AUTORESIZE =   {RZ_NONE, RZ_NONE};
+static const struct resizeXY AUTORESIZE =   {RZ_XNONE, RZ_YNONE};
 // State
 static struct {
     struct {
@@ -1550,11 +1552,11 @@ static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *w
         FixDWMRect(state.hwnd, &borders);
     }
     unsigned restore = GetRestoreFlag(state.hwnd);
-    if (state.resize.x == RZ_CENTER && state.resize.y == RZ_TOP && pt.y < state.origin.mon.top + AERO_TH) {
+    if (state.resize.x == RZ_XCENTER && state.resize.y == RZ_TOP && pt.y < state.origin.mon.top + AERO_TH) {
         restore = SNAPPED|SNMAXH;
         *wndheight = CLAMPH(state.origin.mon.bottom - state.origin.mon.top + borders.bottom + borders.top);
         *posy = state.origin.mon.top - borders.top;
-    } else if (state.resize.x == RZ_LEFT && state.resize.y == RZ_CENTER && pt.x < state.origin.mon.left + AERO_TH) {
+    } else if (state.resize.x == RZ_LEFT && state.resize.y == RZ_YCENTER && pt.x < state.origin.mon.left + AERO_TH) {
         restore = SNAPPED|SNMAXW;
         *wndwidth = CLAMPW(state.origin.mon.right - state.origin.mon.left + borders.left + borders.right);
         *posx = state.origin.mon.left - borders.left;
@@ -2003,7 +2005,7 @@ static void MouseMove(POINT pt)
         // Clear restore flag if needed
         ClearRestoreFlagOnResizeIfNeeded(state.hwnd);
         // Figure out new placement
-        if (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER) {
+        if (state.resize.x == RZ_XCENTER && state.resize.y == RZ_YCENTER) {
             if (state.shift) pt.x = state.shiftpt.x;
             else if (state.ctrl) pt.y = state.ctrlpt.y;
             wndwidth  = wnd.right-wnd.left + 2*(pt.x-state.offset.x);
@@ -2029,7 +2031,7 @@ static void MouseMove(POINT pt)
             if (state.resize.y == RZ_TOP) {
                 wndheight = CLAMPH( (wnd.bottom-pt.y+state.offset.y) - state.mdipt.y );
                 posy = state.origin.bottom - wndheight;
-            } else if (state.resize.y == RZ_CENTER) {
+            } else if (state.resize.y == RZ_YCENTER) {
                 posy = wnd.top - state.mdipt.y;
                 wndheight = wnd.bottom - wnd.top;
             } else if (state.resize.y == RZ_BOTTOM) {
@@ -2039,7 +2041,7 @@ static void MouseMove(POINT pt)
             if (state.resize.x == RZ_LEFT) {
                 wndwidth = CLAMPW( (wnd.right-pt.x+state.offset.x) - state.mdipt.x );
                 posx = state.origin.right - wndwidth;
-            } else if (state.resize.x == RZ_CENTER) {
+            } else if (state.resize.x == RZ_XCENTER) {
                 posx = wnd.left - state.mdipt.x;
                 wndwidth = wnd.right - wnd.left;
             } else if (state.resize.x == RZ_RIGHT) {
@@ -3033,11 +3035,11 @@ static HCURSOR CursorToDraw()
     } else if ((state.resize.y == RZ_TOP && state.resize.x == RZ_RIGHT)
      || (state.resize.y == RZ_BOTTOM && state.resize.x == RZ_LEFT)) {
         return LoadCursor(NULL, IDC_SIZENESW);
-    } else if ((state.resize.y == RZ_TOP && state.resize.x == RZ_CENTER)
-     || (state.resize.y == RZ_BOTTOM && state.resize.x == RZ_CENTER)) {
+    } else if ((state.resize.y == RZ_TOP && state.resize.x == RZ_XCENTER)
+     || (state.resize.y == RZ_BOTTOM && state.resize.x == RZ_XCENTER)) {
         return LoadCursor(NULL, IDC_SIZENS);
-    } else if ((state.resize.y == RZ_CENTER && state.resize.x == RZ_LEFT)
-     || (state.resize.y == RZ_CENTER && state.resize.x == RZ_RIGHT)) {
+    } else if ((state.resize.y == RZ_YCENTER && state.resize.x == RZ_LEFT)
+     || (state.resize.y == RZ_YCENTER && state.resize.x == RZ_RIGHT)) {
         return LoadCursor(NULL, IDC_SIZEWE);
     } else {
         return LoadCursor(NULL, IDC_SIZEALL);
@@ -3132,10 +3134,10 @@ static int ActionZoom(HWND hwnd, short delta, short center)
     // We increase/decrease at least 1 pixel or SnapThreshold/2.
     UCHAR T = state.shift? 1: conf.SnapThreshold/2+1;
     UCHAR CT = !center ^ !state.ctrl
-             || (state.resize.x == RZ_CENTER && state.resize.y == RZ_CENTER);
+             || (state.resize.x == RZ_XCENTER && state.resize.y == RZ_YCENTER);
 
     if (!conf.AutoSnap
-    || (CT && (state.resize.x == RZ_CENTER || state.resize.y == RZ_CENTER)) )
+    || (CT && (state.resize.x == RZ_XCENTER || state.resize.y == RZ_YCENTER)) )
     {   // Try to conserve a bit better the aspect ratio when in center mode.
         T = 1; // Or when no snapping has to occur.
     }
@@ -3148,7 +3150,7 @@ static int ActionZoom(HWND hwnd, short delta, short center)
     } else if (state.resize.x == RZ_RIGHT) {
         left  = max(T, (rc.right-rc.left)/div);
         state.resize.x = RZ_LEFT;
-    } else if (state.resize.x == RZ_CENTER && CT) {
+    } else if (state.resize.x == RZ_XCENTER && CT) {
         left  = max(T, (state.prevpt.x-rc.left)  /div);
         right = max(T, (rc.right-state.prevpt.x) /div);
     }
@@ -3159,7 +3161,7 @@ static int ActionZoom(HWND hwnd, short delta, short center)
     } else if (state.resize.y == RZ_BOTTOM) {
         top    = max(T, (rc.bottom-rc.top)/div);
         state.resize.y = RZ_TOP;
-    } else if (state.resize.y == RZ_CENTER && CT) {
+    } else if (state.resize.y == RZ_YCENTER && CT) {
         top   = max(T, (state.prevpt.y-rc.top)   /div);
         bottom= max(T, (rc.bottom-state.prevpt.y)/div);
     }
@@ -3190,8 +3192,8 @@ static int ActionZoom(HWND hwnd, short delta, short center)
     if (state.resize.x == RZ_LEFT) x = x+width - CLAMPW(width);
     if (state.resize.y == RZ_TOP) y = y+height - CLAMPH(height);
     // Avoid runaway effect when zooming in/out too much.
-    if (state.resize.x == RZ_CENTER && !ISCLAMPEDW(width)) x = orc.left;
-    if (state.resize.y == RZ_CENTER && !ISCLAMPEDH(height)) y = orc.top;
+    if (state.resize.x == RZ_XCENTER && !ISCLAMPEDW(width)) x = orc.left;
+    if (state.resize.y == RZ_YCENTER && !ISCLAMPEDH(height)) y = orc.top;
     width = CLAMPW(width); // Double check
     height = CLAMPH(height);
 
@@ -3248,7 +3250,7 @@ static void SetEdgeAndOffsetCF(const RECT *wnd, const UCHAR centerfrac, POINT pt
         state.resize.x = RZ_LEFT;
         state.offset.x = pt.x-wnd->left;
     } else if (pt.x-wnd->left < (wndwidth*CenteR)/100) {
-        state.resize.x = RZ_CENTER;
+        state.resize.x = RZ_XCENTER;
         state.offset.x = pt.x-state.mdipt.x; // Used only if both x and y are CENTER
     } else {
         state.resize.x = RZ_RIGHT;
@@ -3258,7 +3260,7 @@ static void SetEdgeAndOffsetCF(const RECT *wnd, const UCHAR centerfrac, POINT pt
         state.resize.y = RZ_TOP;
         state.offset.y = pt.y-wnd->top;
     } else if (pt.y-wnd->top < (wndheight*CenteR)/100) {
-        state.resize.y = RZ_CENTER;
+        state.resize.y = RZ_YCENTER;
         state.offset.y = pt.y-state.mdipt.y;
     } else {
         state.resize.y = RZ_BOTTOM;
@@ -3304,7 +3306,7 @@ static void SetEdgeAndOffset(const RECT *wnd, const POINT pt)
         return;
     }
     // Special mode.
-    if (state.resize.x != RZ_CENTER || state.resize.y != RZ_CENTER) {
+    if (state.resize.x != RZ_XCENTER || state.resize.y != RZ_YCENTER) {
         SetEdgeAndOffsetCF(wnd, conf.SidesFraction, pt);
         if (conf.SidesFraction < conf.CenterFraction) {
         } else { // (SidesFraction > CenterFraction)
@@ -3381,7 +3383,7 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
         } else if (resize.x == RZ_LEFT) {
             posx = mon->left - bd.left;
             wndwidth =  CLAMPW(wnd.right-state.mdipt.x - mon->left + bd.left);
-        } else if (resize.x == RZ_CENTER && resize.y == RZ_CENTER) {
+        } else if (resize.x == RZ_XCENTER && resize.y == RZ_YCENTER) {
             wndwidth = CLAMPW(mon->right - mon->left + bd.left + bd.right);
             posx = mon->left - bd.left;
             posy = wnd.top - state.mdipt.y + bd.top ;
@@ -3410,7 +3412,7 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
         posy = mon->top;
         restore = SNTOPLEFT;
 
-        if (resize.y == RZ_CENTER) {
+        if (resize.y == RZ_YCENTER) {
             wndheight = CLAMPH(mon->bottom - mon->top); // Max Height
             posy += (mon->bottom - mon->top)/2 - wndheight/2;
             restore &= ~SNTOP;
@@ -3421,13 +3423,13 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
             restore |= SNBOTTOM;
         }
 
-        if (resize.x == RZ_CENTER && resize.y != RZ_CENTER) {
+        if (resize.x == RZ_XCENTER && resize.y != RZ_YCENTER) {
             wndwidth = CLAMPW( (mon->right-mon->left) ); // Max width
             posx += (mon->right - mon->left)/2 - wndwidth/2;
             restore &= ~SNLEFT;
-        } else if (resize.x == RZ_CENTER) {
+        } else if (resize.x == RZ_XCENTER) {
             restore &= ~SNLEFT;
-            if(resize.y == RZ_CENTER) {
+            if(resize.y == RZ_YCENTER) {
                 restore |= SNMAXH;
                 if(state.ctrl) {
                     LastWin.hwnd = NULL;
@@ -3470,7 +3472,7 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
         return 1;
     }
     SetEdgeAndOffset(wnd, pt);
-    if (state.resize.y == RZ_CENTER && state.resize.x == RZ_CENTER) {
+    if (state.resize.y == RZ_YCENTER && state.resize.x == RZ_XCENTER) {
         if (conf.ResizeCenter == 0) {
             // Use Bottom Right Mode
             state.resize.x = RZ_RIGHT;
@@ -4216,10 +4218,10 @@ static void ActionMenu(HWND hwnd)
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
 {
-    const struct resizeXY RXY_LEFT_CENTER =   {RZ_LEFT, RZ_CENTER};
-    const struct resizeXY RXY_RIGHT_CENTER =  {RZ_RIGHT, RZ_CENTER};
-    const struct resizeXY RXY_CENTER_TOP =    {RZ_CENTER, RZ_TOP};
-    const struct resizeXY RXY_CENTER_BOTTOM = {RZ_CENTER, RZ_BOTTOM};
+    const struct resizeXY RXY_LEFT_CENTER =   {RZ_LEFT, RZ_YCENTER};
+    const struct resizeXY RXY_RIGHT_CENTER =  {RZ_RIGHT, RZ_YCENTER};
+    const struct resizeXY RXY_CENTER_TOP =    {RZ_XCENTER, RZ_TOP};
+    const struct resizeXY RXY_CENTER_BOTTOM = {RZ_XCENTER, RZ_BOTTOM};
 
     state.sactiondone = action;
     LOG("Going to perform action %d", (int)action);

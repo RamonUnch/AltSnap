@@ -254,7 +254,7 @@ static DWORD GetMsgPT(POINT *pt)
 {
     DWORD point = GetMessagePos();
     pt->x = GET_X_LPARAM(point);
-    pt->y = GET_X_LPARAM(point);
+    pt->y = GET_Y_LPARAM(point);
 
     return point;
 }

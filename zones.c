@@ -14,7 +14,7 @@ unsigned nzones[MAX_LAYOUTS];
 DWORD Grids[MAX_LAYOUTS];
 static void freezones()
 {
-    USHORT i;
+    unsigned i;
     for (i=0; i<ARR_SZ(Zones);i++)
         free(Zones[i]);
 }
@@ -130,7 +130,64 @@ static void RecalculateZonesFromGrids()
     }
 }
 
-static unsigned GetZoneFromPoint(POINT pt, RECT *urc, int extend)
+static xpure unsigned long ClacPtRectDist(const POINT pt, const RECT *zone)
+{
+    POINT Zpt = { (zone->left+zone->right)/2, (zone->top+zone->bottom)/2 };
+    long dx = (pt.x - Zpt.x)>>2;
+    long dy = (pt.y - Zpt.y)>>2;
+    // The distance between two points is the sum of |dx| and |dy| right?
+    // I dont like squares
+    return abs(dx) + abs(dy);
+}
+
+static unsigned GetNearestZoneDist(POINT pt, unsigned long *dist_)
+{
+    RECT * const lZones = Zones[conf.LayoutNumber];
+    if(!lZones) return 0;
+    unsigned long dist = 0xffffffff;
+    unsigned idx = 0;
+    unsigned i;
+    for (i=0; i < nzones[conf.LayoutNumber]; i++) {
+        unsigned long dst = ClacPtRectDist(pt, &lZones[i]);
+        if ( dst < dist ) {
+            dist = dst;
+            idx = i;
+        }
+    }
+    *dist_ = dist;
+    return idx;
+}
+
+static unsigned GetZoneNearestFromPoint(POINT pt, RECT *urc, int extend)
+{
+
+    RECT * const lZones = Zones[conf.LayoutNumber];
+    if(!lZones) return 0;
+    unsigned i, ret=0;
+    SetRectEmpty(urc);
+    int iz = conf.InterZone;
+    unsigned long mindist=0;
+    i = GetNearestZoneDist(pt, &mindist);
+    if (iz <= 0) {
+        // Single zone mode, copy the nearest rect:
+        CopyRect(urc, &lZones[i]);
+        return mindist != 0xffffffff;
+    }
+    for (i=0; i < nzones[conf.LayoutNumber]; i++) {
+
+        BOOL inrect = (mindist + iz) > ClacPtRectDist(pt, &lZones[i]);
+        if ((state.ctrl||extend) && !inrect)
+            inrect = (mindist + iz) > ClacPtRectDist(extend?state.shiftpt:state.ctrlpt, &lZones[i]);
+
+        if (inrect) {
+            UnionRect(urc, urc, &lZones[i]);
+            ret++;
+        }
+    }
+    return ret;
+}
+
+static unsigned GetZoneContainingPoint(POINT pt, RECT *urc, int extend)
 {
 
     RECT * const lZones = Zones[conf.LayoutNumber];
@@ -153,6 +210,15 @@ static unsigned GetZoneFromPoint(POINT pt, RECT *urc, int extend)
         }
     }
     return ret;
+}
+static unsigned GetZoneFromPoint(POINT pt, RECT *urc, int extend)
+{
+	switch (conf.ZSnapMode) {
+	case 0: return GetZoneContainingPoint(pt, urc, extend);
+	case 1: return GetZoneNearestFromPoint(pt, urc, extend);
+	}
+	// Invalid Snap mode!
+	return 0;
 }
 static int pure IsResizable(HWND hwnd);
 
@@ -230,7 +296,7 @@ static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
     ClampPointInRect(&mi.rcWork, &pt);
 
     RECT zrc;
-    unsigned ret = GetZoneFromPoint(pt, &zrc, 0);
+    unsigned ret = GetZoneContainingPoint(pt, &zrc, 0);
     if (!ret) return; // Outside of a rect
 
     RECT fr; // final rect...

@@ -133,11 +133,10 @@ static void RecalculateZonesFromGrids()
 static xpure unsigned long ClacPtRectDist(const POINT pt, const RECT *zone)
 {
     POINT Zpt = { (zone->left+zone->right)/2, (zone->top+zone->bottom)/2 };
-    long dx = (pt.x - Zpt.x)>>2;
-    long dy = (pt.y - Zpt.y)>>2;
-    // The distance between two points is the sum of |dx| and |dy| right?
-    // I dont like squares
-    return abs(dx) + abs(dy);
+    long dx = (pt.x - Zpt.x)>>1;
+    long dy = (pt.y - Zpt.y)>>1;
+
+    return dx*dx + dy*dy;
 }
 
 static unsigned GetNearestZoneDist(POINT pt, unsigned long *dist_)
@@ -166,18 +165,19 @@ static unsigned GetZoneNearestFromPoint(POINT pt, RECT *urc, int extend)
     unsigned i, ret=0;
     SetRectEmpty(urc);
     int iz = conf.InterZone;
+    iz = (iz * iz) << 1;
     unsigned long mindist=0;
+
     i = GetNearestZoneDist(pt, &mindist);
-    if (iz <= 0) {
-        // Single zone mode, copy the nearest rect:
-        CopyRect(urc, &lZones[i]);
-        return mindist != 0xffffffff;
-    }
+    ret = mindist != 0xffffffff;
+    if (!ret) return 0;
+    CopyRect(urc, &lZones[i]);
+    mindist += iz; // Add iz tolerance.
     for (i=0; i < nzones[conf.LayoutNumber]; i++) {
 
-        BOOL inrect = (mindist + iz) > ClacPtRectDist(pt, &lZones[i]);
+        BOOL inrect = mindist > ClacPtRectDist(pt, &lZones[i]);
         if ((state.ctrl||extend) && !inrect)
-            inrect = (mindist + iz) > ClacPtRectDist(extend?state.shiftpt:state.ctrlpt, &lZones[i]);
+            inrect = mindist > ClacPtRectDist(extend?state.shiftpt:state.ctrlpt, &lZones[i]);
 
         if (inrect) {
             UnionRect(urc, urc, &lZones[i]);

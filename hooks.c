@@ -329,7 +329,7 @@ static const struct OptionListItem Zones_uchars[] = {
     { "UseZones", 0 },
     { "ZSnapMode", 0 },
     { "LayoutNumber", 0 },
-    { "InterZone", 0 },
+    { "InterZone", 32 },
   # ifdef WIN64
     { "FancyZone", 0 },
   # endif
@@ -4207,13 +4207,13 @@ static void ActionMenu(HWND hwnd)
     ReallySetForegroundWindow(g_mainhwnd);
     PostMessage(
         g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd,
-       ( !state.ignorept )                                      // LP_CURSORPOS
-       | !!(GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST)<<1 // LP_TOPMOST
-       | !!GetBorderlessFlag(hwnd) << 2                        // LP_BORDERLESS
-       | IsZoomed(hwnd) << 3                                    // LP_MAXIMIZED
-       | !!(GetRestoreFlag(hwnd)&2) << 4                           // LP_ROLLED
-       | !!GetProp(state.hwnd, APP_MOVEONOFF) << 5             // LP_MOVEONOFF
-       | (!state.alt && state.hittest) << 6                   // LP_NOALTACTION
+       ( !state.ignorept )                                    // LP_CURSORPOS
+       | !!(GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOPMOST)<<1//LP_TOPMOST
+       | !!GetBorderlessFlag(hwnd) << 2                      // LP_BORDERLESS
+       | IsZoomed(hwnd) << 3                                  // LP_MAXIMIZED
+       | !!(GetRestoreFlag(hwnd)&2) << 4                         // LP_ROLLED
+       | !!GetProp(state.hwnd, APP_MOVEONOFF) << 5            // LP_MOVEONOFF
+       | (state.alt <= BT_MB5) << 6                         // LP_NOALTACTION
     );
 }
 /////////////////////////////////////////////////////////////////////////////

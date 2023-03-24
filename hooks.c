@@ -215,6 +215,7 @@ static struct config {
     UCHAR UniKeyHoldMenu;
     // [Zones]
     UCHAR UseZones;
+    UCHAR ZSnapMode;
     UCHAR LayoutNumber;
     char InterZone;
   # ifdef WIN64
@@ -326,6 +327,7 @@ static const struct OptionListItem Input_uchars[] = {
 // [Zones]
 static const struct OptionListItem Zones_uchars[] = {
     { "UseZones", 0 },
+    { "ZSnapMode", 0 },
     { "LayoutNumber", 0 },
     { "InterZone", 0 },
   # ifdef WIN64

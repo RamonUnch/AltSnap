@@ -2966,13 +2966,13 @@ static void SetBottomMost(HWND hwnd)
 }
 /////////////////////////////////////////////////////////////////////////////
 static int xpure IsAeraCapbutton(int area);
-static void ActionLower(HWND hwnd, int delta, UCHAR shift)
+static void ActionLower(HWND hwnd, short delta, UCHAR shift, UCHAR fg)
 {
     if (delta > 0) {
         if (shift) {
             ToggleMaxRestore(hwnd);
         } else {
-            if (conf.AutoFocus || state.ctrl) SetForegroundWindowL(hwnd);
+            if (conf.AutoFocus || fg) SetForegroundWindowL(hwnd);
             SetWindowLevel(hwnd, HWND_TOPMOST);
             SetWindowLevel(hwnd, HWND_NOTOPMOST);
         }
@@ -2999,7 +2999,7 @@ static void ActionMaxRestMin(HWND hwnd, int delta)
 {
     int maximized = IsZoomed(hwnd);
     if (state.shift) {
-        ActionLower(hwnd, delta, 0);
+        ActionLower(hwnd, delta, 0, state.ctrl);
         return;
     }
 
@@ -4233,7 +4233,8 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_CENTER:      CenterWindow(hwnd, !state.shift /*state.shift? 0: CW_RESTORE*/); break;
     case AC_ALWAYSONTOP: TogglesAlwaysOnTop(hwnd); break;
     case AC_CLOSE:       PostMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0); break;
-    case AC_LOWER:       ActionLower(hwnd, 0, state.shift); break;
+    case AC_LOWER:       ActionLower(hwnd, 0, state.shift, state.ctrl); break;
+    case AC_FOCUS:       ActionLower(hwnd, +120, state.shift, 1); break;
     case AC_BORDERLESS:  ActionBorderless(hwnd); break;
     case AC_KILL:        ActionKill(hwnd); break;
     case AC_PAUSE:       ActionPause(hwnd, 1); break;
@@ -4303,7 +4304,7 @@ static int DoWheelActions(HWND hwnd, enum action action)
                              , state.shift?EnumStackedWindowsProc:EnumAltTabWindows); break;
     case AC_VOLUME:       ActionVolume(state.delta); break;
     case AC_TRANSPARENCY: ret = ActionTransparency(hwnd, state.delta); break;
-    case AC_LOWER:        ActionLower(hwnd, state.delta, state.shift); break;
+    case AC_LOWER:        ActionLower(hwnd, state.delta, state.shift, state.ctrl); break;
     case AC_MAXIMIZE:     ActionMaxRestMin(hwnd, state.delta); break;
     case AC_ROLL:         RollWindow(hwnd, state.delta); break;
     case AC_HSCROLL:      ret = ScrollPointedWindow(state.prevpt, -state.delta, WM_MOUSEHWHEEL); break;

@@ -73,6 +73,7 @@
     ACVALUE(AC_ALWAYSONTOP,  "AlwaysOnTop", ZO) \
     ACVALUE(AC_CLOSE,        "Close",       CL) \
     ACVALUE(AC_LOWER,        "Lower",       ZO) \
+    ACVALUE(AC_FOCUS,        "Focus",       ZO) \
     ACVALUE(AC_BORDERLESS,   "Borderless",  00) \
     ACVALUE(AC_KILL,         "Kill",        CL) \
     ACVALUE(AC_PAUSE,        "Pause",       CL) \

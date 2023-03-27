@@ -784,6 +784,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {TEXT("Minimize"),    L10NIDX(input_actions_minimize) }, \
         {TEXT("Maximize"),    L10NIDX(input_actions_maximize) }, \
         {TEXT("Lower"),       L10NIDX(input_actions_lower) },    \
+        {TEXT("Focus"),       L10NIDX(input_actions_focus) },    \
         {TEXT("NStacked"),    L10NIDX(input_actions_nstacked) }, \
         {TEXT("PStacked"),    L10NIDX(input_actions_pstacked) }, \
         {TEXT("StackList"),   L10NIDX(input_actions_stacklist) }, \

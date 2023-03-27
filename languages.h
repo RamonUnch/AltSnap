@@ -135,6 +135,7 @@ struct strings {
   TCHAR *input_actions_minimize;
   TCHAR *input_actions_maximize;
   TCHAR *input_actions_lower;
+  TCHAR *input_actions_focus;
   TCHAR *input_actions_nstacked;
   TCHAR *input_actions_nstacked2;
   TCHAR *input_actions_pstacked;
@@ -372,6 +373,7 @@ static const char* l10n_inimapping[] = {
     "InputActionMinimize",
     "InputActionMaximize",
     "InputActionLower",
+    "InputActionFocus",
     "InputActionNStacked",
     "InputActionNStacked2",
     "InputActionPStacked",
@@ -608,6 +610,7 @@ static const struct strings en_US = {
  /* minimize           */ TEXT("Mi&nimize window"),
  /* maximize           */ TEXT("Ma&ximize window"),
  /* lower              */ TEXT("&Lower window"),
+ /* focus              */ TEXT("Focus window"),
  /* nstacked           */ TEXT("Next stacked window"),
  /* nstacked 2         */ TEXT("Next laser stacked window"),
  /* pstacked           */ TEXT("Previous stacked window"),
@@ -616,8 +619,8 @@ static const struct strings en_US = {
  /* npstacked          */ TEXT("Next/Prev laser stacked window"),
  /* stacklist          */ TEXT("Stacked windows list"),
  /* stacklist2         */ TEXT("Laser stacked windows list"),
- /* alttablist         */ TEXT("Windows List"),
- /* alttabfulllist     */ TEXT("All Windows List"),
+ /* alttablist         */ TEXT("Windows list"),
+ /* alttabfulllist     */ TEXT("All windows list"),
  /* mlzone             */ TEXT("Move to the left zone"),
  /* mtzone             */ TEXT("Move to the top zone"),
  /* mrzone             */ TEXT("Move to the right zone"),

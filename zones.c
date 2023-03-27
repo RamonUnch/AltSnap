@@ -65,6 +65,15 @@ static void ReadZones(const TCHAR *inisection)
     for(i=0; i<ARR_SZ(Zones); i++)
         ReadZonesFromLayout(inisection, i);
 }
+static unsigned CopyZones(RECT *dZones, unsigned idx)
+{
+    unsigned i;
+    RECT * const lZones = Zones[idx];
+    for (i=0; i < nzones[idx]; ++i) {
+        CopyRect(&dZones[i], &lZones[i]);
+    }
+    return i;
+}
 // Generate a grid if asked
 static void GenerateGridZones(unsigned layout, unsigned short Nx, unsigned short Ny)
 {

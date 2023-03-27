@@ -1549,7 +1549,11 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 
     return FALSE;
 }
-static HWND NewTestWindow();
+static HWND NewTestWindowAt(int x, int y, int width, int height);
+static HWND NewTestWindow()
+{
+    return NewTestWindowAt(CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT);
+}
 
 static void ToggleFullScreen(HWND hwnd)
 {
@@ -1859,7 +1863,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
-static HWND NewTestWindow()
+static HWND NewTestWindowAt(int x, int y, int width, int height)
 {
     HWND testwnd;
     WNDCLASSEX wnd;
@@ -1881,7 +1885,7 @@ static HWND NewTestWindow()
     testwnd = CreateWindowEx(0
          , TEXT(APP_NAMEA"-Test"), wintitle
          , WS_OVERLAPPEDWINDOW
-         , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT
+         , x, y, width, height
          , NULL, NULL, g_hinst, NULL);
     PostMessage(testwnd, WM_UPDCFRACTION, 0, 0);
     ShowWindow(testwnd, SW_SHOW);

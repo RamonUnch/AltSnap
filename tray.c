@@ -216,17 +216,19 @@ static void SaveCurrentLayout()
 
 static void catFullLayoutName(TCHAR *txt, size_t len, int laynum)
 {
-    TCHAR numstr[UINT_DIGITS+1];
+    TCHAR n1[UINT_DIGITS+1];
     lstrcat_s(txt, len, l10n->menu_snaplayout);
-    lstrcat_s(txt, len, Uint2lStr(numstr, laynum+1));
+    lstrcat_s(txt, len, Uint2lStr(n1, laynum+1));
     if (g_dllmsgHKhwnd) {
         DWORD rez =0;
         if ((rez = SendMessage(g_dllmsgHKhwnd, WM_GETLAYOUTREZ, laynum, 0))) {
+            // TCHAR n2[UINT_DIGITS+1];
             // Add (width:height) to label the layout.
+            // lstrcatM_s(txt, len ,TEXT("  ("), Uint2lStr(n1, LOWORD(rez)),TEXT(":"),Uint2lStr(n2, HIWORD(rez)), TEXT(")"), NULL);
             lstrcat_s(txt, len, TEXT("  ("));
-            lstrcat_s(txt, len, Uint2lStr(numstr, LOWORD(rez)));
+            lstrcat_s(txt, len, Uint2lStr(n1, LOWORD(rez)));
             lstrcat_s(txt, len, TEXT(":"));
-            lstrcat_s(txt, len, Uint2lStr(numstr, HIWORD(rez)));
+            lstrcat_s(txt, len, Uint2lStr(n1, HIWORD(rez)));
             lstrcat_s(txt, len, TEXT(")"));
         } else {
             lstrcat_s(txt, len, TEXT("  "));
@@ -259,8 +261,8 @@ static void ShowContextMenu(HWND hwnd)
         if(MaxLayouts)
             AppendMenu(menu, MF_SEPARATOR, 0, NULL);
         int i;
+        TCHAR txt[128];
         for (i=0; i < MaxLayouts; i++) {
-            TCHAR txt[128];
             txt[0] = '\0';
             catFullLayoutName(txt, ARR_SZ(txt), i);
             // Check the current layout We use a simple checkmark,
@@ -270,8 +272,13 @@ static void ShowContextMenu(HWND hwnd)
         }
 
         if (!(UseZones&2)) {
+            TCHAR numstr[INT_DIGITS+1];
+            lstrcpy_s(txt, ARR_SZ(txt), l10n->menu_editlayout);
+            lstrcat_s(txt, ARR_SZ(txt), TEXT(" "));
+            lstrcat_s(txt, ARR_SZ(txt), Int2lStr(numstr, LayoutNumber+1));
             AppendMenu(menu, MF_SEPARATOR, 0, NULL);
             AppendMenu(menu, MF_STRING, SWM_TESTWIN,  l10n->advanced_testwindow);
+            AppendMenu(menu, MF_STRING, SWM_EDITLAYOUT, txt);
             AppendMenu(menu, FindWindow(TEXT(APP_NAMEA"-test"), NULL)? MF_STRING :MF_STRING|MF_GRAYED
                       , SWM_SAVEZONES, l10n->menu_savezones);
         }

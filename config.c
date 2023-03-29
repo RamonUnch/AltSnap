@@ -915,11 +915,11 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             for (i = 0; i < ARR_SZ(mouse_buttons); i++) {
                 FillActionDropListS(hwnd, mouse_buttons[i].control, mouse_buttons[i].option[optoff], optoff<3?mouse_actions:mouse_actionsWMR);
             }
-	        if (optoff < 3) {
-	            for (i = 0; i < ARR_SZ(mouse_buttonsUP); i++) {
-	                FillActionDropListS(hwnd, mouse_buttonsUP[i].control, mouse_buttonsUP[i].option[optoff], mouse_actionsUP);
-	            }
-	        }
+            if (optoff < 3) {
+                for (i = 0; i < ARR_SZ(mouse_buttonsUP); i++) {
+                    FillActionDropListS(hwnd, mouse_buttonsUP[i].control, mouse_buttonsUP[i].option[optoff], mouse_actionsUP);
+                }
+            }
             // Scroll actions, always the same.
             for (i = 0; i < ARR_SZ(mouse_wheels); i++) {
                 FillActionDropListS(hwnd, mouse_wheels[i].control, mouse_wheels[i].option[optoff], scroll_actions);
@@ -970,10 +970,10 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                                    , optoff<3? mouse_actions: mouse_actionsWMR);
             }
             if (optoff < 3) {
-	            for (i = 0; i < ARR_SZ(mouse_buttonsUP); i++) {
-	                WriteActionDropListS(hwnd, mouse_buttonsUP[i].control, mouse_buttonsUP[i].option[optoff], mouse_actionsUP);
-	            }
-	        }
+                for (i = 0; i < ARR_SZ(mouse_buttonsUP); i++) {
+                    WriteActionDropListS(hwnd, mouse_buttonsUP[i].control, mouse_buttonsUP[i].option[optoff], mouse_actionsUP);
+                }
+            }
             // Scroll
             for (i = 0; i < ARR_SZ(mouse_wheels); i++) {
                 WriteActionDropListS(hwnd, mouse_wheels[i].control, mouse_wheels[i].option[optoff], scroll_actions);
@@ -1549,12 +1549,7 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 
     return FALSE;
 }
-static HWND NewTestWindowAt(int x, int y, int width, int height);
-static HWND NewTestWindow()
-{
-    return NewTestWindowAt(CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT);
-}
-
+static HWND NewTestWindow();
 static void ToggleFullScreen(HWND hwnd)
 {
     LONG_PTR fs = GetWindowLongPtr(hwnd, 0);
@@ -1863,7 +1858,9 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
-static HWND NewTestWindowAt(int x, int y, int width, int height)
+#undef MAXLINES
+
+static HWND NewTestWindow()
 {
     HWND testwnd;
     WNDCLASSEX wnd;
@@ -1885,14 +1882,24 @@ static HWND NewTestWindowAt(int x, int y, int width, int height)
     testwnd = CreateWindowEx(0
          , TEXT(APP_NAMEA"-Test"), wintitle
          , WS_OVERLAPPEDWINDOW
-         , x, y, width, height
+         , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT
          , NULL, NULL, g_hinst, NULL);
     PostMessage(testwnd, WM_UPDCFRACTION, 0, 0);
     ShowWindow(testwnd, SW_SHOW);
 
     return testwnd;
 }
-#undef MAXLINES
+static HWND NewTestWindowAt(int x, int y, int width, int height)
+{
+    HWND hwnd = NewTestWindow();
+    if (hwnd) {
+        RECT bd;
+        FixDWMRectLL(hwnd, &bd, 0);
+        MoveWindow(hwnd, x-bd.left, y-bd.top, width+bd.left+bd.right, height+bd.top+bd.bottom, TRUE);
+    }
+    return hwnd;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {

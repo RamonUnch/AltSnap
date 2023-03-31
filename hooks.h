@@ -37,6 +37,7 @@
 #define APP_ROLLED     TEXT(APP_NAMEA"-Rolled")
 #define APP_ASONOFF    TEXT(APP_NAMEA"-ASOnOff")
 #define APP_MOVEONOFF  TEXT(APP_NAMEA"-MoveOnOff")
+#define APP_PRODPI     TEXT(APP_NAMEA"-ODPI")
 #define FZ_PROPPT      TEXT("FancyZones_RestoreSize")
 #define FZ_PROPZONES   TEXT("FancyZones_zones")
 

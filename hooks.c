@@ -66,6 +66,7 @@ static struct windowRR {
     int y;
     int width;
     int height;
+    UINT odpi;
     UCHAR end;
     UCHAR maximize;
     UCHAR snap;
@@ -126,6 +127,7 @@ static struct {
         int height;
         int right;
         int bottom;
+        UINT dpi;
     } origin;
 
     UCHAR sactiondone;
@@ -1280,8 +1282,18 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
     struct windowRR *lw = (struct windowRR *)LastWinV;
     RECT rc;
     int notsamesize = 0;
-    if(GetWindowRect(lw->hwnd, &rc))
-        notsamesize = rc.right-rc.left != lw->width || rc.bottom-rc.top != lw->height;
+    if (GetWindowRect(lw->hwnd, &rc)) {
+        int cW = rc.right - rc.left;
+        int cH = rc.bottom - rc.top;
+        UINT cdpi = 0;
+        if ( (cdpi = GetDpiForWindow(lw->hwnd)) && cdpi != lw->odpi ) {
+            // If dpi is not the same we must check the *scaled* values.
+            notsamesize = (cW * lw->odpi)>>3 != (lw->width  * cdpi)>>3
+                       || (cH * lw->odpi)>>3 != (lw->height * cdpi)>>3;
+        } else {
+            notsamesize =  cW != lw->width ||  cH != lw->height;
+        }
+    }
     UINT flag = notsamesize? RESIZEFLAG: state.resizable&2 ? MOVETHICKBORDERS: MOVEASYNC;
     if (conf.IgnoreMinMaxInfo) flag |= SWP_NOSENDCHANGING;
 
@@ -1832,7 +1844,7 @@ static void ShowTransWin(int nCmdShow)
 #define HideTransWin() ShowTransWin(SW_HIDE)
 static BOOL IsTransWinVisible() { return IsVisible(g_transhwnd[0]); }
 
-static void MoveTransWin(int x, int y, int w, int h)
+static void MoveTransWinRaw(int x, int y, int w, int h)
 {
     #define f SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOSENDCHANGING //|SWP_DEFERERASE
 //      HDWP hwndSS = BeginDeferWindowPos(4);
@@ -1846,6 +1858,21 @@ static void MoveTransWin(int x, int y, int w, int h)
     }
     #undef f
 //      if(hwndSS) EndDeferWindowPos(hwndSS);
+}
+static void MoveTransWin(int x, int y, int w, int h)
+{
+    if (state.origin.dpi) {
+        POINT pt = { x + w/2, y + h/2 };
+        HMONITOR hmon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+        if (hmon != state.origin.monitor) {
+            UINT ptdpi=0, dpiy_ignore=0;
+            if ( S_OK == GetDpiForMonitorL(hmon, MDT_DEFAULT, &ptdpi, &dpiy_ignore) && ptdpi ) {
+                w = MulDiv(w, ptdpi, state.origin.dpi);
+                h = MulDiv(h, ptdpi, state.origin.dpi);
+            }
+        }
+    }
+    MoveTransWinRaw(x, y, w, h);
 }
 static DWORD CALLBACK WinPlacmntTrgead(LPVOID wndplptr)
 {
@@ -1942,6 +1969,7 @@ static void MouseMove(POINT pt)
     // Restore Aero snapped window when movement starts
     UCHAR was_snapped = 0;
     if (!state.moving) {
+        LastWin.odpi = GetDpiForWindow(state.hwnd);
         SetOriginFromRestoreData(state.hwnd, state.action);
         if (state.action == AC_MOVE) {
             was_snapped = IsWindowSnapped(state.hwnd);
@@ -1961,7 +1989,6 @@ static void MouseMove(POINT pt)
     LastWin.end = 0;
     if (state.action == AC_MOVE) {
         // SWP_NOSIZE to SetWindowPos
-
         posx = pt.x-state.offset.x;
         posy = pt.y-state.offset.y;
         wndwidth = wnd.right-wnd.left;
@@ -4419,6 +4446,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
 
     // Set origin width/height by default from current state/wndpl.
     state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
+    state.origin.dpi     = GetDpiForWindow(state.hwnd);
     state.origin.width  = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
     state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
     state.resizable = IsResizable(state.hwnd);

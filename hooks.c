@@ -1285,14 +1285,19 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
     if (GetWindowRect(lw->hwnd, &rc)) {
         int cW = rc.right - rc.left;
         int cH = rc.bottom - rc.top;
-        UINT cdpi = 0;
-        if ( (cdpi = GetDpiForWindow(lw->hwnd)) && cdpi != lw->odpi ) {
+        UINT cdpi = GetDpiForWindow(lw->hwnd);
+        if ( cdpi && cdpi != lw->odpi ) {
             // If dpi is not the same we must check the *scaled* values.
-            notsamesize = (cW * lw->odpi)>>3 != (lw->width  * cdpi)>>3
+            if (cW == lw->width && cH == lw->height)
+                // Window had no time to resize between monitors?
+                notsamesize = 0;
+            else
+                notsamesize = (cW * lw->odpi)>>3 != (lw->width  * cdpi)>>3
                        || (cH * lw->odpi)>>3 != (lw->height * cdpi)>>3;
         } else {
             notsamesize =  cW != lw->width ||  cH != lw->height;
         }
+        //LOGA("MV: %d:%d/%d -> %d:%d/%d %s", cW, cH, cdpi , lw->width, lw->height, lw->odpi, notsamesize?"(dif)":"(eq)");
     }
     UINT flag = notsamesize? RESIZEFLAG: state.resizable&2 ? MOVETHICKBORDERS: MOVEASYNC;
     if (conf.IgnoreMinMaxInfo) flag |= SWP_NOSENDCHANGING;
@@ -1969,7 +1974,7 @@ static void MouseMove(POINT pt)
     // Restore Aero snapped window when movement starts
     UCHAR was_snapped = 0;
     if (!state.moving) {
-        LastWin.odpi = GetDpiForWindow(state.hwnd);
+        LastWin.odpi = state.origin.dpi;
         SetOriginFromRestoreData(state.hwnd, state.action);
         if (state.action == AC_MOVE) {
             was_snapped = IsWindowSnapped(state.hwnd);

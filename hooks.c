@@ -5482,6 +5482,13 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return GetLayoutRez(wParam);
     } else if (msg == WM_GETBESTLAYOUT) {
         return GetBestLayoutFromMonitors();
+    } else if (msg == WM_GETZONESLEN) {
+        unsigned idx = (unsigned)wParam;
+        return nzones[idx];
+    } else if (msg == WM_GETZONES) {
+        unsigned idx = (unsigned)wParam;
+        RECT *dZones = (RECT*)lParam;
+        CopyZones(dZones, idx);
     }
 
     return DefWindowProc(hwnd, msg, wParam, lParam);

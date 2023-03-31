@@ -58,6 +58,8 @@
 #define WM_SETLAYOUTNUM   (WM_USER+16)
 #define WM_GETLAYOUTREZ   (WM_USER+17)
 #define WM_GETBESTLAYOUT  (WM_USER+18)
+#define WM_GETZONESLEN    (WM_USER+19)
+#define WM_GETZONES       (WM_USER+20)
 
 // List of possible actions
 // ACVALUE(AC_ENUM, "IniString", Info)

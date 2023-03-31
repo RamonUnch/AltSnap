@@ -22,6 +22,7 @@
 #define SWM_OPENINIFILE (WM_APP+11)
 #define SWM_SNAPLAYOUT    (WM_APP+12)
 #define SWM_SNAPLAYOUTEND (WM_APP+22)
+#define SWM_EDITLAYOUT    (WM_APP+30)
 
 // Boring stuff
 static HINSTANCE g_hinst = NULL;
@@ -382,6 +383,25 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 PostMessage(g_dllmsgHKhwnd, WM_SETLAYOUTNUM, LayoutNumber, 0);
             // Save new value in the .ini file
             WriteCurrentLayoutNumber();
+        } else if (wmId == SWM_EDITLAYOUT) {
+            if (g_dllmsgHKhwnd) {
+                unsigned len = SendMessage(g_dllmsgHKhwnd, WM_GETZONESLEN, LayoutNumber, 0);
+                if (!len) {
+                    // Empty layout, Let's open a new Test Window
+                    return !NewTestWindow();
+                }
+                RECT *zones = (RECT*)malloc(len * sizeof(RECT));
+                if(!zones) return 0;
+
+                SendMessage(g_dllmsgHKhwnd, WM_GETZONES, LayoutNumber, (LPARAM)zones);
+                // Open them from bottom to top to ensure
+                // the windows are in the correct order.
+                while (len--) {
+                    const RECT *rc = &zones[len];
+                    NewTestWindowAt(rc->left, rc->top, rc->right-rc->left, rc->bottom-rc->top);
+                }
+                free(zones);
+            }
         }
     } else if (msg == WM_QUERYENDSESSION) {
         showerror = 0;

@@ -10,10 +10,12 @@
 #ifndef ALTSNAP_STRINGS_H
 #define ALTSNAP_STRINGS_H
 
+#include <stddef.h>
 #include <windows.h>
 #include "resource.h"
 // Resolve index from entry name.
-#define L10NIDX(entryname) (short)(LONG_PTR)((TCHAR**)&en_US.entryname - (TCHAR**)&en_US.code)
+#define L10NIDX(entryname) (short)( offsetof(struct strings, entryname)/sizeof(TCHAR**) )
+
 // Resolve entry name from index.
 #define L10NSTR(i) ( ((const TCHAR*const*const)l10n)[i] )
 

@@ -445,16 +445,16 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
                || !!lstrstr(params, TEXT("/?"))
                || !!lstrstr(params, TEXT("-?"));
     if (help) {
-        static const TCHAR *txthelp = TEXT(
-            "AltSnap command line options:\n\n"
-            "--help\tShow this help!\n"
-            "-h\tHide the tray icon\n"
-            "-q\tQuiet mode\n"
-            "-m\tMultiple instances allowed\n"
-            "-c\tOpen Config dialog\n"
-            "-afX\tExecute action X for the foreground window\n"
-            "-apX\tExecute action X for the pointed window\n"
-        );
+        static const TCHAR *txthelp =
+            TEXT("AltSnap command line options:\n\n")
+            TEXT("--help\tShow this help!\n")
+            TEXT("-h\tHide the tray icon\n")
+            TEXT("-q\tQuiet mode\n")
+            TEXT("-m\tMultiple instances allowed\n")
+            TEXT("-c\tOpen Config dialog\n")
+            TEXT("-afX\tExecute action X for the foreground window\n")
+            TEXT("-apX\tExecute action X for the pointed window\n");
+
         MessageBox(NULL, txthelp, TEXT(APP_NAMEA" Usage"), MB_OK|MB_ICONINFORMATION);
         return 0;
     }
@@ -495,7 +495,7 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
             if (actionstr && actionstr[2] && actionstr[3] && actionstr[4]) {
                 enum action action = MapActionW(&actionstr[3]);
                 HWND msghwnd;
-                if ((msghwnd = FindWindow( TEXT(APP_NAMEA"-HotKeys"), TEXT("")))) {
+                if ((msghwnd = FindWindow( TEXT(APP_NAMEA)TEXT("-HotKeys"), TEXT("")))) {
                     PostMessage(msghwnd, WM_HOTKEY, (actionstr[2] == 'p')*0x1000+action, 0);
                     return 0;
                 }

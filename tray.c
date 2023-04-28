@@ -32,9 +32,9 @@ static const TCHAR *iconstr[] = {
     TEXT("TRAY_SUS")
 };
 static const TCHAR *traystr[] = {
-    TEXT(APP_NAMEA" (Off)"),
-    TEXT(APP_NAMEA" (On)"),
-    TEXT(APP_NAMEA"..."),
+    TEXT(APP_NAMEA)TEXT(" (Off)"),
+    TEXT(APP_NAMEA)TEXT(" (On)"),
+    TEXT(APP_NAMEA)TEXT("..."),
 };
 static HICON icons[3];
 
@@ -199,7 +199,7 @@ BOOL CALLBACK SaveTestWindow(HWND hwnd, LPARAM lParam)
     RECT rc;
     if (IsWindowVisible(hwnd)
     && GetClassName(hwnd, classn, sizeof(classn))
-    && !lstrcmp(classn, TEXT(APP_NAMEA"-Test"))
+    && !lstrcmp(classn, TEXT(APP_NAMEA) TEXT("-Test"))
     && GetWindowRectL(hwnd, &rc)) {
         SaveZone(&rc, NZones++);
         PostMessage(hwnd, WM_CLOSE, 0, 0);
@@ -279,7 +279,7 @@ static void ShowContextMenu(HWND hwnd)
             AppendMenu(menu, MF_SEPARATOR, 0, NULL);
             AppendMenu(menu, MF_STRING, SWM_TESTWIN,  l10n->advanced_testwindow);
             AppendMenu(menu, MF_STRING, SWM_EDITLAYOUT, txt);
-            AppendMenu(menu, FindWindow(TEXT(APP_NAMEA"-test"), NULL)? MF_STRING :MF_STRING|MF_GRAYED
+            AppendMenu(menu, FindWindow(TEXT(APP_NAMEA)TEXT("-test"), NULL)? MF_STRING :MF_STRING|MF_GRAYED
                       , SWM_SAVEZONES, l10n->menu_savezones);
         }
     }

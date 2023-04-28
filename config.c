@@ -404,7 +404,7 @@ static void UpdateDialogStrings(HWND hwnd, const struct dialogstring * const str
     unsigned i;
     for (i=0; i < size; i++) {
         SetDlgItemText(hwnd, strlst[i].idc, L10NSTR(strlst[i].l10nidx));
-        //CreateInfoTip(hwnd, strlst[i].idc, strlst[i].helpstr);
+        //CreateInfoTip(hwnd, strlst[i].idc, L10NSTR(strlst[i].l10nidx));
     }
 }
 // Options to bead or written...
@@ -448,7 +448,7 @@ BOOL CALLBACK RefreshTestWin(HWND hwnd, LPARAM lp)
 {
     TCHAR classn[256];
     if (GetClassName(hwnd, classn, ARR_SZ(classn))
-    && !lstrcmp(TEXT(APP_NAMEA"-Test"), classn) ) {
+    && !lstrcmp(TEXT(APP_NAMEA)TEXT("-Test"), classn) ) {
         PostMessage(hwnd, WM_UPDCFRACTION, 0, 0);
         SetWindowPos(hwnd, NULL, 0, 0, 0, 0
             , SWP_NOCOPYBITS|SWP_NOMOVE|SWP_NOREPOSITION|SWP_NOSIZE );
@@ -456,6 +456,25 @@ BOOL CALLBACK RefreshTestWin(HWND hwnd, LPARAM lp)
     return TRUE;
 }
 
+static int FindIDCStrIDX(const struct dialogstring sl[], size_t len, int idc)
+{
+    size_t i;
+    for (i=0; i<len; i++) {
+        if (idc == (int)sl[i].idc)
+            return sl[i].l10nidx;
+    }
+    return -1;
+}
+static void ShowContextHelp(const struct dialogstring sl[], size_t len, HWND hwnd, LPHELPINFO hi)
+{
+    if (hi->iContextType == HELPINFO_WINDOW) {
+        int id = FindIDCStrIDX(sl, len, hi->iCtrlId);
+        if (id >= 0) {
+            SetDlgItemText( hwnd, IDC_HELPPANNEL, L10NSTR(id) );
+            //MessageBox(hwnd, L10NSTR(id), NULL, 0);
+        }
+    }
+}
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -474,6 +493,31 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         { IDC_PIERCINGCLICK, T_BOL, 0,  TEXT("Advanced"), "PiercingClick", 0 },
     };
     #pragma GCC diagnostic pop
+
+    static const struct dialogstring strlst[] = {
+        { IDC_GENERAL_BOX,      L10NIDX(general_box) },
+        { IDC_AUTOFOCUS,        L10NIDX(general_autofocus) },
+        { IDC_AERO,             L10NIDX(general_aero) },
+        { IDC_SMARTAERO,        L10NIDX(general_smartaero) },
+        { IDC_SMARTERAERO,      L10NIDX(general_smarteraero) },
+        { IDC_STICKYRESIZE,     L10NIDX(general_stickyresize) },
+        { IDC_INACTIVESCROLL,   L10NIDX(general_inactivescroll) },
+        { IDC_MDI,              L10NIDX(general_mdi) },
+        { IDC_AUTOSNAP_HEADER,  L10NIDX(general_autosnap) },
+        { IDC_LANGUAGE_HEADER,  L10NIDX(general_language) },
+        { IDC_USEZONES,         L10NIDX(general_usezones) },
+        { IDC_PIERCINGCLICK,    L10NIDX(general_piercingclick) },
+        { IDC_RESIZEALL,        L10NIDX(general_resizeall) },
+        { IDC_RESIZECENTER,     L10NIDX(general_resizecenter) },
+        { IDC_RZCENTER_NORM,    L10NIDX(general_resizecenter_norm) },
+        { IDC_RZCENTER_BR,      L10NIDX(general_resizecenter_br) },
+        { IDC_RZCENTER_MOVE,    L10NIDX(general_resizecenter_move) },
+        { IDC_RZCENTER_CLOSE,   L10NIDX(general_resizecenter_close) },
+        { IDC_AUTOSTART_BOX,    L10NIDX(general_autostart_box) },
+        { IDC_AUTOSTART,        L10NIDX(general_autostart) },
+        { IDC_AUTOSTART_HIDE,   L10NIDX(general_autostart_hide) },
+        { IDC_AUTOSTART_ELEVATE,L10NIDX(general_autostart_elevate) }
+    };
 
     int updatestrings = 0;
     static int have_to_apply = 0;
@@ -499,7 +543,8 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             }
         }
         EnableDlgItem(hwnd, IDC_ELEVATE, VISTA && !elevated);
-
+//    } else if (msg == WM_HELP) {
+//        ShowContextHelp(strlst, ARR_SZ(strlst), hwnd, (LPHELPINFO)lParam);
     } else if (msg == WM_COMMAND) {
         int id = LOWORD(wParam);
         int event = HIWORD(wParam);
@@ -575,30 +620,6 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     }
     if (updatestrings) {
         // Update text
-        static const struct dialogstring strlst[] = {
-            { IDC_GENERAL_BOX,      L10NIDX(general_box) },
-            { IDC_AUTOFOCUS,        L10NIDX(general_autofocus) },
-            { IDC_AERO,             L10NIDX(general_aero) },
-            { IDC_SMARTAERO,        L10NIDX(general_smartaero) },
-            { IDC_SMARTERAERO,      L10NIDX(general_smarteraero) },
-            { IDC_STICKYRESIZE,     L10NIDX(general_stickyresize) },
-            { IDC_INACTIVESCROLL,   L10NIDX(general_inactivescroll) },
-            { IDC_MDI,              L10NIDX(general_mdi) },
-            { IDC_AUTOSNAP_HEADER,  L10NIDX(general_autosnap) },
-            { IDC_LANGUAGE_HEADER,  L10NIDX(general_language) },
-            { IDC_USEZONES,         L10NIDX(general_usezones) },
-            { IDC_PIERCINGCLICK,    L10NIDX(general_piercingclick) },
-            { IDC_RESIZEALL,        L10NIDX(general_resizeall) },
-            { IDC_RESIZECENTER,     L10NIDX(general_resizecenter) },
-            { IDC_RZCENTER_NORM,    L10NIDX(general_resizecenter_norm) },
-            { IDC_RZCENTER_BR,      L10NIDX(general_resizecenter_br) },
-            { IDC_RZCENTER_MOVE,    L10NIDX(general_resizecenter_move) },
-            { IDC_RZCENTER_CLOSE,   L10NIDX(general_resizecenter_close) },
-            { IDC_AUTOSTART_BOX,    L10NIDX(general_autostart_box) },
-            { IDC_AUTOSTART,        L10NIDX(general_autostart) },
-            { IDC_AUTOSTART_HIDE,   L10NIDX(general_autostart_hide) },
-            { IDC_AUTOSTART_ELEVATE,L10NIDX(general_autostart_elevate) }
-        };
         UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
         // spetial case...
         //CreateToolTip(IDC_AUTOFOCUS, hwnd, TEXT("String\nExample"));
@@ -1236,7 +1257,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         if (id == IDC_SHORTCUTS_PICK) {
             HWND pickhwnd;
             WNDCLASSEX wnd;
-            if (!GetClassInfoEx(g_hinst, TEXT(APP_NAMEA"-PickShortcut"), &wnd)) {
+            if (!GetClassInfoEx(g_hinst, TEXT(APP_NAMEA)TEXT("-PickShortcut"), &wnd)) {
                 WNDCLASSEX wndd = {
                     sizeof(WNDCLASSEX)
                   , CS_PARENTDC
@@ -1245,14 +1266,14 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                   , NULL //LoadIcon(g_hinst, iconstr[1])
                   , NULL //LoadCursor(NULL, IDC_ARROW)
                   , NULL //(HBRUSH)(COLOR_HIGHLIGHT+1)
-                  , NULL, TEXT(APP_NAMEA"-PickShortcut"), NULL
+                  , NULL, TEXT(APP_NAMEA)TEXT("-PickShortcut"), NULL
                 };
                 RegisterClassEx(&wndd);
             }
             RECT rc;
             GetClientRect(hwnd, &rc);
             pickhwnd = CreateWindowEx(WS_EX_TOPMOST
-                 , TEXT(APP_NAMEA"-PickShortcut"), NULL
+                 , TEXT(APP_NAMEA)TEXT("-PickShortcut"), NULL
                  , WS_CHILD|WS_VISIBLE
                  , rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top
                  , hwnd , NULL, g_hinst, NULL);
@@ -1407,7 +1428,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 
             // Create Transparent window covering the whole workspace
             WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0, FindWindowProc, 0, 0, g_hinst, NULL, NULL
-                             , (HBRUSH) (COLOR_WINDOW + 1), NULL, TEXT(APP_NAMEA"-find"), NULL };
+                             , (HBRUSH) (COLOR_WINDOW + 1), NULL, TEXT(APP_NAMEA)TEXT("-find"), NULL };
             wnd.hCursor = LoadCursor(g_hinst, MAKEINTRESOURCE(IDI_FIND));
             RegisterClassEx(&wnd);
             HWND findhwnd = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_TRANSPARENT
@@ -1505,7 +1526,7 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         ShowWindowAsync(GetDlgItem(page, IDC_FINDWINDOW), SW_SHOW);
 
         DestroyWindow(hwnd);
-        UnregisterClass(TEXT(APP_NAMEA"-find"), g_hinst);
+        UnregisterClass(TEXT(APP_NAMEA)TEXT("-find"), g_hinst);
         return 0;
     } else if (wParam && msg ==  WM_ERASEBKGND) {
         return 1;
@@ -1864,7 +1885,7 @@ static HWND NewTestWindow()
 {
     HWND testwnd;
     WNDCLASSEX wnd;
-    if (!GetClassInfoEx(g_hinst, TEXT(APP_NAMEA"-Test"), &wnd)) {
+    if (!GetClassInfoEx(g_hinst, TEXT(APP_NAMEA)TEXT("-Test"), &wnd)) {
         WNDCLASSEX wndd = {
             sizeof(WNDCLASSEX)
           , CS_HREDRAW|CS_VREDRAW
@@ -1873,14 +1894,14 @@ static HWND NewTestWindow()
           , g_hinst, icons[1] //LoadIcon(g_hinst, iconstr[1])
           , LoadCursor(NULL, IDC_ARROW)
           , NULL //(HBRUSH)(COLOR_BACKGROUND+1)
-          , NULL, TEXT(APP_NAMEA"-Test"), NULL
+          , NULL, TEXT(APP_NAMEA)TEXT("-Test"), NULL
         };
         RegisterClassEx(&wndd);
     }
     TCHAR wintitle[256];
     lstrcpy_noaccel(wintitle, l10n->advanced_testwindow, ARR_SZ(wintitle));
     testwnd = CreateWindowEx(0
-         , TEXT(APP_NAMEA"-Test"), wintitle
+         , TEXT(APP_NAMEA)TEXT("-Test"), wintitle
          , WS_OVERLAPPEDWINDOW
          , CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT
          , NULL, NULL, g_hinst, NULL);

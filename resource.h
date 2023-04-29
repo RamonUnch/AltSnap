@@ -2,8 +2,13 @@
 #define IDC_STATIC (-1)
 #endif
 
-#define VERSIONRC     1,6,0,0
-#define APP_VERSION  "1.60"
+#define VERSIONRC     1,6,1,0
+#define APP_VERSION  "1.61"
+
+#define APP_ICON                         101
+#define TRAY_OFF                         102
+#define TRAY_ON                          103
+#define TRAY_SUS                         104
 
 #define IDD_GENERALPAGE                  201
 #define IDD_MOUSEPAGE                    202
@@ -14,6 +19,7 @@
 
 #define IDI_FIND                         301
 #define IDI_BIGICON                      302
+#define IDC_HELPPANNEL                   303
 
 #define IDC_AUTOSNAP_HEADER             1000
 #define IDC_FINDWINDOW                  1000

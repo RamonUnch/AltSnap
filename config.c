@@ -124,15 +124,15 @@ static void OpenConfig(int startpage)
         WORD pszTemplate;
         DLGPROC pfnDlgProc;
     } pages[] = {
-        { IDD_GENERALPAGE,   GeneralPageDialogProc  },
-        { IDD_MOUSEPAGE,     MousePageDialogProc    },
-        { IDD_KBPAGE,        KeyboardPageDialogProc },
-        { IDD_BLACKLISTPAGE, BlacklistPageDialogProc},
-        { IDD_ADVANCEDPAGE,  AdvancedPageDialogProc },
-        { IDD_ABOUTPAGE,     AboutPageDialogProc    }
+        { IDD_GENERALPAGE,   (DLGPROC)GeneralPageDialogProc  },
+        { IDD_MOUSEPAGE,     (DLGPROC)MousePageDialogProc    },
+        { IDD_KBPAGE,        (DLGPROC)KeyboardPageDialogProc },
+        { IDD_BLACKLISTPAGE, (DLGPROC)BlacklistPageDialogProc},
+        { IDD_ADVANCEDPAGE,  (DLGPROC)AdvancedPageDialogProc },
+        { IDD_ABOUTPAGE,     (DLGPROC)AboutPageDialogProc    }
     };
     PROPSHEETPAGE psp[ARR_SZ(pages)];
-    memset(&psp[0], 0, sizeof(psp));
+    mem00(&psp[0], sizeof(psp));
     size_t i;
     for (i = 0; i < ARR_SZ(pages); i++) {
         psp[i].dwSize = sizeof(PROPSHEETPAGE);
@@ -143,7 +143,7 @@ static void OpenConfig(int startpage)
 
     // Define the property sheet
     PROPSHEETHEADER psh;
-    memset(&psh, 0, sizeof(PROPSHEETHEADER));
+    mem00(&psh, sizeof(PROPSHEETHEADER));
     psh.dwSize = sizeof(PROPSHEETHEADER);
     psh.dwFlags = VISTA? PSH_PROPSHEETPAGE|PSH_USECALLBACK|PSH_USEHICON|PSH_NOCONTEXTHELP
                        : PSH_PROPSHEETPAGE|PSH_USECALLBACK|PSH_USEHICON;
@@ -415,7 +415,7 @@ struct optlst {
     const UCHAR bitN;
     const TCHAR *const section;
     const char *const name;
-    const void *const def;
+    void *def;
 };
 static void ReadDialogOptions(HWND hwnd,const struct optlst *ol, unsigned size)
 {
@@ -478,21 +478,21 @@ static void ShowContextHelp(const struct dialogstring sl[], size_t len, HWND hwn
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    #pragma GCC diagnostic ignored "-Wint-conversion"
+    #define V (void *)
     static const struct optlst optlst[] = {
        // dialog id, type, bit number, section name, option name, def val.
-        { IDC_AUTOFOCUS,     T_BOL, 0,  TEXT("General"),  "AutoFocus", 0 },
-        { IDC_AERO,          T_BOL, 0,  TEXT("General"),  "Aero", 1 },
-        { IDC_SMARTAERO,     T_BMK, 0,  TEXT("General"),  "SmartAero", 1 },
-        { IDC_SMARTERAERO,   T_BMK, 1,  TEXT("General"),  "SmartAero", 0 },
-        { IDC_STICKYRESIZE,  T_BOL, 0,  TEXT("General"),  "StickyResize", 1 },
-        { IDC_INACTIVESCROLL,T_BOL, 0,  TEXT("General"),  "InactiveScroll", 0 },
-        { IDC_MDI,           T_BOL, 0,  TEXT("General"),  "MDI", 1 },
-        { IDC_RESIZEALL,     T_BOL, 0,  TEXT("Advanced"), "ResizeAll", 1 },
-        { IDC_USEZONES,      T_BMK, 0,  TEXT("Zones"),    "UseZones", 0 },
-        { IDC_PIERCINGCLICK, T_BOL, 0,  TEXT("Advanced"), "PiercingClick", 0 },
+        { IDC_AUTOFOCUS,     T_BOL, 0,  TEXT("General"),  "AutoFocus", V 0 },
+        { IDC_AERO,          T_BOL, 0,  TEXT("General"),  "Aero", V 1 },
+        { IDC_SMARTAERO,     T_BMK, 0,  TEXT("General"),  "SmartAero", V 1 },
+        { IDC_SMARTERAERO,   T_BMK, 1,  TEXT("General"),  "SmartAero", V 0 },
+        { IDC_STICKYRESIZE,  T_BOL, 0,  TEXT("General"),  "StickyResize", V 1 },
+        { IDC_INACTIVESCROLL,T_BOL, 0,  TEXT("General"),  "InactiveScroll", V 0 },
+        { IDC_MDI,           T_BOL, 0,  TEXT("General"),  "MDI", V 1 },
+        { IDC_RESIZEALL,     T_BOL, 0,  TEXT("Advanced"), "ResizeAll", V 1 },
+        { IDC_USEZONES,      T_BMK, 0,  TEXT("Zones"),    "UseZones", V 0 },
+        { IDC_PIERCINGCLICK, T_BOL, 0,  TEXT("Advanced"), "PiercingClick", V 0 },
     };
-    #pragma GCC diagnostic pop
+    #undef V
 
     static const struct dialogstring strlst[] = {
         { IDC_GENERAL_BOX,      L10NIDX(general_box) },
@@ -1924,32 +1924,32 @@ static HWND NewTestWindowAt(int x, int y, int width, int height)
 /////////////////////////////////////////////////////////////////////////////
 INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    #pragma GCC diagnostic ignored "-Wint-conversion"
+    #define V (void *)
     static const struct optlst optlst[] = {
-        { IDC_AUTOREMAXIMIZE,   T_BOL, 0, TEXT("Advanced"), "AutoRemaximize", 0 },
-        { IDC_AEROTOPMAXIMIZES, T_BMK, 0, TEXT("Advanced"), "AeroTopMaximizes", 1 },// bit 0
-        { IDC_AERODBCLICKSHIFT, T_BMK, 1, TEXT("Advanced"), "AeroTopMaximizes", 1 },// bit 1
-        { IDC_MULTIPLEINSTANCES,T_BOL, 0, TEXT("Advanced"), "MultipleInstances",0 },
-        { IDC_FULLSCREEN,       T_BOL, 0, TEXT("Advanced"), "FullScreen", 1 },
-        { IDC_BLMAXIMIZED,      T_BOL, 0, TEXT("Advanced"), "BLMaximized", 0 },
-        { IDC_FANCYZONE,        T_BOL, 0, TEXT("Zones"),    "FancyZone", 0 },
-        { IDC_NORESTORE,        T_BMK, 2, TEXT("General"),  "SmartAero", 0 },  // bit 2
-        { IDC_MAXWITHLCLICK,    T_BMK, 0, TEXT("General"),  "MMMaximize", 1 }, // bit 0
-        { IDC_RESTOREONCLICK,   T_BMK, 1, TEXT("General"),  "MMMaximize", 0 }, // bit 1
-        { IDC_TOPMOSTINDICATOR, T_BOL, 0, TEXT("Advanced"), "TopmostIndicator", 0},
+        { IDC_AUTOREMAXIMIZE,   T_BOL, 0, TEXT("Advanced"), "AutoRemaximize", V 0 },
+        { IDC_AEROTOPMAXIMIZES, T_BMK, 0, TEXT("Advanced"), "AeroTopMaximizes", V 1 },// bit 0
+        { IDC_AERODBCLICKSHIFT, T_BMK, 1, TEXT("Advanced"), "AeroTopMaximizes", V 1 },// bit 1
+        { IDC_MULTIPLEINSTANCES,T_BOL, 0, TEXT("Advanced"), "MultipleInstances",V 0 },
+        { IDC_FULLSCREEN,       T_BOL, 0, TEXT("Advanced"), "FullScreen", V 1 },
+        { IDC_BLMAXIMIZED,      T_BOL, 0, TEXT("Advanced"), "BLMaximized", V 0 },
+        { IDC_FANCYZONE,        T_BOL, 0, TEXT("Zones"),    "FancyZone", V 0 },
+        { IDC_NORESTORE,        T_BMK, 2, TEXT("General"),  "SmartAero", V 0 },  // bit 2
+        { IDC_MAXWITHLCLICK,    T_BMK, 0, TEXT("General"),  "MMMaximize", V 1 }, // bit 0
+        { IDC_RESTOREONCLICK,   T_BMK, 1, TEXT("General"),  "MMMaximize", V 0 }, // bit 1
+        { IDC_TOPMOSTINDICATOR, T_BOL, 0, TEXT("Advanced"), "TopmostIndicator", V 0},
 
-        { IDC_CENTERFRACTION,   T_STR, 0, TEXT("General"),  "CenterFraction",TEXT("24") },
-        { IDC_SIDESFRACTION,    T_STR, 0, TEXT("General"),  "SidesFraction", TEXT("255")},
-        { IDC_AEROHOFFSET,      T_STR, 0, TEXT("General"),  "AeroHoffset",   TEXT("50") },
-        { IDC_AEROVOFFSET,      T_STR, 0, TEXT("General"),  "AeroVoffset",   TEXT("50") },
-        { IDC_SNAPTHRESHOLD,    T_STR, 0, TEXT("Advanced"), "SnapThreshold", TEXT("20") },
-        { IDC_AEROTHRESHOLD,    T_STR, 0, TEXT("Advanced"), "AeroThreshold", TEXT("5")  },
-        { IDC_SNAPGAP,          T_STR, 0, TEXT("Advanced"), "SnapGap",       TEXT("0")  },
-        { IDC_AEROSPEED,        T_STR, 0, TEXT("Advanced"), "AeroMaxSpeed",  TEXT("")   },
-        { IDC_AEROSPEEDTAU,     T_STR, 0, TEXT("Advanced"), "AeroSpeedTau",  TEXT("32") },
-        { IDC_MOVETRANS,        T_STR, 0, TEXT("General"),  "MoveTrans",     TEXT("")   },
+        { IDC_CENTERFRACTION,   T_STR, 0, TEXT("General"),  "CenterFraction",V TEXT("24") },
+        { IDC_SIDESFRACTION,    T_STR, 0, TEXT("General"),  "SidesFraction", V TEXT("255")},
+        { IDC_AEROHOFFSET,      T_STR, 0, TEXT("General"),  "AeroHoffset",   V TEXT("50") },
+        { IDC_AEROVOFFSET,      T_STR, 0, TEXT("General"),  "AeroVoffset",   V TEXT("50") },
+        { IDC_SNAPTHRESHOLD,    T_STR, 0, TEXT("Advanced"), "SnapThreshold", V TEXT("20") },
+        { IDC_AEROTHRESHOLD,    T_STR, 0, TEXT("Advanced"), "AeroThreshold", V TEXT("5")  },
+        { IDC_SNAPGAP,          T_STR, 0, TEXT("Advanced"), "SnapGap",       V TEXT("0")  },
+        { IDC_AEROSPEED,        T_STR, 0, TEXT("Advanced"), "AeroMaxSpeed",  V TEXT("")   },
+        { IDC_AEROSPEEDTAU,     T_STR, 0, TEXT("Advanced"), "AeroSpeedTau",  V TEXT("32") },
+        { IDC_MOVETRANS,        T_STR, 0, TEXT("General"),  "MoveTrans",     V TEXT("")   },
     };
-    #pragma GCC diagnostic pop
+    #undef V
 
 //    static HWND testwnd=NULL;
     static int have_to_apply = 0;

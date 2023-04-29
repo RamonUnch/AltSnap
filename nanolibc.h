@@ -1,6 +1,8 @@
 #ifndef NANOLIBC_H
 #define NANOLIBC_H
 
+#include <windows.h>
+
 #ifdef __GNUC__
 #define flatten __attribute__((flatten))
 #define xpure __attribute__((const))
@@ -24,6 +26,7 @@
 #define nonnull1(x)
 #define nonnull2(x, y)
 #define __restrict__
+#define inline
 #endif
 /* return +/-1 if x is +/- and 0 if x == 0 */
 static xpure int sign(int x)
@@ -85,18 +88,15 @@ static void str2tchar_s(TCHAR *w, size_t N, const char *s)
     while(w < wmax && (*w++ = *s++));
 }
 
-static void *memsetL(void *dst, int s, size_t count)
+static void mem00(void *dst, size_t count)
 {
     register char * a = (char *)dst;
-    count++;
-    while (--count)
-        *a++ = s;
-    return dst;
+    while (count--)
+        *a++ = 0;
 }
-#define memset memsetL
 
 #ifdef CLANG
-#undef memset
+
 void * __cdecl memset(void *dst, int s, size_t count)
 {
     register char * a = dst;
@@ -111,6 +111,14 @@ __cdecl size_t strlen(const char *str)
     const char *ptr;
     for (ptr=str; *ptr != '\0'; ptr++);
     return ptr-str;
+}
+void * __cdecl memcpy(void *dst, const void * __restrict__ src, size_t n)
+{
+    size_t i;
+
+    for (i=0;i<n;i++)
+        *(char *) dst++ = *(char *) src++;
+    return dst;
 }
 #endif
 
@@ -189,7 +197,7 @@ static pure allnonnull int wtoiL(const wchar_t *s)
     return sign*v;
 }
 #define _wtoi wtoiL
-static nonnull1(1) inline void reverseW(wchar_t *str, int length)
+static nonnull1(1) void reverseW(wchar_t *str, int length)
 {
     int start = 0;
     int end = length -1;
@@ -355,7 +363,7 @@ static const char *Uint2lStrA(char str[UINT_DIGITS+1], unsigned n)
 #else
 #define LPTR_HDIGITS 8
 #endif
-static const TCHAR *LPTR2Hex(TCHAR str[LPTR_HDIGITS+1], ULONG_PTR n)
+static const TCHAR *LPTR2Hex(TCHAR str[LPTR_HDIGITS+1], UINT_PTR n)
 {
     int i = 0;
     str[LPTR_HDIGITS] = TEXT('\0');
@@ -528,14 +536,14 @@ static allnonnull pure int strtotcharicmp(const TCHAR* s1, const char* s2)
     return x1 - x2;
 }
 
-allnonnull wchar_t *wcscat(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
+allnonnull wchar_t *wcscatL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
 {
     wchar_t *orig=dest;
     for (; *dest; ++dest) ;    /* go to end of dest */
     for (; (*dest=*src); ++src,++dest) ;    /* then append from src */
     return orig;
 }
-allnonnull char *strcat(char *__restrict__ dest, const char *__restrict__ src)
+allnonnull char *strcatL(char *__restrict__ dest, const char *__restrict__ src)
 {
     char *orig=dest;
     for (; *dest; ++dest) ;    /* go to end of dest */

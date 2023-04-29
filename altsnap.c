@@ -455,7 +455,7 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
             TEXT("-afX\tExecute action X for the foreground window\n")
             TEXT("-apX\tExecute action X for the pointed window\n");
 
-        MessageBox(NULL, txthelp, TEXT(APP_NAMEA" Usage"), MB_OK|MB_ICONINFORMATION);
+        MessageBox(NULL, txthelp, TEXT(APP_NAMEA)TEXT(" Usage"), MB_OK|MB_ICONINFORMATION);
         return 0;
     }
 
@@ -598,6 +598,9 @@ static pure const TCHAR *ParamsFromCmdline(const TCHAR *cmdl)
 
 /////////////////////////////////////////////////////////////////////////////
 // Use -nostdlib and -e_unfuckMain@0 to use this main, -eunfuckMain for x64.
+#ifdef _MSC_VER
+#pragma comment(linker, "/entry:\"unfuckWinMain\"")
+#endif
 void noreturn WINAPI unfuckWinMain(void)
 {
     HINSTANCE hInst;

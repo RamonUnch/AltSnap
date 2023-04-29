@@ -58,7 +58,7 @@ static void LoadAllIcons()
                     lstrcpy_s(p, ARR_SZ(path)-len, iconstr[i]);
                     lstrcat_s(path, ARR_SZ(path), TEXT(".ico"));
                     HICON tmp = (HICON)LoadImage(g_hinst, path, IMAGE_ICON,0,0, LR_LOADFROMFILE|LR_DEFAULTSIZE|LR_LOADTRANSPARENT);
-                    icons[i] = tmp? tmp: LoadIcon(g_hinst, iconstr[i]);
+                    icons[i] = tmp? tmp: LoadIcon(g_hinst, MAKEINTRESOURCE( TRAY_OFF+i ));
                 }
                 return;
             }
@@ -67,7 +67,7 @@ static void LoadAllIcons()
     // Fallback to internal icons.
     UCHAR i;
     for (i=0; i<3; i++)
-        icons[i] = LoadIcon(g_hinst, iconstr[i]);
+        icons[i] = LoadIcon(g_hinst, MAKEINTRESOURCE( TRAY_OFF+i ));
 }
 
 /////////////////////////////////////////////////////////////////////////////

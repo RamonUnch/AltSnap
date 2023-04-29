@@ -398,7 +398,7 @@ static HWND CreateInfoTip(HWND hDlg, int toolID, const TCHAR * const pszText)
 
     return hwndTip;
 }
-struct dialogstring { const short idc; const short l10nidx; /* const TCHAR *const helpstr; */ };
+struct dialogstring { short idc; short l10nidx; /* const TCHAR *const helpstr; */ };
 static void UpdateDialogStrings(HWND hwnd, const struct dialogstring * const strlst, unsigned size)
 {
     unsigned i;
@@ -408,13 +408,13 @@ static void UpdateDialogStrings(HWND hwnd, const struct dialogstring * const str
     }
 }
 // Options to bead or written...
-enum opttype {T_BOL, T_BMK, T_STR};
+enum opttype {T_BOL=0, T_BMK=1, T_STR=2};
 struct optlst {
-    const short idc;
-    const enum opttype type;
-    const UCHAR bitN;
-    const TCHAR *const section;
-    const char *const name;
+    short idc;
+    UCHAR type;
+    UCHAR bitN;
+    TCHAR *section;
+    char *name;
     void *def;
 };
 static void ReadDialogOptions(HWND hwnd,const struct optlst *ol, unsigned size)
@@ -479,6 +479,7 @@ static void ShowContextHelp(const struct dialogstring sl[], size_t len, HWND hwn
 INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     #define V (void *)
+    // Options to bead or written...
     static const struct optlst optlst[] = {
        // dialog id, type, bit number, section name, option name, def val.
         { IDC_AUTOFOCUS,     T_BOL, 0,  TEXT("General"),  "AutoFocus", V 0 },
@@ -738,8 +739,8 @@ static void CheckConfigHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const
 
 
 struct actiondl {
-    const TCHAR *const action;
-    const short l10nidx;
+    TCHAR *action;
+    short l10nidx;
 //    const unsigned short flgs;
 //    const TCHAR *const l10n;
 };
@@ -894,6 +895,9 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         { IDC_TTBACTIONSWA,  T_BMK, 1, TEXT("Input"), "TTBActions", 0    },
         { IDC_LONGCLICKMOVE, T_BOL, 0, TEXT("Input"), "LongClickMove", 0 }
     };
+    
+    LPNMHDR pnmh = (LPNMHDR) lParam;
+
 
     if (msg == WM_INITDIALOG) {
         // Hotclicks buttons
@@ -913,7 +917,6 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             have_to_apply = 1;
         }
     } else if (msg == WM_NOTIFY) {
-        LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             TCHAR txt[8];
             GetPrivateProfileString(TEXT("Input"), TEXT("ModKey"), TEXT(""), txt, ARR_SZ(txt), inipath);
@@ -921,7 +924,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             // Disable inside ttb
             EnableDlgItem(hwnd, IDC_INTTB, IsChecked(IDC_TTBACTIONSNA)||IsChecked(IDC_TTBACTIONSWA));
 
-            FILLACTIONS:;
+            FILLACTIONS: {
             unsigned i;
             // Mouse actions
             int optoff = IsChecked(IDC_MBA2)? 1
@@ -976,6 +979,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
                 { IDC_LONGCLICKMOVE,   L10NIDX(input_mouse_longclickmove ) },
             };
             UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
+            }
 
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // Mouse actions, for all mouse buttons...
@@ -1162,8 +1166,8 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 
     // Hotkeys
     static const struct {
-        const TCHAR *const action;
-        const short lidx;
+        TCHAR *action;
+        short lidx;
     } togglekeys[] = {
         {TEXT(""),      L10NIDX(input_actions_nothing)},
         {TEXT("A4 A5"), L10NIDX(input_hotkeys_alt)},
@@ -1185,7 +1189,9 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         { IDC_KEYCOMBO,         T_BOL, 0, TEXT("Input"), "KeyCombo", 0 },
         { IDC_USEPTWINDOW,      T_BOL, 0, TEXT("KBShortcuts"), "UsePtWindow", 0},
     };
-
+    
+    LPNMHDR pnmh = (LPNMHDR) lParam;
+    
     if (msg == WM_INITDIALOG) {
         edit_shortcut_idx = 0;
         ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
@@ -1296,7 +1302,6 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         }
 
     } else if (msg == WM_NOTIFY) {
-        LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // GrabWithAlt
             TCHAR txt[64];

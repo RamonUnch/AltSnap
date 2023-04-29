@@ -114,6 +114,11 @@ enum MONITOR_DPI_TYPE {
 #define WM_DPICHANGED 0x02E0
 #endif
 
+#if defined(_MSC_VER) && _MSC_VER <= 1200
+#define InterlockedIncrement(x) InterlockedIncrement((LONG*)(x))
+#define InterlockedDecrement(x) InterlockedDecrement((LONG*)(x))
+#endif
+
 #ifndef MSAA_MENU_SIG
 #define MSAA_MENU_SIG 0xAA0DF00D
 typedef struct tagMSAAMENUINFO {

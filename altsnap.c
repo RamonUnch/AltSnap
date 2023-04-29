@@ -185,7 +185,7 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
     #define CHK(LP_FLAG) MF_STRING|(param&LP_FLAG?MF_CHECKED:MF_UNCHECKED)
 
     const struct {
-        UCHAR action; const WORD mf; const TCHAR * const str;
+        UCHAR action; WORD mf; TCHAR *str;
     } mnlst[] = {
        /* hide, action,      MF_FLAG/CHECKED,    menu string */
         { AC_ALWAYSONTOP, CHK(LP_TOPMOST),    l10n->input_actions_alwaysontop },

@@ -30,14 +30,14 @@
 // App
 #define APP_NAME       TEXT("AltSnap")
 #define APP_NAMEA      "AltSnap"
-#define APP_PROPPT     TEXT(APP_NAMEA"-RDim")
-#define APP_PROPFL     TEXT(APP_NAMEA"-RFlag")
-#define APP_PROPOFFSET TEXT(APP_NAMEA"-ROffset")
-#define APP_PRBDLESS   TEXT(APP_NAMEA"-RStyle")
-#define APP_ROLLED     TEXT(APP_NAMEA"-Rolled")
-#define APP_ASONOFF    TEXT(APP_NAMEA"-ASOnOff")
-#define APP_MOVEONOFF  TEXT(APP_NAMEA"-MoveOnOff")
-#define APP_PRODPI     TEXT(APP_NAMEA"-ODPI")
+#define APP_PROPPT     APP_NAME TEXT("-RDim")
+#define APP_PROPFL     APP_NAME TEXT("-RFlag")
+#define APP_PROPOFFSET APP_NAME TEXT("-ROffset")
+#define APP_PRBDLESS   APP_NAME TEXT("-RStyle")
+#define APP_ROLLED     APP_NAME TEXT("-Rolled")
+#define APP_ASONOFF    APP_NAME TEXT("-ASOnOff")
+#define APP_MOVEONOFF  APP_NAME TEXT("-MoveOnOff")
+#define APP_PRODPI     APP_NAME TEXT("-ODPI")
 #define FZ_PROPPT      TEXT("FancyZones_RestoreSize")
 #define FZ_PROPZONES   TEXT("FancyZones_zones")
 

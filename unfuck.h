@@ -103,11 +103,20 @@ enum MONITOR_DPI_TYPE {
 #define NIIF_USER 0x00000004
 #endif
 
+#ifndef INVALID_FILE_ATTRIBUTES
+#define INVALID_FILE_ATTRIBUTES 0xFFFFFFFF
+#endif
+
 #ifndef WPF_ASYNCWINDOWPLACEMENT
 #define WPF_ASYNCWINDOWPLACEMENT 0x0004
 #endif
 #ifndef WM_DPICHANGED
 #define WM_DPICHANGED 0x02E0
+#endif
+
+#if defined(_MSC_VER) && _MSC_VER <= 1200
+#define InterlockedIncrement(x) InterlockedIncrement((LONG*)(x))
+#define InterlockedDecrement(x) InterlockedDecrement((LONG*)(x))
 #endif
 
 #ifndef MSAA_MENU_SIG
@@ -119,10 +128,49 @@ typedef struct tagMSAAMENUINFO {
 } MSAAMENUINFO,*LPMSAAMENUINFO;
 #endif
 
-#ifndef SUBCLASSPROC
-typedef LRESULT (CALLBACK *SUBCLASSPROC)
-    (HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
-    , UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+#ifndef GetWindowLongPtr
+    #define GetWindowLongPtr GetWindowLong
+    #define SetWindowLongPtr SetWindowLong
+    #define GetClassLongPtr GetClassLong
+    #define SetClassLongPtr SetClassLong
+    #define GWLP_WNDPROC (-4)
+    #define GWLP_HINSTANCE (-6)
+    #define GWLP_HWNDPARENT (-8)
+    #define GWLP_USERDATA (-21)
+    #define GWLP_ID (-12)
+#endif
+
+#ifndef PROCESS_SUSPEND_RESUME
+#define PROCESS_SUSPEND_RESUME (0x0800)
+#endif
+
+#ifndef WS_EX_LAYERED
+    #define WS_EX_LAYERED 0x00080000
+    #define WS_EX_NOACTIVATE 0x08000000
+    #define LWA_COLORKEY 0x00000001
+    #define LWA_ALPHA 0x00000002
+#endif
+
+#ifndef WM_XBUTTONDOWN
+    #define GET_WHEEL_DELTA_WPARAM(wParam) ((short)HIWORD(wParam))
+    #define WM_XBUTTONDOWN 0x020B
+    #define WM_XBUTTONUP 0x020C
+    #define WM_XBUTTONDBLCLK 0x020D
+    #define WM_MOUSEHWHEEL 0x020e
+    #define VK_XBUTTON1 0x05
+    #define VK_XBUTTON2 0x06
+    #define VK_VOLUME_MUTE 0xAD
+    #define VK_VOLUME_DOWN 0xAE
+    #define VK_VOLUME_UP 0xAF
+    #define MOUSEEVENTF_XDOWN 0x0080
+    #define MOUSEEVENTF_XUP 0x0100
+    #define KEYEVENTF_UNICODE 0x0004
+    #define KEYEVENTF_SCANCODE 0x0008
+#endif
+
+#ifndef GCLP_HCURSOR
+    #define GCLP_HCURSOR (-12)
+    #define GCLP_HICON (-14)
 #endif
 
 //#define LOGA(X, ...) {DWORD err=GetLastError(); FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fprintf(LOG,", LastError=%lu\n",err); fclose(LOG); SetLastError(0); }
@@ -133,24 +181,27 @@ static void LOGfunk( const char *fmt, ... )
     DWORD lerr = GetLastError();
     va_list arglist;
     char str[512];
+    HANDLE h;
 
     va_start( arglist, fmt );
     wvsprintfA( str, fmt, arglist );
     va_end( arglist );
 
-    HANDLE h = CreateFileA( "ad.log",
+    h = CreateFileA( "ad.log",
         FILE_APPEND_DATA, FILE_SHARE_READ, NULL, OPEN_ALWAYS,
         FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, NULL);
     if( h == INVALID_HANDLE_VALUE )
         return;
+    {
     char lerrorstr[16];
+    DWORD dummy;
     lstrcat_sA(str, ARR_SZ(str), " (");
     lstrcat_sA(str, ARR_SZ(str), itostrA(lerr, lerrorstr, 16));
     lstrcat_sA(str, ARR_SZ(str), ")\n");
-    DWORD dummy;
     WriteFile( h, str, lstrlenA(str), &dummy, NULL );
     CloseHandle(h);
     SetLastError(0);
+    }
 }
 #ifdef LOG_STUFF
 #define LOG LOGfunk
@@ -232,7 +283,7 @@ static int PrintHwndDetails(HWND hwnd, TCHAR *buf)
     GetWindowText(hwnd, title, ARR_SZ(title));
     return wsprintf(buf
         , TEXT("Hwnd=%x, %s|%s, style=%x, xstyle=%x")
-        , (UINT)(LONG_PTR)hwnd
+        , (UINT)(UINT_PTR)hwnd
         , title, klass
         , (UINT)GetWindowLongPtr(hwnd, GWL_STYLE)
         , (UINT)GetWindowLongPtr(hwnd, GWL_EXSTYLE));
@@ -388,6 +439,40 @@ static HWND GetAncestorL(HWND hwnd, UINT gaFlags)
     #undef FUNK_TYPE
 }
 
+/*BOOL ChangeWindowMessageFilterEx(
+  [in]                HWND                hwnd,
+  [in]                UINT                message,
+  [in]                DWORD               action,
+  [in, out, optional] PCHANGEFILTERSTRUCT pChangeFilterStruct
+);*/
+#ifndef MSGFLTINFO_NONE
+
+#define MSGFLTINFO_NONE 0
+#define MSGFLTINFO_ALREADYALLOWED_FORWND 1
+#define MSGFLTINFO_ALREADYDISALLOWED_FORWND 2
+#define MSGFLTINFO_ALLOWED_HIGHER 3
+
+typedef struct tagCHANGEFILTERSTRUCT {
+  DWORD cbSize;
+  DWORD ExtStatus;
+} CHANGEFILTERSTRUCT, *PCHANGEFILTERSTRUCT;
+#endif
+
+static BOOL ChangeWindowMessageFilterExL(HWND hwnd, UINT msg, DWORD ac, PCHANGEFILTERSTRUCT pC)
+{
+    #define FUNK_TYPE ( BOOL (WINAPI *)(HWND hwnd, UINT msg, DWORD ac, PCHANGEFILTERSTRUCT pC) )
+    static BOOL (WINAPI *funk)(HWND hwnd, UINT msg, DWORD ac, PCHANGEFILTERSTRUCT pC) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) {
+        funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "ChangeWindowMessageFilterEx");
+    }
+    if (funk) { /* We know we have the function */
+        return funk(hwnd, msg, ac, pC);
+    }
+    return FALSE;
+    #undef FUNK_TYPE
+}
+
 static BOOL GetLayeredWindowAttributesL(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWORD *pdwFlags)
 {
     #define FUNK_TYPE ( BOOL (WINAPI *)(HWND hwnd, COLORREF *pcrKey, BYTE *pbAlpha, DWORD *pdwFlags) )
@@ -494,10 +579,10 @@ static HMONITOR MonitorFromWindowL(HWND hwnd, DWORD dwFlags)
     #undef FUNK_TYPE
 }
 
-static BOOL GetGUIThreadInfoL(DWORD pid, LPGUITHREADINFO lpgui)
+static BOOL GetGUIThreadInfoL(DWORD pid, GUITHREADINFO *lpgui)
 {
-    #define FUNK_TYPE ( BOOL (WINAPI *)(DWORD pid, LPGUITHREADINFO lpgui) )
-    static BOOL (WINAPI *funk)(DWORD pid, LPGUITHREADINFO lpgui) = FUNK_TYPE IPTR;
+    #define FUNK_TYPE ( BOOL (WINAPI *)(DWORD pid, GUITHREADINFO *lpgui) )
+    static BOOL (WINAPI *funk)(DWORD pid, GUITHREADINFO *lpgui) = FUNK_TYPE IPTR;
 
     if (funk == FUNK_TYPE IPTR) { /* First time */
         funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "GetGUIThreadInfo");
@@ -670,7 +755,7 @@ static BOOL AllowDarkTitlebar(HWND hwnd)
 
         if ( OredredWinVer() < 0x0A0047BA) {
             /* Windows 10 build 10.0.18362 ie: before 1903 */
-            SetProp(hwnd, TEXT("UseImmersiveDarkModeColors"), (HANDLE)(LONG_PTR)DarkMode);
+            SetProp(hwnd, TEXT("UseImmersiveDarkModeColors"), (HANDLE)(UINT_PTR)DarkMode);
         }
         DwmSetWindowAttributeL(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_PRE20H1, &DarkMode, sizeof(DarkMode));
     }
@@ -1076,11 +1161,20 @@ static DWORD GetWindowProgName(HWND hwnd, TCHAR *title, size_t title_len)
  * we try to get the icon from the window class if everything failed or
  * if the first message timed out (freezing program).
  * Note that ICON_SMALL2 was introduced by Windows XP (I think) */
+#ifndef ICON_SMALL2
+#define ICON_SMALL2 2
+#endif
+#ifndef GCLP_HICON
+#define GCLP_HICON (-14)
+#endif
+#ifndef GCLP_HICONSM
+#define GCLP_HICONSM (-34)
+#endif
 static HICON GetWindowIcon(HWND hwnd)
 {
     #define TIMEOUT 64
     HICON icon;
-    if (SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL, 0, SMTO_ABORTIFHUNG, TIMEOUT, (PDWORD_PTR)&icon)) {
+    if (SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL, 0, SMTO_ABORTIFHUNG, TIMEOUT, (DWORD_PTR*)&icon)) {
         /* The message failed without timeout */
         if (icon) return icon; /* Sucess */
 
@@ -1093,11 +1187,11 @@ static HICON GetWindowIcon(HWND hwnd)
             WINXP_PLUS = ver > 5 || (ver == 5 && min > 0); /* XP is NT 5.1 */
         }
         if (WINXP_PLUS
-        &&  SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL2, 0, SMTO_ABORTIFHUNG, TIMEOUT, (PDWORD_PTR)&icon) && icon)
+        &&  SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL2, 0, SMTO_ABORTIFHUNG, TIMEOUT, (DWORD_PTR*)&icon) && icon)
             return icon;
 
         /* Try again with the big icon if we were unable to retreave the small one. */
-        if (SendMessageTimeout(hwnd, WM_GETICON, ICON_BIG, 0, SMTO_ABORTIFHUNG, TIMEOUT, (PDWORD_PTR)&icon) && icon)
+        if (SendMessageTimeout(hwnd, WM_GETICON, ICON_BIG, 0, SMTO_ABORTIFHUNG, TIMEOUT, (DWORD_PTR*)&icon) && icon)
             return icon;
     }
     /* Try the Class icon if nothing can be get */
@@ -1149,7 +1243,7 @@ struct NEWNONCLIENTMETRICSAW {
 };
 static BOOL GetNonClientMetricsDpi(struct NEWNONCLIENTMETRICSAW *ncm, UINT dpi)
 {
-    memset(ncm, 0, sizeof(struct NEWNONCLIENTMETRICSAW));
+    mem00(ncm, sizeof(struct NEWNONCLIENTMETRICSAW));
     ncm->cbSize = sizeof(struct NEWNONCLIENTMETRICSAW);
     BOOL ret = SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(struct NEWNONCLIENTMETRICSAW), ncm, 0, dpi);
     if (!ret) { /* Old Windows versions... XP and below */
@@ -1232,7 +1326,7 @@ static int IsWindowSnapped(HWND hwnd)
 static void GetMinMaxInfoF(HWND hwnd, POINT *Min, POINT *Max, UCHAR flags)
 {
     MINMAXINFO mmi;
-    memset(&mmi, 0, sizeof(mmi));
+    mem00(&mmi, sizeof(mmi));
     UINT dpi = GetDpiForWindow(hwnd);
     mmi.ptMinTrackSize.x = GetSystemMetricsForDpi(SM_CXMINTRACK, dpi);
     mmi.ptMinTrackSize.y = GetSystemMetricsForDpi(SM_CYMINTRACK, dpi);

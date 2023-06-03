@@ -10,10 +10,12 @@
 #ifndef ALTSNAP_STRINGS_H
 #define ALTSNAP_STRINGS_H
 
+#include <stddef.h>
 #include <windows.h>
 #include "resource.h"
 // Resolve index from entry name.
-#define L10NIDX(entryname) (short)(LONG_PTR)((TCHAR**)&en_US.entryname - (TCHAR**)&en_US.code)
+#define L10NIDX(entryname) (short)( offsetof(struct strings, entryname)/sizeof(TCHAR**) )
+
 // Resolve entry name from index.
 #define L10NSTR(i) ( ((const TCHAR*const*const)l10n)[i] )
 
@@ -526,7 +528,7 @@ static const struct strings en_US = {
  /* exit               */ TEXT("E&xit"),
 
  /* === config === */
- /* title              */ TEXT( APP_NAMEA " Configuration"),
+ /* title              */ APP_NAME TEXT(" Configuration"),
  /* tabs */
  /* general            */ TEXT("General"),
  /* Mouse              */ TEXT("Mouse"),
@@ -561,7 +563,7 @@ static const struct strings en_US = {
  /* ResizeCenterClose  */ TEXT("Clos&est side"),
 
  /* autostart_box      */ TEXT("Autostart"),
- /* autostart          */ TEXT("S&tart " APP_NAMEA " when logging on"),
+ /* autostart          */ TEXT("S&tart ") APP_NAME TEXT(" when logging on"),
  /* autostart_hide     */ TEXT("&Hide tray"),
  /* autostart_elevate  */ TEXT("&Elevate to administrator privileges"),
  /* elevate_tip        */ TEXT("Note that a UAC prompt will appear every time you log in, unless you disable UAC completely or use the Task Scheduler"),
@@ -728,24 +730,24 @@ static const struct strings en_US = {
  /* topmostindicator */   TEXT("Show an i&ndicator on always on top windows"),
 
  /* about tab */
- /* box                */ TEXT("About "APP_NAME),
- /* version            */ TEXT("Version "APP_VERSION),
+ /* box                */ TEXT("About ") APP_NAME ,
+ /* version            */ TEXT("Version ") TEXT( APP_VERSION ),
  /* author             */ TEXT("Created by Stefan Sundin"),
  /* author2            */ TEXT("Maintained by Raymond Gillibert"),
- /* license            */ TEXT( APP_NAMEA " is free and open source software!\nFeel free to redistribute!"),
+ /* license            */ APP_NAME TEXT(" is free and open source software!\nFeel free to redistribute!"),
  /* translation_credit */ TEXT("Translation credit"),
 
  /* === misc === */
- /* unhook_error       */ TEXT("There was an error disabling "APP_NAME". This was most likely caused by Windows having already disabled "APP_NAME"'s hooks.\n\n"
-                           "If this is the first time this has happened, you can safely ignore it and continue using "APP_NAME".\n\n"
-                           "If this is happening repeatedly, you can read on the website how to prevent this from happening again "
-                           "(look for '"APP_NAME" mysteriously stops working' in the documentation)."),
+ /* unhook_error       */ TEXT("There was an error disabling AltDrag. This was most likely caused by Windows having already disabled AltDrag's hooks.\n\n")
+                          TEXT("If this is the first time this has happened, you can safely ignore it and continue using AltDrag.\n\n")
+                          TEXT("If this is happening repeatedly, you can read on the website how to prevent this from happening again ")
+                          TEXT("(look for 'AltDrag mysteriously stops working' in the documentation)."),
 
  /* zoneconfirmation   */ TEXT("Erase old snap layout and save current Test Windows positions as the new snap layout?"),
- /* zone test win help */ TEXT("To setup Snap layout:\n"
-                           "1) Open several of those Test Windows\n"
-                           "2) Dispose them as you please\n"
-                           "3) Hit the *&Save test windows as snap layout* option in the tray menu"),
+ /* zone test win help */ TEXT("To setup Snap layout:\n")
+                          TEXT("1) Open several of those Test Windows\n")
+                          TEXT("2) Dispose them as you please\n")
+                          TEXT("3) Hit the *&Save test windows as snap layout* option in the tray menu"),
  /* Extended character list  for each virtual key */
  /* A */ TEXT("àáâäæãåª%āăąǎǟǡǣǻǽȁȃȧ|Ȧḁ%ⱥ|Ⱥɐ|Ɐɑ|Ɑɒ|Ɒⲁ|Ⲁⓐ"), \
  /* B */ TEXT("%ƀɓƃƅɃ%ɓḃḅḇⓑ"), \

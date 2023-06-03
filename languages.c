@@ -96,7 +96,7 @@ static void LoadTranslation(const TCHAR *__restrict__ ini)
             // Append version number to version....
             TCHAR tmp[128];
             lstrcpy_s(tmp, ARR_SZ(tmp), txt);
-            lstrcat_s(tmp, ARR_SZ(tmp), TEXT(" "APP_VERSION));
+            lstrcat_s(tmp, ARR_SZ(tmp), TEXT(" ") TEXT(APP_VERSION));
             txt = (const TCHAR*)tmp;
         }
         *deststr = (TCHAR *)realloc( *deststr, (lstrlen_resolved(txt)+1)*sizeof(TCHAR) );

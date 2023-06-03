@@ -66,7 +66,9 @@ static struct windowRR {
     int y;
     int width;
     int height;
+    UINT odpi;
     UCHAR end;
+    UCHAR moveonly;
     UCHAR maximize;
     UCHAR snap;
 } LastWin;
@@ -126,6 +128,7 @@ static struct {
         int height;
         int right;
         int bottom;
+        UINT dpi;
     } origin;
 
     UCHAR sactiondone;
@@ -149,8 +152,6 @@ static struct config {
     // System settings
     short dragXth;
     short dragYth;
-    short ldragXth;
-    short ldragYth;
     short dbclickX;
     short dbclickY;
     // [General]
@@ -254,7 +255,7 @@ static struct config {
 } conf;
 
 struct OptionListItem {
-   const char *name; const int def;
+   const char *name; int def;
 };
 // [General]
 static const struct OptionListItem General_uchars[] = {
@@ -393,23 +394,17 @@ static pure int ISCLAMPEDW(int x)  { return state.mmi.Min.x <= x && x <= state.m
 static pure int ISCLAMPEDH(int y)  { return state.mmi.Min.y <= y && y <= state.mmi.Max.y; }
 
 /* If pt and ptt are it is the same points with 4px tolerence */
-static xpure int IsSamePTT4(const POINT *pt, const POINT *ptt)
+static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
 {
     const short Tx = conf.dbclickX;
     const short Ty = conf.dbclickY;
     return !( pt->x > ptt->x+Tx || pt->y > ptt->y+Ty || pt->x < ptt->x-Tx || pt->y < ptt->y-Ty );
 }
-static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
-{
-    const short Tx = conf.dragXth;
-    const short Ty = conf.dragYth;
-    return !( pt->x > ptt->x+Tx || pt->y > ptt->y+Ty || pt->x < ptt->x-Tx || pt->y < ptt->y-Ty );
-}
 
 static xpure int IsPtDragOut(const POINT *pt, const POINT *ptt)
 {
-    const short Tx = conf.ldragXth;
-    const short Ty = conf.ldragYth;
+    const short Tx = conf.dragXth;
+    const short Ty = conf.dragYth;
     return !( pt->x > ptt->x+Tx || pt->y > ptt->y+Ty || pt->x < ptt->x-Tx || pt->y < ptt->y-Ty );
 }
 
@@ -1278,10 +1273,39 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
 static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 {
     struct windowRR *lw = (struct windowRR *)LastWinV;
-    RECT rc;
-    int notsamesize = 0;
-    if(GetWindowRect(lw->hwnd, &rc))
-        notsamesize = rc.right-rc.left != lw->width || rc.bottom-rc.top != lw->height;
+//    RECT rc;
+//    int notsamesize = 0;
+//    if (GetWindowRect(lw->hwnd, &rc)) {
+//        int cW = rc.right - rc.left;
+//        int cH = rc.bottom - rc.top;
+//        UINT cdpi = GetDpiForWindow(lw->hwnd);
+//        if ( cdpi && cdpi != lw->odpi ) {
+//            // If dpi is not the same we must check the *scaled* values.
+//            if (cW == lw->width && cH == lw->height)
+//                // Window had no time to resize between monitors?
+//                notsamesize = 0;
+//            else
+//                notsamesize = (cW * lw->odpi)>>3 != (lw->width  * cdpi)>>3
+//                       || (cH * lw->odpi)>>3 != (lw->height * cdpi)>>3;
+//        } else {
+//            notsamesize =  cW != lw->width ||  cH != lw->height;
+//        }
+//        //LOGA("MV: %d:%d/%d -> %d:%d/%d %s", cW, cH, cdpi , lw->width, lw->height, lw->odpi, notsamesize?"(dif)":"(eq)");
+//    }
+//    UINT flag = notsamesize? RESIZEFLAG: state.resizable&2 ? MOVETHICKBORDERS: MOVEASYNC;
+    int notsamesize = 1;
+    if (conf.FullWin) {
+        notsamesize = !lw->moveonly;
+    } else {
+        // Hollow rectangle mode.
+        RECT rc;
+        if( GetWindowRect(lw->hwnd, &rc) ) {
+            int cW = rc.right - rc.left;
+            int cH = rc.bottom - rc.top;
+            notsamesize =  cW != lw->width ||  cH != lw->height;
+        }
+    }
+
     UINT flag = notsamesize? RESIZEFLAG: state.resizable&2 ? MOVETHICKBORDERS: MOVEASYNC;
     if (conf.IgnoreMinMaxInfo) flag |= SWP_NOSENDCHANGING;
 
@@ -1408,6 +1432,11 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     int pBottom= mon.bottom - AERO_TH ;
     int leftWidth, rightWidth, topHeight, bottomHeight;
 
+    int Left  = pLeft   + AERO_TH ;
+    int Right = pRight  - AERO_TH ;
+    int Top   = pTop    + AERO_TH ;
+    int Bottom= pBottom - AERO_TH ;
+
     unsigned restore = GetRestoreFlag(state.hwnd);
     RECT trc;
     trc.left = pLeft; trc.top = pTop;
@@ -1415,10 +1444,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
     if (PtInRect(&trc, pt) || !conf.Aero) goto restore;
 
     GetAeroSnappingMetrics(&leftWidth, &rightWidth, &topHeight, &bottomHeight, &mon);
-    int Left  = pLeft   + AERO_TH ;
-    int Right = pRight  - AERO_TH ;
-    int Top   = pTop    + AERO_TH ;
-    int Bottom= pBottom - AERO_TH ;
+    LastWin.moveonly = 0; // We shall snap!
     // Move window
     if (pt.y < Top && pt.x < Left) {
         // Top left
@@ -1499,6 +1525,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         if (restore&SNAPPED && !MM_THREAD_ON) {
             // Restore original window size
             // Clear restore data at the end of the movement
+            LastWin.moveonly = 0;
             SetRestoreFlag(state.hwnd, restore|SNCLEAR);
             restore = 0;
             *wndwidth = state.origin.width;
@@ -1522,6 +1549,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
 
         // If we go too fast then do not move the window
         if (state.Speed > conf.AeroMaxSpeed) return 1;
+        LastWin.moveonly = 0;
         if (conf.FullWin) {
             if (IsZoomed(state.hwnd)) {
                 // Avoids flickering
@@ -1735,6 +1763,7 @@ static void RestoreOldWin(const POINT pt, unsigned was_snapped, RECT *ownd)
     }
 
     if (restore) {
+        LastWin.moveonly = 0;
 //        SetWindowPos(state.hwnd, NULL
 //                , pt.x - state.offset.x - state.mdipt.x
 //                , pt.y - state.offset.y - state.mdipt.y
@@ -1832,7 +1861,7 @@ static void ShowTransWin(int nCmdShow)
 #define HideTransWin() ShowTransWin(SW_HIDE)
 static BOOL IsTransWinVisible() { return IsVisible(g_transhwnd[0]); }
 
-static void MoveTransWin(int x, int y, int w, int h)
+static void MoveTransWinRaw(int x, int y, int w, int h)
 {
     #define f SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOSENDCHANGING //|SWP_DEFERERASE
 //      HDWP hwndSS = BeginDeferWindowPos(4);
@@ -1846,6 +1875,21 @@ static void MoveTransWin(int x, int y, int w, int h)
     }
     #undef f
 //      if(hwndSS) EndDeferWindowPos(hwndSS);
+}
+static void MoveTransWin(int x, int y, int w, int h)
+{
+    if (state.origin.dpi) {
+        POINT pt = { x + w/2, y + h/2 };
+        HMONITOR hmon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+        if (hmon != state.origin.monitor && !GetRestoreFlag(state.hwnd)) {
+            UINT ptdpi=0, dpiy_ignore=0;
+            if ( S_OK == GetDpiForMonitorL(hmon, MDT_DEFAULT, &ptdpi, &dpiy_ignore) && ptdpi ) {
+                w = MulDiv(w, ptdpi, state.origin.dpi);
+                h = MulDiv(h, ptdpi, state.origin.dpi);
+            }
+        }
+    }
+    MoveTransWinRaw(x, y, w, h);
 }
 static DWORD CALLBACK WinPlacmntTrgead(LPVOID wndplptr)
 {
@@ -1942,6 +1986,7 @@ static void MouseMove(POINT pt)
     // Restore Aero snapped window when movement starts
     UCHAR was_snapped = 0;
     if (!state.moving) {
+        LastWin.odpi = state.origin.dpi;
         SetOriginFromRestoreData(state.hwnd, state.action);
         if (state.action == AC_MOVE) {
             was_snapped = IsWindowSnapped(state.hwnd);
@@ -1959,9 +2004,10 @@ static void MouseMove(POINT pt)
 
     // Get new position for window
     LastWin.end = 0;
+    LastWin.moveonly = 0;
     if (state.action == AC_MOVE) {
         // SWP_NOSIZE to SetWindowPos
-
+        LastWin.moveonly = state.moving;
         posx = pt.x-state.offset.x;
         posy = pt.y-state.offset.y;
         wndwidth = wnd.right-wnd.left;
@@ -1974,7 +2020,8 @@ static void MouseMove(POINT pt)
         MoveSnapToZone(pt, &posx, &posy, &wndwidth, &wndheight);
 
         // Restore window if maximized when starting
-        if ((was_snapped || IsZoomed(state.hwnd)) && !LastWin.snap) {
+        if (!LastWin.snap && (was_snapped || IsZoomed(state.hwnd))) {
+            LastWin.moveonly = 0;
             WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
             GetWindowPlacement(state.hwnd, &wndpl);
             // Restore original width and height in case we are restoring
@@ -2149,7 +2196,7 @@ static DWORD WINAPI Send_ClickProc(LPVOID buttonD)
         mdata = button - 0x04; // mdata = 1 for X1 and 2 for X2
     // MouseEvent<<1 corresponds to MOUSEEVENTF_*UP
     MOUSEINPUT click[2];
-    memset(&click[0], 0, sizeof(MOUSEINPUT)*2);
+    mem00(&click[0], sizeof(MOUSEINPUT)*2);
     click[0].mouseData = click[1].mouseData = mdata;
     click[0].dwFlags = MouseEvent;
     click[1].dwFlags = MouseEvent<<1;
@@ -2179,7 +2226,7 @@ static void SendUnicodeKey(WORD w)
         {0, 0, KEYEVENTF_UNICODE, 0, 0},
         {0, 0, KEYEVENTF_UNICODE|KEYEVENTF_KEYUP, 0, 0}
     };
-    // memset(&click[0], 0, sizeof(KEYBDINPUT)*2);
+    // mem00(&click[0], sizeof(KEYBDINPUT)*2);
     ctrl[0].wScan = ctrl[1].wScan = w;
 //    ctrl[0].dwFlags = KEYEVENTF_UNICODE;
 //    ctrl[1].dwFlags = KEYEVENTF_UNICODE|KEYEVENTF_KEYUP;
@@ -2370,6 +2417,7 @@ static void LogState(const char *Title)
        "hwnd=%lx\n"
        "lwhwnd=%lx\n"
        "lwend=%d\n"
+       "lwmoveonly=%d\n"
        "lwmaximize=%d\n"
        "lwsnap=%d\n"
        "blockaltup=%d\n"
@@ -2379,6 +2427,7 @@ static void LogState(const char *Title)
     , (DWORD)(DorQWORD)state.hwnd
     , (DWORD)(DorQWORD)LastWin.hwnd
     , (int)LastWin.end
+    , (int)LastWin.moveonly
     , (int)LastWin.maximize
     , (int)LastWin.snap
     , (int)state.blockaltup
@@ -2426,8 +2475,15 @@ static void TogglesAlwaysOnTop(HWND hwnd);
 static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_);
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
+#ifdef __cplusplus
+extern "C"
+#endif
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
+#ifdef _MSC_VER
+#pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+#endif
+
     if (nCode != HC_ACTION || state.ignorekey) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     PKBDLLHOOKSTRUCT kbh = ((PKBDLLHOOKSTRUCT)lParam);
@@ -2591,7 +2647,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                     if(!IsMenu(state.unikeymenu)) {
                         KillAltSnapMenu();
                         state.unikeymenu = (HMENU)1;
-                        g_mchwnd = KreateMsgWin(MenuWindowProc, TEXT(APP_NAMEA"-SClick"), 2);
+                        g_mchwnd = KreateMsgWin(MenuWindowProc, TEXT(APP_NAMEA)TEXT("-SClick"), 2);
                         UCHAR shiftdown = GetKeyState(VK_SHIFT)&0x8000 || GetKeyState(VK_CAPITAL)&1;
                         PostMessage(g_mainhwnd, WM_UNIKEYMENU, (WPARAM)g_mchwnd, vkey|(shiftdown<<8) );
                     }
@@ -3529,7 +3585,7 @@ static void ActionBorderless(HWND hwnd)
 #define CW_TRIM    (1<<1)
 static void CenterWindow(HWND hwnd, unsigned flags)
 {
-    RECT mon;
+    RECT mon;// = state.origin.mon;
     POINT pt;
     int width, height;
     if (flags & CW_RESTORE) {
@@ -3542,8 +3598,9 @@ static void CenterWindow(HWND hwnd, unsigned flags)
         width = rc.right - rc.left;
         height = rc.bottom - rc.top;
     }
-    GetMsgPT(&pt);
+    GetCursorPos(&pt);
     GetMonitorRect(&pt, 0, &mon);
+
 
     int x = mon.left+ ((mon.right-mon.left)-width)/2;
     int y = mon.top + ((mon.bottom-mon.top)-height)/2;
@@ -3605,8 +3662,8 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         HWND owner = GetWindow(hwnd, GW_OWNER);
         DWORD lpdwProcessId;
         DWORD threadid = GetWindowThreadProcessId(owner, &lpdwProcessId);
-        int prop = SetProp(owner, TEXT(APP_NAMEA"-Pin"), NULL);
-        RemoveProp(owner,  TEXT(APP_NAMEA"-Pin"));
+        int prop = SetProp(owner, TEXT(APP_NAMEA)TEXT("-Pin"), NULL);
+        RemoveProp(owner,  TEXT(APP_NAMEA)TEXT("-Pin"));
 
         if (prop && threadid && lpdwProcessId) {
             #if defined(_M_AMD64) || defined(WIN64)
@@ -3810,9 +3867,9 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 static HWND CreatePinWindow(const HWND owner)
 {
     WNDCLASSEX wnd;
-    if(!GetClassInfoEx(hinstDLL, TEXT(APP_NAMEA"-Pin"), &wnd)) {
+    if(!GetClassInfoEx(hinstDLL, TEXT(APP_NAMEA)TEXT("-Pin"), &wnd)) {
         // Register the class if no already created.
-        memset(&wnd, 0, sizeof(wnd));
+        mem00(&wnd, sizeof(wnd));
         wnd.cbSize = sizeof(WNDCLASSEX);
         wnd.style = CS_NOCLOSE|CS_HREDRAW|CS_VREDRAW;
         wnd.lpfnWndProc = PinWindowProc;
@@ -3825,11 +3882,11 @@ static HWND CreatePinWindow(const HWND owner)
         wnd.hInstance = hinstDLL;
         wnd.hCursor = LoadCursor(NULL, IDC_ARROW);
         wnd.hbrBackground = CreateSolidBrush(conf.PinColor&0x00FFFFFF);
-        wnd.lpszClassName =  TEXT(APP_NAMEA"-Pin");
+        wnd.lpszClassName =  TEXT(APP_NAMEA)TEXT("-Pin");
         RegisterClassEx(&wnd);
     }
     HWND ret = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST
-                   , TEXT(APP_NAMEA"-Pin"), NULL
+                   , TEXT(APP_NAMEA)TEXT("-Pin"), NULL
                    , WS_POPUP|WS_BORDER /* Start invisible */
                    , 0, 0, 0, 0
                    , owner, NULL, hinstDLL, NULL);
@@ -3839,7 +3896,7 @@ static HWND CreatePinWindow(const HWND owner)
 }
 static BOOL CALLBACK PostPinWindowsProcMessage(HWND hwnd, LPARAM lp)
 {
-    if(isClassName(hwnd, TEXT(APP_NAMEA"-Pin"))) {
+    if(isClassName(hwnd, TEXT(APP_NAMEA)TEXT("-Pin"))) {
         if(lp == WM_CLOSE)
             DestroyWindow(hwnd);
         else
@@ -4076,7 +4133,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
 {
     state.sclickhwnd = NULL;
     KillAltSnapMenu();
-    g_mchwnd = KreateMsgWin(MenuWindowProc, TEXT(APP_NAMEA"-SClick"), 3);
+    g_mchwnd = KreateMsgWin(MenuWindowProc, TEXT(APP_NAMEA)TEXT("-SClick"), 3);
     if (!g_mchwnd) return; // Failed to create g_mchwnd...
     // Fill up hwnds[] with the stacked windows.
     numhwnds = 0;
@@ -4201,7 +4258,7 @@ static void ActionMenu(HWND hwnd)
 {
     state.sclickhwnd = NULL;
     KillAltSnapMenu();
-    g_mchwnd = KreateMsgWin(MenuWindowProc, TEXT(APP_NAMEA"-SClick"), 1);
+    g_mchwnd = KreateMsgWin(MenuWindowProc, TEXT(APP_NAMEA)TEXT("-SClick"), 1);
     state.sclickhwnd = hwnd;
     // Send message to Open Action Menu
     ReallySetForegroundWindow(g_mainhwnd);
@@ -4396,7 +4453,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     // state.hwnd == GetDesktopWindow()
     // state.hwnd == GetShellWindow()
     if (blacklisted(state.hwnd, &BlkLst.Processes)
-    || isClassName(state.hwnd, TEXT(APP_NAMEA"-Pin"))
+    || isClassName(state.hwnd, TEXT(APP_NAMEA)TEXT("-Pin"))
     ||(blacklisted(state.hwnd, &BlkLst.Windows)
        && !state.hittest && button != BT_WHEEL && button != BT_HWHEEL
       )// does not apply in titlebar, nor for the wheel action...
@@ -4419,6 +4476,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
 
     // Set origin width/height by default from current state/wndpl.
     state.origin.monitor = MonitorFromWindow(state.hwnd, MONITOR_DEFAULTTONEAREST);
+    state.origin.dpi     = GetDpiForWindow(state.hwnd);
     state.origin.width  = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
     state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
     state.resizable = IsResizable(state.hwnd);
@@ -5506,8 +5564,14 @@ static void freeblacklists()
 }
 /////////////////////////////////////////////////////////////////////////////
 // To be called before Free Library. Ideally it should free everything
+#ifdef __cplusplus
+extern "C"
+#endif
 __declspec(dllexport) void WINAPI Unload()
 {
+#ifdef _MSC_VER
+#pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+#endif
     conf.keepMousehook = 0;
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
     DestroyWindow(g_timerhwnd);
@@ -5529,11 +5593,11 @@ __declspec(dllexport) void WINAPI Unload()
     DestroyWindow(g_hkhwnd);
 
     EnumThreadWindows(GetCurrentThreadId(), PostPinWindowsProcMessage, WM_CLOSE);
-    UnregisterClass(TEXT(APP_NAMEA"-Timers"), hinstDLL);
-    UnregisterClass(TEXT(APP_NAMEA"-SClick"), hinstDLL);
-    UnregisterClass(TEXT(APP_NAMEA"-Trans"),  hinstDLL);
-    UnregisterClass(TEXT(APP_NAMEA"-Pin"),    hinstDLL);
-    UnregisterClass(TEXT(APP_NAMEA"-HotKeys"),hinstDLL);
+    UnregisterClass(TEXT(APP_NAMEA)TEXT("-Timers"), hinstDLL);
+    UnregisterClass(TEXT(APP_NAMEA)TEXT("-SClick"), hinstDLL);
+    UnregisterClass(TEXT(APP_NAMEA)TEXT("-Trans"),  hinstDLL);
+    UnregisterClass(TEXT(APP_NAMEA)TEXT("-Pin"),    hinstDLL);
+    UnregisterClass(TEXT(APP_NAMEA)TEXT("-HotKeys"),hinstDLL);
 
     freeblacklists();
 
@@ -5637,7 +5701,7 @@ static void readblacklist(const TCHAR *section, struct blacklist *blacklist, con
 #define blacklist_section_length 32767
 void readallblacklists(TCHAR *inipath)
 {
-    memset(&BlkLst, 0, sizeof(BlkLst));
+    mem00(&BlkLst, sizeof(BlkLst));
 
     TCHAR *section = (TCHAR *)malloc(blacklist_section_length*sizeof(TCHAR));
     if (!section) return;
@@ -5730,7 +5794,7 @@ static HWND KreateMsgWin(WNDPROC proc, const TCHAR *name, LONG_PTR userdata)
     WNDCLASSEX wnd;
     if(!GetClassInfoEx(hinstDLL, name, &wnd)) {
         // Register the class if no already created.
-        memset(&wnd, 0, sizeof(wnd));
+        mem00(&wnd, sizeof(wnd));
         wnd.cbSize = sizeof(WNDCLASSEX);
         wnd.lpfnWndProc = proc;
         wnd.hInstance = hinstDLL;
@@ -5752,13 +5816,13 @@ static void CreateTransWin(const TCHAR *inisection)
     // Read the color for the TransWin from ini file
     readhotkeys(inisection, "FrameColor",  TEXT("80 00 80"), (UCHAR *)&color[0]);
     WNDCLASSEX wnd;
-    memset(&wnd, 0, sizeof(wnd));
+    mem00(&wnd, sizeof(wnd));
     wnd.cbSize = sizeof(WNDCLASSEX);
 //    wnd.style = CS_SAVEBITS;
     wnd.lpfnWndProc = DefWindowProc;
     wnd.hInstance = hinstDLL;
     wnd.hbrBackground = CreateSolidBrush(color[0]);
-    wnd.lpszClassName = TEXT(APP_NAMEA"-Trans");
+    wnd.lpszClassName = TEXT(APP_NAMEA)TEXT("-Trans");
     RegisterClassEx(&wnd);
     g_transhwnd[0] = NULL;
     if (conf.TransWinOpacity) {
@@ -5784,7 +5848,8 @@ static void CreateTransWin(const TCHAR *inisection)
 
 void registerAllHotkeys(const TCHAR* inipath)
 {
-    g_hkhwnd = KreateMsgWin(HotKeysWinProc, TEXT(APP_NAMEA"-HotKeys"), 0);
+    g_hkhwnd = KreateMsgWin(HotKeysWinProc, TEXT(APP_NAMEA)TEXT("-HotKeys"), 0);
+    ChangeWindowMessageFilterExL(g_hkhwnd, WM_HOTKEY, /*MSGFLT_ALLOW*/1, NULL);
     // MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
     // RegisterHotKey(g_hkhwnd, 0xC000 + AC_KILL,   MOD_ALT|MOD_CONTROL, VK_F4); // F4=73h
     // Read All shortcuts in the [KBShortcuts] section.
@@ -5804,7 +5869,7 @@ void registerAllHotkeys(const TCHAR* inipath)
             if(!RegisterHotKey(g_hkhwnd, 0xC000 + ac, HIBYTE(HK), LOBYTE(HK))) {
                 // LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
                 //TCHAR title[128];
-                //lstrcpy_s(title, ARR_SZ(title), TEXT(APP_NAMEA": unable to register hotkey for action "));
+                //lstrcpy_s(title, ARR_SZ(title), TEXT(APP_NAMEA)TEXT(": unable to register hotkey for action "));
                 //lstrcat_s(title, ARR_SZ(title), txt);
                 //ErrorBox(title);
             }
@@ -5822,8 +5887,14 @@ static void readalluchars(UCHAR *dest, const TCHAR * const inisection, const str
 
 ///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.
+#ifdef __cplusplus
+extern "C"
+#endif
 __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
 {
+#ifdef _MSC_VER
+#pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
+#endif
     // Load settings
     TCHAR inipath[MAX_PATH];
     unsigned i;
@@ -5834,15 +5905,13 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
 
     // GET SYSTEM SETTINGS
     DWORD dragthreshold=0;
-    conf.dragXth  = GetSystemMetrics(SM_CXDRAG);
-    conf.dragYth  = GetSystemMetrics(SM_CYDRAG);
     if (SystemParametersInfo(/*SPI_GETMOUSEDRAGOUTTHRESHOLD*/0x0084, 0, &dragthreshold, 0)) {
-        conf.ldragXth = conf.ldragYth = dragthreshold;
+        conf.dragXth = conf.dragYth = dragthreshold;
     } else {
         // Unable to retreave the new drag-out Threshold
         // Default to twice the usual drag threshold.
-        conf.ldragXth  = conf.dragXth << 1;
-        conf.ldragYth  = conf.dragXth << 1;
+        conf.dragXth  = GetSystemMetrics(SM_CXDRAG)<<1;
+        conf.dragYth  = GetSystemMetrics(SM_CYDRAG)<<1;
     }
 
     conf.dbclickX = GetSystemMetrics(SM_CXDOUBLECLK);
@@ -5887,7 +5956,7 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
     if (conf.RezTimer == 2) {
         conf.RezTimer = 0;
         DEVMODE dvm;
-        memset(&dvm, 0, sizeof(dvm));
+        mem00(&dvm, sizeof(dvm));
         dvm.dmSize = sizeof(DEVMODE);
         if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dvm)) {
             LOG("Display Frequency = %dHz", dvm.dmDisplayFrequency);
@@ -5959,7 +6028,7 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
     g_mainhwnd = mainhwnd;
 
     if (conf.keepMousehook || conf.AeroMaxSpeed < 65535) {
-        g_timerhwnd = KreateMsgWin(TimerWindowProc, TEXT(APP_NAMEA"-Timers"), 0);
+        g_timerhwnd = KreateMsgWin(TimerWindowProc, TEXT(APP_NAMEA)TEXT("-Timers"), 0);
     }
 
     // read and register all shortcuts related options.

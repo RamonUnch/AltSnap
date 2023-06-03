@@ -37,7 +37,8 @@ struct wnddata {
     HWND hwnd;
     int width;
     int height;
-    int rolledh;
+//    int rolledh;
+//    UINT odpi
 };
 static struct wnddata wnddb[NUMWNDDB];
 
@@ -105,8 +106,15 @@ static unsigned GetRestoreData(HWND hwnd, int *width, int *height)
     if (WH) {
         *width  = (int)LOWORDPTR(WH);
         *height = (int)HIWORDPTR(WH);
+        UINT dpi = GetDpiForWindow(hwnd);
+        UINT odpi;
+        if (dpi && (odpi = (UINT)(DorQWORD)GetProp(hwnd, APP_PRODPI)) && odpi != dpi) {
+            // The current dpi is different for the window, We must scale the content.
+            *width  = MulDiv(*width,  dpi, odpi);
+            *height = MulDiv(*height, dpi, odpi);
+        }
+        return (unsigned)(DorQWORD)GetProp(hwnd, APP_PROPFL);;
 
-        return (DorQWORD)GetProp(hwnd, APP_PROPFL);
   # ifdef WIN64 // Try fancy zone flag only in 64bit mode!
     } else if (conf.FancyZone && (WH = (DorQWORD)GetProp(hwnd, FZ_PROPPT))) {
         // It seems FancyZones stores size info in points, not pixels.
@@ -130,6 +138,7 @@ static unsigned GetRestoreData(HWND hwnd, int *width, int *height)
             return wnddb[idx].restore;
         }
     }
+    // Unable to find the window in the db
     *width = *height = 0;
     return 0;
 }
@@ -137,7 +146,7 @@ static void ClearRestoreData(HWND hwnd)
 {
     RemoveProp(hwnd, APP_PROPPT);
     RemoveProp(hwnd, APP_PROPFL);
-    RemoveProp(hwnd, APP_PROPOFFSET);
+    // RemoveProp(hwnd, APP_PROPOFFSET);
   # ifdef WIN64
     if(conf.FancyZone) {
         RemoveProp(hwnd, FZ_PROPPT);
@@ -152,6 +161,10 @@ static void SetRestoreData(HWND hwnd, int width, int height, unsigned restore)
     BOOL ret;
     ret  = SetProp(hwnd, APP_PROPFL, (HANDLE)(DorQWORD)restore);
     ret &= SetProp(hwnd, APP_PROPPT, (HANDLE)MAKELONGPTR(width, height));
+    UINT dpi=0;
+    if ( (dpi = GetDpiForWindow(hwnd)) )
+        ret &= SetProp(hwnd, APP_PRODPI, (HANDLE)(DorQWORD)dpi);
+
     if (!ret) AddWindowToDB(hwnd, width, height, restore);
 }
 

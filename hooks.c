@@ -2438,7 +2438,7 @@ static void LogState(const char *Title)
 static pure int XXButtonIndex(UCHAR vkey)
 {
     WORD i;
-    for (i=0; i < 15 && conf.XXButtons[i]; i++) {
+    for (i=0; i < MAXKEYS && conf.XXButtons[i]; i++) {
         if(conf.XXButtons[i] == vkey)
             return i+3;
     }
@@ -2480,7 +2480,7 @@ extern "C"
 #endif
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && _MSC_VER > 1300
 #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
 #endif
 
@@ -2611,7 +2611,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             || (IsWindow(state.sclickhwnd)  && IsWindow(g_mchwnd) && IsMenu(state.unikeymenu)))
                 return 1;
         } else if ((xxbtidx = XXButtonIndex(vkey)) >=0
-        && (GetAction(BT_MMB+xxbtidx) ||  GetActionT(BT_MMB+xxbtidx))) {
+        && (GetAction(BT_MMB+xxbtidx) ||  GetActionT(BT_MMB+xxbtidx) || IsHotclick(BT_MMB+xxbtidx))) {
             if (!state.xxbutton) {
                 state.xxbutton = 1; // To Ignore autorepeat...
                 SimulateXButton(WM_XBUTTONDOWN, xxbtidx);
@@ -5569,7 +5569,7 @@ extern "C"
 #endif
 __declspec(dllexport) void WINAPI Unload()
 {
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && _MSC_VER > 1300
 #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
 #endif
     conf.keepMousehook = 0;
@@ -5892,7 +5892,7 @@ extern "C"
 #endif
 __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
 {
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && _MSC_VER > 1300
 #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
 #endif
     // Load settings

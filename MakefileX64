@@ -1,4 +1,5 @@
 CC=gcc
+WR=windres
 
 WARNINGS=-Wall -Wformat-security -Wstrict-overflow -Wsign-compare -Wclobbered \
     -Wempty-body -Wignored-qualifiers -Wuninitialized -Wtype-limits -Woverride-init \
@@ -21,10 +22,10 @@ AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages
 	$(CC) -o AltSnap.exe altsnap.c altsnapr.o $(CFLAGS) -Wl,--tsaware,--disable-reloc-section -mwindows -lcomctl32 -ladvapi32 -lshell32 -eunfuckWinMain
 
 altsnapr.o : altsnap.rc window.rc resource.h AltSnap.exe.manifest media/find.cur media/find.ico media/icon.ico media/tray-disabled.ico media/tray-enabled.ico
-	windres altsnap.rc altsnapr.o
+	$(WR) altsnap.rc altsnapr.o
 
 hooksr.o: hooks.rc
-	windres hooks.rc hooksr.o
+	$(WR) hooks.rc hooksr.o
 
 clean :
 	rm altsnapr.o AltSnap.exe hooksr.o hooks.dll

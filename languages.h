@@ -13,6 +13,7 @@
 #include <stddef.h>
 #include <windows.h>
 #include "resource.h"
+
 // Resolve index from entry name.
 #define L10NIDX(entryname) (short)( offsetof(struct strings, entryname)/sizeof(TCHAR**) )
 
@@ -116,11 +117,8 @@ struct strings {
   TCHAR *input_mouse_mb5_hc;
   TCHAR *input_mouse_longclickmove;
 
-//  TCHAR *input_aggressive_pause;
-//  TCHAR *input_aggressive_kill;
   TCHAR *input_scrolllockstate;
   TCHAR *input_unikeyholdmenu;
-//  TCHAR *input_npstacked;
   TCHAR *input_keycombo;
   TCHAR *input_grabwithalt;
   TCHAR *input_grabwithaltb;

@@ -3,6 +3,7 @@
 
 #include <windows.h>
 
+#define AT_LEAST static
 #ifdef __GNUC__
 #define flatten __attribute__((flatten))
 #define xpure __attribute__((const))
@@ -36,7 +37,8 @@ static xpure int sign(int x)
 
 #if (defined(__x86_64__) || defined(__i386__))
 #if !defined(CLANG) && defined(__GNUC__)
-static xpure int Iabs(int x)
+static __attribute__(( regparm(1) )) xpure
+int Iabs(int x)
 {
     __asm__ (
         "cdq \n"
@@ -84,7 +86,7 @@ static void str2tchar(TCHAR *w, const char *s)
 
 static void str2tchar_s(TCHAR *w, size_t N, const char *s)
 {
-    TCHAR *wmax = w + N-1;
+    const TCHAR *wmax = w + N-1;
     while(w < wmax && (*w++ = *s++));
 }
 
@@ -115,9 +117,11 @@ __cdecl size_t strlen(const char *str)
 void * __cdecl memcpy(void *dst, const void * __restrict__ src, size_t n)
 {
     size_t i;
+    char *d = (char *)dst;
+    const char *s = (char *)src;
 
-    for (i=0;i<n;i++)
-        *(char *) dst++ = *(char *) src++;
+    for (i=0; i<n; i++)
+        d++ = s++;
     return dst;
 }
 #endif
@@ -165,36 +169,36 @@ static nonnull1(1) pure char *strchrL(char *__restrict__ str, const char c)
 static allnonnull pure int atoiL(const char *s)
 {
     long int v=0;
-    int sign=1;
+    int ssign=1;
     while (*s == ' ') s++; /*  ||  (unsigned int)(*s - 9) < 5u */
 
     switch (*s) {
-    case '-': sign=-1; /* fall through */
+    case '-': ssign=-1; /* fall through */
     case '+': ++s;
     }
     while ((unsigned)(*s - '0') < 10u) {
         v = v * 10 + (*s - '0');
         ++s;
     }
-    return sign*v;
+    return ssign*v;
 }
 #define atoi atoiL
 
 static pure allnonnull int wtoiL(const wchar_t *s)
 {
     long int v=0;
-    int sign=1;
+    int ssign=1;
     while (*s == ' ') s++; /*  ||  (unsigned int)(*s - 9) < 5u */
 
     switch (*s) {
-    case '-': sign=-1; /* fall through */
+    case '-': ssign=-1; /* fall through */
     case '+': ++s;
     }
     while ((unsigned)(*s - '0') < 10u) {
         v = v * 10 + (*s - '0');
         ++s;
     }
-    return sign*v;
+    return ssign*v;
 }
 #define _wtoi wtoiL
 static nonnull1(1) void reverseW(wchar_t *str, int length)
@@ -306,14 +310,14 @@ static nonnull1(2) char *itoaL(unsigned num, char *str, int base)
 
 #define INT_DIGITS 11
 #define UINT_DIGITS 10
-static const TCHAR *Int2lStr(TCHAR str[INT_DIGITS+1], int n)
+static const TCHAR *Int2lStr(TCHAR str[AT_LEAST INT_DIGITS+1], int n)
 {
     int i = 0;
     BOOL minus;
     minus = (n<0);
     str[INT_DIGITS] = TEXT('\0');
 
-    for( i=INT_DIGITS-1; i>0; --i )
+    for( i=INT_DIGITS-1; ; --i )
     {
         str[i] = TEXT('0') + (minus ? -1*(n%10) : n%10);
         n /= 10;
@@ -327,12 +331,12 @@ static const TCHAR *Int2lStr(TCHAR str[INT_DIGITS+1], int n)
     return str+i;
 }
 
-static const wchar_t *Uint2lStrW(wchar_t str[UINT_DIGITS+1], unsigned n)
+static const wchar_t *Uint2lStrW(wchar_t str[AT_LEAST UINT_DIGITS+1], unsigned n)
 {
     int i = 0;
     str[UINT_DIGITS] = TEXT('\0');
 
-    for( i=UINT_DIGITS-1; i>=0; --i )
+    for( i=UINT_DIGITS-1; ; --i )
     {
         str[i] = TEXT('0') + (wchar_t)(n%10);
         if( n < 10 )
@@ -342,12 +346,12 @@ static const wchar_t *Uint2lStrW(wchar_t str[UINT_DIGITS+1], unsigned n)
 
     return str+i;
 }
-static const char *Uint2lStrA(char str[UINT_DIGITS+1], unsigned n)
+static const char *Uint2lStrA(char str[AT_LEAST UINT_DIGITS+1], unsigned n)
 {
     int i = 0;
     str[UINT_DIGITS] = TEXT('\0');
 
-    for( i=UINT_DIGITS-1; i>=0; --i )
+    for( i=UINT_DIGITS-1; ; --i )
     {
         str[i] = TEXT('0') + (char)(n%10);
         if( n < 10 )
@@ -363,12 +367,12 @@ static const char *Uint2lStrA(char str[UINT_DIGITS+1], unsigned n)
 #else
 #define LPTR_HDIGITS 8
 #endif
-static const TCHAR *LPTR2Hex(TCHAR str[LPTR_HDIGITS+1], UINT_PTR n)
+static const TCHAR *LPTR2Hex(TCHAR str[AT_LEAST LPTR_HDIGITS+1], UINT_PTR n)
 {
     int i = 0;
     str[LPTR_HDIGITS] = TEXT('\0');
 
-    for( i=LPTR_HDIGITS-1; i>=0; --i )
+    for( i=LPTR_HDIGITS-1; ; --i )
     {
         TCHAR rem = n & 15; // MD 16
         str[i] = (rem > 9)? (rem-10) + 'A' : rem + '0';
@@ -554,7 +558,7 @@ allnonnull char *strcatL(char *__restrict__ dest, const char *__restrict__ src)
 static nonnull2(1,3) char *strcat_sL(char *__restrict__ dest, const size_t N, const char *__restrict__ src)
 {
     char *orig=dest;
-    char *dmax=dest+N-1; /* keep space for a terminating NULL */
+    const char *dmax=dest+N-1; /* keep space for a terminating NULL */
     for (; dest<dmax &&  *dest ; ++dest);             /* go to end of dest */
     for (; dest<dmax && (*dest=*src); ++src,++dest);  /* then append from src */
     *dest='\0'; /* ensure result is NULL terminated */
@@ -565,7 +569,7 @@ static nonnull2(1,3) char *strcat_sL(char *__restrict__ dest, const size_t N, co
 nonnull2(1,3) wchar_t *wcscat_sL(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__restrict__ src)
 {
     wchar_t *orig=dest;
-    wchar_t *dmax=dest+N-1; /* keep space for a terminating NULL */
+    const wchar_t *dmax=dest+N-1; /* keep space for a terminating NULL */
     for (; dest<dmax &&  *dest ; ++dest);             /* go to end of dest */
     for (; dest<dmax && (*dest=*src); ++src,++dest);  /* then append from src */
     *dest='\0'; /* ensure result is NULL terminated */
@@ -576,7 +580,7 @@ nonnull2(1,3) wchar_t *wcscat_sL(wchar_t *__restrict__ dest, const size_t N, con
 static nonnull2(1,3) TCHAR *lstrcpy_s(TCHAR *__restrict__ dest, const size_t N, const TCHAR *__restrict__ src)
 {
     TCHAR *orig=dest;
-    TCHAR *dmax=dest+N-1; /* keep space for a terminating NULL */
+    const TCHAR *dmax=dest+N-1; /* keep space for a terminating NULL */
     for (; dest<dmax && (*dest=*src); ++src,++dest);  /* then append from src */
     *dest='\0'; /* ensure result is NULL terminated */
     return orig;

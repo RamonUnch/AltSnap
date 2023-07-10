@@ -1343,7 +1343,7 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
     unsigned i = numsnwnds;
     while (i--) {
         unsigned flag = snwnds[i].flag;
-        RECT *wnd = &snwnds[i].wnd;
+        const RECT *wnd = &snwnds[i].wnd;
         // if the window is in current monitor
         POINT tpt;
         tpt.x = wnd->left+16;
@@ -1675,7 +1675,6 @@ static UCHAR TotNumberOfKeysDown()
         if((0x3A <= i && i<=0x40) // Undefineds
         ||  i == 0x5E             // Reserved
         || (0x88 <= i && i<=0x8F) // Unassigned
-        || (0x97 <= i && i<=0x9F) // Unassigned
         || (0x97 <= i && i<=0x9F) // Unassigned
         || (0xB8 <= i && i<=0xB9) // Reserved
         || (0xC1 <= i && i<=0xDA) // Reserved + Unassigned (D8-DA)
@@ -3115,7 +3114,7 @@ static void UpdateCursor(POINT pt)
     }
 }
 
-static int IsMXRolled(HWND hwnd, RECT *rc)
+static int IsMXRolled(HWND hwnd, const RECT *rc)
 {
     MONITORINFO mi;
     GetMonitorInfoFromWin(hwnd, &mi);
@@ -5097,7 +5096,7 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             &&!IsAreaLongClikcable(HitTestTimeoutbl(ptwnd, pt))) {
                 // Determine if we should actually move the Window by probing with AC_NONE
                 state.hittest = 0; // No specific hittest here.
-                int ret = init_movement_and_actions(pt, NULL, AC_MOVE, 0|BT_PROBE);
+                int ret = init_movement_and_actions(pt, NULL, AC_MOVE, BT_PROBE);
                 if (ret) { // Release mouse click if we have to move.
                     InterlockedIncrement(&state.ignoreclick);
                     mouse_event(buttonswaped?MOUSEEVENTF_RIGHTUP:MOUSEEVENTF_LEFTUP
@@ -5417,10 +5416,10 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 //        LOGA("WM_MENUCHAR: %X", wParam);
         // Turn the input character into a menu identifier.
         WORD cc = LOWORD(wParam);
-        int closewindow=0;
         TCHAR c = (TCHAR)( cc  |  (('A' <= cc && cc <= 'Z')<<5) );
         if (cc==VK_ESCAPE) return MNC_CLOSE<<16;
         if (GetWindowLongPtr(hwnd, GWLP_USERDATA) == 3) {
+            int closewindow=0;
             WORD item;
             if (conf.NumberMenuItems) {
                 // Lower case the input character.

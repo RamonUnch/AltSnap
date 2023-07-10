@@ -84,12 +84,11 @@ static void GenerateGridZones(unsigned layout, unsigned short Nx, unsigned short
     RECT *tmp = (RECT *)realloc(Zones[layout], nummonitors * Nx * Ny * sizeof(*tmp));
     if(!tmp) return;
     Zones[layout] = tmp;
-    if(!Zones[layout]) return;
 
     // Loop on all monitors
     unsigned m;
     for (m=0; m<nummonitors; m++) {
-        RECT *mon = &monitors[m];
+        const RECT *mon = &monitors[m];
         unsigned i;
         for(i=0; i<Nx; i++) { // Horizontal
             unsigned j;
@@ -296,8 +295,7 @@ static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
         pt.x = (rc.right+rc.left)/2; // Mid Bottom segment
         pt.y = rc.bottom + offset;
     }
-    int zoomed;
-    if ((zoomed = IsZoomed(hwnd)) && extend) return;
+    if (IsZoomed(hwnd) && extend) return;
 
     // Clamp point inside monitor
     MONITORINFO mi;

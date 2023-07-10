@@ -247,7 +247,7 @@ static void ErrorBox(const TCHAR * const title)
         NULL,
         GetLastError(),
         MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), /* Default language */
-        (LPTSTR) &lpMsgBuf,
+        (TCHAR *)&lpMsgBuf,
         0, NULL
     );
     MessageBox( NULL, (LPCTSTR)lpMsgBuf, title, MB_OK | MB_ICONWARNING );
@@ -694,18 +694,18 @@ static BOOL EnableNonClientDpiScalingL(HWND hwnd)
 /* Only applies to Windows NT for build number */
 static xpure BOOL OredredWinVer()
 {
-    DWORD WinVer;
+    DWORD oVer;
     DWORD ver = GetVersion();
-    WinVer = (ver&0x000000FF) << 24 /* MAJOR */
+    oVer = (ver&0x000000FF) << 24 /* MAJOR */
            | (ver&0x0000FF00) << 8  /* MINOR */
            | (ver&0xFFFF0000) >> 16;/* BUILDID */
 
     /* On Windows 9x, no buildID is available in GetVer */
     if (ver & 0x80000000) {
         // Only use minor/major ver.
-        WinVer |= 0xFFFF0000;
+        oVer |= 0xFFFF0000;
     }
-    return WinVer;
+    return oVer;
 }
 static BOOL IsDarkModeEnabled(void)
 {
@@ -1042,7 +1042,7 @@ static LONG NtResumeProcessL(HANDLE ProcessHandle)
 static HRESULT DwmIsCompositionEnabledL(BOOL *pfEnabled)
 {
     #define FUNK_TYPE ( HRESULT (WINAPI *)(BOOL *pfEnabled) )
-    HRESULT (WINAPI *funk)(BOOL *pfEnabled) = FUNK_TYPE IPTR;
+    HRESULT (WINAPI *funk)(BOOL *pfEnabled);
 
     HINSTANCE hdll=NULL;
     HRESULT ret ;
@@ -1051,7 +1051,7 @@ static HRESULT DwmIsCompositionEnabledL(BOOL *pfEnabled)
     ret = 666;
 
     hdll = LoadLibraryA("DWMAPI.DLL");
-    if(hdll) {
+    if (hdll) {
         funk = FUNK_TYPE GetProcAddress(hdll, "DwmIsCompositionEnabled");
         if(funk) {
             ret = funk(pfEnabled);
@@ -1181,9 +1181,9 @@ static HICON GetWindowIcon(HWND hwnd)
         /* ICON_SMALL2 exists since Windows XP only */
         static BYTE WINXP_PLUS=0xFF;
         if (WINXP_PLUS == 0xFF) {
-            WORD WinVer = LOWORD(GetVersion());
-            BYTE ver = LOBYTE(WinVer);
-            BYTE min = LOBYTE(WinVer);
+            WORD wVer = LOWORD(GetVersion());
+            BYTE ver = LOBYTE(wVer);
+            BYTE min = LOBYTE(wVer);
             WINXP_PLUS = ver > 5 || (ver == 5 && min > 0); /* XP is NT 5.1 */
         }
         if (WINXP_PLUS
@@ -1423,7 +1423,7 @@ static pure unsigned AreRectsTouchingT(const RECT *a, const RECT *b, const int t
          | SegT(a->top, b->bottom, &a->left, &b->left, tol) << 4 /* Top */
          | SegT(a->bottom, b->top, &a->left, &b->left, tol) << 5; /* Bottom */
 }
-static void CropRect(RECT *__restrict__ wnd, RECT *crop)
+static void CropRect(RECT *__restrict__ wnd, const RECT *crop)
 {
     wnd->left   = max(wnd->left,   crop->left);
     wnd->top    = max(wnd->top,    crop->top);

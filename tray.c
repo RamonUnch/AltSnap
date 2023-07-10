@@ -157,11 +157,11 @@ static void WriteCurrentLayoutNumber()
     TCHAR txt[UINT_DIGITS+1];
     WritePrivateProfileString(TEXT("Zones"), TEXT("LayoutNumber"), Uint2lStr(txt, LayoutNumber), inipath);
 }
-static TCHAR *RectToStr(RECT *rc, TCHAR rectstr[64])
+static TCHAR *RectToStr(const RECT *rc, TCHAR rectstr[AT_LEAST INT_DIGITS*4+4+1])
 {
     TCHAR txt[INT_DIGITS+1];
-    UCHAR i;
-    long *RC = (long *)rc;
+    int i;
+    const long *RC = (const long *)rc;
     rectstr[0] = '\0';
     for(i = 0; i < 4; i++) {
         lstrcat_s(rectstr, 64, Int2lStr(txt, (int)RC[i]));

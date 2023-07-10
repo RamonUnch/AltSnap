@@ -3931,11 +3931,12 @@ static void TogglesAlwaysOnTop(HWND hwnd)
 
     if (!topmost) {
         if (conf.TopmostIndicator) CreatePinWindow(hwnd);
-        ReallySetForegroundWindow(hwnd);
     } else {
         // Destroy Pin Window?
         if (conf.TopmostIndicator) DestroyWindow(GetPinWindow(hwnd));
     }
+    // Always set foreground #442
+    ReallySetForegroundWindow(hwnd);
 }
 /////////////////////////////////////////////////////////////////////////////
 static void ActionMaximize(HWND hwnd)

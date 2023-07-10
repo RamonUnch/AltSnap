@@ -192,7 +192,7 @@ static int pure IsActionInList(const enum action ac, const enum action *aclst)
     return 0;
 }
 // Convert zone number to ini name entry
-static TCHAR *ZidxToZonestr(int laynum, int idx, TCHAR zname[32])
+static TCHAR *ZidxToZonestr(int laynum, int idx, TCHAR zname[AT_LEAST 32])
 {
     if (laynum > 9 ) return NULL;
     TCHAR txt[UINT_DIGITS+1];
@@ -203,7 +203,7 @@ static TCHAR *ZidxToZonestr(int laynum, int idx, TCHAR zname[32])
 
     return zname;
 }
-static char *ZidxToZonestrA(int laynum, int idx, char zname[32])
+static char *ZidxToZonestrA(int laynum, int idx, char zname[AT_LEAST 32])
 {
     if (laynum > 9 ) return NULL;
     char txt[16];

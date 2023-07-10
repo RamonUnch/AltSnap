@@ -7,6 +7,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "languages.h"
+
 static const struct strings *l10n_ini = NULL;
 static const struct strings *l10n = &en_US;
 
@@ -91,13 +92,13 @@ static void LoadTranslation(const TCHAR *__restrict__ ini)
         const TCHAR *const def = ((TCHAR **)&en_US)[i];
         const TCHAR *txt = GetSectionOptionCStr(tsection, l10n_inimapping[i], def);
 
+        TCHAR buf[128];
         TCHAR **deststr = &((TCHAR **)l10n_ini)[i];
         if (deststr == &l10n_ini->about_version) {
             // Append version number to version....
-            TCHAR tmp[128];
-            lstrcpy_s(tmp, ARR_SZ(tmp), txt);
-            lstrcat_s(tmp, ARR_SZ(tmp), TEXT(" ") TEXT(APP_VERSION));
-            txt = (const TCHAR*)tmp;
+            lstrcpy_s(buf, ARR_SZ(buf), txt);
+            lstrcat_s(buf, ARR_SZ(buf), TEXT(" ") TEXT(APP_VERSION));
+            txt = (const TCHAR*)buf;
         }
         *deststr = (TCHAR *)realloc( *deststr, (lstrlen_resolved(txt)+1)*sizeof(TCHAR) );
         lstrcpy_resolve(*deststr, txt);

@@ -182,7 +182,7 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
     HMENU menu = CreatePopupMenu();
     UCHAR show_oriclick = (param&LP_NOALTACTION)? AC_ORICLICK: 0xFF;
 
-    #define CHK(LP_FLAG) MF_STRING|(param&LP_FLAG?MF_CHECKED:MF_UNCHECKED)
+    #define CHK(LP_FLAG) MF_STRING|((param&LP_FLAG)?MF_CHECKED:MF_UNCHECKED)
 
     const struct {
         UCHAR action; WORD mf; TCHAR *str;

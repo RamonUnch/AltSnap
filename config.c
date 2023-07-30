@@ -1937,6 +1937,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         { IDC_MULTIPLEINSTANCES,T_BOL, 0, TEXT("Advanced"), "MultipleInstances",V 0 },
         { IDC_FULLSCREEN,       T_BOL, 0, TEXT("Advanced"), "FullScreen", V 1 },
         { IDC_BLMAXIMIZED,      T_BOL, 0, TEXT("Advanced"), "BLMaximized", V 0 },
+        { IDC_BLMAXIMIZEDRESIZE,T_BOL, 0, TEXT("Advanced"), "BLMaximizedResize", V 0 },
         { IDC_FANCYZONE,        T_BOL, 0, TEXT("Zones"),    "FancyZone", V 0 },
         { IDC_NORESTORE,        T_BMK, 2, TEXT("General"),  "SmartAero", V 0 },  // bit 2
         { IDC_MAXWITHLCLICK,    T_BMK, 0, TEXT("General"),  "MMMaximize", V 1 }, // bit 0
@@ -2000,6 +2001,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 { IDC_RESTOREONCLICK,   L10NIDX(advanced_restoreonclick ) },
                 { IDC_FULLSCREEN,       L10NIDX(advanced_fullscreen ) },
                 { IDC_BLMAXIMIZED,      L10NIDX(advanced_blmaximized ) },
+                { IDC_BLMAXIMIZEDRESIZE,L10NIDX(advanced_blmaximizedresize ) },
                 { IDC_FANCYZONE,        L10NIDX(advanced_fancyzone ) },
                 { IDC_NORESTORE,        L10NIDX(advanced_norestore ) },
                 { IDC_TOPMOSTINDICATOR, L10NIDX(advanced_topmostindicator ) },

@@ -171,6 +171,7 @@
 #define IDC_LONGCLICKMOVE               2077
 #define IDC_BLMAXIMIZED                 2078
 #define IDC_PIERCINGCLICK               2079
+#define IDC_BLMAXIMIZEDRESIZE           2080
 
 #define IDC_OUTTB                       2083
 #define IDC_UNIKEYHOLDMENU              2084

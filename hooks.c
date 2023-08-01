@@ -1294,11 +1294,20 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
 //    }
 //    UINT flag = notsamesize? RESIZEFLAG: state.resizable&2 ? MOVETHICKBORDERS: MOVEASYNC;
     int notsamesize = 1;
+    int nothingtodo = 0;
+    RECT rc;
     if (conf.FullWin) {
         notsamesize = !lw->moveonly;
+        if ( lw->odpi == GetDpiForWindow(lw->hwnd)
+        && GetWindowRect(lw->hwnd, &rc) ) {
+            int cW = rc.right - rc.left;
+            int cH = rc.bottom - rc.top;
+            nothingtodo =  rc.left == lw->x && rc.top == lw->y
+                        && cW == lw->width &&  cH == lw->height;
+        }
+
     } else {
         // Hollow rectangle mode.
-        RECT rc;
         if( GetWindowRect(lw->hwnd, &rc) ) {
             int cW = rc.right - rc.left;
             int cH = rc.bottom - rc.top;
@@ -1309,7 +1318,11 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
     UINT flag = notsamesize? RESIZEFLAG: state.resizable&2 ? MOVETHICKBORDERS: MOVEASYNC;
     if (conf.IgnoreMinMaxInfo) flag |= SWP_NOSENDCHANGING;
 
-    MoveResizeWindowThread(lw, flag);
+    if (nothingtodo)
+        lw->hwnd = NULL; // DONE!
+    else
+        MoveResizeWindowThread(lw, flag);
+
     return 0;
 }
 #undef RESIZEFLAG
@@ -3398,6 +3411,10 @@ static void NextBorders(RECT *pos, const RECT *cur, const RECT *def)
 #define SNTO_MOVETO 4
 static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
 {
+    // When trying to Snap or extend a non-resizeable window
+    if (!(flags&SNTO_MOVETO) && !IsResizable(hwnd))
+        flags = SNTO_MOVETO | (flags&SNTO_NEXTBD); // Move instead
+
     SetOriginFromRestoreData(hwnd, AC_MOVE);
     GetMinMaxInfo(hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
 
@@ -3425,7 +3442,7 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
         mon = &tmp;
     }
     if (flags & SNTO_EXTEND) {
-    /* Extend window's borders to monitor */
+    /* Extend window's borders to monitor/Next border */
         posx = wnd.left - state.mdipt.x;
         posy = wnd.top - state.mdipt.y;
 
@@ -3447,6 +3464,7 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
             restore |= SNMAXW;
         }
     } else if (flags & SNTO_MOVETO) {
+    /* Move the windows to a border (monitor or next border) */
         posx = wnd.left - state.mdipt.x;
         posy = wnd.top - state.mdipt.y;
         if (resize.x == RZ_LEFT) {

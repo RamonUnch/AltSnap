@@ -2258,7 +2258,7 @@ static void RestrictToCurentMonitor()
 {
     if (state.action || state.alt) {
         POINT pt;
-        GetMsgPT(&pt);
+        GetCursorPos(&pt);
         state.origin.maximized = 0; // To prevent auto-remax on Ctrl
         state.origin.monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
     }
@@ -2461,7 +2461,7 @@ static int SimulateXButton(WPARAM wp, WORD xbtidx)
 {
 //    WORD xbtidx = XXButtonIndex(vkey);
     MSLLHOOKSTRUCT msg;
-    GetMsgPT(&msg.pt);
+    GetCursorPos(&msg.pt);
     // XButton number is in HIWORD(mouseData)
     msg.mouseData= xbtidx << 16;
     msg.flags=0;
@@ -2546,7 +2546,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 enum action action = conf.GrabWithAlt[IsModKey(vkey) || (!IsHotkey(conf.ModKey[0])&&ModKey())];
                 if (action) {
                     state.blockmouseup = 0; // In case.
-                    GetMsgPT(&pt);
+                    GetCursorPos(&pt);
                     if (!init_movement_and_actions(pt, NULL, action, vkey)) {
                         UnhookMouse();
                     }
@@ -3973,7 +3973,7 @@ static void MaximizeHV(HWND hwnd, int horizontal)
     OffsetRectMDI(&rc);
 
     POINT pt;
-    GetMsgPT(&pt);
+    GetCursorPos(&pt);
     GetMonitorRect(&pt, 0, &mon);
     SetOriginFromRestoreData(hwnd, AC_MOVE);
 
@@ -4219,7 +4219,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
         InsertMenuItem(menu, i+1, FALSE, &lpmi);
     }
     POINT pt;
-    GetMsgPT(&pt);
+    GetCursorPos(&pt);
     ReallySetForegroundWindow(g_mchwnd);
     i = (unsigned)TrackPopupMenu(menu,
         TPM_RETURNCMD/*|TPM_NONOTIFY*/|GetSystemMetrics(SM_MENUDROPALIGNMENT)

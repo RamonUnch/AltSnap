@@ -4833,17 +4833,23 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         // Move the window  && (state.moving || !IsSamePTT(&pt, &state.clickpt))
         if (state.action && !state.blockmouseup) { // resize or move...
             // Move the window every few frames.
-            if (conf.RezTimer) {
+            static DWORD oldtime;
+            if (conf.RezTimer==1) {
                 // Only move window if the EVENT TIME is different.
-                static DWORD oldtime;
+                //LOGA("msg->time=%lu", msg->time);
                 if (msg->time != oldtime) {
                     MouseMove(pt);
                     oldtime = msg->time;
                 }
             } else {
-                static char updaterate;
+                static UCHAR updaterate;
                 updaterate = (updaterate+1)%(state.action==AC_MOVE? conf.MoveRate: conf.ResizeRate);
-                if(!updaterate) MouseMove(pt);
+                if (!updaterate) {
+                    MouseMove(pt);
+                } else if (conf.RezTimer == 3 && msg->time != oldtime) {
+                    MouseMove(pt);
+                    oldtime = msg->time;
+                }
             }
         }
         return CallNextHookEx(NULL, nCode, wParam, lParam);

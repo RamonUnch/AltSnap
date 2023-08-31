@@ -173,6 +173,7 @@ static struct config {
     UCHAR ResizeAll;
     UCHAR FullScreen;
     UCHAR BLMaximized;
+    UCHAR BLMaximizedResize;
     UCHAR AutoRemaximize;
     UCHAR SnapThreshold;
     UCHAR AeroThreshold;
@@ -279,6 +280,7 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "ResizeAll", 1 },
     { "FullScreen", 1 },
     { "BLMaximized", 0 },
+    { "BLMaximizedResize", 0 },
     { "AutoRemaximize", 0 },
     { "SnapThreshold", 20 },
     { "AeroThreshold", 5 },
@@ -4497,7 +4499,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     state.origin.dpi     = GetDpiForWindow(state.hwnd);
     state.origin.width  = wndpl.rcNormalPosition.right-wndpl.rcNormalPosition.left;
     state.origin.height = wndpl.rcNormalPosition.bottom-wndpl.rcNormalPosition.top;
-    state.resizable = IsResizable(state.hwnd);
+    state.resizable = IsResizable(state.hwnd) && !(conf.BLMaximizedResize && state.origin.maximized);
 
     GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
 

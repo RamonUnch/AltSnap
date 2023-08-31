@@ -253,6 +253,7 @@ struct strings {
   TCHAR *advanced_restoreonclick;
   TCHAR *advanced_fullscreen;
   TCHAR *advanced_blmaximized;
+  TCHAR *advanced_blmaximizedresize;
   TCHAR *advanced_fancyzone;
   TCHAR *advanced_norestore;
   TCHAR *advanced_topmostindicator;
@@ -482,6 +483,7 @@ static const char* l10n_inimapping[] = {
     "AdvancedRestoreOnClick",
     "AdvancedFullScreen",
     "AdvancedBLMaximized",
+    "AdvancedBLMaximizedResize",
     "AdvancedFancyZone",
     "AdvancedNoRestore",
     "AdvancedTopmostIndicator",
@@ -723,6 +725,7 @@ static const struct strings en_US = {
  /* restoreonclick   */   TEXT("Rest&ore window with single click like original AltDrag"),
  /* fullscreen       */   TEXT("Enable on &full screen windows"),
  /* blmaximized      */   TEXT("&Disable AltSnap on Maximized windows"),
+ /* blmaximizedresize*/   TEXT("&Disable AltSnap resizing on Maximized windows"),
  /* fancyzone        */   TEXT("Restore Fancy&Zones snapped windows"),
  /* norestore        */   TEXT("Never restore AltSna&pped windows"),
  /* topmostindicator */   TEXT("Show an i&ndicator on always on top windows"),

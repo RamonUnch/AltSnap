@@ -1,7 +1,7 @@
 *=========================================================================*
 *            ALTSNAP for Windows NT4/2000/XP/Vista/7/8.x/10/11            *
 *  Modified by Raymond Gillibert from original AltDrag by Stefan Sundin   *
-*                      release 1.60 (March 24, 2023)                      *
+*                    release 1.61 (September 1, 2023)                     *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltSnap/releases/         *
@@ -183,6 +183,42 @@ Note that this version has some more feature.
 
 ===========================================================================
 == CHANGELOG ==
+
+== AltSnap 1.61 ==
+
+ + Added the Focus Window action. #408
+
+ + Add the **Edit snap layout** tray menu entry that re-opens all the windows
+   fom the currently selected layout for easier edition. #407
+
+ + You can now set RezTimer=3 in the [Performance] section of the .ini file
+   to combine a timer based resizing with the usual MoveRate and ResizeRate
+   multiplication factors. See #451 and #452 for more details.
+
+ * Fix Action without click #455, #456. (huge regression, sorry for that).
+
+ * Always focus the window on Always On Top toggle #442
+
+ * Fixed: Allow xxbutton as hotclick (1.55 regression). #433
+
+ * Fixed: the send Original click option must be shown on hotclick,
+   not just for the titlebar action.
+
+ * Fixed: AltSnap hotkeys not working properly when using AltSnap elevated
+   with a non admin account (make use of the ChangeWindowMessageFilterEx()
+   function when running on Windows 7 and later). #428
+
+ * Partially fixed window resizing when going to a monitor with a
+   different DPI. #413
+
+ * Fixed French translation, thanks to @TroudhuK
+
+ * Updated Japaneese translation, thanks to @kakakaya
+
+ * Updated Korean translation, thanks to @1kko-ahnlabio
+
+ * Add Finish Translation by @6sto based on AltDrag 1.0, see
+   https://github.com/stefansundin/altdrag/issues/170
 
 == AltSnap 1.60 ==
 

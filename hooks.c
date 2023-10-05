@@ -7,7 +7,6 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "hooks.h"
-#define COBJMACROS
 static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h);
 static BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
 static LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -4291,6 +4290,94 @@ static void ActionMenu(HWND hwnd)
        | (state.alt <= BT_MB5) << 6                         // LP_NOALTACTION
     );
 }
+// Finds the window that is just next the specified one.
+// Works better if they are arranged like in snap layouts.
+struct FindTiledWindow_struct {
+    POINT opt; // in
+    long owidth;
+    long oheight;
+    HWND ihwnd; // in
+    HWND ohwnd; // out
+    POINT distance; // internal
+    unsigned char direction; // in
+};
+static BOOL CALLBACK FindTiledWindowEnumProc(HWND hwnd, LPARAM lp)
+{
+    struct FindTiledWindow_struct *tw = (struct FindTiledWindow_struct *)lp;
+    RECT rc;
+    if (tw->ihwnd == hwnd || !IsAltTabAble(hwnd) || !GetWindowRect(hwnd, &rc))
+        return TRUE; // Next hwnd
+    POINT pt;
+    pt.x = (rc.left + rc.right) / 2;
+    pt.y = (rc.top + rc.bottom) / 2;
+    long dx = pt.x - tw->opt.x;
+    long dy = pt.y - tw->opt.y;
+    long adx = abs(dx);
+    long ady = abs(dy);
+    LOGA("adx = %d, ady = %d, tw->oheight = %d, tw->owidth = %d", adx, ady, tw->oheight, tw->owidth);
+
+    // We only use the position of the center of each window.
+    // We check windows within a cone around the direction of choice.
+    // Also we use dimentions of the original window as extra radius for the cone.
+    switch (tw->direction) {
+    case 0: // LEFT
+        if (dx < 0 && ady <= adx + tw->owidth
+        && (adx < tw->distance.x || (adx == tw->distance.x && ady < tw->distance.y)) )
+            break; // Window is closer...
+        return TRUE; // skip
+    case 1: // UP
+        if (dy < 0 && adx <= ady + tw->oheight
+        && (ady < tw->distance.y || (ady == tw->distance.y && adx < tw->distance.x)) )
+            break; // Window is closer...
+        return TRUE;
+    case 2: // RIGHT
+        if (dx > 0 && ady <= adx + tw->owidth
+        && (adx < tw->distance.x || (adx == tw->distance.x && ady < tw->distance.y)) )
+            break; // Window is closer...
+        return TRUE;
+    case 3: // DOWN
+        if (dy > 0 && adx <= ady + tw->oheight
+        && (ady < tw->distance.y || (ady == tw->distance.y && adx < tw->distance.x)) )
+            break; // Window is closer...
+        return TRUE;
+    default: // WTF?
+        return TRUE;
+    }
+    // Update tw struct if we find a closer window.
+    tw->distance.x = adx;
+    tw->distance.y = ady;
+    tw->ohwnd = hwnd;
+
+    return TRUE;
+}
+static HWND FindTiledWindow(HWND hwnd, unsigned char direction)
+{
+    assert(direction < 4 );
+
+    RECT rc;
+    if (GetWindowRect(hwnd, &rc)) {
+        struct FindTiledWindow_struct tw;
+        tw.opt.x = (rc.left + rc.right) / 2;
+        tw.opt.y = (rc.top + rc.bottom) / 2;
+        tw.owidth  = (rc.right - rc.left) / 2;
+        tw.oheight = (rc.bottom - rc.top )/ 2;
+        tw.ihwnd = hwnd;
+        tw.ohwnd = NULL;
+        tw.distance.x = 0x7ffffff0;
+        tw.distance.y = 0x7ffffff0;
+        tw.direction = direction;
+        
+        EnumDesktopWindows(NULL, FindTiledWindowEnumProc, (LPARAM)&tw);
+//        // TODO: Handle MDI clients.
+//        if (state.mdiclient) {
+//            EnumChildWindows(state.mdiclient, FindTiledWindowEnumProc, (LPARAM)&tw);
+//        } else {
+//            EnumDesktopWindows(NULL, FindTiledWindowEnumProc, (LPARAM)&tw);
+//        }
+        return tw.ohwnd;
+    }
+    return NULL;
+}
 /////////////////////////////////////////////////////////////////////////////
 // Single click commands
 static void SClickActions(HWND hwnd, enum action action)
@@ -4359,6 +4446,11 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_SSTEPT:      StepWindow(hwnd, -conf.KBMoveSStep, 1); break;
     case AC_SSTEPR:      StepWindow(hwnd, +conf.KBMoveSStep, 0); break;
     case AC_SSTEPB:      StepWindow(hwnd, +conf.KBMoveSStep, 1); break;
+    case AC_FOCUSL:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 0)); break;
+    case AC_FOCUST:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 1)); break;
+    case AC_FOCUSR:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 2)); break;
+    case AC_FOCUSB:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 3)); break;
+    
     case AC_ASONOFF:     ActionASOnOff(); break;
     case AC_MOVEONOFF:   ActionMoveOnOff(hwnd); break;
     default:;

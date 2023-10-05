@@ -175,6 +175,11 @@ struct strings {
   TCHAR *input_actions_sstepr;
   TCHAR *input_actions_sstepb;
 
+  TCHAR *input_actions_focusl;
+  TCHAR *input_actions_focust;
+  TCHAR *input_actions_focusr;
+  TCHAR *input_actions_focusb;
+
   TCHAR *input_actions_roll;
   TCHAR *input_actions_alwaysontop;
   TCHAR *input_actions_borderless;
@@ -410,6 +415,10 @@ static const char* l10n_inimapping[] = {
     "InputActionSStepT",
     "InputActionSStepR",
     "InputActionSStepB",
+    "InputActionFocusL",
+    "InputActionFocusT",
+    "InputActionFocusR",
+    "InputActionFocusB",
     "InputActionRoll",
     "InputActionAlwaysOnTop",
     "InputActionBorderless",
@@ -648,6 +657,10 @@ static const struct strings en_US = {
  /* sstept             */ TEXT("Small step up"),
  /* sstepr             */ TEXT("Small step right"),
  /* sstepb             */ TEXT("Small step down"),
+ /* focusl             */ TEXT("Focus left window"),
+ /* focust             */ TEXT("Focus top window"),
+ /* focusr             */ TEXT("Focus right window"),
+ /* focusb             */ TEXT("Focus bottom window"),
  /* roll               */ TEXT("&Roll/Unroll window"),
  /* alwaysontop        */ TEXT("Toggle always on &top"),
  /* borderless         */ TEXT("Toggle &borderless"),
@@ -672,7 +685,7 @@ static const struct strings en_US = {
  /* hotkeys */
  /* box                */ TEXT("Hotkeys"),
  /* modkey             */ TEXT("Modifier key for al&ternate action:"),
- /* hotclicks box      */ TEXT("Activate with click"),
+ /* hotclicks box      */ TEXT("Hotclick (activate with a click)"),
  /* hotclicks more     */ TEXT("A checked button can be combined with an action but it will always be blocked in this case."),
  /* alt                */ TEXT("Alt"),
  /* winkey             */ TEXT("Winkey"),

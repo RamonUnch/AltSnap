@@ -950,7 +950,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             }
 
             // Update text
-            const struct dialogstring strlst[] = {
+            static const struct dialogstring strlst[] = {
                 { IDC_MBA1,            L10NIDX(input_mouse_btac1 ) },
                 { IDC_MBA2,            L10NIDX(input_mouse_btac2 ) },
                 { IDC_INTTB,           L10NIDX(input_mouse_inttb ) },
@@ -1161,6 +1161,11 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {TEXT("SStepT"),      L10NIDX(input_actions_sstept) },
         {TEXT("SStepR"),      L10NIDX(input_actions_sstepr) },
         {TEXT("SStepB"),      L10NIDX(input_actions_sstepb) },
+
+        {TEXT("FocusL"),       L10NIDX(input_actions_focusl) },
+        {TEXT("FocusT"),       L10NIDX(input_actions_focust) },
+        {TEXT("FocusR"),       L10NIDX(input_actions_focusr) },
+        {TEXT("FocusB"),       L10NIDX(input_actions_focusb) },
         {NULL, 0}
     };
 

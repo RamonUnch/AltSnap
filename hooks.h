@@ -126,6 +126,11 @@
     ACVALUE(AC_SSTEPR, "SStepR", MR) \
     ACVALUE(AC_SSTEPB, "SStepB", MR) \
     \
+    ACVALUE(AC_FOCUSL,  "FocusL",  ZO) \
+    ACVALUE(AC_FOCUST,  "FocusT",  ZO) \
+    ACVALUE(AC_FOCUSR,  "FocusR",  ZO) \
+    ACVALUE(AC_FOCUSB,  "FocusB",  ZO) \
+    \
     ACVALUE(AC_ROLL,         "Roll",         MR) \
     ACVALUE(AC_ALTTAB,       "AltTab",       ZO) \
     ACVALUE(AC_VOLUME,       "Volume",       00) \

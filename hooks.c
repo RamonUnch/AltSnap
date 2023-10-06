@@ -4322,24 +4322,24 @@ static BOOL CALLBACK FindTiledWindowEnumProc(HWND hwnd, LPARAM lp)
     // Also we use dimentions of the original window as extra radius for the cone.
     switch (tw->direction) {
     case 0: // LEFT
-        if (dx < 0 && ady <= adx + tw->owidth
+        if (dx < 0 && ady <= adx + tw->oheight
         && (adx < tw->distance.x || (adx == tw->distance.x && ady < tw->distance.y)) )
             break; // Window is closer...
         return TRUE; // skip
     case 1: // UP
-        if (dy < 0 && adx <= ady + tw->oheight
+        if (dy < 0 && adx <= ady + tw->owidth
         && (ady < tw->distance.y || (ady == tw->distance.y && adx < tw->distance.x)) )
-            break; // Window is closer...
+            break;
         return TRUE;
     case 2: // RIGHT
-        if (dx > 0 && ady <= adx + tw->owidth
+        if (dx > 0 && ady <= adx + tw->oheight
         && (adx < tw->distance.x || (adx == tw->distance.x && ady < tw->distance.y)) )
-            break; // Window is closer...
+            break;
         return TRUE;
     case 3: // DOWN
-        if (dy > 0 && adx <= ady + tw->oheight
+        if (dy > 0 && adx <= ady + tw->owidth
         && (ady < tw->distance.y || (ady == tw->distance.y && adx < tw->distance.x)) )
-            break; // Window is closer...
+            break;
         return TRUE;
     default: // WTF?
         return TRUE;

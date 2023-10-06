@@ -227,6 +227,7 @@ static struct config {
     UCHAR keepMousehook;
     UCHAR EndSendKey; // Used to be VK_CONTROL
     WORD AeroMaxSpeed;
+    WORD LongClickMoveDelay;
     DWORD BLCapButtons;
     DWORD BLUpperBorder;
     int PinColor;
@@ -4314,7 +4315,7 @@ static BOOL CALLBACK FindTiledWindowEnumProc(HWND hwnd, LPARAM lp)
     long dy = pt.y - tw->opt.y;
     long adx = abs(dx);
     long ady = abs(dy);
-    LOGA("adx = %d, ady = %d, tw->oheight = %d, tw->owidth = %d", adx, ady, tw->oheight, tw->owidth);
+//    LOGA("adx = %d, ady = %d, tw->oheight = %d, tw->owidth = %d", adx, ady, tw->oheight, tw->owidth);
 
     // We only use the position of the center of each window.
     // We check windows within a cone around the direction of choice.
@@ -5040,7 +5041,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         if (wParam == WM_LBUTTONDOWN) {
             state.clickpt = pt;
             // Start Grab timer
-            SetTimer(g_timerhwnd, GRAB_TIMER, GetDoubleClickTime(), NULL);
+            SetTimer(g_timerhwnd, GRAB_TIMER, conf.LongClickMoveDelay, NULL);
         } else {
             // Cancel Grab timer.
             KillTimer(g_timerhwnd, GRAB_TIMER);
@@ -6062,6 +6063,9 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
     conf.BLCapButtons  = GetSectionOptionInt(inisection, "BLCapButtons", 3);
     conf.BLUpperBorder = GetSectionOptionInt(inisection, "BLUpperBorder", 3);
     conf.AeroMaxSpeed  = GetSectionOptionInt(inisection, "AeroMaxSpeed", 65535);
+    conf.LongClickMoveDelay = GetSectionOptionInt(inisection, "LongClickMoveDelay", 0);
+    if (conf.LongClickMoveDelay == 0)
+        conf.LongClickMoveDelay = GetDoubleClickTime();
 
     GetPrivateProfileSection(TEXT("Performance"), inisection, ARR_SZ(inisection), inipath);
     readalluchars(&conf.FullWin, inisection, Performance_uchars, ARR_SZ(Performance_uchars));

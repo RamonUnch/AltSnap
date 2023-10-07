@@ -188,6 +188,14 @@ void ListAllTranslations()
 }
 
 /////////////////////////////////////////////////////////////////////////////
+// Helper function to get 
+static int GetCUserLanguage_xx_XX(wchar_t txt[AT_LEAST 16])
+{
+    txt[0] = L'\0';
+    return LCIDToLocaleNameL(GetUserDefaultLCID(), txt, 16, 0);
+}
+
+/////////////////////////////////////////////////////////////////////////////
 void UpdateLanguage()
 {
     TCHAR txt[16];
@@ -197,7 +205,7 @@ void UpdateLanguage()
     // based on current user's LCID
     #ifdef _UNICODE
     if (!lstrcmpi(txt, TEXT("Auto"))) {
-        LCIDToLocaleNameL(GetUserDefaultLCID(), txt, ARR_SZ(txt), 0);
+        GetCUserLanguage_xx_XX(txt);
     }
     #endif // _UNICODE
 

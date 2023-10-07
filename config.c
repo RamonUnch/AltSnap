@@ -604,7 +604,16 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             int i = CB_GetCurSelId(IDC_LANGUAGE);
             if (i < nlanguages && langinfo && lstrcmp(l10n->code, langinfo[i].code)) {
                 LoadTranslation(langinfo[i].fn);
+                #ifdef UNICODE
+                wchar_t curlang[16];
+                GetCUserLanguage_xx_XX(curlang);
+                if (!lstrcmpi(l10n->code, curlang)) // Use Auto if selected language is the current user's one.
+                    WritePrivateProfileString(TEXT("General"), TEXT("Language"), TEXT("Auto"), inipath);
+                else
+                    WritePrivateProfileString(TEXT("General"), TEXT("Language"), l10n->code, inipath);
+                #else
                 WritePrivateProfileString(TEXT("General"), TEXT("Language"), l10n->code, inipath);
+                #endif
                 updatestrings = 1;
                 UpdateStrings();
             }

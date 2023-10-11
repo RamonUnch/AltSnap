@@ -922,9 +922,14 @@ static void Enum()
 }
 ///////////////////////////////////////////////////////////////////////////
 //
+#define RECALC_INVISIBLE_BORDERS ((RECT **)1)
 static void EnumOnce(RECT **bd)
 {
     static RECT borders;
+    if (bd == RECALC_INVISIBLE_BORDERS) {
+        FixDWMRect(state.hwnd, &borders);
+        return;
+    }
     if (bd && !(state.enumed&1)) {
         // LOGA("Enum");
         Enum(); // Enumerate monitors and windows
@@ -1208,14 +1213,41 @@ static void MaximizeRestore_atpt(HWND hwnd, UINT sw_cmd, int origin)
                       , mi.rcMonitor.bottom-mi.rcMonitor.top);
     }
 }
+
+static void MoveWindowAsync1(HWND hwnd, int x, int y, int w, int h)
+{
+    UINT flags = SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOZORDER|SWP_ASYNCWINDOWPOS;
+    if (conf.IgnoreMinMaxInfo) flags |= SWP_NOSENDCHANGING;
+    SetWindowPos(hwnd, NULL, x, y, w, h, flags);
+}
 static void RestoreWindowToRect(HWND hwnd, const RECT *rc, UINT flags)
 {
+    RECT zbd, bd;
+    FixDWMRect(hwnd, &zbd); // Zoomed invisible borders (that were applied)
     WINDOWPLACEMENT wndpl; wndpl.length = sizeof(WINDOWPLACEMENT);
     GetWindowPlacement(hwnd, &wndpl);
     wndpl.showCmd = SW_RESTORE;
     wndpl.flags |= flags;
     CopyRect(&wndpl.rcNormalPosition, rc);
-    SetWindowPlacement(hwnd, &wndpl);
+    if (LOBYTE(GetVersion()) >= 10) {
+        // On Windows 10+ we got invisible borders...
+        wndpl.flags &= ~WPF_ASYNCWINDOWPLACEMENT;
+        // Synchronus restore because we have to check for Invisible
+        // borders again that are different when Zoomed/restored.
+        SetWindowPlacement(hwnd, &wndpl);
+        FixDWMRect(hwnd, &bd); // Restored invisible borders
+        if( !EqualRect(&zbd, &bd) ) {
+            // Wrong invisible borders were applied,
+            // correct it with an async move.
+            #define r wndpl.rcNormalPosition
+            DeflateRectBorder(&r, &zbd);
+            InflateRectBorder(&r, &bd);
+            MoveWindowAsync1(hwnd, r.left, r.top, r.right-r.left, r.bottom-r.top);
+            #undef r
+        }
+    } else {
+        SetWindowPlacement(hwnd, &wndpl);
+    }
 }
 static void RestoreWindowTo(HWND hwnd, int x, int y, int w, int h)
 {
@@ -1232,9 +1264,7 @@ static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h)
         RECT rc = {x, y, x+w, y+h };
         RestoreWindowToRect(hwnd, &rc, WPF_ASYNCWINDOWPLACEMENT);
     } else {
-        UINT flags = SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOZORDER|SWP_ASYNCWINDOWPOS;
-        if (conf.IgnoreMinMaxInfo) flags |= SWP_NOSENDCHANGING;
-        SetWindowPos(hwnd, NULL, x, y, w, h, flags);
+        MoveWindowAsync1(hwnd, x, y, w, h);
     }
 }
 
@@ -1567,6 +1597,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
             if (IsZoomed(state.hwnd)) {
                 // Avoids flickering
                 RestoreWindowTo(state.hwnd, *posx, *posy, *wndwidth, *wndheight);
+                EnumOnce(RECALC_INVISIBLE_BORDERS);
             }
             int mmthreadend = !LastWin.hwnd;
             LastWin.hwnd = state.hwnd;
@@ -2026,9 +2057,9 @@ static void MouseMove(POINT pt)
         wndheight = wnd.bottom-wnd.top;
 
         // Check if the window will snap anywhere
-        MoveSnap(&posx, &posy, wndwidth, wndheight, conf.SnapThreshold);
         int ret = AeroMoveSnap(pt, &posx, &posy, &wndwidth, &wndheight);
         if (ret == 1) { state.moving = 1; return; }
+        MoveSnap(&posx, &posy, wndwidth, wndheight, conf.SnapThreshold);
         MoveSnapToZone(pt, &posx, &posy, &wndwidth, &wndheight);
 
         // Restore window if maximized when starting
@@ -2050,12 +2081,16 @@ static void MouseMove(POINT pt)
             // Update wndwidth and wndheight
             wndwidth  = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
             wndheight = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
-            if (!conf.FullWin) {
+            if( !conf.FullWin && LOBYTE(GetVersion()) < 10 )
                 wndpl.flags |= WPF_ASYNCWINDOWPLACEMENT;
-                SetWindowPlacement(state.hwnd, &wndpl);
-            } else {
-                LastWin.end=1;
-            }
+            SetWindowPlacement(state.hwnd, &wndpl);
+            EnumOnce(RECALC_INVISIBLE_BORDERS);
+//            if (!conf.FullWin) {
+//                wndpl.flags |= WPF_ASYNCWINDOWPLACEMENT;
+//                SetWindowPlacement(state.hwnd, &wndpl);
+//            } else {
+//                LastWin.end=1;
+//            }
         }
 
     } else if (state.action == AC_RESIZE) {
@@ -4367,7 +4402,7 @@ static HWND FindTiledWindow(HWND hwnd, unsigned char direction)
         tw.distance.x = 0x7ffffff0;
         tw.distance.y = 0x7ffffff0;
         tw.direction = direction;
-        
+
         EnumDesktopWindows(NULL, FindTiledWindowEnumProc, (LPARAM)&tw);
 //        // TODO: Handle MDI clients.
 //        if (state.mdiclient) {
@@ -4451,7 +4486,7 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_FOCUST:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 1)); break;
     case AC_FOCUSR:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 2)); break;
     case AC_FOCUSB:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 3)); break;
-    
+
     case AC_ASONOFF:     ActionASOnOff(); break;
     case AC_MOVEONOFF:   ActionMoveOnOff(hwnd); break;
     default:;

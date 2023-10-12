@@ -3448,7 +3448,7 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
 {
     // When trying to Snap or extend a non-resizeable window
     if (!(flags&SNTO_MOVETO) && !IsResizable(hwnd))
-        flags = SNTO_MOVETO | (flags&SNTO_NEXTBD); // Move instead
+        flags = SNTO_MOVETO | SNTO_NEXTBD; // Move to next bd instead
 
     SetOriginFromRestoreData(hwnd, AC_MOVE);
     GetMinMaxInfo(hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions

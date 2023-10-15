@@ -573,7 +573,7 @@ static const struct strings en_US = {
  /* autostart          */ TEXT("S&tart ") APP_NAME TEXT(" when logging on"),
  /* autostart_hide     */ TEXT("&Hide tray"),
  /* autostart_elevate  */ TEXT("&Elevate to administrator privileges"),
- /* elevate_tip        */ TEXT("Note that a UAC prompt will appear every time you log in, unless you disable UAC completely or use the Task Scheduler"),
+ /* elevate_tip        */ TEXT("Note that a UAC prompt will appear every time you log in, unless you disable UAC completely or use the Task Scheduler.\nTo setup a Scheduled task for this purpose, you can use the sch_On.bat batch files in Altsnap's folder."),
  /* elevate            */ TEXT("E&levate"),
  /* elevated           */ TEXT("Elevated"),
  /* elevation_aborted  */ TEXT("Elevation aborted."),

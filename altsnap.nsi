@@ -2,7 +2,7 @@
 # define the name of the installer
 
 !define APP_NAME "AltSnap"
-!define APP_VERSION "1.59"
+!define APP_VERSION "1.62"
 # define the name of the installer
 OutFile "${APP_NAME}${APP_VERSION}-inst.exe"
 Name "${APP_NAME} ${APP_VERSION}"
@@ -23,7 +23,7 @@ DirText "This will install AltSnap on your computer. Choose a directory"
 Page directory
 Page instfiles
 Page custom customPage "" ": custom page"
- 
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # DEFAULT SECTION
 Section
@@ -44,11 +44,14 @@ Section
     File AltSnap.xml
     File hooks.dll
     File License.txt
+    File sch_On.bat
+    File sch_Off.bat
     SetOutPath $INSTDIR\Lang
     File "Lang\_en_US baseline.txt"
     File Lang\ca_ES.ini
     File Lang\de_DE.ini
     File Lang\es_ES.ini
+    File Lang\fi_FI.ini
     File Lang\fr_FR.ini
     File Lang\gl_ES.ini
     File Lang\it_IT.ini

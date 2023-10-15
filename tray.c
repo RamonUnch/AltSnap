@@ -77,6 +77,7 @@ static int InitTray()
     LayoutNumber    = GetPrivateProfileInt(TEXT("Zones"), TEXT("LayoutNumber"), 0, inipath);
     MaxLayouts      = GetPrivateProfileInt(TEXT("Zones"), TEXT("MaxLayouts"), 0, inipath);
     MaxLayouts = CLAMP(0, MaxLayouts, 10);
+    LayoutNumber = CLAMP(0, MaxLayouts);
 
     LoadAllIcons();
 
@@ -154,8 +155,10 @@ static int RemoveTray()
 // Zones functions
 static void WriteCurrentLayoutNumber()
 {
-    TCHAR txt[UINT_DIGITS+1];
-    WritePrivateProfileString(TEXT("Zones"), TEXT("LayoutNumber"), Uint2lStr(txt, LayoutNumber), inipath);
+    if (MaxLayouts) {
+        TCHAR txt[UINT_DIGITS+1];
+        WritePrivateProfileString(TEXT("Zones"), TEXT("LayoutNumber"), Uint2lStr(txt, LayoutNumber), inipath);
+    }
 }
 static TCHAR *RectToStr(const RECT *rc, TCHAR rectstr[AT_LEAST INT_DIGITS*4+4+1])
 {

@@ -6072,11 +6072,13 @@ void registerAllHotkeys(const TCHAR* inipath)
             // Lobyte is the virtual key code and hibyte is the mod_key
             if(!RegisterHotKey(g_hkhwnd, 0xC000 + ac, HIBYTE(HK), LOBYTE(HK))) {
                 LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
+                #ifdef LOG_STUFF
                 TCHAR title[76], acN[32];
                 lstrcpy_s(title, ARR_SZ(title), TEXT(APP_NAMEA)TEXT(": unable to register hotkey for action "));
                 str2tchar_s(acN, ARR_SZ(acN)-1, action_names[ac]);
                 lstrcat_s(title, ARR_SZ(title), acN);
                 ErrorBox(title);
+                #endif // LOG_STUFF
             }
             LOG("OK registering hotkey %s=%x", action_names[ac], (unsigned)HK);
         }

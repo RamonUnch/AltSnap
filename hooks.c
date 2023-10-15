@@ -2400,6 +2400,7 @@ static int ActionKill(HWND hwnd)
 // Try harder to actually set the window foreground.
 static void ReallySetForegroundWindow(HWND hwnd)
 {
+    if (!hwnd) return;
     // Check existing foreground Window.
     HWND  fore = GetForegroundWindow();
     if (fore != hwnd) {
@@ -4336,12 +4337,13 @@ struct FindTiledWindow_struct {
     HWND ohwnd; // out
     POINT distance; // internal
     unsigned char direction; // in
+    unsigned char diagonal; // in
 };
 static BOOL CALLBACK FindTiledWindowEnumProc(HWND hwnd, LPARAM lp)
 {
     struct FindTiledWindow_struct *tw = (struct FindTiledWindow_struct *)lp;
     RECT rc;
-    if (tw->ihwnd == hwnd || !IsAltTabAble(hwnd) || !GetWindowRect(hwnd, &rc))
+    if (tw->ihwnd == hwnd || !IsAltTabAble(hwnd) || !GetWindowRectL(hwnd, &rc))
         return TRUE; // Next hwnd
     POINT pt;
     pt.x = (rc.left + rc.right) / 2;
@@ -4350,34 +4352,63 @@ static BOOL CALLBACK FindTiledWindowEnumProc(HWND hwnd, LPARAM lp)
     long dy = pt.y - tw->opt.y;
     long adx = abs(dx);
     long ady = abs(dy);
-//    LOGA("adx = %d, ady = %d, tw->oheight = %d, tw->owidth = %d", adx, ady, tw->oheight, tw->owidth);
+    //LOGA("adx = %d, ady = %d, tw->opt=%d,%d tw->oheight = %d, tw->owidth = %d"
+    //    , adx,      ady,   tw->opt.x,tw->opt.y,  tw->oheight, tw->owidth);
 
-    // We only use the position of the center of each window.
-    // We check windows within a cone around the direction of choice.
-    // Also we use dimentions of the original window as extra radius for the cone.
-    switch (tw->direction) {
-    case 0: // LEFT
-        if (dx < 0 && ady <= adx + tw->oheight
-        && (adx < tw->distance.x || (adx == tw->distance.x && ady < tw->distance.y)) )
-            break; // Window is closer...
-        return TRUE; // skip
-    case 1: // UP
-        if (dy < 0 && adx <= ady + tw->owidth
-        && (ady < tw->distance.y || (ady == tw->distance.y && adx < tw->distance.x)) )
-            break;
-        return TRUE;
-    case 2: // RIGHT
-        if (dx > 0 && ady <= adx + tw->oheight
-        && (adx < tw->distance.x || (adx == tw->distance.x && ady < tw->distance.y)) )
-            break;
-        return TRUE;
-    case 3: // DOWN
-        if (dy > 0 && adx <= ady + tw->owidth
-        && (ady < tw->distance.y || (ady == tw->distance.y && adx < tw->distance.x)) )
-            break;
-        return TRUE;
-    default: // WTF?
-        return TRUE;
+    if(tw->diagonal) {
+        // We only use the position of the center of each window.
+        // We check windows within a 45deg cone around the direction of choice.
+        switch (tw->direction) {
+        case 0: // LEFT
+            if (dx < 0 && ady <= adx
+            && (adx < tw->distance.x || (adx == tw->distance.x && ady < tw->distance.y)) )
+                break; // Window is closer...
+            return TRUE; // skip
+        case 1: // UP
+            if (dy < 0 && adx <= ady
+            && (ady < tw->distance.y || (ady == tw->distance.y && adx < tw->distance.x)) )
+                break;
+            return TRUE;
+        case 2: // RIGHT
+            if (dx > 0 && ady <= adx
+            && (adx < tw->distance.x || (adx == tw->distance.x && ady < tw->distance.y)) )
+                break;
+            return TRUE;
+        case 3: // DOWN
+            if (dy > 0 && adx <= ady
+            && (ady < tw->distance.y || (ady == tw->distance.y && adx < tw->distance.x)) )
+                break;
+            return TRUE;
+        default: // WTF?
+            UNREACHABLE();
+        }
+    } else {
+        // Square mode (not all space is covered)
+        long beamW = min(tw->oheight, tw->owidth);
+        switch (tw->direction) {
+        case 0: // LEFT
+            if (dx < 0 && ady < beamW
+            && (adx < tw->distance.x || (adx == tw->distance.x && ady < tw->distance.y)) )
+                break; // Window is closer...
+            return TRUE; // skip
+        case 1: // UP
+            if (dy < 0 && adx < beamW
+            && (ady < tw->distance.y || (ady == tw->distance.y && adx < tw->distance.x)) )
+                break;
+            return TRUE;
+        case 2: // RIGHT
+            if (dx > 0 && ady < beamW
+            && (adx < tw->distance.x || (adx == tw->distance.x && ady < tw->distance.y)) )
+                break;
+            return TRUE;
+        case 3: // DOWN
+            if (dy > 0 && adx < beamW
+            && (ady < tw->distance.y || (ady == tw->distance.y && adx < tw->distance.x)) )
+                break;
+            return TRUE;
+        default: // WTF?
+            UNREACHABLE();
+        }
     }
     // Update tw struct if we find a closer window.
     tw->distance.x = adx;
@@ -4391,25 +4422,46 @@ static HWND FindTiledWindow(HWND hwnd, unsigned char direction)
     assert(direction < 4 );
 
     RECT rc;
-    if (GetWindowRect(hwnd, &rc)) {
+    if (GetWindowRectL(hwnd, &rc)) {
         struct FindTiledWindow_struct tw;
+        long w = (rc.right - rc.left) / 2;
+        long h = (rc.bottom - rc.top )/ 2;
         tw.opt.x = (rc.left + rc.right) / 2;
         tw.opt.y = (rc.top + rc.bottom) / 2;
-        tw.owidth  = (rc.right - rc.left) / 2;
-        tw.oheight = (rc.bottom - rc.top )/ 2;
+        tw.owidth  = w;
+        tw.oheight = h;
         tw.ihwnd = hwnd;
         tw.ohwnd = NULL;
         tw.distance.x = 0x7ffffff0;
         tw.distance.y = 0x7ffffff0;
         tw.direction = direction;
+        tw.diagonal = 0;
 
         EnumDesktopWindows(NULL, FindTiledWindowEnumProc, (LPARAM)&tw);
+        if (!tw.ohwnd) { // Try again with diagonals
+            tw.diagonal = 1;
+            EnumDesktopWindows(NULL, FindTiledWindowEnumProc, (LPARAM)&tw);
+        }
+//        // Last resort, try with larger and larger beam...
+//        tw.diagonal = 0;
+//        int i;
+//        for (i=2; !tw.ohwnd && i<5; i++) {
+//            tw.oheight = i*h;
+//            tw.owidth  = i*h;
+//            EnumDesktopWindows(NULL, FindTiledWindowEnumProc, (LPARAM)&tw);
+//        }
 //        // TODO: Handle MDI clients.
 //        if (state.mdiclient) {
 //            EnumChildWindows(state.mdiclient, FindTiledWindowEnumProc, (LPARAM)&tw);
 //        } else {
 //            EnumDesktopWindows(NULL, FindTiledWindowEnumProc, (LPARAM)&tw);
 //        }
+        // Log hwnd details (usefull for debugging)
+//        TCHAR buf[1024]=TEXT("");
+//        PrintHwndDetails(tw.ohwnd, buf);
+//        static const char *directionStr="LTRB";
+//        LOGA("FOCUSING_%c %S", directionStr[direction], buf);
+
         return tw.ohwnd;
     }
     return NULL;
@@ -6019,12 +6071,16 @@ void registerAllHotkeys(const TCHAR* inipath)
         if(LOBYTE(HK) && HIBYTE(HK)) {
             // Lobyte is the virtual key code and hibyte is the mod_key
             if(!RegisterHotKey(g_hkhwnd, 0xC000 + ac, HIBYTE(HK), LOBYTE(HK))) {
-                // LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
-                //TCHAR title[128];
-                //lstrcpy_s(title, ARR_SZ(title), TEXT(APP_NAMEA)TEXT(": unable to register hotkey for action "));
-                //lstrcat_s(title, ARR_SZ(title), txt);
-                //ErrorBox(title);
+                LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
+                #ifdef LOG_STUFF
+                TCHAR title[76], acN[32];
+                lstrcpy_s(title, ARR_SZ(title), TEXT(APP_NAMEA)TEXT(": unable to register hotkey for action "));
+                str2tchar_s(acN, ARR_SZ(acN)-1, action_names[ac]);
+                lstrcat_s(title, ARR_SZ(title), acN);
+                ErrorBox(title);
+                #endif // LOG_STUFF
             }
+            LOG("OK registering hotkey %s=%x", action_names[ac], (unsigned)HK);
         }
     }
 }

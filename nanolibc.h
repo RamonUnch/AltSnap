@@ -15,6 +15,8 @@
 #define allnonnull __attribute__((nonnull))
 #define nonnull1(x) __attribute__((nonnull (x)))
 #define nonnull2(x, y) __attribute__((nonnull (x, y)))
+#define ASSUME(x) do { if (!(x)) __builtin_unreachable(); } while (0)
+#define UNREACHABLE() __builtin_unreachable()
 #else
 #define flatten
 #define xpure
@@ -28,6 +30,8 @@
 #define nonnull2(x, y)
 #define __restrict__
 #define inline
+#define ASSUME(x)
+#define UNREACHABLE()
 #endif
 /* return +/-1 if x is +/- and 0 if x == 0 */
 static xpure int sign(int x)
@@ -35,32 +39,26 @@ static xpure int sign(int x)
     return (x > 0) - (x < 0);
 }
 
-#if (defined(__x86_64__) || defined(__i386__))
-#if !defined(CLANG) && defined(__GNUC__)
-static __attribute__(( regparm(1) )) xpure
-int Iabs(int x)
-{
-    __asm__ (
-        "cdq \n"
-        "xor %%edx, %%eax \n"
-        "sub %%edx, %%eax \n"
-    : "=eax" (x)
-    : "eax" (x)
-    : "%edx"
-    );
-    return x;
-}
-#else
-static xpure int Iabs(int a)
-{
-   int m = (a >> (sizeof(int) * CHAR_BIT - 1));
-   return (a + m) ^ m;
-}
-#endif
-#define abs(x) Iabs(x)
-#else
+//#if defined(__GNUC__) && (defined(__i386__) && !defined(__x86_64__)) && !defined(CLANG)
+//static __attribute__(( regparm(1) )) xpure
+//int Iabs(int x)
+//{
+//    __asm__ (
+//        "cdq \n"
+//        "xor %%edx, %%eax \n"
+//        "sub %%edx, %%eax \n"
+//    : "=eax" (x)
+//    : "eax" (x)
+//    : "%edx"
+//    );
+//    return x;
+//}
+//#define abs(x) Iabs(x)
+//#else
+//#define abs(x) ((x)>0? (x): -(x))
+//#endif // x86
+
 #define abs(x) ((x)>0? (x): -(x))
-#endif // x86
 /* Function to set the kth bit of n */
 static int setBit(int n, int k)
 {

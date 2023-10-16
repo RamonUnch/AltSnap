@@ -453,6 +453,7 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
             TEXT("-m\tMultiple instances allowed\n")
             TEXT("-c\tOpen Config dialog\n")
             TEXT("-e\tElevate AltSnap\n")
+            TEXT("-r\tRelaod AltSnap settings\n")
             TEXT("-lX\tSelect Snap Layout number X\n")
             TEXT("-afX\tExecute action X for the foreground window\n")
             TEXT("-apX\tExecute action X for the pointed window\n");
@@ -466,6 +467,7 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
     int elevate = !!lstrstr(params, TEXT("-e"));
     int multi   = !!lstrstr(params, TEXT("-m"));
     int config  = !!lstrstr(params, TEXT("-c"));
+    int rlini   = !!lstrstr(params, TEXT("-r"));
 
     // Check if elevated if in >= WinVer
     WinVer = LOBYTE(LOWORD(GetVersion()));
@@ -518,6 +520,7 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
             LOG("Previous instance found and no -multi mode");
             if(hide)   PostMessage(previnst, WM_CLOSECONFIG, 0, 0);
             if(config) PostMessage(previnst, WM_OPENCONFIG, 0, 0);
+            if(rlini)  PostMessage(previnst, WM_UPDATESETTINGS, 0, 0);
             PostMessage(previnst, hide? WM_HIDETRAY : WM_ADDTRAY, 0, 0);
             LOG("Updated old instance and NORMAL EXIT");
             return 0;

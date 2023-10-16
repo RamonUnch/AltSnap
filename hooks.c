@@ -6164,14 +6164,17 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
     conf.ResizeRate   = max(1, conf.ResizeRate);
 
     // [Performance]
-    if (conf.RezTimer == 2) {
-        conf.RezTimer = 0;
+    if (conf.RezTimer == 2 || conf.RezTimer == 4) {
+        // 2 => Auto 1 (if 60Hz monitor) or 0.
+        // 4 => Auto 1 (if 60Hz monitor) or 3.
+        conf.RezTimer = conf.RezTimer == 2? 0: 3;
         DEVMODE dvm;
         mem00(&dvm, sizeof(dvm));
         dvm.dmSize = sizeof(DEVMODE);
         if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dvm)) {
             LOG("Display Frequency = %dHz", dvm.dmDisplayFrequency);
-            conf.RezTimer = dvm.dmDisplayFrequency == 60;
+            if (dvm.dmDisplayFrequency == 60)
+                conf.RezTimer = 1;
         }
     }
     if (conf.RezTimer) conf.RefreshRate=0; // Ignore the refresh rate in RezTimer mode.

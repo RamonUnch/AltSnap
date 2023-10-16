@@ -452,6 +452,8 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
             TEXT("-q\tQuiet mode\n")
             TEXT("-m\tMultiple instances allowed\n")
             TEXT("-c\tOpen Config dialog\n")
+            TEXT("-e\tElevate AltSnap\n")
+            TEXT("-lX\tSelect Snap Layout number X\n")
             TEXT("-afX\tExecute action X for the foreground window\n")
             TEXT("-apX\tExecute action X for the pointed window\n");
 
@@ -499,6 +501,18 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
                     PostMessage(msghwnd, WM_HOTKEY, (actionstr[2] == 'p')*0x1000+action, 0);
                     return 0;
                 }
+            }
+            // Change layout if asked...
+            #define isUDigit(x) ( TEXT('0') <= (x) && (x) <= TEXT('9') )
+            const TCHAR *layout = lstrstr(params, TEXT("-l"));
+            if (layout && isUDigit(layout[2])) {
+                TCHAR numstr[3] = { layout[2], layout[3], TEXT('\0') };
+                if (!isUDigit(numstr[1]))
+                    numstr[1] = TEXT('\0');
+                //MessageBox(NULL, NULL, NULL, 0);
+                int layoutnumber = CLAMP(0, strtoi(numstr)-1, 9);
+                PostMessage(previnst, WM_COMMAND, SWM_SNAPLAYOUT+layoutnumber, 0);
+                return 0;
             }
             // Update old instance if no action to be made.
             LOG("Previous instance found and no -multi mode");

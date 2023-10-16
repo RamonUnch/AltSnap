@@ -77,7 +77,7 @@ static int InitTray()
     LayoutNumber    = GetPrivateProfileInt(TEXT("Zones"), TEXT("LayoutNumber"), 0, inipath);
     MaxLayouts      = GetPrivateProfileInt(TEXT("Zones"), TEXT("MaxLayouts"), 0, inipath);
     MaxLayouts = CLAMP(0, MaxLayouts, 10);
-    LayoutNumber = CLAMP(0, LayoutNumber, MaxLayouts);
+    LayoutNumber = CLAMP(0, LayoutNumber, max(0,MaxLayouts-1));
 
     LoadAllIcons();
 

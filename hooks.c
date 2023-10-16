@@ -4727,6 +4727,10 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     } else if(button == BT_WHEEL || button == BT_HWHEEL) {
         // Wheel actions, directly return here
         // because maybe the action will not be done
+        if (GetProp(state.hwnd, APP_MOVEONOFF)) {
+            state.action = AC_NONE;
+            return 0; // Wheel was disabled for this window.
+        }
         return DoWheelActions(state.hwnd, action);
     } else if (action==AC_RESTORE) {
         int rwidth, rheight;

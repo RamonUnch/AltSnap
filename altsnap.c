@@ -560,6 +560,14 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
                             , wnd.lpszClassName , NULL , WS_POPUP
                             , 0, 0, 0, 0, NULL, NULL, hInst, NULL);
     LOG("Create main APP Window: %s", g_hwnd? "Sucess": "Failed");
+    if (elevated) {
+        // AltSnap was started elevated!
+        // Allow some messages to be sent from non-elevated instance
+        // so that user can do AltSnap.exe -c/r/h/l
+        UINT i;
+        for (i = WM_UPDATETRAY; i <= WM_HIDETRAY; i++)
+            ChangeWindowMessageFilterExL(g_hwnd, i, /*MSGFLT_ALLOW*/1, NULL);
+    }
     // Tray icon
 
     InitTray();

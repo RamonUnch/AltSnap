@@ -443,12 +443,6 @@ static HWND GetAncestorL(HWND hwnd, UINT gaFlags)
     #undef FUNK_TYPE
 }
 
-/*BOOL ChangeWindowMessageFilterEx(
-  [in]                HWND                hwnd,
-  [in]                UINT                message,
-  [in]                DWORD               action,
-  [in, out, optional] PCHANGEFILTERSTRUCT pChangeFilterStruct
-);*/
 #ifndef MSGFLTINFO_NONE
 
 #define MSGFLTINFO_NONE 0
@@ -462,6 +456,23 @@ typedef struct tagCHANGEFILTERSTRUCT {
 } CHANGEFILTERSTRUCT, *PCHANGEFILTERSTRUCT;
 #endif
 
+// On Windows Vista we have to use this one that applies process wide.
+static BOOL ChangeWindowMessageFilterL(UINT msg, DWORD ac)
+{
+    #define FUNK_TYPE ( BOOL (WINAPI *)(UINT msg, DWORD ac) )
+    static BOOL (WINAPI *funk)(UINT msg, DWORD ac) = FUNK_TYPE IPTR;
+
+    if (funk == FUNK_TYPE IPTR) {
+        funk = FUNK_TYPE LoadDLLProc("USER32.DLL", "ChangeWindowMessageFilter");
+    }
+    if (funk) { /* We know we have the function */
+        return funk(msg, ac);
+    }
+    return FALSE;
+    #undef FUNK_TYPE
+}
+
+// Available only on Windows 7+s
 static BOOL ChangeWindowMessageFilterExL(HWND hwnd, UINT msg, DWORD ac, PCHANGEFILTERSTRUCT pC)
 {
     #define FUNK_TYPE ( BOOL (WINAPI *)(HWND hwnd, UINT msg, DWORD ac, PCHANGEFILTERSTRUCT pC) )
@@ -473,7 +484,8 @@ static BOOL ChangeWindowMessageFilterExL(HWND hwnd, UINT msg, DWORD ac, PCHANGEF
     if (funk) { /* We know we have the function */
         return funk(hwnd, msg, ac, pC);
     }
-    return FALSE;
+    // Process-wide Fallback for Windows Vista!
+    return ChangeWindowMessageFilterL(msg, ac);
     #undef FUNK_TYPE
 }
 

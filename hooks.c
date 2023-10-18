@@ -357,6 +357,7 @@ static struct {
     struct blacklist Scroll;
     struct blacklist IScroll;
     struct blacklist AResize;
+    struct blacklist NResize;
     struct blacklist SSizeMove;
     struct blacklist NCHittest;
     struct blacklist Bottommost;
@@ -372,6 +373,7 @@ static const char *BlackListStrings[] = {
     "Scroll",
     "IScroll",
     "AResize",
+    "NResize",
     "SSizeMove",
     "NCHittest",
     "Bottommost"
@@ -454,8 +456,13 @@ static int isClassName(HWND hwnd, const TCHAR *str)
 // The second bit (&2) will always correspond to the WS_THICKFRAME flag
 static int pure IsResizable(HWND hwnd)
 {
+    int thickf = !!(GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME);
     int ret =  conf.ResizeAll // bit two is the real thickframe state.
-            | ((!!(GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME)) << 1);
+            | thickf | (thickf<<1);
+
+    // Check in the Never Resize blacklist
+    if (ret && !conf.ResizeAll && blacklisted(hwnd, &BlkLst.NResize))
+        return 0;
 
     if (!ret) ret = !!GetBorderlessFlag(hwnd);
     if (!ret) ret = !!blacklisted(hwnd, &BlkLst.AResize); // Always resize list

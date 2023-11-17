@@ -252,6 +252,8 @@ static struct config {
     enum action GrabWithAlt[NACPB]; // Actions without click
     enum action MoveUp[NACPB];      // Actions on (long) Move Up w/o drag
     enum action ResizeUp[NACPB];    // Actions on (long) Resize Up w/o drag
+
+    UCHAR *inputSequences[10];
 } conf;
 
 struct OptionListItem {
@@ -454,8 +456,9 @@ static int isClassName(HWND hwnd, const TCHAR *str)
 // The second bit (&2) will always correspond to the WS_THICKFRAME flag
 static int pure IsResizable(HWND hwnd)
 {
+    int thickf = !!(GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME);
     int ret =  conf.ResizeAll // bit two is the real thickframe state.
-            | ((!!(GetWindowLongPtr(hwnd, GWL_STYLE)&WS_THICKFRAME)) << 1);
+            | thickf | (thickf<<1);
 
     if (!ret) ret = !!GetBorderlessFlag(hwnd);
     if (!ret) ret = !!blacklisted(hwnd, &BlkLst.AResize); // Always resize list
@@ -806,8 +809,8 @@ static int ResizeTouchingWindows(LPVOID lwptr)
         HWND hwnd = snwnds[i].hwnd;
 
         POINT tpt;
-        tpt.x = nwnd->left+16;
-        tpt.y = nwnd->top+16 ;
+        tpt.x = (nwnd->left+nwnd->right)/2;
+        tpt.y = (nwnd->top+nwnd->bottom)/2 ;
         if(!PtInRect(&state.origin.mon, tpt))
             continue;
 
@@ -1389,8 +1392,8 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
         const RECT *wnd = &snwnds[i].wnd;
         // if the window is in current monitor
         POINT tpt;
-        tpt.x = wnd->left+16;
-        tpt.y = wnd->top+16 ;
+        tpt.x = (wnd->left+wnd->right)/2;
+        tpt.y = (wnd->top+wnd->bottom)/2 ;
         if (PtInRect(mon, tpt)) {
             // We have a snapped window in the monitor
             if (flag & SNLEFT) {
@@ -2215,14 +2218,28 @@ static void Send_KEY_UD(unsigned char vkey, WORD flags)
     ctrl.wVk = vkey;
     ctrl.dwExtraInfo = GetMessageExtraInfo();
     ctrl.dwFlags = flags;
+    ctrl.time = GetTickCount();
     INPUT input={0};
     input.type = INPUT_KEYBOARD;
     input.ki = ctrl;
+
     InterlockedIncrement(&state.ignorekey);
     SendInput(1, &input, sizeof(INPUT));
     InterlockedDecrement(&state.ignorekey);
 }
 #define Send_CTRL() if (conf.EndSendKey) Send_KEY(conf.EndSendKey)
+
+// Send a sequence of Inputs.....
+static void SendInputSequence(const UCHAR *seq)
+{
+    UCHAR len = *seq;
+    while (len--) {
+        UCHAR vKey = *++seq;
+        UCHAR Down = *++seq;
+        Send_KEY_UD(vKey, Down? KEYEVENTF_KEYDOWN: KEYEVENTF_KEYUP);
+        //LOGA("Sending %x, %s", (UINT)vKey, Down? "Down": "Up");
+    }
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // Sends the click down/click up sequence to the system
@@ -3431,7 +3448,7 @@ static void NextBorders(RECT *pos, const RECT *cur, const RECT *def)
         const RECT *rc = &snwnds[i].wnd;
         const unsigned flg = snwnds[i].flag;
         POINT tpt;
-        tpt.x =  rc->left+16; tpt.y = rc->top+16;
+        tpt.x =  (rc->left+rc->right)/2; tpt.y = (rc->top+rc->bottom)/2;
         if (!PtInRect(def, tpt) )
             continue;
 
@@ -3511,7 +3528,7 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
         if (resize.y == RZ_TOP) {
             posy =  mon->top - bd.top;
         } else if (resize.y == RZ_BOTTOM) {
-            posy = mon->bottom - bd.bottom - wndheight;
+            posy = mon->bottom + bd.bottom - wndheight;
         }
     } else { /* Aero Snap to corresponding side/corner */
         int leftWidth, rightWidth, topHeight, bottomHeight;
@@ -3724,7 +3741,7 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             #else
                 #define THUNK_SIZE 13
             #endif
-            BYTE *thunk = VirtualAlloc( NULL, THUNK_SIZE, MEM_COMMIT, PAGE_READWRITE );
+            BYTE *thunk = (BYTE*)VirtualAlloc( NULL, THUNK_SIZE, MEM_COMMIT, PAGE_READWRITE );
             if (!thunk) break;
             // Replace the first parameter with the handle of the PinWindow.
             // FIXME: Handle MIPS/Alpha/PowerPC/ia-64/ARM/ARM64...
@@ -3763,7 +3780,7 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             SetWinEventHook(
                 EVENT_OBJECT_DESTROY, EVENT_OBJECT_LOCATIONCHANGE, // Range of events=8001-800Bh
                 NULL, // Handle to DLL.
-                (void*)thunk, // The callback function (thunked)
+                (WINEVENTPROC)thunk, // The callback function (thunked)
                 lpdwProcessId, threadid, // Process and thread IDs of interest (0 = all)
                 WINEVENT_OUTOFCONTEXT // Flags.
                 );
@@ -4541,7 +4558,11 @@ static void SClickActions(HWND hwnd, enum action action)
 
     case AC_ASONOFF:     ActionASOnOff(); break;
     case AC_MOVEONOFF:   ActionMoveOnOff(hwnd); break;
-    default:;
+    default:
+        if (AC_SHRT0 <=action && action <= AC_SHRT9
+        &&  conf.inputSequences[action-AC_SHRT0] ) {
+            SendInputSequence(conf.inputSequences[action-AC_SHRT0]); break;
+        }
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -5772,6 +5793,7 @@ static void freeblacklists()
 }
 /////////////////////////////////////////////////////////////////////////////
 // To be called before Free Library. Ideally it should free everything
+static void freeallinputSequences(void);
 #ifdef __cplusplus
 extern "C"
 #endif
@@ -5808,6 +5830,8 @@ __declspec(dllexport) void WINAPI Unload()
     UnregisterClass(TEXT(APP_NAMEA)TEXT("-HotKeys"),hinstDLL);
 
     freeblacklists();
+
+    freeallinputSequences();
 
     free(monitors);
     free(hwnds);
@@ -5926,21 +5950,22 @@ void readallblacklists(TCHAR *inipath)
 
 ///////////////////////////////////////////////////////////////////////////
 // Used to read Hotkeys and Hotclicks
-static void readhotkeys(const TCHAR *inisection, const char *name, const TCHAR *def, UCHAR *keys)
+static unsigned readhotkeys(const TCHAR *inisection, const char *name, const TCHAR *def, UCHAR *keys, unsigned MaxKeys)
 {
     LPCTSTR txt = GetSectionOptionCStr(inisection, name, def);
-    if(!txt || !*txt) return;
-    int i=0;
+    unsigned i=0;
+    if(!txt || !*txt) return i;
     const TCHAR *pos = txt;
     while (*pos) {
         // Store key
-        if (i == MAXKEYS) break;
+        if (i == MaxKeys) break;
         keys[i++] = lstrhex2u(pos);
 
-        while (*pos && *pos != ' ') pos++; // go to next space
-        while (*pos == ' ') pos++; // go to next char after spaces.
+        while (*pos && *pos >= '0') pos++; // go to the end of the word
+        while (*pos && *pos < '0') pos++; // go to next char after spaces.
     }
     keys[i] = 0;
+    return i;
 }
 static enum action readaction(const TCHAR *section, const char *key)
 {
@@ -6022,7 +6047,7 @@ static void CreateTransWin(const TCHAR *inisection)
 {
     int color[4]; // 16 bytes to be sure no overfows
     // Read the color for the TransWin from ini file
-    readhotkeys(inisection, "FrameColor",  TEXT("80 00 80"), (UCHAR *)&color[0]);
+    readhotkeys(inisection, "FrameColor",  TEXT("80 00 80"), (UCHAR *)&color[0], 4);
     WNDCLASSEX wnd;
     mem00(&wnd, sizeof(wnd));
     wnd.cbSize = sizeof(WNDCLASSEX);
@@ -6096,6 +6121,33 @@ static void readalluchars(UCHAR *dest, const TCHAR * const inisection, const str
         *dest++ = GetSectionOptionInt(inisection, optlist[i].name, optlist[i].def);
     }
 }
+static void readallinputSequences(const TCHAR *inisection)
+{
+    UCHAR buf[512];
+    char shrtN[6] = "Shrt0";
+    size_t i;
+
+    mem00(conf.inputSequences, sizeof(conf.inputSequences));
+
+    for (i=0; i< ARR_SZ(conf.inputSequences); i++) {
+        shrtN[4] = '0' + i;
+        unsigned len = readhotkeys(inisection, shrtN, TEXT(""), buf+1, 508) / 2;
+        buf[0] = len;
+        if (len) {
+            UCHAR *seq = (UCHAR *)malloc(len*2+1*sizeof(UCHAR));
+            if (seq) {
+                memcpy(seq, buf, len*2+1*sizeof(UCHAR));
+                conf.inputSequences[i] = seq;
+            }
+        }
+    }
+}
+static void freeallinputSequences(void)
+{
+    size_t i;
+    for (i=0; i< ARR_SZ(conf.inputSequences); i++)
+        free(conf.inputSequences[i]);
+}
 
 ///////////////////////////////////////////////////////////////////////////
 // Has to be called at startup, it mainly reads the config.
@@ -6134,10 +6186,16 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
     lstrcpy(&inipath[lstrlen(inipath)-3], TEXT("ini"));
 
-    TCHAR inisection[1420]; // Stack buffer.
+    TCHAR stk_inisection[1420], *inisection; // Stack buffer.
+    size_t inisectionlen = 8192;
+    inisection = (TCHAR *)malloc(inisectionlen*sizeof(TCHAR));
+    if(!inisection) {
+    	inisection = stk_inisection;
+    	inisectionlen = ARR_SZ(stk_inisection);
+    }
 
     // [General]
-    GetPrivateProfileSection(TEXT("General"), inisection, ARR_SZ(inisection), inipath);
+    GetPrivateProfileSection(TEXT("General"), inisection, inisectionlen, inipath);
     readalluchars(&conf.AutoFocus, inisection, General_uchars, ARR_SZ(General_uchars));
 
     // [General] consistency checks
@@ -6150,7 +6208,7 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
     state.snap = conf.AutoSnap;
 
     // [Advanced]
-    GetPrivateProfileSection(TEXT("Advanced"), inisection, ARR_SZ(inisection), inipath);
+    GetPrivateProfileSection(TEXT("Advanced"), inisection, inisectionlen, inipath);
     readalluchars(&conf.ResizeAll, inisection, Advanced_uchars, ARR_SZ(Advanced_uchars));
 
     conf.ZoomFrac      = max(2, conf.ZoomFrac);
@@ -6162,7 +6220,7 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
     if (conf.LongClickMoveDelay == 0)
         conf.LongClickMoveDelay = GetDoubleClickTime();
 
-    GetPrivateProfileSection(TEXT("Performance"), inisection, ARR_SZ(inisection), inipath);
+    GetPrivateProfileSection(TEXT("Performance"), inisection, inisectionlen, inipath);
     readalluchars(&conf.FullWin, inisection, Performance_uchars, ARR_SZ(Performance_uchars));
     conf.MoveRate     = max(1, conf.MoveRate);
     conf.ResizeRate   = max(1, conf.ResizeRate);
@@ -6188,13 +6246,13 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
         conf.FullWin = drag_full_win;
     }
 
-    GetPrivateProfileSection(TEXT("Input"), inisection, ARR_SZ(inisection), inipath);
+    GetPrivateProfileSection(TEXT("Input"), inisection, inisectionlen, inipath);
     readalluchars(&conf.TTBActions, inisection, Input_uchars, ARR_SZ(Input_uchars));
     readbuttonactions(inisection);
 
     if (conf.TopmostIndicator) {
         int color[4];
-        readhotkeys(inisection, "PinColor",  TEXT("FF FF 00 54"), (UCHAR *)&color[0]);
+        readhotkeys(inisection, "PinColor",  TEXT("FF FF 00 54"), (UCHAR *)&color[0], 4);
         conf.PinColor = color[0];
     }
     // Prepare the transparent window
@@ -6216,18 +6274,21 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
         { "ESCKeys",   TEXT("1B") }, // VK_ESCAPE = 1B
     };
     for (i=0; i < ARR_SZ(hklst); i++) {
-        readhotkeys(inisection, hklst[i].name, hklst[i].def, &conf.Hotkeys[i*(MAXKEYS+1)]);
+        readhotkeys(inisection, hklst[i].name, hklst[i].def, &conf.Hotkeys[i*(MAXKEYS+1)], MAXKEYS);
     }
     UCHAR eHKs[MAXKEYS+1]; // Key to be sent at the end of a movment.
-    readhotkeys(inisection, "EndSendKey", TEXT("11"), eHKs);
+    readhotkeys(inisection, "EndSendKey", TEXT("11"), eHKs, MAXKEYS);
     conf.EndSendKey = eHKs[0];
+
+    // Read User Shortcuts/InputSequences
+    readallinputSequences(inisection);
 
     // Read all the BLACKLITSTS
     readallblacklists(inipath);
 
     ResetDB(); // Zero database of restore info (snap.c)
 
-    GetPrivateProfileSection(TEXT("Zones"), inisection, ARR_SZ(inisection), inipath);
+    GetPrivateProfileSection(TEXT("Zones"), inisection, inisectionlen, inipath);
     readalluchars(&conf.UseZones, inisection, Zones_uchars, ARR_SZ(Zones_uchars));
 
     if (conf.UseZones&1) { // We are using Zones
@@ -6237,6 +6298,9 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
             ReadZones(inisection);
         }
     }
+
+    if (inisection != stk_inisection)
+    	free(inisection);
 
     conf.keepMousehook = ((conf.TTBActions&1) // titlebar action w/o Alt
                        || conf.InactiveScroll // Inactive scrolling

@@ -142,7 +142,7 @@
     ACVALUE(AC_NPSTACKED2,   "NPStacked2",   ZO)
 
 #define ACVALUE(a, b, c) a,
-enum action { ACTION_MAP AC_MAXVALUE, AC_ORICLICK };
+enum action { ACTION_MAP AC_SHRT0, AC_SHRT9=AC_SHRT0+10, AC_MAXVALUE, AC_ORICLICK };
 #undef ACVALUE
 
 // List of extra info options
@@ -230,6 +230,10 @@ static enum action MapActionW(const TCHAR *txt)
     for (ac=0; ac < ARR_SZ(action_map); ac++) {
         if(!strtotcharicmp(txt, action_map[ac]))
             return (enum action)ac;
+    }
+    if (txt[0] == 'S' && txt[1] == 'h' && txt[2] == 'r' && txt[3] == 't'
+    &&  txt[4] <= '9' && txt[4] >= '0') {
+        return (enum action)(AC_SHRT0 + txt[4] - '0');
     }
     return AC_NONE;
 }

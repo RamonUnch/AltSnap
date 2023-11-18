@@ -4563,7 +4563,7 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_MOVEONOFF:   ActionMoveOnOff(hwnd); break;
     default:
         // Shortcuts 0 - 35
-        if (AC_SHRT0 <=action && action < AC_SHRTF
+        if (AC_SHRT0 <=action && action < AC_SHRT0+ARR_SZ(conf.inputSequences)
         &&  conf.inputSequences[action-AC_SHRT0] ) {
             SendInputSequence(conf.inputSequences[action-AC_SHRT0]); break;
         }
@@ -4593,7 +4593,16 @@ static int DoWheelActions(HWND hwnd, enum action action)
     case AC_NPSTACKED:    ActionAltTab(state.prevpt, state.delta,  state.shift, EnumStackedWindowsProc); break;
     case AC_NPSTACKED2:   ActionAltTab(state.prevpt, state.delta, !state.shift, EnumStackedWindowsProc); break;
 //    case AC_BRIGHTNESS:   ActionBrightness(state.prevpt, state.delta); break;
-    default: ret = 0; // No action
+    default: {
+        ret = 0; // No action
+        // Use Shrt(X) on WheelUp and Shrt(X+1) on Wheel Down.
+        UCHAR rac = action + (state.delta<0);
+        if (AC_SHRT0 <=rac && rac < AC_SHRT0+ARR_SZ(conf.inputSequences)
+        &&  conf.inputSequences[rac-AC_SHRT0] ) {
+            ret = 1;
+            SendInputSequence(conf.inputSequences[rac-AC_SHRT0]); break;
+        }
+    }break;
     }
     // ret is 0: next hook or 1: block whel and AltUp.
     state.blockaltup = ret && state.alt > BT_HWHEEL; // block or not;

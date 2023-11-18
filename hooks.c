@@ -253,7 +253,7 @@ static struct config {
     enum action MoveUp[NACPB];      // Actions on (long) Move Up w/o drag
     enum action ResizeUp[NACPB];    // Actions on (long) Resize Up w/o drag
 
-    UCHAR *inputSequences[10];
+    UCHAR *inputSequences[AC_SHRTF-AC_SHRT0]; // 36
 } conf;
 
 struct OptionListItem {
@@ -2236,7 +2236,10 @@ static void SendInputSequence(const UCHAR *seq)
     while (len--) {
         UCHAR vKey = *++seq;
         UCHAR Down = *++seq;
-        Send_KEY_UD(vKey, Down? KEYEVENTF_KEYDOWN: KEYEVENTF_KEYUP);
+        if(Down == 2) // Combined U, then D
+            Send_KEY(vKey);
+        else
+            Send_KEY_UD(vKey, Down? KEYEVENTF_KEYDOWN: KEYEVENTF_KEYUP);
         //LOGA("Sending %x, %s", (UINT)vKey, Down? "Down": "Up");
     }
 }
@@ -4559,7 +4562,8 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_ASONOFF:     ActionASOnOff(); break;
     case AC_MOVEONOFF:   ActionMoveOnOff(hwnd); break;
     default:
-        if (AC_SHRT0 <=action && action <= AC_SHRT9
+        // Shortcuts 0 - 35
+        if (AC_SHRT0 <=action && action < AC_SHRTF
         &&  conf.inputSequences[action-AC_SHRT0] ) {
             SendInputSequence(conf.inputSequences[action-AC_SHRT0]); break;
         }

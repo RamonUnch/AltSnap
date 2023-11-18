@@ -6125,7 +6125,7 @@ static void readalluchars(UCHAR *dest, const TCHAR * const inisection, const str
         *dest++ = GetSectionOptionInt(inisection, optlist[i].name, optlist[i].def);
     }
 }
-static void readallinputSequences(const TCHAR *inisection)
+void readallinputSequences(const TCHAR *inisection)
 {
     UCHAR buf[512];
     char shrtN[6] = "Shrt0";
@@ -6134,7 +6134,7 @@ static void readallinputSequences(const TCHAR *inisection)
     mem00(conf.inputSequences, sizeof(conf.inputSequences));
 
     for (i=0; i< ARR_SZ(conf.inputSequences); i++) {
-        shrtN[4] = '0' + i;
+        shrtN[4] = i<10? '0' + i: 'A'-10 + i;
         unsigned len = readhotkeys(inisection, shrtN, TEXT(""), buf+1, 508) / 2;
         buf[0] = len;
         if (len) {

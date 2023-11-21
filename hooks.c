@@ -3024,15 +3024,116 @@ static short ScaleDeltaAndAccum(short delta, short tar_delta)
 
 /////////////////////////////////////////////////////////////////////////////
 // Changes the Volume on Windows 2000+ using VK_VOLUME_UP/VK_VOLUME_DOWN
-static void ActionVolume(short delta)
+// Also uses OLE API if available
+#ifndef NO_OLEAPI
+static const CLSID my_CLSID_MMDeviceEnumerator= {0xBCDE0395,0xE52F,0x467C,{0x8E,0x3D,0xC4,0x57,0x92,0x91,0x69,0x2E}};
+static const GUID  my_IID_IMMDeviceEnumerator = {0xA95664D2,0x9614,0x4F35,{0xA7,0x46,0xDE,0x8D,0xB6,0x36,0x17,0xE6}};
+static const GUID  my_IID_IAudioEndpointVolume= {0x5CDF2C82,0x841E,0x4546,{0x97,0x22,0x0C,0xF7,0x40,0x78,0x22,0x9A}};
+#define _WIN32_WINNT 0x0600
+#define COBJMACROS
+#include <mmdeviceapi.h>
+#include <endpointvolume.h>
+#undef _WIN32_WINNT
+/* OLE32.DLL */
+static HRESULT (WINAPI *myCoInitialize)(LPVOID pvReserved);
+static VOID (WINAPI *myCoUninitialize)( );
+static HRESULT (WINAPI *myCoCreateInstance)(REFCLSID rclsid, LPUNKNOWN pUnkOuter, DWORD dwClsContext, REFIID riid, LPVOID * ppv);
+
+static BOOL LoadOleDll()
 {
-    short num = (state.shift)?5:1;
+
+    HINSTANCE h = LoadLibraryA("OLE32.DLL");
+    if (!h) return FALSE;
+
+    myCoInitialize = (HRESULT (WINAPI *)(LPVOID))GetProcAddress(h, "CoInitialize");
+    myCoUninitialize= (VOID (WINAPI *)( ))GetProcAddress(h, "CoUninitialize");
+    myCoCreateInstance= (HRESULT (WINAPI *)(REFCLSID, LPUNKNOWN, DWORD, REFIID, LPVOID *))GetProcAddress(h, "CoCreateInstance");
+    if (!myCoCreateInstance || !myCoUninitialize || !myCoInitialize) {
+        FreeLibrary(h);
+        return FALSE;
+    }
+    return TRUE;
+}
+
+static BOOL LoadOLEDLLOnce()
+{
+    static char HaveV=-1;
+    if (HaveV == -1) {
+        HaveV = LoadOleDll();
+    }
+    return HaveV;
+}
+// Use IAudioEndpointVolume COM interface to determine current Volume (Vista+)
+static HRESULT GetCurrentVolumeMute(UINT *curentVol, UINT *maxVol, BOOL *muted)
+{
+    BYTE osver=LOBYTE(GetVersion());
+    if (osver >= 6 && LoadOLEDLLOnce()) {
+        HRESULT hr;
+        IMMDeviceEnumerator *pDevEnumerator = NULL;
+        IMMDevice *pDev = NULL;
+        IAudioEndpointVolume *pAudioEndpoint = NULL;
+
+        // Get audio endpoint
+        myCoInitialize(NULL); // Needed for IAudioEndpointVolume
+        hr = myCoCreateInstance(&my_CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL
+                              , &my_IID_IMMDeviceEnumerator, (void**)&pDevEnumerator);
+        if (hr != S_OK) goto fail;
+
+        hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(pDevEnumerator, eRender, eMultimedia, &pDev);
+        IMMDeviceEnumerator_Release(pDevEnumerator);
+        if (hr != S_OK) goto fail;
+
+        hr = IMMDevice_Activate(pDev, &my_IID_IAudioEndpointVolume, CLSCTX_ALL, NULL, (void**)&pAudioEndpoint);
+        IMMDevice_Release(pDev);
+        if (hr != S_OK) goto fail;
+
+        typedef HRESULT WINAPI (*_GetVolumeStepInfo)(IAudioEndpointVolume*, UINT *c, UINT *m);
+        typedef HRESULT WINAPI (*_GetMute)(IAudioEndpointVolume*, BOOL *b);
+        _GetVolumeStepInfo GetVolumeStepInfo = (_GetVolumeStepInfo)(pAudioEndpoint->lpVtbl->GetVolumeStepInfo);
+        _GetMute GetMute = (_GetMute)(pAudioEndpoint->lpVtbl->GetMute);
+
+        hr = GetVolumeStepInfo(pAudioEndpoint, curentVol, maxVol)
+           | GetMute(pAudioEndpoint, muted);
+        IAudioEndpointVolume_Release(pAudioEndpoint);
+
+        LOG("%d==GetVolumeStepInfo() -> %u (0 - %u) Muted=%d ", hr, curentVol, maxVol, muted);
+
+        fail:
+        myCoUninitialize();
+        return hr;
+    }
+    return E_NOTIMPL;
+}
+#endif
+// Under Vista this will change the main volume with ole interface,
+static void ActionVolume(int delta)
+{
+    int num = (state.shift)?5:1;
     num = ScaleDeltaAndAccum(delta, num);
     num = abs(num);
+    if(!num) return;
+
+    #ifndef NO_OLEAPI
+    UINT curentvol=0, maxvol=0;
+    BOOL muted=FALSE;
+    if (S_OK==GetCurrentVolumeMute(&curentvol, &maxvol, &muted) && curentvol) {
+        if( delta < 0 && (UINT)num >= curentvol ) {
+            // We would Set the volume to Zero
+            // We prefer to mute instead,
+            // because otherwise it resets volume balance.
+            if( !muted)
+                Send_KEY(VK_VOLUME_MUTE); // Mute
+            return;
+        } else if (delta > 0) {
+            if( muted ) {
+                Send_KEY(VK_VOLUME_MUTE); // UnMute
+                return;
+            }
+        }
+    }
+    #endif // NO_OLEAPI
     while (num--)
         Send_KEY(delta>0? VK_VOLUME_UP: VK_VOLUME_DOWN);
-
-    return;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -3137,6 +3238,92 @@ static void ActionMaxRestMin(HWND hwnd, int delta)
             MinimizeWindow(hwnd);
     }
     if (conf.AutoFocus) SetForegroundWindowL(hwnd);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Adjust brightness
+static void ActionBrightness(const POINT pt, const short delta)
+{
+// Works oly for Desktop monitors.
+#ifndef NO_BRIGHTNESS
+    typedef struct _PHYSICAL_MONITOR {
+        HANDLE hPhysicalMonitor;
+        WCHAR  szPhysicalMonitorDescription[128];
+    } PHYSICAL_MONITOR, *LPPHYSICAL_MONITOR;
+    enum { MC_CAPS_BRIGHTNESS=2 };
+
+    BOOL (WINAPI *myGetPhysMonitorsFromHM)(HMONITOR hMonitor, DWORD sz, LPPHYSICAL_MONITOR pmarr);
+    BOOL (WINAPI *myGetMonitorBrightness)(HANDLE hMonitor, LPDWORD min, LPDWORD cur, LPDWORD max);
+    BOOL (WINAPI *mySetMonitorBrightness)(HANDLE hMonitor, DWORD dwNewBrightness);
+    BOOL (WINAPI *myDestroyPhysicalMonitors)(DWORD cnt, LPPHYSICAL_MONITOR pmarr);
+    BOOL (WINAPI *myGetNumberOfPhysmons)(HMONITOR hMonitor, LPDWORD pdwNumberOfPhysicalMonitors);
+    BOOL (WINAPI *myGetMonitorCapabilities)(HANDLE hMonitor, LPDWORD supcap, LPDWORD supcoltemp);
+    HMODULE dll = LoadLibraryA("DXVA2.DLL");
+    if (dll) {
+        LOG("DXVA2.DLL Loaded");
+        myGetPhysMonitorsFromHM =(BOOL (WINAPI *)(HMONITOR , DWORD , LPPHYSICAL_MONITOR))
+            GetProcAddress(dll, "GetPhysicalMonitorsFromHMONITOR");
+        myGetMonitorBrightness = (BOOL (WINAPI *)(HANDLE, LPDWORD, LPDWORD, LPDWORD))
+            GetProcAddress(dll, "GetMonitorBrightness");
+        mySetMonitorBrightness = (BOOL (WINAPI *)(HANDLE , DWORD ))
+            GetProcAddress(dll, "SetMonitorBrightness");
+        myDestroyPhysicalMonitors=(BOOL (WINAPI *)(DWORD, LPPHYSICAL_MONITOR))
+            GetProcAddress(dll, "DestroyPhysicalMonitors");
+        myGetNumberOfPhysmons   =(BOOL (WINAPI *)(HMONITOR, LPDWORD))
+            GetProcAddress(dll, "GetNumberOfPhysicalMonitorsFromHMONITOR");
+        myGetMonitorCapabilities=(BOOL (WINAPI *)(HANDLE, LPDWORD, LPDWORD))
+            GetProcAddress(dll, "GetMonitorCapabilities");
+
+        if (!(myGetPhysMonitorsFromHM && myGetMonitorBrightness
+        && mySetMonitorBrightness && myDestroyPhysicalMonitors
+        && myGetNumberOfPhysmons && myGetMonitorCapabilities))
+            goto fail;
+
+        LOG("We got Monitor Brightness functions!");
+        HMONITOR hmon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+
+        DWORD numpm=0;
+        if (!hmon || !myGetNumberOfPhysmons(hmon, &numpm) || !numpm) {
+            LOG("GetNumberOfPhysmons(%x) failed", (UINT)(UINT_PTR)hmon);
+            goto fail;
+        }
+
+        LOG("NumberOfPhysmons=%lu", numpm);
+        DWORD dwMCap=0, wdColtemp=0;
+        PHYSICAL_MONITOR *pm = (PHYSICAL_MONITOR *)calloc(numpm, sizeof(PHYSICAL_MONITOR));
+        if( !pm ) goto fail;
+        pm->szPhysicalMonitorDescription[0] = '\0';
+        if (!myGetPhysMonitorsFromHM(hmon, numpm, pm)) {
+            LOG("Unable to get PhysicalMonitor");
+            goto fail;
+        }
+        LOG( "Physical Monitor=%x, %ls", pm->hPhysicalMonitor, pm->szPhysicalMonitorDescription);
+
+        int ok = myGetMonitorCapabilities(pm->hPhysicalMonitor, &dwMCap, &wdColtemp);
+        LOG("GetMonitorCapabilities()=%d => CAP=%lx", ok, dwMCap);
+        if (ok && MC_CAPS_BRIGHTNESS & dwMCap) {
+            DWORD min=0, cur=0, max=0;
+            ok = myGetMonitorBrightness(pm->hPhysicalMonitor, &min, &cur, &max);
+            LOG("GetMonitorBrightness()=%d", ok);
+            LOG("Brightness of %ls: min=%lu, cur=%lu, max=%lu" , pm->szPhysicalMonitorDescription, min, cur, max);
+            if (ok) {
+                int step = max(1, (max-min)/20);
+                int newbr = cur + (delta>0? step: -step);
+                newbr = CLAMP(min, newbr, max);
+                ok = mySetMonitorBrightness(pm->hPhysicalMonitor, newbr);
+                LOG( "SetMonitorBrightness(%x, %d)=%d", (UINT)(UINT_PTR)pm->hPhysicalMonitor, newbr, ok);
+            }
+        }
+
+        ok = myDestroyPhysicalMonitors(numpm, pm);
+        LOG( "DestroyPhysicalMonitors(%lu, %x)=%d", numpm, (UINT)(UINT_PTR)pm, ok);
+        free(pm);
+
+        fail:
+        LOG("Free DXVA2.DLL");
+        FreeLibrary(dll);
+    }
+#endif //NO_BRIGHTNESS
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -6058,9 +6245,9 @@ static HWND KreateMsgWin(WNDPROC proc, const TCHAR *name, LONG_PTR userdata)
 ///////////////////////////////////////////////////////////////////////////
 static void CreateTransWin(const TCHAR *inisection)
 {
-    int color[4]; // 16 bytes to be sure no overfows
+    int color[2];
     // Read the color for the TransWin from ini file
-    readhotkeys(inisection, "FrameColor",  TEXT("80 00 80"), (UCHAR *)&color[0], 4);
+    readhotkeys(inisection, "FrameColor",  TEXT("80 00 80"), (UCHAR *)&color[0], 3);
     WNDCLASSEX wnd;
     mem00(&wnd, sizeof(wnd));
     wnd.cbSize = sizeof(WNDCLASSEX);
@@ -6264,7 +6451,7 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
     readbuttonactions(inisection);
 
     if (conf.TopmostIndicator) {
-        int color[4];
+        int color[2];
         readhotkeys(inisection, "PinColor",  TEXT("FF FF 00 54"), (UCHAR *)&color[0], 4);
         conf.PinColor = color[0];
     }

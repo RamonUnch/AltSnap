@@ -38,6 +38,7 @@
 #define APP_ASONOFF    APP_NAME TEXT("-ASOnOff")
 #define APP_MOVEONOFF  APP_NAME TEXT("-MoveOnOff")
 #define APP_PRODPI     APP_NAME TEXT("-ODPI")
+#define APP_OWDMCP     APP_NAME TEXT("-OWDMCP")
 #define FZ_PROPPT      TEXT("FancyZones_RestoreSize")
 #define FZ_PROPZONES   TEXT("FancyZones_zones")
 
@@ -134,6 +135,7 @@
     ACVALUE(AC_ROLL,         "Roll",         MR) \
     ACVALUE(AC_ALTTAB,       "AltTab",       ZO) \
     ACVALUE(AC_VOLUME,       "Volume",       00) \
+ /* ACVALUE(AC_BRIGHTNESS,   "Brightness",   00) */ \
     ACVALUE(AC_TRANSPARENCY, "Transparency", 00) \
     ACVALUE(AC_HSCROLL,      "HScroll",      00) \
     ACVALUE(AC_ZOOM,         "Zoom",         MR) \

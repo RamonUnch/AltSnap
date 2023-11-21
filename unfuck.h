@@ -52,6 +52,13 @@ enum DWMWINDOWATTRIBUTE {
   DWMWA_LAST,
 };
 
+enum DWM_WINDOW_CORNER_PREFERENCE {
+    DWMWCP_DEFAULT = 0,
+    DWMWCP_DONOTROUND = 1,
+    DWMWCP_ROUND = 2,
+    DWMWCP_ROUNDSMALL = 3,
+};
+
 enum MONITOR_DPI_TYPE {
   MDT_EFFECTIVE_DPI = 0,
   MDT_ANGULAR_DPI = 1,
@@ -216,6 +223,18 @@ static void LOGfunk( const char *fmt, ... )
 #undef assert
 #define assert(x)
 #endif
+
+#if !defined(__STDC_VERSION__) || __STDC_VERSION__ <= 202300L
+#ifndef static_assert
+    #if defined(__STDC_VERSION__)  && __STDC_VERSION__ >= 201112L
+        // C11 cool _Static_assert
+        #define static_assert _Static_assert
+    #else
+        #define static_assert(x, y)
+    #endif
+#endif //static_assert
+#endif // [C89 - C23[
+
 /* Stuff missing in MinGW */
 #ifndef WM_MOUSEHWHEEL
 #define WM_MOUSEHWHEEL 0x020E
@@ -870,6 +889,7 @@ static HRESULT DwmSetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
     return 666; /* Here we FAIL with 666 error    */
     #undef FUNK_TYPE
 }
+
 static HRESULT DwmGetColorizationColorL(DWORD *a, BOOL *b)
 {
     #define FUNK_TYPE ( HRESULT (WINAPI *)(DWORD *a, BOOL *b) )

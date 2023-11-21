@@ -216,6 +216,26 @@ static LONG_PTR ClearBorderlessFlag(HWND hwnd)
     return (LONG_PTR)RemoveProp(hwnd, APP_PRBDLESS);
 }
 
+static void SetSquareCorners(HWND hwnd)
+{
+    int cornerPref = DWMWCP_DEFAULT;
+    HRESULT ok = DwmGetWindowAttributeL(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &cornerPref, sizeof(cornerPref));
+    if (ok) {
+        SetProp(hwnd, APP_OWDMCP, (HANDLE)(UINT_PTR)(cornerPref+1)); // Do not store Zero.
+        cornerPref = DWMWCP_DONOTROUND;
+        DwmSetWindowAttributeL(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &cornerPref, sizeof(cornerPref));
+    }
+}
+static void RestoreOldCorners(HWND hwnd)
+{
+    int cp = (int)(UINT_PTR)GetProp(hwnd, APP_OWDMCP);
+    RemoveProp(hwnd, APP_OWDMCP);
+    if (cp) {
+        cp--;
+        DwmSetWindowAttributeL(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &cp, sizeof(cp));
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //// Roll unroll stuff
 //static int GetRolledHeight(HWND hwnd)

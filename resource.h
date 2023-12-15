@@ -1,9 +1,12 @@
+#ifndef AS_RESOURCE_H
+#define AS_RESOURCE_H
+
 #ifndef IDC_STATIC
 #define IDC_STATIC (-1)
 #endif
 
-#define VERSIONRC     1,6,1,0
-#define APP_VERSION  "1.61"
+#define VERSIONRC     1,6,2,0
+#define APP_VERSION  "1.62"
 
 #define APP_ICON                         101
 #define TRAY_OFF                         102
@@ -199,3 +202,5 @@
 #define IDC_SHORTCUTS_CLEAR             2105
 #define IDC_USEPTWINDOW                 2106
 #define IDC_SIDESFRACTION               2107
+
+#endif // AS_RESOURCE_H

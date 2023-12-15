@@ -3030,7 +3030,6 @@ static const CLSID my_CLSID_MMDeviceEnumerator= {0xBCDE0395,0xE52F,0x467C,{0x8E,
 static const GUID  my_IID_IMMDeviceEnumerator = {0xA95664D2,0x9614,0x4F35,{0xA7,0x46,0xDE,0x8D,0xB6,0x36,0x17,0xE6}};
 static const GUID  my_IID_IAudioEndpointVolume= {0x5CDF2C82,0x841E,0x4546,{0x97,0x22,0x0C,0xF7,0x40,0x78,0x22,0x9A}};
 #define _WIN32_WINNT 0x0600
-#define COBJMACROS
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
 #undef _WIN32_WINNT
@@ -3069,32 +3068,28 @@ static HRESULT GetCurrentVolumeMute(UINT *curentVol, UINT *maxVol, BOOL *muted)
     BYTE osver=LOBYTE(GetVersion());
     if (osver >= 6 && LoadOLEDLLOnce()) {
         HRESULT hr;
-        IMMDeviceEnumerator *pDevEnumerator = NULL;
+        IMMDeviceEnumerator *pDevEnum = NULL;
         IMMDevice *pDev = NULL;
-        IAudioEndpointVolume *pAudioEndpoint = NULL;
+        IAudioEndpointVolume *pAudioEndp = NULL;
 
         // Get audio endpoint
         myCoInitialize(NULL); // Needed for IAudioEndpointVolume
         hr = myCoCreateInstance(&my_CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL
-                              , &my_IID_IMMDeviceEnumerator, (void**)&pDevEnumerator);
+                              , &my_IID_IMMDeviceEnumerator, (void**)&pDevEnum);
         if (hr != S_OK) goto fail;
 
-        hr = IMMDeviceEnumerator_GetDefaultAudioEndpoint(pDevEnumerator, eRender, eMultimedia, &pDev);
-        IMMDeviceEnumerator_Release(pDevEnumerator);
+        hr = pDevEnum->lpVtbl->GetDefaultAudioEndpoint(pDevEnum, eRender, eMultimedia, &pDev);
+        pDevEnum->lpVtbl->Release(pDevEnum);
         if (hr != S_OK) goto fail;
 
-        hr = IMMDevice_Activate(pDev, &my_IID_IAudioEndpointVolume, CLSCTX_ALL, NULL, (void**)&pAudioEndpoint);
-        IMMDevice_Release(pDev);
+        hr = pDev->lpVtbl->Activate(pDev, &my_IID_IAudioEndpointVolume, CLSCTX_ALL, NULL, (void**)&pAudioEndp);
+        pDev->lpVtbl->Release(pDev);
         if (hr != S_OK) goto fail;
 
-        typedef HRESULT WINAPI (*_GetVolumeStepInfo)(IAudioEndpointVolume*, UINT *c, UINT *m);
-        typedef HRESULT WINAPI (*_GetMute)(IAudioEndpointVolume*, BOOL *b);
-        _GetVolumeStepInfo GetVolumeStepInfo = (_GetVolumeStepInfo)(pAudioEndpoint->lpVtbl->GetVolumeStepInfo);
-        _GetMute GetMute = (_GetMute)(pAudioEndpoint->lpVtbl->GetMute);
+        hr = pAudioEndp->lpVtbl->GetVolumeStepInfo(pAudioEndp, curentVol, maxVol)
+           | pAudioEndp->lpVtbl->GetMute(pAudioEndp, muted);
 
-        hr = GetVolumeStepInfo(pAudioEndpoint, curentVol, maxVol)
-           | GetMute(pAudioEndpoint, muted);
-        IAudioEndpointVolume_Release(pAudioEndpoint);
+        pAudioEndp->lpVtbl->Release(pAudioEndp);
 
         LOG("%d==GetVolumeStepInfo() -> %u (0 - %u) Muted=%d ", hr, curentVol, maxVol, muted);
 
@@ -3260,6 +3255,12 @@ static void ActionBrightness(const POINT pt, const short delta)
     BOOL (WINAPI *myGetMonitorCapabilities)(HANDLE hMonitor, LPDWORD supcap, LPDWORD supcoltemp);
     HMODULE dll = LoadLibraryA("DXVA2.DLL");
     if (dll) {
+        int ok;
+        PHYSICAL_MONITOR *pm;
+        DWORD dwMCap=0, wdColtemp=0;
+        DWORD numpm=0;
+        HMONITOR hmon;
+
         LOG("DXVA2.DLL Loaded");
         myGetPhysMonitorsFromHM =(BOOL (WINAPI *)(HMONITOR , DWORD , LPPHYSICAL_MONITOR))
             GetProcAddress(dll, "GetPhysicalMonitorsFromHMONITOR");
@@ -3280,17 +3281,15 @@ static void ActionBrightness(const POINT pt, const short delta)
             goto fail;
 
         LOG("We got Monitor Brightness functions!");
-        HMONITOR hmon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+        hmon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
 
-        DWORD numpm=0;
         if (!hmon || !myGetNumberOfPhysmons(hmon, &numpm) || !numpm) {
             LOG("GetNumberOfPhysmons(%x) failed", (UINT)(UINT_PTR)hmon);
             goto fail;
         }
 
         LOG("NumberOfPhysmons=%lu", numpm);
-        DWORD dwMCap=0, wdColtemp=0;
-        PHYSICAL_MONITOR *pm = (PHYSICAL_MONITOR *)calloc(numpm, sizeof(PHYSICAL_MONITOR));
+        pm = (PHYSICAL_MONITOR *)calloc(numpm, sizeof(PHYSICAL_MONITOR));
         if( !pm ) goto fail;
         pm->szPhysicalMonitorDescription[0] = '\0';
         if (!myGetPhysMonitorsFromHM(hmon, numpm, pm)) {
@@ -3299,7 +3298,7 @@ static void ActionBrightness(const POINT pt, const short delta)
         }
         LOG( "Physical Monitor=%x, %ls", pm->hPhysicalMonitor, pm->szPhysicalMonitorDescription);
 
-        int ok = myGetMonitorCapabilities(pm->hPhysicalMonitor, &dwMCap, &wdColtemp);
+        ok = myGetMonitorCapabilities(pm->hPhysicalMonitor, &dwMCap, &wdColtemp);
         LOG("GetMonitorCapabilities()=%d => CAP=%lx", ok, dwMCap);
         if (ok && MC_CAPS_BRIGHTNESS & dwMCap) {
             DWORD min=0, cur=0, max=0;
@@ -4251,7 +4250,7 @@ BOOL CALLBACK MinimizeWindowProc(HWND hwnd, LPARAM lParam)
 {
     minhwnds = (HWND *)GetEnoughSpace(minhwnds, numminhwnds, &minhwnds_alloc, sizeof(HWND));
     if (!minhwnds) return FALSE; // Stop enum, we failed
-    struct MinimizeWindowProcParams *p = (struct MinimizeWindowProcParams *) lParam;
+    const struct MinimizeWindowProcParams *p = (const struct MinimizeWindowProcParams *) lParam;
     hwnd = GetRootOwner(hwnd);
 
     if (hwnd != p->clickedhwnd

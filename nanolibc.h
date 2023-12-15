@@ -3,7 +3,13 @@
 
 #include <windows.h>
 
-#define AT_LEAST static
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L && !defined(__WATCOMC__)
+	// C99+ mode but not buggy watcom C99
+	#define AT_LEAST static
+#else
+	#define AT_LEAST
+#endif
+
 #ifdef __GNUC__
 #define flatten __attribute__((flatten))
 #define xpure __attribute__((const))

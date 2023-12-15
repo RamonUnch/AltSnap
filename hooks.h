@@ -9,13 +9,15 @@
 #include "unfuck.h"
 
 #ifndef LOW_LEVEL_KB_PROC
-#define LOW_LEVEL_KB_PROC "LowLevelKeyboardProc"
-#endif
-#ifndef LOAD_PROC
-#define LOAD_PROC "Load"
-#endif
-#ifndef UNLOAD_PROC
-#define UNLOAD_PROC "Unload"
+	#ifndef DECORATED_HOOKS_DLL_PROCS
+		#define LOW_LEVEL_KB_PROC "LowLevelKeyboardProc"
+		#define LOAD_PROC "Load"
+		#define UNLOAD_PROC "Unload"
+	#else
+		#define LOW_LEVEL_KB_PROC "_LowLevelKeyboardProc@12"
+		#define LOAD_PROC "_Load@4"
+		#define UNLOAD_PROC "_Unload@0"
+	#endif
 #endif
 
 // Extra messages for Action Menu

@@ -152,7 +152,7 @@ static void OpenConfig(int startpage)
     psh.hIcon = icons[1]; //LoadIcon(g_hinst, iconstr[1]);
     psh.pszCaption = TEXT(APP_NAMEA);
     psh.nPages = ARR_SZ(pages);
-    psh.ppsp = (LPCPROPSHEETPAGE) &psp;
+    psh.ppsp = psp;
     psh.pfnCallback = PropSheetProc;
     psh.nStartPage = startpage;
 
@@ -1748,10 +1748,10 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         const HBRUSH bgbrush =    uDarkMode? CreateSolidBrush(RGB(32, 32, 32)): (HBRUSH)(COLOR_BTNFACE+1);
         const HPEN pen = (HPEN) CreatePen(PS_SOLID, penwidth, txtcolor);
 
-        struct lastkeyss *lks = (struct lastkeyss *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+        const struct lastkeyss *lks = (struct lastkeyss *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
         if (!lks) break;
         int idx = lks->idx;
-        TCHAR (*lastkey)[MAXLL] = lks->lastkey;
+        const TCHAR (*lastkey)[MAXLL] = lks->lastkey;
 
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);

@@ -1446,6 +1446,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         } else if (event == STN_CLICKED && id == IDC_FINDWINDOW) {
             // Get size of workspace
             int left=0, top=0, width, height;
+            LOGA("STN_CLICKED, IDC_FINDWINDOW");
             if(GetSystemMetrics(SM_CMONITORS) >= 1) {
                 left   = GetSystemMetrics(SM_XVIRTUALSCREEN);
                 top    = GetSystemMetrics(SM_YVIRTUALSCREEN);
@@ -1502,13 +1503,20 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 /////////////////////////////////////////////////////////////////////////////
 LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    if (msg == WM_LBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_RBUTTONDOWN) {
-        ShowWindow(hwnd, SW_HIDE);
+    if (msg == WM_LBUTTONUP || msg == WM_MBUTTONUP || msg == WM_RBUTTONUP) {
+        DWORD msgpos = GetMessagePos();
+        POINT pt = { GET_X_LPARAM(msgpos), GET_Y_LPARAM(msgpos) };
+        RECT fwRc;
         HWND page = PropSheet_GetCurrentPageHwnd(g_cfgwnd);
+        HWND findHwnd = GetDlgItem(page, IDC_FINDWINDOW);
+        GetWindowRect(findHwnd, &fwRc);
+        if (PtInRect(&fwRc, pt))
+            return 0;
 
-        if (msg == WM_LBUTTONDOWN) {
-            POINT pt;
-            GetCursorPos(&pt);
+       ShowWindow(hwnd, SW_HIDE);
+       if (msg == WM_LBUTTONUP) {
+//            POINT pt;
+//            GetCursorPos(&pt);
             HWND nwindow = WindowFromPoint(pt);
             HWND window = GetAncestor(nwindow, GA_ROOT);
 
@@ -1553,7 +1561,7 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             SetDlgItemText(page, IDC_WINHANDLES, txt);
         }
         // Show icon again
-        ShowWindowAsync(GetDlgItem(page, IDC_FINDWINDOW), SW_SHOW);
+        ShowWindowAsync(findHwnd, SW_SHOW);
 
         DestroyWindow(hwnd);
         UnregisterClass(TEXT(APP_NAMEA)TEXT("-find"), g_hinst);

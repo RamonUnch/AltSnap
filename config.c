@@ -1446,7 +1446,6 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         } else if (event == STN_CLICKED && id == IDC_FINDWINDOW) {
             // Get size of workspace
             int left=0, top=0, width, height;
-            LOGA("STN_CLICKED, IDC_FINDWINDOW");
             if(GetSystemMetrics(SM_CMONITORS) >= 1) {
                 left   = GetSystemMetrics(SM_XVIRTUALSCREEN);
                 top    = GetSystemMetrics(SM_YVIRTUALSCREEN);

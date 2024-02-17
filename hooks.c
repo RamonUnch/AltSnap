@@ -774,7 +774,7 @@ static DWORD WINAPI EndDeferWindowPosThread(LPVOID hwndSS)
 static void EndDeferWindowPosAsync(HDWP hwndSS)
 {
     DWORD lpThreadId;
-    CloseHandle(CreateThread(NULL, STACK, EndDeferWindowPosThread, hwndSS, 0, &lpThreadId));
+    CloseHandle(CreateThread(NULL, STACK, EndDeferWindowPosThread, hwndSS, STACK_SIZE_PARAM_IS_A_RESERVATION, &lpThreadId));
 }
 static int ShouldResizeTouching()
 {
@@ -1368,7 +1368,7 @@ static void MoveWindowInThread(struct windowRR *lw)
     CloseHandle(
         CreateThread( NULL, STACK
             , MoveWindowThread
-            , lw, 0, &lpThreadId)
+            , lw, STACK_SIZE_PARAM_IS_A_RESERVATION, &lpThreadId)
     );
 }
 ///////////////////////////////////////////////////////////////////////////
@@ -1947,7 +1947,7 @@ static void SetWindowPlacementThread(HWND hwnd, WINDOWPLACEMENT *wndplptr)
 {
     LastWin.hwnd = hwnd;
     DWORD lpThreadId;
-    CloseHandle(CreateThread(NULL, STACK, WinPlacmntTrgead, wndplptr, 0, &lpThreadId));
+    CloseHandle(CreateThread(NULL, STACK, WinPlacmntTrgead, wndplptr, STACK_SIZE_PARAM_IS_A_RESERVATION, &lpThreadId));
 }
 // state.origin.mon initialized in init_mov..
 // returns the final window rectangle.
@@ -2281,7 +2281,7 @@ static DWORD WINAPI Send_ClickProc(LPVOID buttonD)
 static void Send_Click_Thread(enum button button)
 {
     DWORD id;
-    CloseHandle(CreateThread(NULL, STACK, Send_ClickProc, (LPVOID)(LONG_PTR)button, 0, &id));
+    CloseHandle(CreateThread(NULL, STACK, Send_ClickProc, (LPVOID)(LONG_PTR)button, STACK_SIZE_PARAM_IS_A_RESERVATION, &id));
 }
 /////////////////////////////////////////////////////////////////////////////
 // Sends an unicode character to the system.
@@ -2413,7 +2413,7 @@ static int ActionKill(HWND hwnd)
        return 0;
 
     DWORD lpThreadId;
-    CloseHandle(CreateThread(NULL, STACK, ActionKillThread, hwnd, 0, &lpThreadId));
+    CloseHandle(CreateThread(NULL, STACK, ActionKillThread, hwnd, STACK_SIZE_PARAM_IS_A_RESERVATION, &lpThreadId));
 
     return 1;
 }
@@ -4919,7 +4919,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
             // In case autofocus did not do it.
             // LOGA("SendAltCtrlAlt");
             DWORD lpThreadId; // In new thread because of lag under Win10
-            CloseHandle(CreateThread(NULL, STACK, SendAltCtrlAlt, 0, 0, &lpThreadId));
+            CloseHandle(CreateThread(NULL, STACK, SendAltCtrlAlt, 0, STACK_SIZE_PARAM_IS_A_RESERVATION, &lpThreadId));
         }
 
         // Set action statte.
@@ -5279,6 +5279,20 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         return 1; // Block mousedown so altsnap does not remove g_mainhwnd
     }
 
+    // Handle Titlebars actions if any
+    if (ttbact && buttonstate == STATE_DOWN) {
+        int ret = TitleBarActions(pt, ttbact, button);
+        // If we have nothing to do in the titlebar
+        if (ret < 0 && conf.InactiveScroll && !state.alt && !state.action
+        && (wParam == WM_MOUSEWHEEL || wParam == WM_MOUSEHWHEEL)) {
+            // Scroll inactive window with wheel action...
+            ret = ScrollPointedWindow(pt, state.delta, wParam);
+        }
+        if (ret == 0) return CALLNEXTHOOK;
+        else if (ret == 1) return 1;
+        ttbact = AC_NONE; // No titlebar action to be done.
+    }
+
     // Check if the click is is a Hotclick and should enable ALT.
     // If the hotclick is also mapped to an action, then we execute it.
     int is_hotclick = IsHotclick(button);
@@ -5331,20 +5345,6 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             //LOGA("blocked BT%d mouse up", button);
             return 1;
         }
-    }
-
-    // Handle Titlebars actions if any
-    if (ttbact && buttonstate == STATE_DOWN) {
-        int ret = TitleBarActions(pt, ttbact, button);
-        // If we have nothing to do in the titlebar
-        if (ret < 0 && conf.InactiveScroll && !state.alt && !state.action
-        && (wParam == WM_MOUSEWHEEL || wParam == WM_MOUSEHWHEEL)) {
-            // Scroll inactive window with wheel action...
-            ret = ScrollPointedWindow(pt, state.delta, wParam);
-        }
-        if (ret == 0) return CALLNEXTHOOK;
-        else if (ret == 1) return 1;
-        ttbact = AC_NONE; // No titlebar action to be done.
     }
 
     // Long click grab timer

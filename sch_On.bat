@@ -4,11 +4,13 @@
 :: However AltSnap will be killed after 3 days by default.
 :: The only way not to have this autokill is to use an xml file.
 :: Make sure to adjust the path to the AltSnap executable in the AltSnap.xml file.
-@echo =============================================================================
-@echo = Setup Scheduled task for elevated AltSnap auto-start without UAC prompt   =
-@echo = Make sure you are running this from an elevated shell                     =
-@echo = If you do not want to continue, close the window or hit Ctrl+C            =
-@echo =============================================================================
+@echo =======================================================================================================
+@echo = Setup Scheduled task for elevated AltSnap auto-start without UAC prompt                             =
+@echo = Make sure you are running this from an elevated shell                                               =
+@echo = Default AlsSnap executable location is %APPDATA%\AltSnap\AltSnap.exe                                =
+@echo = Adjust the executable location in AltSnap.xml file if AltSnap is installed in a different location  =
+@echo = If you do not want to continue, close the window or hit Ctrl+C                                      =
+@echo =======================================================================================================
 @echo Going to run command:
 @echo schtasks.exe /CREATE /XML .\AltSnap.xml /TN "AltSnap" %1 %2 %3 %4 %5 %6 %7 %8 %9
 @pause

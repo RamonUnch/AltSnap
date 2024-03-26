@@ -7,7 +7,7 @@
 @echo =======================================================================================================
 @echo = Setup Scheduled task for elevated AltSnap auto-start without UAC prompt                             =
 @echo = Make sure you are running this from an elevated shell                                               =
-@echo = Default AlsSnap executable location is %APPDATA%\AltSnap\AltSnap.exe                                =
+@echo = Default AltSnap executable location is %%APPDATA%%\AltSnap\AltSnap.exe                                =
 @echo = Adjust the executable location in AltSnap.xml file if AltSnap is installed in a different location  =
 @echo = If you do not want to continue, close the window or hit Ctrl+C                                      =
 @echo =======================================================================================================

@@ -474,9 +474,9 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
     LOG("Running with Windows version %lX", GetVersion());
     #ifndef NO_VISTA
     if (WinVer >= 6) { // Vista +
-        HANDLE token;
-        TOKEN_ELEVATION elevation;
-        DWORD len;
+        HANDLE token=NULL;
+        TOKEN_ELEVATION elevation={0};
+        DWORD len=0;
         if (OpenProcessToken(GetCurrentProcess(), TOKEN_READ, &token)
         && GetTokenInformation(token, TokenElevation, &elevation, sizeof(elevation), &len)) {
             elevated = elevation.TokenIsElevated;
@@ -528,8 +528,8 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
         LOG("No previous instance found");
     }
 
-    // Check AlwaysElevate
-    if (!elevated) {
+    // Check AlwaysElevate (Vista+ only)
+    if (WinVer >= 6 && !elevated) {
         if(!elevate) elevate = GetPrivateProfileInt(TEXT("Advanced"), TEXT("AlwaysElevate"), 0, inipath);
 
         // Handle request to elevate to administrator privileges
@@ -616,7 +616,7 @@ static pure const TCHAR *ParamsFromCmdline(const TCHAR *cmdl)
             cmdl++;
         }
     }
-    cmdl++; // Skip the " or the ' '
+    cmdl += !!*cmdl; // Skip the " or the ' '
     while(*cmdl == TEXT(' ') || *cmdl == TEXT('\t')) cmdl++;
     return cmdl;
 }

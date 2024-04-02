@@ -215,6 +215,8 @@ static struct config {
     UCHAR UniKeyHoldMenu;
     // [Zones]
     UCHAR UseZones;
+    UCHAR ShowZonesPrevw;
+    UCHAR ZonesPrevwOpacity;
     UCHAR ZSnapMode;
     UCHAR LayoutNumber;
     char InterZone;
@@ -330,6 +332,8 @@ static const struct OptionListItem Input_uchars[] = {
 // [Zones]
 static const struct OptionListItem Zones_uchars[] = {
     { "UseZones", 0 },
+    { "ShowZonesPrevw", 1 },
+    { "ZonesPrevwOpacity", 161 },
     { "ZSnapMode", 0 },
     { "LayoutNumber", 0 },
     { "InterZone", 32 },
@@ -5041,6 +5045,7 @@ static void FinishMovement()
 {
     LOG("FinishMovement");
     StopSpeedMes();
+    ShowSnapLayoutPreview(ZONES_PREV_HIDE);
 //    Sleep(5000);
     if (LastWin.hwnd
     && (state.moving == NOT_MOVED || (!conf.FullWin && state.moving == 1))) {
@@ -5963,7 +5968,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 //    } else if (msg == WM_FINISHMOVEMENT) {
 //        FinishMovementWM();
     } else if (msg == WM_SETLAYOUTNUM) {
-        conf.LayoutNumber=CLAMP(0, wParam, 9);
+        SetLayoutNumber(wParam);
     } else if (msg == WM_GETLAYOUTREZ) {
         return GetLayoutRez(wParam);
     } else if (msg == WM_GETBESTLAYOUT) {
@@ -6027,6 +6032,8 @@ __declspec(dllexport) void WINAPI Unload()
     UnregisterClass(TEXT(APP_NAMEA)TEXT("-Trans"),  hinstDLL);
     UnregisterClass(TEXT(APP_NAMEA)TEXT("-Pin"),    hinstDLL);
     UnregisterClass(TEXT(APP_NAMEA)TEXT("-HotKeys"),hinstDLL);
+
+    SnapLayoutPreviewCreateDestroy(NULL /*DESTROY*/);
 
     freeblacklists();
 
@@ -6496,6 +6503,7 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
         } else {
             ReadZones(inisection);
         }
+        SnapLayoutPreviewCreateDestroy(inisection /*CREATE*/);
     }
 
     if (inisection != stk_inisection)

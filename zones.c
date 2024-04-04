@@ -484,7 +484,7 @@ static void ZonesPrevResetRegion()
     ScreenToClient(g_zphwnd, &opt);
     HRGN hregion = CreateRectRgn(0,0,0,0);
     if (Zones[conf.LayoutNumber]) {
-        for (size_t i=0; i < nzones[conf.LayoutNumber]; i++) {
+        for (unsigned i=0; i < nzones[conf.LayoutNumber]; i++) {
             RECT rc;
             CopyRect(&rc, &Zones[conf.LayoutNumber][i]);
             OffsetRect(&rc, opt.x, opt.y);
@@ -525,7 +525,7 @@ static void SnapLayoutPreviewCreateDestroy(const TCHAR *inisection)
           , 0, 0, hinstDLL
           , NULL, NULL, wbrush
           , NULL, APP_NAME"-ZonesPreview", NULL };
-         RegisterClassEx(&wnd);
+        RegisterClassEx(&wnd);
 
         int left=0, top=0, width, height;
         if(GetSystemMetrics(SM_CMONITORS) >= 1) {

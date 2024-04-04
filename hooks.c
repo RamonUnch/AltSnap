@@ -2543,6 +2543,10 @@ static void KillAltSnapMenu()
     }
     state.unikeymenu = NULL;
 }
+static void ToggleSnapState(void)
+{
+    state.snap = state.snap? 0: 3;
+}
 static void TogglesAlwaysOnTop(HWND hwnd);
 static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_);
 ///////////////////////////////////////////////////////////////////////////
@@ -2632,7 +2636,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 return 1;
             }
         } else if (vkey == VK_SPACE && state.action && !IsSamePTT(&state.clickpt, &state.prevpt)) {
-            state.snap = state.snap? 0: 3;
+            ToggleSnapState();
             return 1; // Block to avoid sys menu.
         } else if (state.alt && state.action == conf.GrabWithAlt[ModKey()] && IsKillkey(vkey)) {
            // Release Hook on Alt+KillKey
@@ -5168,12 +5172,17 @@ static void DoComboActions(enum action action, enum button button)
             if( ClickComboActions(action) )
                 return;
 
-            // Toggle SnapToZones if nothing was overwritten.
-            ActionToggleSnapToZoneMode();
-            state.blockmouseup = 1;
+            // Make default actions if nothing was overwritten.
+            switch(button) {
+            //case BT_MB4: break;
+            // MB5 toggles the snapping mode
+            case BT_MB5: ToggleSnapState(); break;
+            // Toggle SnapToZones with RMB/MMB by default.
+            default: ActionToggleSnapToZoneMode(); break;
+            }
+            state.blockmouseup = 1; // Block anyway
         }
     }
-
 }
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -6396,8 +6405,8 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
     size_t inisectionlen = 8192;
     inisection = (TCHAR *)malloc(inisectionlen*sizeof(TCHAR));
     if(!inisection) {
-    	inisection = stk_inisection;
-    	inisectionlen = ARR_SZ(stk_inisection);
+        inisection = stk_inisection;
+        inisectionlen = ARR_SZ(stk_inisection);
     }
 
     // [General]
@@ -6507,7 +6516,7 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
     }
 
     if (inisection != stk_inisection)
-    	free(inisection);
+        free(inisection);
 
     conf.keepMousehook = ((conf.TTBActions&1) // titlebar action w/o Alt
                        || conf.InactiveScroll // Inactive scrolling

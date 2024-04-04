@@ -173,7 +173,7 @@ static TCHAR *RectToStr(const RECT *rc, TCHAR rectstr[AT_LEAST INT_DIGITS*4+4+1]
     return rectstr;
 }
 // Save a rect as a string in a Zone<num> entry in the inifile
-static void SaveZone(RECT *rc, unsigned num)
+static void SaveZone(const RECT *rc, unsigned num)
 {
     TCHAR txt[64], name[32];
     WritePrivateProfileString(TEXT("Zones"), ZidxToZonestr(LayoutNumber, num, name), RectToStr(rc, txt), inipath);

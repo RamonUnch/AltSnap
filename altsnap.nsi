@@ -144,6 +144,9 @@ Section "Uninstall"
     Delete "$INSTDIR\AltSnap-old.ini"
     Delete "$INSTDIR\hooks.dll"
     Delete "$INSTDIR\License.txt"
+    Delete "$INSTDIR\sch_On.bat"
+    Delete "$INSTDIR\sch_Off.bat"
+
     Delete "Lang\_en_US baseline.txt"
     Delete Lang\ca_ES.ini
     Delete Lang\de_DE.ini

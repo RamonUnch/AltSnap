@@ -2,7 +2,7 @@
 # define the name of the installer
 
 !define APP_NAME "AltSnap"
-!define APP_VERSION "1.62"
+!define APP_VERSION "1.63"
 # define the name of the installer
 OutFile "${APP_NAME}${APP_VERSION}-inst.exe"
 Name "${APP_NAME} ${APP_VERSION}"
@@ -148,6 +148,7 @@ Section "Uninstall"
     Delete Lang\ca_ES.ini
     Delete Lang\de_DE.ini
     Delete Lang\es_ES.ini
+    Delete Lang\fi_FI.ini
     Delete Lang\fr_FR.ini
     Delete Lang\gl_ES.ini
     Delete Lang\it_IT.ini

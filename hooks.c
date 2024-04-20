@@ -1793,8 +1793,11 @@ static void RestoreOldWin(const POINT pt, unsigned was_snapped, RECT *ownd)
 
     RECT wnd;
     GetWindowRect(state.hwnd, &wnd);
+    // In case window is Maximized + Rolled get bottom where it needs to be
+    // So that the window stays fully in the monitor
+    // Note: a maximized then rolled window does not have the rolled flag.
     if (state.origin.maximized)
-        wnd.bottom = state.origin.mon.bottom;
+        wnd.bottom = state.origin.mon.bottom + state.mdipt.y;
 
     // Set offset
     state.offset.x = state.origin.width  * min(pt.x-wnd.left, wnd.right-wnd.left)
@@ -1804,7 +1807,7 @@ static void RestoreOldWin(const POINT pt, unsigned was_snapped, RECT *ownd)
 
     if (rdata_flag&ROLLED) {
         if (state.origin.maximized || was_snapped) {
-            // if we restore a  Rolled Maximized/snapped window...
+            // if we restore a Rolled + Maximized/snapped window...
             state.offset.y = GetSystemMetricsForWin(SM_CYMIN, state.hwnd)/2;
         } else {
             state.offset.x = pt.x - wnd.left;

@@ -2674,11 +2674,15 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 // Block ESC if an action was ongoing
                 if (action) return 1;
             }
-        } else if (!state.ctrl && state.alt!=vkey && !IsModKey(vkey)/*vkey != conf.ModKey*/
-               && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)) {
+        } else if (!state.ctrl
+               && state.alt!=vkey
+               && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)
+               && !(kbh->scanCode&SCANCODE_SIMULATED) /* Ignore ALT GR Scan Code (&0x0200) */
+               && !IsModKey(vkey)/*vkey != conf.ModKey*/ ) {
             RestrictToCurentMonitor();
             // If menu is present inform it that we pressed Ctrl.
             //if (state.unikeymenu) PostMessage(g_mchwnd, WM_CLOSEMODE, 1, 0);
+            //LOGA("sC=%lu", kbh->scanCode);
             state.ctrl = 1;
             state.ctrlpt = state.prevpt; // Save point where ctrl was pressed.
             if (state.action) {

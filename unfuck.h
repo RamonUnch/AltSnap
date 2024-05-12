@@ -114,6 +114,10 @@ enum MONITOR_DPI_TYPE {
 #define INVALID_FILE_ATTRIBUTES 0xFFFFFFFF
 #endif
 
+#ifndef STACK_SIZE_PARAM_IS_A_RESERVATION
+#define STACK_SIZE_PARAM_IS_A_RESERVATION 0x10000L
+#endif
+
 #ifndef WPF_ASYNCWINDOWPLACEMENT
 #define WPF_ASYNCWINDOWPLACEMENT 0x0004
 #endif
@@ -124,6 +128,10 @@ enum MONITOR_DPI_TYPE {
 #if defined(_MSC_VER) && _MSC_VER <= 1200
 #define InterlockedIncrement(x) InterlockedIncrement((LONG*)(x))
 #define InterlockedDecrement(x) InterlockedDecrement((LONG*)(x))
+#endif
+
+#ifndef SCANCODE_SIMULATED
+#define SCANCODE_SIMULATED 0x0200
 #endif
 
 #ifndef MSAA_MENU_SIG
@@ -203,7 +211,7 @@ static void LOGfunk( const char *fmt, ... )
     char lerrorstr[16];
     DWORD dummy;
     lstrcat_sA(str, ARR_SZ(str), " (");
-    lstrcat_sA(str, ARR_SZ(str), itostrA(lerr, lerrorstr, 16));
+    lstrcat_sA(str, ARR_SZ(str), itostrA(lerr, lerrorstr, 10));
     lstrcat_sA(str, ARR_SZ(str), ")\n");
     WriteFile( h, str, lstrlenA(str), &dummy, NULL );
     CloseHandle(h);

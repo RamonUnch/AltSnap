@@ -8,8 +8,9 @@
 static void MouseMove(POINT pt);
 static void ShowSnapLayoutPreview(unsigned char yep);
 
-#define MAX_ZONES 2048
-#define MAX_LAYOUTS 10
+enum { MAX_ZONES=2048, MAX_LAYOUTS=10 };
+#define INVALID_ZONE_IDX 0xffffffffU
+
 RECT *Zones[MAX_LAYOUTS];
 unsigned nzones[MAX_LAYOUTS];
 DWORD Grids[MAX_LAYOUTS];
@@ -143,13 +144,19 @@ static void RecalculateZonesFromGrids()
     }
 }
 
-static xpure unsigned long ClacPtRectDist(const POINT pt, const RECT *zone)
+static xpure unsigned long PtDist2(POINT pt, POINT Zpt)
 {
-    POINT Zpt = { (zone->left+zone->right)/2, (zone->top+zone->bottom)/2 };
     long dx = (pt.x - Zpt.x)>>1;
     long dy = (pt.y - Zpt.y)>>1;
 
     return dx*dx + dy*dy;
+}
+
+
+static xpure unsigned long ClacPtRectDist(const POINT pt, const RECT *zone)
+{
+    POINT Zpt = { (zone->left+zone->right)/2, (zone->top+zone->bottom)/2 };
+    return PtDist2(pt, Zpt);
 }
 
 static unsigned GetNearestZoneDist(POINT pt, unsigned long *dist_)
@@ -277,6 +284,64 @@ static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *heig
     *height = rc.bottom - rc.top;
 }
 
+static xpure int IsPtInCone(POINT pt, POINT op, UCHAR direction)
+{
+    const long dx = pt.x - op.x, dy = pt.y - op.y;
+    switch (direction) {
+    case 0: // LEFT
+        return dx <= 0 && (dy <= -dx && dy > dx);
+
+    case 1: // TOP
+        return dy <= 0 && (dx <= -dy && dx > dy);
+
+    case 2: // RIGHT
+        return dx > 0 && (dy <= dx && dy > -dx);
+
+    case 3: // BOTTOM
+        return dy > 0 && (dx <= dy && dx > -dy);
+    }
+    return 0;
+}
+static unsigned GetNearestZoneFromPointInDirection(const RECT *rc, RECT *out, UCHAR direction)
+{
+    unsigned idx = INVALID_ZONE_IDX;
+    RECT * const lZones = Zones[conf.LayoutNumber];
+    unsigned nZones = nzones[conf.LayoutNumber];
+    if(!lZones) return 0;
+
+    POINT opt = { (rc->left+rc->right)/2, (rc->top+rc->bottom)/2 };
+
+    unsigned long dist = 0xffffffff;
+    for(unsigned i=0; i < nZones; i++) {
+        const RECT *zrc = &lZones[i];
+        const POINT pt = { (zrc->left+zrc->right)/2, (zrc->top+zrc->bottom)/2 };
+        unsigned long dst = PtDist2(pt, opt);
+        if (!EqualRect(rc, zrc) && dst < dist && IsPtInCone(pt, opt, direction)) {
+            dist = dst;
+            idx = i;
+        }
+    }
+
+    if (idx != INVALID_ZONE_IDX) {
+        CopyRect(out, &lZones[idx]);
+        return 1;
+    }
+
+    return 0;
+}
+
+//
+//static void SnapToRect(HWND hwnd, RECT *fr)
+//{
+//    RECT bd;
+//    LastWin.end = 0;
+//    FixDWMRect(hwnd, &bd);
+//    InflateRectBorder(fr, &bd);
+//
+//    SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED|SNZONE);
+//    MoveWindowAsync(hwnd, fr->left, fr->top, CLAMPW(fr->right-fr->left), CLAMPH(fr->bottom-fr->top));
+//}
+
 static void SetOriginFromRestoreData(HWND hnwd, enum action action);
 static HMONITOR GetMonitorInfoFromWin(HWND hwnd, MONITORINFO *mi);
 static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
@@ -289,6 +354,7 @@ static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
     RECT rc;
     GetWindowRectL(hwnd, &rc);
     POINT pt;
+
     int offset = abs(conf.InterZone)+16;
 
     if        (direction == 0) { // LEFT
@@ -312,7 +378,11 @@ static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
     ClampPointInRect(&mi.rcWork, &pt);
 
     RECT zrc;
-    unsigned ret = GetZoneContainingPoint(pt, &zrc, 0);
+    unsigned ret=0;
+    switch (conf.ZSnapMode) {
+        case 0: ret = GetZoneContainingPoint(pt, &zrc, 0); break;
+        case 1: ret = GetNearestZoneFromPointInDirection(&rc, &zrc, direction); break;
+    }
     if (!ret) return; // Outside of a rect
 
     RECT fr; // final rect...
@@ -430,22 +500,41 @@ LRESULT CALLBACK SnapLayoutWinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     } break;
 
     case WM_PAINT: {
+        // Create Font
+//        struct NEWNONCLIENTMETRICSAW ncm;
+//        int dpi = GetDpiForWindow(hwnd);
+//        GetNonClientMetricsDpi(&ncm, dpi);
+//        ncm.lfCaptionFont.lfHeight = 64;
+//        HFONT font = CreateFontIndirect(&ncm.lfCaptionFont);
+
         PAINTSTRUCT ps;
         POINT opt = { 0, 0 };
         ScreenToClient(hwnd, &opt);
         BeginPaint(hwnd, &ps);
         HPEN oldpen = (HPEN)SelectObject(ps.hdc, pen);
+//        HFONT oldfont = (HFONT)SelectObject(ps.hdc, font);
         // PaintDesktop(ps.hdc);
         HBRUSH oldBrush = (HBRUSH)SelectObject(ps.hdc, GetStockObject(HOLLOW_BRUSH));
         for (size_t i=0; i < nzones[conf.LayoutNumber]; i++) {
             RECT *rc = &Zones[conf.LayoutNumber][i];
-            if (!AreRectsTouchingT(rc, &ps.rcPaint, 0))
+            if (!AreRectsTouchingT(rc, &ps.rcPaint, 0)) {
+//                TCHAR buf[16]; SIZE sz;
+//                const TCHAR *num = Int2lStr(buf, i);
+//                int txtlen = lstrlen(num);
+//                GetTextExtentPoint32(ps.hdc, num, txtlen, &sz);
+//                int txtX = (rc->left + rc->right - sz.cx) / 2 + opt.x;
+//                int txtY = (rc->top + rc->bottom - sz.cy) / 2 + opt.y;
+//                TextOut(ps.hdc, txtX, txtY, num, txtlen);
                 Rectangle(ps.hdc, rc->left+opt.x, rc->top+opt.y, rc->right+opt.x, rc->bottom+opt.y);
+            }
         }
-        SelectObject(ps.hdc, oldBrush); // Restore old pen;
+//        SelectObject(ps.hdc, oldfont);  // Restore old font
+        SelectObject(ps.hdc, oldBrush); // Restore old pen
         SelectObject(ps.hdc, oldpen);   // Restore old brush
 
         EndPaint(hwnd, &ps);
+
+//        DeleteObject(font);
     } return 0;
 
     case WM_RBUTTONUP:

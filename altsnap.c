@@ -442,15 +442,24 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
     && GetEnvironmentVariable(TEXT("APPDATA"), NULL, 0)) {
         // .ini file is not in current directorry, and APPDATA exists
         // we should look for %APPDATA%\AltSnap\AltSnap.ini
-        GetEnvironmentVariable(TEXT("APPDATA"), inipath, ARR_SZ(inipath));
-        lstrcat_s(inipath, ARR_SZ(inipath), TEXT("\\AltSnap"));
-        if (INVALID_FILE_ATTRIBUTES == GetFileAttributes(inipath)) {
-            CreateDirectory(inipath, NULL);
+        TCHAR userini[MAX_PATH];
+        GetEnvironmentVariable(TEXT("APPDATA"), userini, ARR_SZ(userini));
+        lstrcat_s(userini, ARR_SZ(userini), TEXT("\\AltSnap"));
+        if (INVALID_FILE_ATTRIBUTES == GetFileAttributes(userini)) {
+            CreateDirectory(userini, NULL);
+            LOG("CreateDirectory(%S)", userini);
         }
-        lstrcat_s(inipath, ARR_SZ(inipath), TEXT("\\AltSnap.ini"));
-    }
-    MessageBox(NULL, inipath, NULL, 0);
+        // Full user ini name.
+        lstrcat_s(userini, ARR_SZ(userini), TEXT("\\AltSnap.ini"));
+        if (INVALID_FILE_ATTRIBUTES == GetFileAttributes(userini)) {
+            // Copy AltSnap.dni (Default ini file) if no ini present
+            lstrcpy_s(&inipath[lstrlen(inipath)-3], 4, TEXT("dni"));
+            CopyFile(inipath, userini, FALSE); // AltSnap.dni -> AltSnap.ini
+            LOG("CopyFile(%S -> %S)", inipath, userini);
+        }
 
+        lstrcpy_s(inipath, ARR_SZ(inipath), userini);
+    }
     LOG("ini file: %S", inipath);
 
     // Read parameters on command line

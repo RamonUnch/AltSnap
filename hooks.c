@@ -6153,7 +6153,7 @@ static void readblacklist(const TCHAR *section, struct blacklist *blacklist, con
 }
 // Read all the blacklitsts
 #define blacklist_section_length 32767
-void readallblacklists(TCHAR *inipath)
+void readallblacklists(const TCHAR *inipath)
 {
     mem00(&BlkLst, sizeof(BlkLst));
 
@@ -6376,13 +6376,12 @@ static void freeallinputSequences(void)
 #ifdef __cplusplus
 extern "C"
 #endif
-__declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
+__declspec(dllexport) HWND WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_LEAST MAX_PATH])
 {
 #if defined(_MSC_VER) && _MSC_VER > 1300
 #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
 #endif
     // Load settings
-    TCHAR inipath[MAX_PATH];
     unsigned i;
     state.action = AC_NONE;
     state.shift = 0;
@@ -6405,8 +6404,8 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd)
 
 
     // Get ini path
-    GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
-    lstrcpy(&inipath[lstrlen(inipath)-3], TEXT("ini"));
+//    GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
+//    lstrcpy(&inipath[lstrlen(inipath)-3], TEXT("ini"));
 
     TCHAR stk_inisection[1420], *inisection; // Stack buffer.
     size_t inisectionlen = 8192;

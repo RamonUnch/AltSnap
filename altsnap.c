@@ -85,9 +85,9 @@ int HookSystem()
             return 1;
         }
     }
-    HWND (WINAPI *Load)(HWND) = (HWND (WINAPI *)(HWND))GetProcAddress(hinstDLL, LOAD_PROC);
+    HWND (WINAPI *Load)(HWND, const TCHAR *) = (HWND (WINAPI *)(HWND, const TCHAR*))GetProcAddress(hinstDLL, LOAD_PROC);
     if(Load) {
-        g_dllmsgHKhwnd = Load(g_hwnd);
+        g_dllmsgHKhwnd = Load(g_hwnd, inipath);
     }
 
     LOG("HOOKS.DLL Loaded");
@@ -438,6 +438,28 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
     inipath[MAX_PATH-1] = '\0';
     lstrcpy_s(&inipath[lstrlen(inipath)-3], 4, TEXT("ini"));
+    if (INVALID_FILE_ATTRIBUTES == GetFileAttributes(inipath)
+    && GetEnvironmentVariable(TEXT("APPDATA"), NULL, 0)) {
+        // .ini file is not in current directorry, and APPDATA exists
+        // we should look for %APPDATA%\AltSnap\AltSnap.ini
+        TCHAR userini[MAX_PATH];
+        GetEnvironmentVariable(TEXT("APPDATA"), userini, ARR_SZ(userini));
+        lstrcat_s(userini, ARR_SZ(userini), TEXT("\\AltSnap"));
+        if (INVALID_FILE_ATTRIBUTES == GetFileAttributes(userini)) {
+            CreateDirectory(userini, NULL);
+            LOG("CreateDirectory(%S)", userini);
+        }
+        // Full user ini name.
+        lstrcat_s(userini, ARR_SZ(userini), TEXT("\\AltSnap.ini"));
+        if (INVALID_FILE_ATTRIBUTES == GetFileAttributes(userini)) {
+            // Copy AltSnap.dni (Default ini file) if no ini present
+            lstrcpy_s(&inipath[lstrlen(inipath)-3], 4, TEXT("dni"));
+            CopyFile(inipath, userini, FALSE); // AltSnap.dni -> AltSnap.ini
+            LOG("CopyFile(%S -> %S)", inipath, userini);
+        }
+
+        lstrcpy_s(inipath, ARR_SZ(inipath), userini);
+    }
     LOG("ini file: %S", inipath);
 
     // Read parameters on command line

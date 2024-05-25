@@ -15,7 +15,7 @@
 		#define UNLOAD_PROC "Unload"
 	#else
 		#define LOW_LEVEL_KB_PROC "_LowLevelKeyboardProc@12"
-		#define LOAD_PROC "_Load@4"
+		#define LOAD_PROC "_Load@8"
 		#define UNLOAD_PROC "_Unload@0"
 	#endif
 #endif

@@ -2,7 +2,7 @@
 # define the name of the installer
 
 !define APP_NAME "AltSnap"
-!define APP_VERSION "1.63"
+!define APP_VERSION "1.64"
 # define the name of the installer
 OutFile "${APP_NAME}${APP_VERSION}-inst.exe"
 Name "${APP_NAME} ${APP_VERSION}"
@@ -32,11 +32,8 @@ Section
 
     # define the output path for this file
     SetOutPath $INSTDIR
-    ; Rename old ini file if it exists
-    IfFileExists "${APP_NAME}.ini" +2 0
-        File AltSnap.ini
-    ifFileExists "hooks_x64.dll" 0 +2
-        File AltSnap.ini
+
+    File AltSnap.dni
 
     # define what to install and place it in the output path
     File AltSnap.exe
@@ -140,6 +137,7 @@ Section "Uninstall"
     Delete "$INSTDIR\AltSnap.exe"
     Delete "$INSTDIR\AltSnap.txt"
     Delete "$INSTDIR\AltSnap.xml"
+    Delete "$INSTDIR\AltSnap.dni"
     Delete "$INSTDIR\AltSnap.ini"
     Delete "$INSTDIR\AltSnap-old.ini"
     Delete "$INSTDIR\hooks.dll"

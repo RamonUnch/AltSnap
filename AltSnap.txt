@@ -1,7 +1,7 @@
 *=========================================================================*
 *            ALTSNAP for Windows NT4/2000/XP/Vista/7/8.x/10/11            *
 *  Modified by Raymond Gillibert from original AltDrag by Stefan Sundin   *
-*                      release 1.63 (April 14, 2024)                      *
+*                       release 1.64 (June XX, 2024)                      *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltSnap/releases/         *
@@ -184,6 +184,20 @@ Note that this version has some more feature.
 ===========================================================================
 == CHANGELOG ==
 
+== AltSnap 1.64 ==
+ + Multi-user is now supported. Portable mode is still automatic if
+   AltSnap.ini is located next to AltSnap.exe.
+
+ + uiAccess flag was added to the .manifest file, see #538 for more details.
+
+ * Fixed bad offset  when restoring MDI window.
+
+ * Add League of Legends to blacklist (not a joke) #533
+
+ * Improve move to top/left/right/bottom. #534
+
+ * Ignore Ctrl if simulated (vai Alt Gr for exmple) #518
+
 == AltSnap 1.63 ==
 
  + Snap Layout preview #511, #359, 464.
@@ -201,7 +215,7 @@ Note that this version has some more feature.
    ZonesPrevwBGCol=FF FF FF
    ZonesPrevwBDCol=00 00 00
    ; Color of the Snap Layout preview, ZonesPrevwBGCol for background color
-   ; and ZonesPrevwBGCol for the border color. default are white and black.
+   ; and ZonesPrevwBDCol for the border color. default are white and black.
    ; Use a dark beckground and a light border if you use dark theme.
 ```
 
@@ -211,9 +225,9 @@ Note that this version has some more feature.
 
  * Updated Polish translation, thanks to @xeophyte
 
- * Updated Chineese  translation, thanks to @yatli
+ * Updated Chinese translation, thanks to @yatli
 
- * Updated Korean  translation, thanks to @1kko
+ * Updated Korean translation, thanks to @1kko
 
 
 == AltSnap 1.62 ==

@@ -23,6 +23,7 @@
 #define SWM_SNAPLAYOUT    (WM_APP+12)
 #define SWM_SNAPLAYOUTEND (WM_APP+22)
 #define SWM_EDITLAYOUT    (WM_APP+30)
+#define SWM_CLOSEZONES    (WM_APP+31)
 
 // Boring stuff
 static HINSTANCE g_hinst = NULL;
@@ -374,6 +375,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 WriteCurrentLayoutNumber();
                 HookSystem();
             }
+        } else if (wmId == SWM_CLOSEZONES) {
+            CloseAllTestWindows();
         } else if (wmId == SWM_TESTWIN) {
             NewTestWindow();
         } else if (SWM_SNAPLAYOUT <= wmId && wmId <= SWM_SNAPLAYOUTEND) {

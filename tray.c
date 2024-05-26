@@ -201,7 +201,7 @@ BOOL CALLBACK SaveTestWindow(HWND hwnd, LPARAM lParam)
     TCHAR classn[256];
     RECT rc;
     if (IsWindowVisible(hwnd)
-    && GetClassName(hwnd, classn, sizeof(classn))
+    && GetClassName(hwnd, classn, ARR_SZ(classn))
     && !lstrcmp(classn, TEXT(APP_NAMEA) TEXT("-Test"))
     && GetWindowRectL(hwnd, &rc)) {
         SaveZone(&rc, NZones++);
@@ -215,6 +215,21 @@ static void SaveCurrentLayout()
     ClearAllZones();
     SaveTestWindow(NULL, 1);
     EnumThreadWindows(GetCurrentThreadId(), SaveTestWindow, 0);
+}
+
+BOOL CALLBACK CloseTestWindowCB(HWND hwnd, LPARAM lParam)
+{
+    TCHAR classn[256];
+    if (GetClassName(hwnd, classn, ARR_SZ(classn))
+    && !lstrcmp(classn, TEXT(APP_NAMEA) TEXT("-Test")) ) {
+        PostMessage(hwnd, WM_CLOSE, 0, 0);
+    }
+    return TRUE;
+}
+
+static void CloseAllTestWindows()
+{
+    EnumThreadWindows(GetCurrentThreadId(), CloseTestWindowCB, 0);
 }
 
 static void catFullLayoutName(TCHAR *txt, size_t len, int laynum)
@@ -284,6 +299,9 @@ static void ShowContextMenu(HWND hwnd)
             AppendMenu(menu, MF_STRING, SWM_EDITLAYOUT, txt);
             AppendMenu(menu, FindWindow(TEXT(APP_NAMEA)TEXT("-test"), NULL)? MF_STRING :MF_STRING|MF_GRAYED
                       , SWM_SAVEZONES, l10n->menu_savezones);
+
+            AppendMenu(menu, FindWindow(TEXT(APP_NAMEA)TEXT("-test"), NULL)? MF_STRING :MF_STRING|MF_GRAYED
+                      , SWM_CLOSEZONES, l10n->menu_closeallzones);
         }
     }
 

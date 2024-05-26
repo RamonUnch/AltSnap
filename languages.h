@@ -45,6 +45,7 @@ struct strings {
   TCHAR *menu_emptyzone;
   TCHAR *menu_snaplayout;
   TCHAR *menu_editlayout;
+  TCHAR *menu_closeallzones;
   TCHAR *menu_exit;
 
   // config
@@ -296,6 +297,7 @@ static const char* l10n_inimapping[] = {
     "MenuEmptyZone",
     "MenuSnapLayout",
     "MenuEditLayout",
+    "MenuCloseAllZones",
     "MenuExit",
 
     "ConfigTitle",
@@ -532,6 +534,7 @@ static const struct strings en_US = {
  /* emptyzone          */ TEXT("(empty)"),
  /* snaplayout         */ TEXT("Snap layout &"),
  /* edit layout        */ TEXT("Edi&t snap layout"),
+ /* close all zones    */ TEXT("C&lose all test windows"),
  /* exit               */ TEXT("E&xit"),
 
  /* === config === */

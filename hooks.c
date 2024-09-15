@@ -6152,9 +6152,9 @@ static void readblacklist(const TCHAR *section, struct blacklist *blacklist, con
     } // end while
 }
 // Read all the blacklitsts
-#define blacklist_section_length 32767
 void readallblacklists(const TCHAR *inipath)
 {
+    enum { blacklist_section_length = 32767 };
     mem00(&BlkLst, sizeof(BlkLst));
 
     TCHAR *section = (TCHAR *)malloc(blacklist_section_length*sizeof(TCHAR));
@@ -6168,7 +6168,6 @@ void readallblacklists(const TCHAR *inipath)
     }
     free(section);
 }
-#undef blacklist_section_length
 
 ///////////////////////////////////////////////////////////////////////////
 // Used to read Hotkeys and Hotclicks
@@ -6550,6 +6549,7 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_LEA
 BOOL APIENTRY DllMain(HINSTANCE hInst, DWORD reason, LPVOID reserved)
 {
     if (reason == DLL_PROCESS_ATTACH) {
+        DisableThreadLibraryCalls(hInst);
         hinstDLL = hInst;
     }
     return TRUE;

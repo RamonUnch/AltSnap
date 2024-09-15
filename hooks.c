@@ -3875,20 +3875,23 @@ static void CenterWindow(HWND hwnd, unsigned flags)
     GetCursorPos(&pt);
     GetMonitorRect(&pt, 0, &mon);
 
+    RECT bd;
+    FixDWMRectLL(hwnd, &bd, 0);
 
-    int x = mon.left+ ((mon.right-mon.left)-width)/2;
-    int y = mon.top + ((mon.bottom-mon.top)-height)/2;
+    // extra calculation to centre the portion that is inside the invisible borders
+    int x = mon.left+ ((mon.right-mon.left)-(width - bd.left - bd.right))/2 - bd.left;
+    int y = mon.top + ((mon.bottom-mon.top)-(height - bd.top - bd.bottom))/2 - bd.top;
 
     if (flags & CW_TRIM) {
         // Trim the window to the current monitor
-        if (x < mon.left) {
-            x = mon.left;
-            width = mon.right - mon.left;
+        if (x < mon.left - bd.left) {
+            x = mon.left - bd.left;
+            width = mon.right - mon.left + bd.left + bd.right;
         }
 
-        if (y < mon.top) {
-            y = mon.top;
-            height = mon.bottom - mon.top;
+        if (y < mon.top - bd.top) {
+            y = mon.top - bd.top;
+            height = mon.bottom - mon.top + bd.top + bd.bottom;
         }
     }
     MoveWindowAsync(hwnd, x, y, width, height);

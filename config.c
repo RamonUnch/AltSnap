@@ -1189,6 +1189,11 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {TEXT("FocusT"),       L10NIDX(input_actions_focust) },
         {TEXT("FocusR"),       L10NIDX(input_actions_focusr) },
         {TEXT("FocusB"),       L10NIDX(input_actions_focusb) },
+
+        {TEXT("SwapL"),        L10NIDX(input_actions_swapl) },
+        {TEXT("SwapT"),        L10NIDX(input_actions_swapt) },
+        {TEXT("SwapR"),        L10NIDX(input_actions_swapr) },
+        {TEXT("SwapB"),        L10NIDX(input_actions_swapb) },
         {NULL, 0}
     };
 

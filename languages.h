@@ -181,6 +181,11 @@ struct strings {
   TCHAR *input_actions_focusr;
   TCHAR *input_actions_focusb;
 
+  TCHAR *input_actions_swapl;
+  TCHAR *input_actions_swapt;
+  TCHAR *input_actions_swapr;
+  TCHAR *input_actions_swapb;
+
   TCHAR *input_actions_roll;
   TCHAR *input_actions_alwaysontop;
   TCHAR *input_actions_borderless;
@@ -421,6 +426,10 @@ static const char* l10n_inimapping[] = {
     "InputActionFocusT",
     "InputActionFocusR",
     "InputActionFocusB",
+    "InputActionSwapL",
+    "InputActionSwapT",
+    "InputActionSwapR",
+    "InputActionSwapB",
     "InputActionRoll",
     "InputActionAlwaysOnTop",
     "InputActionBorderless",
@@ -664,6 +673,10 @@ static const struct strings en_US = {
  /* focust             */ TEXT("Focus top window"),
  /* focusr             */ TEXT("Focus right window"),
  /* focusb             */ TEXT("Focus bottom window"),
+ /* swapl              */ TEXT("Swap with left window"),
+  /* swapt             */ TEXT("Swap with top window"),
+  /* swapr             */ TEXT("Swap with right window"),
+  /* swapb             */ TEXT("Swap with bottom window"),
  /* roll               */ TEXT("&Roll/Unroll window"),
  /* alwaysontop        */ TEXT("Toggle always on &top"),
  /* borderless         */ TEXT("Toggle &borderless"),

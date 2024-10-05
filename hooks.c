@@ -2453,6 +2453,17 @@ static void SetForegroundWindowL(HWND hwnd)
         PostMessage(state.mdiclient, WM_MDIACTIVATE, (WPARAM)hwnd, 0);
     }
 }
+// Swaps the position/size of the two specified windows
+static void SwapWindows(HWND hwnd1, HWND hwnd2)
+{
+    if (!hwnd1 || !hwnd2) return;
+
+    RECT rc1, rc2;
+    if (!GetWindowRect(hwnd1, &rc1) || !GetWindowRect(hwnd2, &rc2)) return;
+
+    SetWindowPos(hwnd2, NULL, rc1.left, rc1.top, rc1.right-rc1.left, rc1.bottom-rc1.top, SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_ASYNCWINDOWPOS);
+    SetWindowPos(hwnd1, NULL, rc2.left, rc2.top, rc2.right-rc2.left, rc2.bottom-rc2.top, SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_ASYNCWINDOWPOS);
+}
 // Returns true if AltDrag must be disabled based on scroll lock
 // If conf.ScrollLockState&2 then Altdrag is disabled by Scroll Lock
 // otherwise it is enabled by Scroll lock.
@@ -4762,6 +4773,10 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_FOCUST:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 1)); break;
     case AC_FOCUSR:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 2)); break;
     case AC_FOCUSB:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 3)); break;
+    case AC_SWAPL:       SwapWindows(hwnd, FindTiledWindow(hwnd, 0)); break;
+    case AC_SWAPT:       SwapWindows(hwnd, FindTiledWindow(hwnd, 1)); break;
+    case AC_SWAPR:       SwapWindows(hwnd, FindTiledWindow(hwnd, 2)); break;
+    case AC_SWAPB:       SwapWindows(hwnd, FindTiledWindow(hwnd, 3)); break;
 
     case AC_ASONOFF:     ActionASOnOff(); break;
     case AC_MOVEONOFF:   ActionMoveOnOff(hwnd); break;

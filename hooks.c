@@ -201,6 +201,7 @@ static struct config {
     UCHAR IgnoreMinMaxInfo;
     UCHAR SwapAnimationSteps;
     UCHAR SwapAnimationDelay;
+    UCHAR SwapAnimateResize;
     // [Performance]
     UCHAR FullWin;
     UCHAR TransWinOpacity;
@@ -314,6 +315,7 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "IgnoreMinMaxInfo", 0 },
     { "SwapAnimationSteps", 10 },
     { "SwapAnimationDelay", 5 },
+    { "SwapAnimateResize", 0 },
 };
 // [Performance]
 static const struct OptionListItem Performance_uchars[] = {
@@ -2469,8 +2471,13 @@ static void SwapWindows(HWND hwnd1, HWND hwnd2)
         float steps = (float)conf.SwapAnimationSteps;
         float dleft = (rc2.left - rc1.left) / steps;
         float dtop = (rc2.top - rc1.top) / steps;
-        float dwidth = (rc2.right - rc2.left - rc1.right + rc1.left) / steps;
-        float dheight = (rc2.bottom - rc2.top - rc1.bottom + rc1.top) / steps;
+
+        float dwidth = 0.0;
+        float dheight = 0.0;
+        if (conf.SwapAnimateResize) {
+            dwidth = (rc2.right - rc2.left - rc1.right + rc1.left) / steps;
+            dheight = (rc2.bottom - rc2.top - rc1.bottom + rc1.top) / steps;
+        }
 
         for (int i = 0; i < conf.SwapAnimationSteps; i++) {
             SetWindowPos(hwnd1, NULL, rc1.left + i*dleft, rc1.top + i*dtop, rc1.right - rc1.left + i*dwidth, rc1.bottom - rc1.top + i*dheight, SWP_NOZORDER | SWP_NOACTIVATE);

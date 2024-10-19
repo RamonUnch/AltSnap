@@ -7,6 +7,8 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "hooks.h"
+#include <magnification.h>
+#include <math.h>
 static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h);
 static BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
 static LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -3147,6 +3149,217 @@ static void ActionVolume(int delta)
 }
 
 /////////////////////////////////////////////////////////////////////////////
+// Window magnification functionality
+#define MAGNIFY_HOST_CLASS_NAME     TEXT("MagnifierWindow")
+#define MAGNIFY_CTRL_CLASS_NAME     TEXT("Magnifier")
+#define MAG_HOST_EX_STYLES          (WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW)
+#define MAGNIFY_TIMER_ID            (WM_APP + 1)
+#define MAGNIFY_TIMER_INTERVAL      16 // 60 FPS
+#define MAX_MAGNIFICATION_FACTOR    10.0f
+#define MS_SHOWMAGNIFIEDCURSOR      0x0001
+
+LRESULT CALLBACK MagHostWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+
+BOOL magInitialized = FALSE;
+HWND magHwndHost = NULL;
+HWND magHwndCtrl = NULL;
+HWND magHwndTarget = NULL;
+POINT magCenterPt = {0, 0};
+float magFactor = 1.0f;
+
+BOOL GetClientRectToScreen(HWND hwnd, RECT *rc)
+{
+    if (!GetClientRect(hwnd, rc))
+        return FALSE;
+    return ClientToScreen(hwnd, (LPPOINT)&rc->left) && ClientToScreen(hwnd, (LPPOINT)&rc->right);
+}
+void DisableMagnification()
+{
+    if (magHwndHost)
+        ShowWindow(magHwndHost, SW_HIDE);
+    magFactor = 1.0f;
+    magHwndTarget = NULL;
+}
+void SetupMagnification(HWND hwndTarget)
+{
+    if (!magInitialized) {
+        if (!MagInitialize())
+            return;
+            
+        WNDCLASSEX wcex = {0};
+        wcex.cbSize = sizeof(WNDCLASSEX); 
+        wcex.style = CS_HREDRAW | CS_VREDRAW;
+        wcex.lpfnWndProc = MagHostWndProc;
+        wcex.hInstance = hinstDLL;
+        wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
+        wcex.lpszClassName = MAGNIFY_HOST_CLASS_NAME;
+        RegisterClassEx(&wcex);
+
+        magInitialized = TRUE;
+    }
+
+    RECT tgtRc;
+    GetClientRectToScreen(hwndTarget, &tgtRc);
+
+    // setup or update host window
+    if (magHwndHost == NULL) {
+        magHwndHost = CreateWindowEx(MAG_HOST_EX_STYLES, 
+            MAGNIFY_HOST_CLASS_NAME, TEXT("Magnifier Host"), 
+            WS_VISIBLE | WS_POPUP,
+            tgtRc.left, tgtRc.top, tgtRc.right - tgtRc.left, tgtRc.bottom - tgtRc.top, NULL, NULL, hinstDLL, NULL);
+        if (magHwndHost == NULL) {
+            return;
+        }
+
+        SetTimer(magHwndHost, MAGNIFY_TIMER_ID, MAGNIFY_TIMER_INTERVAL, NULL);
+        SetLayeredWindowAttributes(magHwndHost, 0, 255, LWA_ALPHA);
+    }
+    else if (hwndTarget != magHwndTarget) {
+        DisableMagnification();
+        SetWindowPos(magHwndHost, NULL, tgtRc.left, tgtRc.top, tgtRc.right - tgtRc.left, tgtRc.bottom - tgtRc.top, 0);
+    }
+
+    // setup or update magnifier control window
+    if (magHwndCtrl == NULL) {
+        magHwndCtrl = CreateWindow(MAGNIFY_CTRL_CLASS_NAME, TEXT("Magnifier Control"), 
+            WS_CHILD | WS_VISIBLE | MS_SHOWMAGNIFIEDCURSOR,
+            0, 0, tgtRc.right - tgtRc.left, tgtRc.bottom - tgtRc.top, magHwndHost, NULL, hinstDLL, NULL );
+    }
+    else if (hwndTarget != magHwndTarget) {
+        SetWindowPos(magHwndCtrl, NULL, 0, 0, tgtRc.right - tgtRc.left, tgtRc.bottom - tgtRc.top, 0);
+    }
+
+    magHwndTarget = hwndTarget;
+}
+void CleanupMagnification()
+{
+    if (!magInitialized)
+        return;
+
+    DisableMagnification();
+    MagUninitialize();
+
+    if (magHwndCtrl && IsWindow(magHwndCtrl)) {
+        DestroyWindow(magHwndCtrl);
+    }
+    magHwndCtrl = NULL;
+
+    if (magHwndHost && IsWindow(magHwndHost)) {
+        KillTimer(magHwndHost, MAGNIFY_TIMER_ID);
+        // TODO: investigate why this causes a crash
+        // DestroyWindow(hwndHost);
+    }
+    magHwndHost = NULL;
+
+    UnregisterClass(MAGNIFY_HOST_CLASS_NAME, hinstDLL);
+}
+void UpdateMagnification()
+{
+    RECT tgtRc;
+    GetClientRectToScreen(magHwndTarget, &tgtRc);
+    
+    // allow to reposition the magnification center in case the hotkey is pressed AND the mouse is over the target window
+    if (IsHotkeyDown()) {
+        POINT pt;
+        GetCursorPos(&pt);
+        if (pt.x >= tgtRc.left && pt.x <= tgtRc.right && pt.y >= tgtRc.top && pt.y <= tgtRc.bottom) {
+            magCenterPt = pt;
+        }
+    }
+
+    // make sure the window is still on top
+    SetWindowLong(magHwndHost, GWL_EXSTYLE, MAG_HOST_EX_STYLES);
+
+    // calculate positon of the magnifier control window
+    int width = tgtRc.right - tgtRc.left;
+    int height = tgtRc.bottom - tgtRc.top;
+    int magWidth = (int)(round(width / magFactor));
+    int magHeight = (int)(round(height / magFactor));
+
+    float fx = 0.0f;
+    int x = magCenterPt.x - tgtRc.left;
+    if (x < magWidth / 2) fx = 0.0f;
+    else if (x > width - magWidth / 2) fx = 1.0f;
+    else fx = (float)(x - magWidth / 2) / (float)(width - magWidth);
+
+    float fy = 0.0f;
+    int y = magCenterPt.y - tgtRc.top;
+    if (y < magHeight / 2) fy = 0.0f;
+    else if (y > height - magHeight / 2) fy = 1.0f;
+    else fy = (float)(y - magHeight / 2) / (float)(height - magHeight);
+
+    RECT ctrlRc;
+    ctrlRc.left = tgtRc.left + (int)round((width - magWidth) * fx);
+    ctrlRc.top = tgtRc.top + (int)round((height - magHeight) * fy);
+    ctrlRc.right = ctrlRc.left + magWidth;
+    ctrlRc.bottom = ctrlRc.top + magHeight;
+
+    MagSetWindowSource(magHwndCtrl, ctrlRc);
+
+    MAGTRANSFORM matrix;
+    memset(&matrix, 0, sizeof(matrix));
+    matrix.v[0][0] = magFactor;
+    matrix.v[1][1] = magFactor;
+    matrix.v[2][2] = 1.0f;
+    MagSetWindowTransform(magHwndCtrl, &matrix);
+
+    ShowWindow(magHwndHost, SW_SHOW);
+}
+LRESULT CALLBACK MagHostWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    switch (message) 
+    {
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        break;
+
+    case WM_TIMER:
+        if (wParam == MAGNIFY_TIMER_ID) {
+            if (!magHwndTarget || magFactor <= 1.01f) {
+                DisableMagnification();
+                return 0;
+            }
+
+            RECT tgtRc, hostRc;
+            GetClientRectToScreen(magHwndTarget, &tgtRc);
+            GetClientRectToScreen(hWnd, &hostRc);
+            if (hostRc.right != tgtRc.right || hostRc.bottom != tgtRc.bottom || hostRc.left != tgtRc.left || hostRc.top != tgtRc.top) {
+                // the window has been moved or resized
+                // -> disable magnification
+                DisableMagnification();
+            }
+            else {
+                UpdateMagnification();
+            }
+        }
+        break;
+
+    default:
+        return DefWindowProc(hWnd, message, wParam, lParam);
+    }
+    return 0;  
+}
+static int ActionMagnification(HWND hwnd, short delta)
+{
+    SetupMagnification(hwnd);
+
+    // TODO: configure step sizes?
+    magFactor += delta * 0.002f;
+    magFactor = (float)((int)(magFactor * 10)) / 10.0f;
+
+    if (magFactor < 1.0f)
+        magFactor = 1.0f;
+    if (magFactor > MAX_MAGNIFICATION_FACTOR)
+        magFactor = MAX_MAGNIFICATION_FACTOR;
+    
+    GetCursorPos(&magCenterPt);
+
+    // actual magnification is done in the timer function of the host window
+
+    return 1;
+}
+
+/////////////////////////////////////////////////////////////////////////////
 // Windows 2000+ Only
 static int ActionTransparency(HWND hwnd, short delta)
 {
@@ -4787,6 +5000,7 @@ static int DoWheelActions(HWND hwnd, enum action action)
     case AC_ALTTAB:       ActionAltTab(state.prevpt, state.delta, /*laser=0*/0
                              , state.shift?EnumStackedWindowsProc:EnumAltTabWindows); break;
     case AC_VOLUME:       ActionVolume(state.delta); break;
+    case AC_MAGNIFY:      ret = ActionMagnification(hwnd, state.delta); break;
     case AC_TRANSPARENCY: ret = ActionTransparency(hwnd, state.delta); break;
     case AC_LOWER:        ActionLower(hwnd, state.delta, state.shift, state.ctrl); break;
     case AC_MAXIMIZE:     ActionMaxRestMin(hwnd, state.delta); break;
@@ -6057,6 +6271,8 @@ __declspec(dllexport) void WINAPI Unload()
     freeblacklists();
 
     freeallinputSequences();
+
+    CleanupMagnification();
 
     free(monitors);
     free(hwnds);

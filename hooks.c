@@ -3246,8 +3246,7 @@ void CleanupMagnification()
 
     if (magHwndHost && IsWindow(magHwndHost)) {
         KillTimer(magHwndHost, MAGNIFY_TIMER_ID);
-        // TODO: investigate why this causes a crash
-        // DestroyWindow(hwndHost);
+        DestroyWindow(magHwndHost);
     }
     magHwndHost = NULL;
 
@@ -3309,10 +3308,6 @@ LRESULT CALLBACK MagHostWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 {
     switch (message) 
     {
-    case WM_DESTROY:
-        PostQuitMessage(0);
-        break;
-
     case WM_TIMER:
         if (wParam == MAGNIFY_TIMER_ID) {
             if (!magHwndTarget || magFactor <= 1.01f) {

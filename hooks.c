@@ -3274,18 +3274,26 @@ void UpdateMagnification()
     int height = tgtRc.bottom - tgtRc.top;
     int magWidth = (int)(round(width / magFactor));
     int magHeight = (int)(round(height / magFactor));
+    int magHalfWidth = magWidth / 2;
+    int magHalfHeight = magHeight / 2;
 
     float fx = 0.0f;
     int x = magCenterPt.x - tgtRc.left;
-    if (x < magWidth / 2) fx = 0.0f;
-    else if (x > width - magWidth / 2) fx = 1.0f;
-    else fx = (float)(x - magWidth / 2) / (float)(width - magWidth);
+    if (x < magHalfWidth || width == magWidth)
+        fx = 0.0f;
+    else if (x > width - magHalfWidth)
+        fx = 1.0f;
+    else
+        fx = (float)(x - magHalfWidth) / (float)(width - magWidth);
 
     float fy = 0.0f;
     int y = magCenterPt.y - tgtRc.top;
-    if (y < magHeight / 2) fy = 0.0f;
-    else if (y > height - magHeight / 2) fy = 1.0f;
-    else fy = (float)(y - magHeight / 2) / (float)(height - magHeight);
+    if (y < magHalfHeight || height == magHeight)
+        fy = 0.0f;
+    else if (y > height - magHalfHeight)
+        fy = 1.0f;
+    else
+        fy = (float)(y - magHalfHeight) / (float)(height - magHeight);
 
     RECT ctrlRc;
     ctrlRc.left = tgtRc.left + (int)round((width - magWidth) * fx);

@@ -505,13 +505,14 @@ static int IsFullScreenBL(HWND hwnd)
 }
 /////////////////////////////////////////////////////////////////////////////
 // WM_ENTERSIZEMOVE or WM_EXITSIZEMOVE...
-static void SendSizeMove(DWORD msg)
+static void NotifySizeMoveStaEnd(UCHAR sta)
 {
-//    LockWindowUpdate(WM_ENTERSIZEMOVE?state.hwnd:NULL);
     // Don't send WM_ENTER/EXIT SIZEMOVE if the window is in SSizeMove BL
     if(!blacklisted(state.hwnd, &BlkLst.SSizeMove)) {
-        PostMessage(state.hwnd, msg, 0, 0);
+        PostMessage(state.hwnd, sta? WM_ENTERSIZEMOVE: WM_EXITSIZEMOVE, 0, 0);
     }
+    // Always send the NotifyWinEvent for IAccessible interface.
+    NotifyWinEvent(sta? EVENT_SYSTEM_MOVESIZESTART : EVENT_SYSTEM_MOVESIZEEND, state.hwnd, 0, 0);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2664,8 +2665,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 enum action action = state.action;
                 HideTransWin();
                 // Send WM_EXITSIZEMOVE and EVENT_SYSTEM_MOVESIZEEND
-                SendSizeMove(WM_EXITSIZEMOVE);
-                NotifyWinEvent(EVENT_SYSTEM_MOVESIZEEND, state.hwnd, 0, 0);
+                NotifySizeMoveStaEnd(0);
 
                 state.alt = 0;
                 state.alt1 = 0;
@@ -4962,8 +4962,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
         SetWindowTrans(state.hwnd);
 
         // Send WM_ENTERSIZEMOVE and EVENT_SYSTEM_MOVESIZESTART
-        SendSizeMove(WM_ENTERSIZEMOVE);
-        NotifyWinEvent(EVENT_SYSTEM_MOVESIZESTART, state.hwnd, 0, 0);
+        NotifySizeMoveStaEnd(1);
     } else if(button == BT_WHEEL || button == BT_HWHEEL) {
         // Wheel actions, directly return here
         // because maybe the action will not be done
@@ -5105,8 +5104,7 @@ static void FinishMovement()
 
     HideTransWin();
     // Send WM_EXITSIZEMOVE and EVENT_SYSTEM_MOVESIZEEND
-    SendSizeMove(WM_EXITSIZEMOVE);
-    NotifyWinEvent(EVENT_SYSTEM_MOVESIZEEND, state.hwnd, 0, 0);
+    NotifySizeMoveStaEnd(0);
 
     state.action = AC_NONE;
     state.moving = 0;

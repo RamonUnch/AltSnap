@@ -199,6 +199,9 @@ static struct config {
     UCHAR MenuShowOffscreenWin;
     UCHAR MenuShowEmptyLabelWin;
     UCHAR IgnoreMinMaxInfo;
+    UCHAR SwapAnimationSteps;
+    UCHAR SwapAnimationDelay;
+    UCHAR SwapAnimateResize;
     // [Performance]
     UCHAR FullWin;
     UCHAR TransWinOpacity;
@@ -310,6 +313,9 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "MenuShowOffscreenWin", 0 },
     { "MenuShowEmptyLabelWin", 0 },
     { "IgnoreMinMaxInfo", 0 },
+    { "SwapAnimationSteps", 10 },
+    { "SwapAnimationDelay", 5 },
+    { "SwapAnimateResize", 0 },
 };
 // [Performance]
 static const struct OptionListItem Performance_uchars[] = {
@@ -2453,6 +2459,36 @@ static void SetForegroundWindowL(HWND hwnd)
         ReallySetForegroundWindow(state.mdiclient);
         PostMessage(state.mdiclient, WM_MDIACTIVATE, (WPARAM)hwnd, 0);
     }
+}
+// Swaps the position/size of the two specified windows
+static void SwapWindows(HWND hwnd1, HWND hwnd2)
+{
+    if (!hwnd1 || !hwnd2) return;
+
+    RECT rc1, rc2;
+    if (!GetWindowRect(hwnd1, &rc1) || !GetWindowRect(hwnd2, &rc2)) return;
+
+    if (conf.SwapAnimationSteps > 0) {
+        float steps = (float)conf.SwapAnimationSteps;
+        float dleft = (rc2.left - rc1.left) / steps;
+        float dtop = (rc2.top - rc1.top) / steps;
+
+        float dwidth = 0.0;
+        float dheight = 0.0;
+        if (conf.SwapAnimateResize) {
+            dwidth = (rc2.right - rc2.left - rc1.right + rc1.left) / steps;
+            dheight = (rc2.bottom - rc2.top - rc1.bottom + rc1.top) / steps;
+        }
+
+        for (int i = 0; i < conf.SwapAnimationSteps; i++) {
+            SetWindowPos(hwnd1, NULL, rc1.left + i*dleft, rc1.top + i*dtop, rc1.right - rc1.left + i*dwidth, rc1.bottom - rc1.top + i*dheight, SWP_NOZORDER | SWP_NOACTIVATE);
+            SetWindowPos(hwnd2, NULL, rc2.left - i*dleft, rc2.top - i*dtop, rc2.right - rc2.left - i*dwidth, rc2.bottom - rc2.top - i*dheight, SWP_NOZORDER | SWP_NOACTIVATE);
+            Sleep(conf.SwapAnimationDelay);
+        }
+    }
+
+    SetWindowPos(hwnd2, NULL, rc1.left, rc1.top, rc1.right-rc1.left, rc1.bottom-rc1.top, SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_ASYNCWINDOWPOS);
+    SetWindowPos(hwnd1, NULL, rc2.left, rc2.top, rc2.right-rc2.left, rc2.bottom-rc2.top, SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_ASYNCWINDOWPOS);
 }
 // Returns true if AltDrag must be disabled based on scroll lock
 // If conf.ScrollLockState&2 then Altdrag is disabled by Scroll Lock
@@ -4763,6 +4799,10 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_FOCUST:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 1)); break;
     case AC_FOCUSR:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 2)); break;
     case AC_FOCUSB:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 3)); break;
+    case AC_SWAPL:       SwapWindows(hwnd, FindTiledWindow(hwnd, 0)); break;
+    case AC_SWAPT:       SwapWindows(hwnd, FindTiledWindow(hwnd, 1)); break;
+    case AC_SWAPR:       SwapWindows(hwnd, FindTiledWindow(hwnd, 2)); break;
+    case AC_SWAPB:       SwapWindows(hwnd, FindTiledWindow(hwnd, 3)); break;
 
     case AC_ASONOFF:     ActionASOnOff(); break;
     case AC_MOVEONOFF:   ActionMoveOnOff(hwnd); break;

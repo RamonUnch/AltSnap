@@ -143,7 +143,12 @@
     ACVALUE(AC_ZOOM,         "Zoom",         MR) \
     ACVALUE(AC_ZOOM2,        "Zoom2",        MR) \
     ACVALUE(AC_NPSTACKED,    "NPStacked",    ZO) \
-    ACVALUE(AC_NPSTACKED2,   "NPStacked2",   ZO)
+    ACVALUE(AC_NPSTACKED2,   "NPStacked2",   ZO) \
+    \
+    ACVALUE(AC_SWAPL, "SwapL", MR) \
+    ACVALUE(AC_SWAPT, "SwapT", MR) \
+    ACVALUE(AC_SWAPR, "SwapR", MR) \
+    ACVALUE(AC_SWAPB, "SwapB", MR)
 
 #define ACVALUE(a, b, c) a,
 enum action { ACTION_MAP AC_MAXVALUE, AC_SHRT0, AC_SHRTF=AC_SHRT0+36, AC_ORICLICK };

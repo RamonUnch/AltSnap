@@ -1003,9 +1003,19 @@ static int IsWindowCloaked(HWND hwnd)
     return S_OK == DwmGetWindowAttributeL(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked))
         && cloaked;
 }
+/* Some windows might have a size of 0x0 (e.g., a 'Setup' window in Windows 11
+ * that appears to be visible despite having no size). It is assumed that this
+ * is an issue specific to a system update window in Windows 11 (and maybe other
+ * versions as well), although this has not been confirmed.
+ */
+static BOOL HasWindowSizeZero(HWND hwnd)
+{
+    RECT rc;
+    return GetWindowRect(hwnd, &rc) && (rc.right == rc.left || rc.bottom == rc.top);
+}
 static BOOL IsVisible(HWND hwnd)
 {
-    return IsWindowVisible(hwnd) && !IsWindowCloaked(hwnd);
+    return IsWindowVisible(hwnd) && !IsWindowCloaked(hwnd) && !HasWindowSizeZero(hwnd);
 }
 
 /* Gets the original owner of hwnd.

@@ -849,6 +849,21 @@ static BOOL UnhookWinEventL(HWINEVENTHOOK hWinEventHook)
     return FALSE;
 }
 
+
+#ifndef WIN64
+static void NotifyWinEventL(DWORD event, HWND hwnd, LONG idObj, LONG idChild)
+{
+    typedef  void (WINAPI *funk_t)(DWORD, HWND, LONG, LONG);
+    static funk_t funk = (funk_t)1;
+    if (funk == (funk_t)1)
+        funk = (funk_t)LoadDLLProc("USER32.DLL", "NotifyWinEvent");
+
+    if (funk)
+        funk(event, hwnd, idObj, idChild);
+}
+#define NotifyWinEvent NotifyWinEventL
+#endif
+
 static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 {
     typedef HRESULT (WINAPI *funk_t)(HWND hwnd, DWORD a, PVOID b, DWORD c);

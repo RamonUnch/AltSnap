@@ -892,6 +892,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     static const struct actiondl scroll_actions[] = {
         {TEXT("AltTab"),       L10NIDX(input_actions_alttab) },
         {TEXT("Volume"),       L10NIDX(input_actions_volume) },
+        {TEXT("Magnify"),      L10NIDX(input_actions_magnify) },
         {TEXT("Transparency"), L10NIDX(input_actions_transparency) },
         {TEXT("Zoom"),         L10NIDX(input_actions_zoom) },
         {TEXT("Zoom2"),        L10NIDX(input_actions_zoom2) },

@@ -199,6 +199,7 @@ static struct config {
     UCHAR MenuShowOffscreenWin;
     UCHAR MenuShowEmptyLabelWin;
     UCHAR IgnoreMinMaxInfo;
+    UCHAR NotifyWinEvent;
     // [Performance]
     UCHAR FullWin;
     UCHAR TransWinOpacity;
@@ -310,6 +311,7 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "MenuShowOffscreenWin", 0 },
     { "MenuShowEmptyLabelWin", 0 },
     { "IgnoreMinMaxInfo", 0 },
+    { "NotifyWinEvent", 1},
 };
 // [Performance]
 static const struct OptionListItem Performance_uchars[] = {
@@ -512,7 +514,8 @@ static void NotifySizeMoveStaEnd(UCHAR sta)
         PostMessage(state.hwnd, sta? WM_ENTERSIZEMOVE: WM_EXITSIZEMOVE, 0, 0);
     }
     // Always send the NotifyWinEvent for IAccessible interface.
-    NotifyWinEvent(sta? EVENT_SYSTEM_MOVESIZESTART : EVENT_SYSTEM_MOVESIZEEND, state.hwnd, 0, 0);
+    if (conf.NotifyWinEvent)
+        NotifyWinEvent(sta? EVENT_SYSTEM_MOVESIZESTART : EVENT_SYSTEM_MOVESIZEEND, state.hwnd, 0, 0);
 }
 
 /////////////////////////////////////////////////////////////////////////////

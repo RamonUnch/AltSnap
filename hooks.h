@@ -138,6 +138,7 @@
     ACVALUE(AC_ALTTAB,       "AltTab",       ZO) \
     ACVALUE(AC_VOLUME,       "Volume",       00) \
  /* ACVALUE(AC_BRIGHTNESS,   "Brightness",   00) */ \
+    ACVALUE(AC_MAGNIFY,      "Magnify",      00) \
     ACVALUE(AC_TRANSPARENCY, "Transparency", 00) \
     ACVALUE(AC_HSCROLL,      "HScroll",      00) \
     ACVALUE(AC_ZOOM,         "Zoom",         MR) \

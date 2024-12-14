@@ -67,6 +67,7 @@ static struct windowRR {
     int height;
     UINT odpi;
     UCHAR end;
+    UCHAR start;
     UCHAR moveonly;
     UCHAR maximize;
     UCHAR snap;
@@ -507,15 +508,16 @@ static int IsFullScreenBL(HWND hwnd)
 }
 /////////////////////////////////////////////////////////////////////////////
 // WM_ENTERSIZEMOVE or WM_EXITSIZEMOVE...
-static void NotifySizeMoveStaEnd(UCHAR sta)
+static void NotifySizeMoveStaEnd(HWND hwnd, UCHAR sta)
 {
+    //LOGA("NotifySizeMoveStaEnd(%d)", (int)sta);
     // Don't send WM_ENTER/EXIT SIZEMOVE if the window is in SSizeMove BL
-    if(!blacklisted(state.hwnd, &BlkLst.SSizeMove)) {
-        PostMessage(state.hwnd, sta? WM_ENTERSIZEMOVE: WM_EXITSIZEMOVE, 0, 0);
+    if(!blacklisted(hwnd, &BlkLst.SSizeMove)) {
+        PostMessage(hwnd, sta? WM_ENTERSIZEMOVE: WM_EXITSIZEMOVE, 0, 0);
     }
     // Always send the NotifyWinEvent for IAccessible interface.
     if (conf.NotifyWinEvent)
-        NotifyWinEvent(sta? EVENT_SYSTEM_MOVESIZESTART : EVENT_SYSTEM_MOVESIZEEND, state.hwnd, 0, 0);
+        NotifyWinEvent(sta? EVENT_SYSTEM_MOVESIZESTART : EVENT_SYSTEM_MOVESIZEEND, hwnd, 0, 0);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1287,6 +1289,13 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
     hwnd = lw->hwnd;
 
     if (lw->end && conf.FullWin) Sleep(8); // At the End of movement...
+
+
+    // Send WM_ENTERSIZEMOVE and EVENT_SYSTEM_MOVESIZESTART
+    if (lw->start)
+        NotifySizeMoveStaEnd(hwnd, 1); // Once darg actually starts.
+
+
     if (lw->end && !lw->maximize && (IsZoomed(hwnd) || IsWindowSnapped(hwnd))) {
         // Use Restore
         RestoreWindowTo(hwnd, lw->x, lw->y, lw->width, lw->height);
@@ -1301,10 +1310,15 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
         // Send WM_SYNCPAINT in case to wait for the end of movement
         // And to avoid windows to "slide through" the whole WM_MOVE queue
         if(flag&SWP_ASYNCWINDOWPOS) SendMessage(hwnd, WM_SYNCPAINT, 0, 0);
-    if (conf.RefreshRate) ASleep(conf.RefreshRate); // Accurate!!!
+        if (conf.RefreshRate) ASleep(conf.RefreshRate); // Accurate!!!
     }
+
+    if (lw->end && !conf.FullWin)
+        NotifySizeMoveStaEnd(hwnd, 0);
+
     lw->hwnd = NULL;
     lw->end = 0;
+    lw->start = 0;
 }
 
 /* MOVEASYNC |SWP_DEFERERASE ??*/
@@ -2668,7 +2682,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 enum action action = state.action;
                 HideTransWin();
                 // Send WM_EXITSIZEMOVE and EVENT_SYSTEM_MOVESIZEEND
-                NotifySizeMoveStaEnd(0);
+                NotifySizeMoveStaEnd(state.hwnd, 0);
 
                 state.alt = 0;
                 state.alt1 = 0;
@@ -3913,7 +3927,8 @@ static void CALLBACK HandleWinEvent(
 {
     HWND pinhwnd = (HWND) hook; // 1st param...
     if (hwnd
-    && (event == EVENT_OBJECT_DESTROY || event == EVENT_OBJECT_LOCATIONCHANGE)
+    && (event == EVENT_OBJECT_DESTROY || event == EVENT_OBJECT_LOCATIONCHANGE
+       || event == EVENT_SYSTEM_FOREGROUND || event == 0xB || event == 0xA)
     && idChild == INDEXID_CONTAINER
     && idObject == OBJID_WINDOW) {
         if (pinhwnd && GetParent(pinhwnd) == hwnd) {
@@ -3922,6 +3937,8 @@ static void CALLBACK HandleWinEvent(
             PostMessage(pinhwnd, WM_TIMER, 0, 0);
         }
     }
+//    if(event == 0xB || event == 0xA)
+//    	LOGA("event = %x", event);
 }
 #endif // EVENT_HOOK
 
@@ -3989,7 +4006,8 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 
             HWINEVENTHOOK hook =
             SetWinEventHook(
-                EVENT_OBJECT_DESTROY, EVENT_OBJECT_LOCATIONCHANGE, // Range of events=8001-800Bh
+                //EVENT_OBJECT_DESTROY, EVENT_OBJECT_LOCATIONCHANGE, // Range of events=8001-800Bh
+                0, EVENT_OBJECT_LOCATIONCHANGE,
                 NULL, // Handle to DLL.
                 (WINEVENTPROC)thunk, // The callback function (thunked)
                 lpdwProcessId, threadid, // Process and thread IDs of interest (0 = all)
@@ -4965,7 +4983,8 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
         SetWindowTrans(state.hwnd);
 
         // Send WM_ENTERSIZEMOVE and EVENT_SYSTEM_MOVESIZESTART
-        NotifySizeMoveStaEnd(1);
+        //NotifySizeMoveStaEnd(statse.hwnd, 1);
+        LastWin.start = 1;
     } else if(button == BT_WHEEL || button == BT_HWHEEL) {
         // Wheel actions, directly return here
         // because maybe the action will not be done
@@ -5062,6 +5081,7 @@ static int TitleBarActions(POINT pt, enum action action, enum button button)
 static void FinishMovement()
 {
     LOG("FinishMovement");
+    //LogState("");
     StopSpeedMes();
     ShowSnapLayoutPreview(ZONES_PREV_HIDE);
 //    Sleep(5000);
@@ -5107,7 +5127,10 @@ static void FinishMovement()
 
     HideTransWin();
     // Send WM_EXITSIZEMOVE and EVENT_SYSTEM_MOVESIZEEND
-    NotifySizeMoveStaEnd(0);
+    //NotifySizeMoveStaEnd(state.hwnd, 0);
+
+    if(conf.FullWin && state.moving == 1)
+        NotifySizeMoveStaEnd(state.hwnd, 0);
 
     state.action = AC_NONE;
     state.moving = 0;
@@ -5254,6 +5277,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             if (IsPtDragOut(&state.prevpt, &pt))
                 return CallNextHookEx(NULL, nCode, wParam, lParam);
             state.moving = 0;
+
             MouseMove(state.prevpt);
         }
         state.prevpt = pt;

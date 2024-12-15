@@ -16,7 +16,7 @@ CFLAGS=-Os -fno-stack-check -fno-stack-protector -fno-ident -fomit-frame-pointer
 default: AltSnap.exe hooks.dll
 
 hooks.dll : hooks.c hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c
-	$(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) -mdll -eDllMain -Wl,--kill-at
+	$(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) -mdll -eDllMain -Wl,--kill-at -lmagnification
 
 AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages.c unfuck.h nanolibc.h
 	$(CC) -o AltSnap.exe altsnap.c altsnapr.o $(CFLAGS) -Wl,--tsaware,--disable-reloc-section -mwindows -lcomctl32 -ladvapi32 -lshell32 -eunfuckWinMain

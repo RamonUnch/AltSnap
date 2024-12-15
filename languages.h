@@ -198,6 +198,7 @@ struct strings {
   TCHAR *input_actions_movetnedge;
 
   TCHAR *input_actions_minallother;
+  TCHAR *input_actions_magnify;
   TCHAR *input_actions_transparency;
   TCHAR *input_actions_zoom;
   TCHAR *input_actions_zoom2;
@@ -437,6 +438,7 @@ static const char* l10n_inimapping[] = {
     "InputActionExtendTNEdge",
     "InputActionMoveTNEdge",
     "InputActionMinAllOther",
+    "InputActionMagnify",
     "InputActionTransparency",
     "InputActionZoom",
     "InputActionZoom2",
@@ -680,6 +682,7 @@ static const struct strings en_US = {
  /* extendtnedge       */ TEXT("Extend to next edge"),
  /* movedtnedge        */ TEXT("Move to next edge"),
  /* minallother        */ TEXT("Minimize &other windows"),
+ /* magnify            */ TEXT("Magnify"),
  /* transparency       */ TEXT("Transparency"),
  /* zoom               */ TEXT("Zoom window"),
  /* zoom2              */ TEXT("Zoom window 2"),

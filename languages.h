@@ -28,767 +28,270 @@ struct langinfoitem {
   TCHAR *fn;
 };
 
-struct strings {
-  TCHAR *code;
-  TCHAR *lang_english;
-  TCHAR *lang;
-  TCHAR *author;
+#define LANGUAGE_MAP \
+  LNGVALUE(code, "Code", TEXT("en-US")) \
+  LNGVALUE(lang_english, "LangEnglish", TEXT("English")) \
+  LNGVALUE(lang, "Lang", TEXT("English")) \
+  LNGVALUE(author, "Author", TEXT("Stefan Sundin, RamonUnch")) \
+  /* Menu */ \
+  LNGVALUE(menu_enable,       "MenuEnable",        TEXT("&Enable")) \
+  LNGVALUE(menu_disable,      "MenuDisable",       TEXT("&Disable")) \
+  LNGVALUE(menu_hide,         "MenuHideTray",      TEXT("&Hide tray")) \
+  LNGVALUE(menu_config,       "MenuConfigure",     TEXT("&Configure...")) \
+  LNGVALUE(menu_about,        "MenuAbout",         TEXT("&About")) \
+  LNGVALUE(menu_openinifile,  "MenuOpenIniFile",   TEXT("&Open ini file")) \
+  LNGVALUE(menu_savezones,    "MenuSaveZones",     TEXT("&Save test windows as snap layout")) \
+  LNGVALUE(menu_emptyzone,    "MenuEmptyZone",     TEXT("(empty)")) \
+  LNGVALUE(menu_snaplayout,   "MenuSnapLayout",    TEXT("Snap layout &")) \
+  LNGVALUE(menu_editlayout,   "MenuEditLayout",    TEXT("Edi&t snap layout")) \
+  LNGVALUE(menu_closeallzones,"MenuCloseAllZones", TEXT("C&lose all test windows")) \
+  LNGVALUE(menu_exit,         "MenuExit",          TEXT("E&xit")) \
+  /* Config Title and Tabs */ \
+  LNGVALUE(title, "ConfigTitle", APP_NAME TEXT(" Configuration")) \
+  LNGVALUE(tab_general,   "ConfigTabGeneral",   TEXT("General")) \
+  LNGVALUE(tab_mouse,     "ConfigTabMouse",     TEXT("Mouse")) \
+  LNGVALUE(tab_keyboard,  "ConfigTabKeyboard",  TEXT("Keyboard")) \
+  LNGVALUE(tab_blacklist, "ConfigTabBlacklist", TEXT("Blacklist")) \
+  LNGVALUE(tab_advanced,  "ConfigTabAdvanced",  TEXT("Advanced")) \
+  LNGVALUE(tab_about,     "ConfigTabAbout",     TEXT("About")) \
+  /* General Box */ \
+  LNGVALUE(general_box, "GeneralBox", TEXT("General settings")) \
+  LNGVALUE(general_autofocus,      "GeneralAutoFocus",      TEXT("&Focus windows when dragging.\nYou can also press Ctrl to focus windows.")) \
+  LNGVALUE(general_aero,           "GeneralAero",           TEXT("Mimi&c Aero Snap")) \
+  LNGVALUE(general_smartaero,      "GeneralSmartAero",      TEXT("Smart Aero Sna&p dimensions")) \
+  LNGVALUE(general_smarteraero,    "GeneralSmarterAero",    TEXT("Smarter Aer&o Snap dimensions")) \
+  LNGVALUE(general_stickyresize,   "GeneralStickyResize",   TEXT("Resi&ze other snapped windows with Shift")) \
+  LNGVALUE(general_inactivescroll, "GeneralInactiveScroll", TEXT("&Scroll inactive windows")) \
+  LNGVALUE(general_mdi,            "GeneralMDI",            TEXT("&MDI support")) \
+  LNGVALUE(general_autosnap,       "GeneralAutoSnap",       TEXT("S&nap window edges to:")) \
+  LNGVALUE(general_autosnap0,      "GeneralAutoSnap0",      TEXT("Disabled")) \
+  LNGVALUE(general_autosnap1,      "GeneralAutoSnap1",      TEXT("To screen borders")) \
+  LNGVALUE(general_autosnap2,      "GeneralAutoSnap2",      TEXT("+ outside of windows")) \
+  LNGVALUE(general_autosnap3,      "GeneralAutoSnap3",      TEXT("+ inside of windows")) \
+  LNGVALUE(general_language,       "GeneralLanguage",       TEXT("&Language:")) \
+  LNGVALUE(general_fullwin,        "GeneralFullWin",        TEXT("&Drag full windows")) \
+  LNGVALUE(general_usezones,       "GeneralUseZones",       TEXT("Snap to Layo&ut with Shift (configure with tray menu)")) \
+  LNGVALUE(general_piercingclick,  "GeneralPiercingClick",  TEXT("Avoi&d blocking Alt+Click (disables AltSnap double-clicks)")) \
+  LNGVALUE(general_resizeall,      "GeneralResizeAll",      TEXT("&Resize all windows")) \
+  LNGVALUE(general_resizecenter,   "GeneralResizeCenter",   TEXT("Center resize mode")) \
+  LNGVALUE(general_resizecenter_norm, "GeneralResizeCenterNorm", TEXT("All d&irections")) \
+  LNGVALUE(general_resizecenter_br,   "GeneralResizeCenterBr",   TEXT("&Bottom right")) \
+  LNGVALUE(general_resizecenter_move, "GeneralResizeCenterMove", TEXT("Mo&ve")) \
+  LNGVALUE(general_resizecenter_close,"GeneralResizeCenterClose",TEXT("Clos&est side")) \
+  LNGVALUE(general_autostart_box,         "GeneralAutostartBox",        TEXT("Autostart")) \
+  LNGVALUE(general_autostart,             "GeneralAutostart",           TEXT("S&tart ") APP_NAME TEXT(" when logging on")) \
+  LNGVALUE(general_autostart_hide,        "GeneralAutostartHide",       TEXT("&Hide tray")) \
+  LNGVALUE(general_autostart_elevate,     "GeneralAutostartElevate",    TEXT("&Elevate to administrator privileges")) \
+  LNGVALUE(general_autostart_elevate_tip, "GeneralAutostartElevateTip", TEXT("Note that a UAC prompt will appear every time you log in, unless you disable UAC completely or use the Task Scheduler.\nTo setup a Scheduled task for this purpose, you can use the sch_On.bat batch files in Altsnap's folder.")) \
+  LNGVALUE(general_elevate,               "GeneralElevate",             TEXT("E&levate")) \
+  LNGVALUE(general_elevated,              "GeneralElevated",            TEXT("Elevated")) \
+  LNGVALUE(general_elevation_aborted,     "GeneralElevationAborted",    TEXT("Elevation aborted.")) \
+  /* Keyboard & Mouse tabs */ \
+  LNGVALUE(input_mouse_box, "InputMouseBox", TEXT("Mouse actions")) \
+  LNGVALUE(input_mouse_btac1,   "InputMouseBtAc1",   TEXT("&1. Primary")) \
+  LNGVALUE(input_mouse_btac2,   "InputMouseBtAc2",   TEXT("&2. Alternate")) \
+  LNGVALUE(input_mouse_inttb,   "InputMouseINTTB",   TEXT("&Title bar")) \
+  LNGVALUE(input_mouse_whilem,  "InputMouseWhileM",  TEXT("Whil&e moving")) \
+  LNGVALUE(input_mouse_whiler,  "InputMouseWhileR",  TEXT("While resi&zing")) \
+  LNGVALUE(input_mouse_lmb,     "InputMouseLMB",     TEXT("Left mouse &button:")) \
+  LNGVALUE(input_mouse_mmb,     "InputMouseMMB",     TEXT("&Middle mouse button:")) \
+  LNGVALUE(input_mouse_rmb,     "InputMouseRMB",     TEXT("Ri&ght mouse button:")) \
+  LNGVALUE(input_mouse_mb4,     "InputMouseMB4",     TEXT("Mouse button &4:")) \
+  LNGVALUE(input_mouse_mb5,     "InputMouseMB5",     TEXT("Mouse button &5:")) \
+  LNGVALUE(input_mouse_scroll,  "InputMouseScroll",  TEXT("&Scroll wheel:")) \
+  LNGVALUE(input_mouse_hscroll, "InputMouseHScroll", TEXT("Scroll wheel (&horizontal):")) \
+  LNGVALUE(input_mouse_moveup,  "InputMouseMoveUp",  TEXT("Long &drag-free Move:")) \
+  LNGVALUE(input_mouse_resizeup,"InputMouseResizeUp",TEXT("Long drag-&free Resize:")) \
+  LNGVALUE(input_mouse_ttbactions_box, "InputMouseTTBActionBox", TEXT("Use specific actions when clicking the Title bar")) \
+  LNGVALUE(input_mouse_ttbactionsna,   "InputMouseTTBActionNA",  TEXT("Without hot&key")) \
+  LNGVALUE(input_mouse_ttbactionswa,   "InputMouseTTBActionWA",  TEXT("&With hotkey")) \
+  LNGVALUE(input_mouse_mmb_hc, "InputMouseMMBHC", TEXT("M&iddle mouse button")) \
+  LNGVALUE(input_mouse_mb4_hc, "InputMouseMB4HC", TEXT("M&ouse button 4")) \
+  LNGVALUE(input_mouse_mb5_hc, "InputMouseMB5HC", TEXT("Mo&use button 5")) \
+  LNGVALUE(input_mouse_longclickmove, "InputMouseLongClickMove", TEXT("Mo&ve windows with a long left-click")) \
+  LNGVALUE(input_scrolllockstate,     "InputScrollLockState",    TEXT("Suspend/Resume AltSnap based on &Scroll lock state")) \
+  LNGVALUE(input_unikeyholdmenu,      "InputUniKeyHoldMenu",     TEXT("Pop&up an extended character menu when holding an alphabetic key down")) \
+  LNGVALUE(input_keycombo,          "InputKeyCombo",        TEXT("Use two keys &combo to activate")) \
+  LNGVALUE(input_grabwithalt,       "InputGrabWithAlt",     TEXT("&Action without click:")) \
+  LNGVALUE(input_grabwithaltb,      "InputGrabWithAltB",    TEXT("Acti&on without click (alt):")) \
+  LNGVALUE(input_actions_move,      "InputActionMove",      TEXT("Move window")) \
+  LNGVALUE(input_actions_resize,    "InputActionResize",    TEXT("Resize window")) \
+  LNGVALUE(input_actions_restore,   "InputActionRestore",   TEXT("Restore window")) \
+  LNGVALUE(input_actions_close,     "InputActionClose",     TEXT("&Close window")) \
+  LNGVALUE(input_actions_kill,      "InputActionKill",      TEXT("&Kill program")) \
+  LNGVALUE(input_actions_pause,     "InputActionPause",     TEXT("Pause program")) \
+  LNGVALUE(input_actions_resume,    "InputActionResume",    TEXT("Resume program")) \
+  LNGVALUE(input_actions_asonoff,   "InputActionASOnOff",   TEXT("S&uspend/Resume AltSnap")) \
+  LNGVALUE(input_actions_moveonoff, "InputActionMoveOnOff", TEXT("Movement dis&abled")) \
+  LNGVALUE(input_actions_minimize,  "InputActionMinimize",  TEXT("Mi&nimize window")) \
+  LNGVALUE(input_actions_maximize,  "InputActionMaximize",  TEXT("Ma&ximize window")) \
+  LNGVALUE(input_actions_lower,     "InputActionLower",     TEXT("&Lower window")) \
+  LNGVALUE(input_actions_focus,     "InputActionFocus",     TEXT("Focus window")) \
+  LNGVALUE(input_actions_nstacked,  "InputActionNStacked",  TEXT("Next stacked window")) \
+  LNGVALUE(input_actions_nstacked2, "InputActionNStacked2", TEXT("Next laser stacked window")) \
+  LNGVALUE(input_actions_pstacked,       "InputActionPStacked",   TEXT("Previous stacked window")) \
+  LNGVALUE(input_actions_pstacked2,      "InputActionPStacked2",  TEXT("Previous laser stacked window")) \
+  LNGVALUE(input_actions_npstacked,      "InputActionNPStacked",  TEXT("Next/Prev stacked window")) \
+  LNGVALUE(input_actions_npstacked2,     "InputActionNPStacked2", TEXT("Next/Prev laser stacked window")) \
+  LNGVALUE(input_actions_stacklist,      "InputActionStackList",  TEXT("Stacked windows list")) \
+  LNGVALUE(input_actions_stacklist2,     "InputActionStackList2", TEXT("Laser stacked windows list")) \
+  LNGVALUE(input_actions_alttablist,     "InputActionAltTabList", TEXT("Windows list")) \
+  LNGVALUE(input_actions_alttabfulllist, "InputActionAltTabFullList", TEXT("All windows list")) \
+  LNGVALUE(input_actions_mlzone,   "InputActionMLZone",   TEXT("Move to the left zone")) \
+  LNGVALUE(input_actions_mtzone,   "InputActionMTZone",   TEXT("Move to the top zone")) \
+  LNGVALUE(input_actions_mrzone,   "InputActionMRZone",   TEXT("Move to the right zone")) \
+  LNGVALUE(input_actions_mbzone,   "InputActionMBZone",   TEXT("Move to the bottom zone")) \
+  LNGVALUE(input_actions_xlzone,   "InputActionXLZone",   TEXT("Extend to the left zone")) \
+  LNGVALUE(input_actions_xtzone,   "InputActionXTZone",   TEXT("Extend to the top zone")) \
+  LNGVALUE(input_actions_xrzone,   "InputActionXRZone",   TEXT("Extend to the right zone")) \
+  LNGVALUE(input_actions_xbzone,   "InputActionXBZone",   TEXT("Extend to the bottom zone")) \
+  LNGVALUE(input_actions_xtnledge, "InputActionXTNLEdge", TEXT("Extend to the next left edge")) \
+  LNGVALUE(input_actions_xtntedge, "InputActionXTNTEdge", TEXT("Extend to the next top edge")) \
+  LNGVALUE(input_actions_xtnredge, "InputActionXTNREdge", TEXT("Extend to the next right edge")) \
+  LNGVALUE(input_actions_xtnbedge, "InputActionXTNBEdge", TEXT("Extend to the next bottom edge")) \
+  LNGVALUE(input_actions_mtnledge, "InputActionMTNLEdge", TEXT("Move to the next left edge")) \
+  LNGVALUE(input_actions_mtntedge, "InputActionMTNTEdge", TEXT("Move to the next top edge")) \
+  LNGVALUE(input_actions_mtnredge, "InputActionMTNREdge", TEXT("Move to the next right edge")) \
+  LNGVALUE(input_actions_mtnbedge, "InputActionMTNBEdge", TEXT("Move to the next bottom edge")) \
+  LNGVALUE(input_actions_stepl,    "InputActionStepl",    TEXT("Step left")) \
+  LNGVALUE(input_actions_stept,    "InputActionStepT",    TEXT("Step up")) \
+  LNGVALUE(input_actions_stepr,    "InputActionStepR",    TEXT("Step right")) \
+  LNGVALUE(input_actions_stepb,    "InputActionStepB",    TEXT("Step down")) \
+  LNGVALUE(input_actions_sstepl,   "InputActionSStepl",   TEXT("Small step left")) \
+  LNGVALUE(input_actions_sstept,   "InputActionSStepT",   TEXT("Small step up")) \
+  LNGVALUE(input_actions_sstepr,   "InputActionSStepR",   TEXT("Small step right")) \
+  LNGVALUE(input_actions_sstepb,   "InputActionSStepB",   TEXT("Small step down")) \
+  LNGVALUE(input_actions_focusl,   "InputActionFocusL",   TEXT("Focus left window")) \
+  LNGVALUE(input_actions_focust,   "InputActionFocusT",   TEXT("Focus top window")) \
+  LNGVALUE(input_actions_focusr,   "InputActionFocusR",   TEXT("Focus right window")) \
+  LNGVALUE(input_actions_focusb,   "InputActionFocusB",   TEXT("Focus bottom window")) \
+  LNGVALUE(input_actions_roll,     "InputActionRoll",     TEXT("&Roll/Unroll window")) \
+  LNGVALUE(input_actions_alwaysontop,  "InputActionAlwaysOnTop",  TEXT("Toggle always on &top")) \
+  LNGVALUE(input_actions_borderless,   "InputActionBorderless",   TEXT("Toggle &borderless")) \
+  LNGVALUE(input_actions_center,       "InputActionCenter",       TEXT("C&enter window on screen")) \
+  LNGVALUE(input_actions_oriclick,     "InputActionOriClick",     TEXT("Send ori&ginal click")) \
+  LNGVALUE(input_actions_nothing,      "InputActionNothing",      TEXT("Nothing")) \
+  LNGVALUE(input_actions_alttab,       "InputActionAltTab",       TEXT("Alt+Tab")) \
+  LNGVALUE(input_actions_volume,       "InputActionVolume",       TEXT("Volume")) \
+  LNGVALUE(input_actions_mute,         "InputActionMute",         TEXT("Mute &sounds")) \
+  LNGVALUE(input_actions_menu,         "InputActionMenu",         TEXT("Action menu")) \
+  LNGVALUE(input_actions_maximizehv,   "InputActionMaximizeHV",   TEXT("Maximize &Vertically")) \
+  LNGVALUE(input_actions_sidesnap,     "InputActionSideSnap",     TEXT("&Snap to monitor side/corner")) \
+  LNGVALUE(input_actions_extendsnap ,  "InputActionExtendSnap",   TEXT("Extend to monitor side/corner")) \
+  LNGVALUE(input_actions_extendtnedge, "InputActionExtendTNEdge", TEXT("Extend to next edge")) \
+  LNGVALUE(input_actions_movetnedge,   "InputActionMoveTNEdge",   TEXT("Move to next edge")) \
+  LNGVALUE(input_actions_minallother,  "InputActionMinAllOther",  TEXT("Minimize &other windows")) \
+  LNGVALUE(input_actions_transparency, "InputActionTransparency", TEXT("Transparency")) \
+  LNGVALUE(input_actions_zoom,         "InputActionZoom",         TEXT("Zoom window")) \
+  LNGVALUE(input_actions_zoom2,        "InputActionZoom2",        TEXT("Zoom window 2")) \
+  LNGVALUE(input_actions_hscroll,      "InputActionHScroll",      TEXT("Horizontal scroll")) \
+  \
+  LNGVALUE(input_hotkeys_box,     "InputHotkeysBox", TEXT("Hotkeys")) \
+  LNGVALUE(input_hotkeys_modkey,  "InputHotkeysModKey", TEXT("Modifier key for al&ternate action:")) \
+  LNGVALUE(input_hotclicks_box,   "InputHotclicksBox", TEXT("Hotclick (activate with a click)")) \
+  LNGVALUE(input_hotclicks_more,  "InputHotclicksMore", TEXT("A checked button can be combined with an action but it will always be blocked in this case.")) \
+  LNGVALUE(input_hotkeys_alt,     "InputHotkeysAlt", TEXT("Alt")) \
+  LNGVALUE(input_hotkeys_winkey,  "InputHotkeysWinkey", TEXT("Winkey")) \
+  LNGVALUE(input_hotkeys_ctrl,    "InputHotkeysCtrl", TEXT("Ctrl")) \
+  LNGVALUE(input_hotkeys_shift,   "InputHotkeysShift", TEXT("Shift")) \
+  LNGVALUE(input_hotkeys_shortcuts,      "InputHotkeysShortcuts",      TEXT("S&hortcut for action:")) \
+  LNGVALUE(input_hotkeys_shortcutspick,  "InputHotkeysShortcutsPick",  TEXT("Pick &keys")) \
+  LNGVALUE(input_hotkeys_shortcutsclear, "InputHotkeysShortcutsClear", TEXT("Clear ke&ys")) \
+  LNGVALUE(input_hotkeys_shortcutset,    "InputHotkeysShortcutsSet",   TEXT("Sa&ve")) \
+  LNGVALUE(input_hotkeys_useptwindow,    "InputHotkeysUsePtWindow",    TEXT("Apply to the &pointed window")) \
+  LNGVALUE(input_hotkeys_leftalt,        "InputHotkeysLeftAlt",        TEXT("L&eft Alt")) \
+  LNGVALUE(input_hotkeys_rightalt,       "InputHotkeysRightAlt",       TEXT("&Right Alt")) \
+  LNGVALUE(input_hotkeys_leftwinkey,     "InputHotkeysLeftWinkey",     TEXT("Left &Winkey")) \
+  LNGVALUE(input_hotkeys_rightwinkey,    "InputHotkeysRightWinkey",    TEXT("Right W&inkey")) \
+  LNGVALUE(input_hotkeys_leftctrl,       "InputHotkeysLeftCtrl",       TEXT("&Left Ctrl")) \
+  LNGVALUE(input_hotkeys_rightctrl,      "InputHotkeysRightCtrl",      TEXT("Ri&ght Ctrl")) \
+  LNGVALUE(input_hotkeys_leftshift,      "InputHotkeysLeftShift",      TEXT("Left Shift")) \
+  LNGVALUE(input_hotkeys_rightshift,     "InputHotkeysRightShift",     TEXT("Right Shift")) \
+  LNGVALUE(input_hotkeys_more, "InputHotkeysMore", TEXT("You can add any key by editing the ini file.\nUse the shift key to snap windows to each other.")) \
+  /* Blacklits Tab*/ \
+  LNGVALUE(blacklist_box,              "BlacklistBox",              TEXT("Blacklist settings")) \
+  LNGVALUE(blacklist_processblacklist, "BlacklistProcessBlacklist", TEXT("&Process blacklist:")) \
+  LNGVALUE(blacklist_blacklist,        "BlacklistBlacklist",        TEXT("&Windows blacklist:")) \
+  LNGVALUE(blacklist_scrolllist,       "BlacklistScrolllist",       TEXT("Windows that should ignore &scroll action:")) \
+  LNGVALUE(blacklist_mdis,             "BlacklistMDIs",             TEXT("&MDIs not to be treated as such:")) \
+  LNGVALUE(blacklist_pause,            "BlacklistPause",            TEXT("Processes not to be pa&used or killed:")) \
+  LNGVALUE(blacklist_findwindow_box,   "BlacklistFindWindowBox",    TEXT("Identify window")) \
+  /* Advanced Tab */ \
+  LNGVALUE(advanced_metrics_box,      "AdvancedMetricsBox",       TEXT("Metrics")) \
+  LNGVALUE(advanced_centerfraction,   "AdvancedCenterFraction",   TEXT("&Center/Sides fraction (%):")) \
+  LNGVALUE(advanced_aerohoffset,      "AdvancedAeroHoffset",      TEXT("Aero offset(%) &Horizontal:")) \
+  LNGVALUE(advanced_aerovoffset,      "AdvancedAeroVoffset",      TEXT("&Vertical:")) \
+  LNGVALUE(advanced_snapthreshold,    "AdvancedSnapThreshold",    TEXT("&Snap Threshold (pixels):")) \
+  LNGVALUE(advanced_aerothreshold,    "AdvancedAeroThreshold",    TEXT("A&ero Threshold (pixels):")) \
+  LNGVALUE(advanced_snapgap,          "AdvancedSnapGap",          TEXT("Snapping &gap (pixels):")) \
+  LNGVALUE(advanced_aerospeed,        "AdvancedAeroSpeed",        TEXT("Ma&x snapping speed (pixels):")) \
+  LNGVALUE(advanced_testwindow,       "AdvancedTestWindow",       TEXT("Test &Window")) \
+  LNGVALUE(advanced_movetrans,        "AdvancedMoveTrans",        TEXT("Opacit&y when moving:")) \
+  LNGVALUE(advanced_behavior_box,     "AdvancedBehaviorBox",      TEXT("Behavior")) \
+  LNGVALUE(advanced_multipleinstances,"AdvancedMultipleInstances",TEXT("Allow multiple &instances of AltSnap")) \
+  LNGVALUE(advanced_autoremaximize,   "AdvancedAutoRemaximize",   TEXT("Automatically &remaximize windows when changing monitor")) \
+  LNGVALUE(advanced_aerotopmaximizes, "AdvancedAeroTopMaximizes", TEXT("&Maximize windows snapped at top")) \
+  LNGVALUE(advanced_aerodbclickshift, "AdvancedAeroDBClickShift", TEXT("Invert shift &behavior for double-click aero snapping")) \
+  LNGVALUE(advanced_maxwithlclick,    "AdvancedMaxWithLClick",    TEXT("&Toggle maximize state with the resize button while moving")) \
+  LNGVALUE(advanced_restoreonclick,   "AdvancedRestoreOnClick",   TEXT("Rest&ore window with single click like original AltDrag")) \
+  LNGVALUE(advanced_fullscreen,       "AdvancedFullScreen",       TEXT("Enable on &full screen windows")) \
+  LNGVALUE(advanced_blmaximized,      "AdvancedBLMaximized",      TEXT("&Disable AltSnap on Maximized windows")) \
+  LNGVALUE(advanced_fancyzone,        "AdvancedFancyZone",        TEXT("Restore Fancy&Zones snapped windows")) \
+  LNGVALUE(advanced_norestore,        "AdvancedNoRestore",        TEXT("Never restore AltSna&pped windows")) \
+  LNGVALUE(advanced_topmostindicator, "AdvancedTopmostIndicator", TEXT("Show an i&ndicator on always on top windows")) \
+  /* About Tab */ \
+  LNGVALUE(about_box,     "AboutBox",      TEXT("About ") APP_NAME ) \
+  LNGVALUE(about_version, "AboutVersion",  TEXT("Version ") TEXT( APP_VERSION )) \
+  LNGVALUE(about_author,  "AboutAuthor",   TEXT("Created by Stefan Sundin")) \
+  LNGVALUE(about_author2, "AboutAuthor2",  TEXT("Maintained by Raymond Gillibert")) \
+  LNGVALUE(about_license, "AboutLicense",  APP_NAME TEXT(" is free and open source software!\nFeel free to redistribute!")) \
+  LNGVALUE(about_translation_credit, "AboutTranslationCredit", TEXT("Translation credit")) \
+  /* Misc */ \
+  LNGVALUE(unhook_error,      "MiscUnhookError",      TEXT("There was an error disabling AltDrag. This was most likely caused by Windows having already disabled AltDrag's hooks.\n\nIf this is the first time this has happened, you can safely ignore it and continue using AltDrag.\n\nIf this is happening repeatedly, you can read on the website how to prevent this from happening again (look for 'AltDrag mysteriously stops working' in the documentation).")) \
+  LNGVALUE(zone_confirmation, "MiscZoneConfirmation", TEXT("Erase old snap layout and save current Test Windows positions as the new snap layout?")) \
+  LNGVALUE(zone_testwinhelp,  "MiscZoneTestWinHelp",  TEXT("To setup Snap layout:\n1) Open several of those Test Windows\n2) Dispose them as you please\n3) Hit the *&Save test windows as snap layout* option in the tray menu")) \
+  /* Extended character list  for each virtual key */ \
+  LNGVALUE(a, "A", TEXT("àáâäæãåª%āăąǎǟǡǣǻǽȁȃȧ|Ȧḁ%ⱥ|Ⱥɐ|Ɐɑ|Ɑɒ|Ɒⲁ|Ⲁⓐ")) \
+  LNGVALUE(b, "B", TEXT("%ƀɓƃƅɃ%ɓḃḅḇⓑ")) \
+  LNGVALUE(c, "C", TEXT("ç¢©%ćĉċčƈḉȼ|Ȼɕⓒ")) \
+  LNGVALUE(d, "D", TEXT("ð%ďđɖɗƌƍḋḍḏḑḓǆǅǳǲȡȸⓓ")) \
+  LNGVALUE(e, "E", TEXT("èéêë€%ēĕėęěǝəɛȅȇḕḗḙḛȩ|Ȩḝɇ|Ɇⱸⓔ")) \
+  LNGVALUE(f, "F", TEXT("ƒ%ḟɸⱷⓕ%♩♪♮♭♯♬♫")) \
+  LNGVALUE(g, "G", TEXT("%ǵǧḡɠɣǥⓖ")) \
+  LNGVALUE(h, "H", TEXT("%ĥħƕǶḣḥḧḩḫȟ|Ȟⱨ|Ⱨⱶ|Ⱶẖⓗ")) \
+  LNGVALUE(i, "I", TEXT("ìíîï%ĩīĭǐȉȋįİıĳɩɨḭḯⓘ")) \
+  LNGVALUE(j, "J", TEXT("%ĵǰȷɉ|Ɉⓙ")) \
+  LNGVALUE(k, "K", TEXT("%ķĸƙǩḱḳⱪ|Ⱪꝁ|Ꝁʞ|Ʞⓚ")) \
+  LNGVALUE(l, "L", TEXT("£%ĺļľŀłƛǉǈȴƚ|Ƚⱡ|Ⱡɫ|Ɫḷḹḻḽⓛ")) \
+  LNGVALUE(m, "M", TEXT("µ%ḿṁṃɱ|Ɱɯⓜ")) \
+  LNGVALUE(n, "N", TEXT("ñ%ńņňŉŋɲƞ|Ƞǌǋǹȵ%ṅṇṉṋⓝ")) \
+  LNGVALUE(o, "O", TEXT("òóôöœõø°%ōŏő%ɔɵơƣǒǫǭǿȍȏȣ|Ȣȫ|Ȫȭ|Ȭȯ|Ȯȱ|Ȱṍṏṑṓ%ⱺⓞ")) \
+  LNGVALUE(p, "P", TEXT("¶þ·•%ƥᵽ|Ᵽṕṗⓟ")) \
+  LNGVALUE(q, "Q", TEXT("¿¤‰‘’“”„…–—«»‹›%ȹɋ|Ɋⓠ")) \
+  LNGVALUE(r, "R", TEXT("®%ŕŗřƦȑȓṙṛṝṟɍ|Ɍɽ|Ɽⱹⓡ")) \
+  LNGVALUE(s, "S", TEXT("šß§%śŝşſ%ƨʃƪș|Șȿ|Ȿ%ṡṣṥṧṩⓢ")) \
+  LNGVALUE(t, "T", TEXT("†‡™%ţťŧƫƭʈț|Țȶⱦ|Ⱦ%ṫṭṯṱẗⓣ")) \
+  LNGVALUE(u, "U", TEXT("ùúûü%ũūůŭűų%ưʊǔǖǘǚǜȕȗʉ|Ʉ%ṳṵṷṹṻⓤ")) \
+  LNGVALUE(v, "V", TEXT("%ʋɅⱱⱴ%ṽṿⓥ")) \
+  LNGVALUE(w, "W", TEXT("%ẁẃŵẅⱳ|Ⱳ%ẇẉⓦ")) \
+  LNGVALUE(x, "X", TEXT("±×÷¬%ẋẍⓧ")) \
+  LNGVALUE(y, "Y", TEXT("ýÿ¥%ŷẏȳ|Ȳƴɏ|Ɏⓨ")) \
+  LNGVALUE(z, "Z", TEXT("ž%źẑżẓẕ%ƶʒƹƺǯȥ|Ȥɀ|Ɀⱬ|Ⱬⓩ"))
 
-  // menu
-  TCHAR *menu_enable;
-  TCHAR *menu_disable;
-  TCHAR *menu_hide;
-  TCHAR *menu_config;
-  TCHAR *menu_about;
-  TCHAR *menu_openinifile;
-  TCHAR *menu_savezones;
-  TCHAR *menu_emptyzone;
-  TCHAR *menu_snaplayout;
-  TCHAR *menu_editlayout;
-  TCHAR *menu_closeallzones;
-  TCHAR *menu_exit;
 
-  // config
-  TCHAR *title;
-  TCHAR *tab_general;
-  TCHAR *tab_mouse;
-  TCHAR *tab_keyboard;
-  TCHAR *tab_blacklist;
-  TCHAR *tab_advanced;
-  TCHAR *tab_about;
+#define LNGVALUE(x, y, z) TCHAR *x;
+// String structure definition
+struct strings { LANGUAGE_MAP };
+#undef LNGVALUE
 
-  // general
-  TCHAR *general_box;
-  TCHAR *general_autofocus;
-  TCHAR *general_aero;
-  TCHAR *general_smartaero;
-  TCHAR *general_smarteraero;
-  TCHAR *general_stickyresize;
-  TCHAR *general_inactivescroll;
-  TCHAR *general_mdi;
-  TCHAR *general_autosnap;
-  TCHAR *general_autosnap0;
-  TCHAR *general_autosnap1;
-  TCHAR *general_autosnap2;
-  TCHAR *general_autosnap3;
-  TCHAR *general_language;
-  TCHAR *general_fullwin;
-  TCHAR *general_usezones;
-  TCHAR *general_piercingclick;
-  TCHAR *general_resizeall;
-  TCHAR *general_resizecenter;
+#define LNGVALUE(x, y, z) y,
+// Name of values ini entries
+static const char* l10n_inimapping[] = { LANGUAGE_MAP };
+#undef LNGVALUE
 
-  TCHAR *general_resizecenter_norm;
-  TCHAR *general_resizecenter_br;
-  TCHAR *general_resizecenter_move;
-  TCHAR *general_resizecenter_close;
-
-  // general autostart
-  TCHAR *general_autostart_box;
-  TCHAR *general_autostart;
-  TCHAR *general_autostart_hide;
-  TCHAR *general_autostart_elevate;
-  TCHAR *general_autostart_elevate_tip;
-  TCHAR *general_elevate;
-  TCHAR *general_elevated;
-  TCHAR *general_elevation_aborted;
-
-  // input
-  // mouse
-  TCHAR *input_mouse_box;
-  TCHAR *input_mouse_btac1;
-  TCHAR *input_mouse_btac2;
-  TCHAR *input_mouse_inttb;
-  TCHAR *input_mouse_whilem;
-  TCHAR *input_mouse_whiler;
-  TCHAR *input_mouse_lmb;
-  TCHAR *input_mouse_mmb;
-  TCHAR *input_mouse_rmb;
-  TCHAR *input_mouse_mb4;
-  TCHAR *input_mouse_mb5;
-  TCHAR *input_mouse_scroll;
-  TCHAR *input_mouse_hscroll;
-  TCHAR *input_mouse_moveup;
-  TCHAR *input_mouse_resizeup;
-  TCHAR *input_mouse_ttbactions_box;
-  TCHAR *input_mouse_ttbactionsna;
-  TCHAR *input_mouse_ttbactionswa;
-  TCHAR *input_mouse_mmb_hc;
-  TCHAR *input_mouse_mb4_hc;
-  TCHAR *input_mouse_mb5_hc;
-  TCHAR *input_mouse_longclickmove;
-
-  TCHAR *input_scrolllockstate;
-  TCHAR *input_unikeyholdmenu;
-  TCHAR *input_keycombo;
-  TCHAR *input_grabwithalt;
-  TCHAR *input_grabwithaltb;
-
-  // actions
-  TCHAR *input_actions_move;
-  TCHAR *input_actions_resize;
-  TCHAR *input_actions_restore;
-  TCHAR *input_actions_close;
-  TCHAR *input_actions_kill;
-  TCHAR *input_actions_pause;
-  TCHAR *input_actions_resume;
-  TCHAR *input_actions_asonoff;
-  TCHAR *input_actions_moveonoff;
-  TCHAR *input_actions_minimize;
-  TCHAR *input_actions_maximize;
-  TCHAR *input_actions_lower;
-  TCHAR *input_actions_focus;
-  TCHAR *input_actions_nstacked;
-  TCHAR *input_actions_nstacked2;
-  TCHAR *input_actions_pstacked;
-  TCHAR *input_actions_pstacked2;
-  TCHAR *input_actions_npstacked;
-  TCHAR *input_actions_npstacked2;
-  TCHAR *input_actions_stacklist;
-  TCHAR *input_actions_stacklist2;
-  TCHAR *input_actions_alttablist;
-  TCHAR *input_actions_alttabfulllist;
-
-  TCHAR *input_actions_mlzone;
-  TCHAR *input_actions_mtzone;
-  TCHAR *input_actions_mrzone;
-  TCHAR *input_actions_mbzone;
-  TCHAR *input_actions_xlzone;
-  TCHAR *input_actions_xtzone;
-  TCHAR *input_actions_xrzone;
-  TCHAR *input_actions_xbzone;
-
-  TCHAR *input_actions_xtnledge;
-  TCHAR *input_actions_xtntedge;
-  TCHAR *input_actions_xtnredge;
-  TCHAR *input_actions_xtnbedge;
-  TCHAR *input_actions_mtnledge;
-  TCHAR *input_actions_mtntedge;
-  TCHAR *input_actions_mtnredge;
-  TCHAR *input_actions_mtnbedge;
-
-  TCHAR *input_actions_stepl;
-  TCHAR *input_actions_stept;
-  TCHAR *input_actions_stepr;
-  TCHAR *input_actions_stepb;
-  TCHAR *input_actions_sstepl;
-  TCHAR *input_actions_sstept;
-  TCHAR *input_actions_sstepr;
-  TCHAR *input_actions_sstepb;
-
-  TCHAR *input_actions_focusl;
-  TCHAR *input_actions_focust;
-  TCHAR *input_actions_focusr;
-  TCHAR *input_actions_focusb;
-
-  TCHAR *input_actions_roll;
-  TCHAR *input_actions_alwaysontop;
-  TCHAR *input_actions_borderless;
-  TCHAR *input_actions_center;
-  TCHAR *input_actions_oriclick;
-  TCHAR *input_actions_nothing;
-  TCHAR *input_actions_alttab;
-  TCHAR *input_actions_volume;
-  TCHAR *input_actions_mute;
-  TCHAR *input_actions_menu;
-  TCHAR *input_actions_maximizehv;
-  TCHAR *input_actions_sidesnap;
-  TCHAR *input_actions_extendsnap;
-  TCHAR *input_actions_extendtnedge;
-  TCHAR *input_actions_movetnedge;
-
-  TCHAR *input_actions_minallother;
-  TCHAR *input_actions_transparency;
-  TCHAR *input_actions_zoom;
-  TCHAR *input_actions_zoom2;
-  TCHAR *input_actions_hscroll;
-
-  // hotkeys
-  TCHAR *input_hotkeys_box;
-  TCHAR *input_hotkeys_modkey;
-  TCHAR *input_hotclicks_box;
-  TCHAR *input_hotclicks_more;
-
-  TCHAR *input_hotkeys_alt;
-  TCHAR *input_hotkeys_winkey;
-  TCHAR *input_hotkeys_ctrl;
-  TCHAR *input_hotkeys_shift;
-  TCHAR *input_hotkeys_shortcuts;
-  TCHAR *input_hotkeys_shortcutspick;
-  TCHAR *input_hotkeys_shortcutsclear;
-  TCHAR *input_hotkeys_shortcutset;
-  TCHAR *input_hotkeys_useptwindow;
-
-  TCHAR *input_hotkeys_leftalt;
-  TCHAR *input_hotkeys_rightalt;
-  TCHAR *input_hotkeys_leftwinkey;
-  TCHAR *input_hotkeys_rightwinkey;
-  TCHAR *input_hotkeys_leftctrl;
-  TCHAR *input_hotkeys_rightctrl;
-  TCHAR *input_hotkeys_leftshift;
-  TCHAR *input_hotkeys_rightshift;
-  TCHAR *input_hotkeys_more;
-
-  // blacklist
-  TCHAR *blacklist_box;
-  TCHAR *blacklist_processblacklist;
-  TCHAR *blacklist_blacklist;
-  TCHAR *blacklist_scrolllist;
-  TCHAR *blacklist_mdis;
-  TCHAR *blacklist_pause;
-  TCHAR *blacklist_findwindow_box;
-
-  // advanced
-  TCHAR *advanced_metrics_box;
-  TCHAR *advanced_centerfraction;
-  TCHAR *advanced_aerohoffset;
-  TCHAR *advanced_aerovoffset;
-  TCHAR *advanced_snapthreshold;
-  TCHAR *advanced_aerothreshold;
-  TCHAR *advanced_snapgap;
-  TCHAR *advanced_aerospeed;
-  TCHAR *advanced_testwindow;
-  TCHAR *advanced_movetrans;
-
-  TCHAR *advanced_behavior_box;
-  TCHAR *advanced_multipleinstances;
-  TCHAR *advanced_autoremaximize;
-  TCHAR *advanced_aerotopmaximizes;
-  TCHAR *advanced_aerodbclickshift;
-  TCHAR *advanced_maxwithlclick;
-  TCHAR *advanced_restoreonclick;
-  TCHAR *advanced_fullscreen;
-  TCHAR *advanced_blmaximized;
-  TCHAR *advanced_fancyzone;
-  TCHAR *advanced_norestore;
-  TCHAR *advanced_topmostindicator;
-  // about
-  TCHAR *about_box;
-  TCHAR *about_version;
-  TCHAR *about_author;
-  TCHAR *about_author2;
-  TCHAR *about_license;
-  TCHAR *about_translation_credit;
-
-  // misc
-  TCHAR *unhook_error;
-  TCHAR *zone_confirmation;
-  TCHAR *zone_testwinhelp;
-  TCHAR *a, *b, *c, *d, *e, *f, *g, *h;
-  TCHAR *i, *j, *k, *l, *m, *n, *o, *p;
-  TCHAR *q, *r, *s, *t, *u, *v, *w, *x;
-  TCHAR *y, *z;
-};
-
-// SAME ORDER THAN ABOVE!!!!
-static const char* l10n_inimapping[] = {
-    "Code",
-    "LangEnglish",
-    "Lang",
-    "Author",
-
-    "MenuEnable",
-    "MenuDisable",
-    "MenuHideTray",
-    "MenuConfigure",
-    "MenuAbout",
-    "MenuOpenIniFile",
-    "MenuSaveZones",
-    "MenuEmptyZone",
-    "MenuSnapLayout",
-    "MenuEditLayout",
-    "MenuCloseAllZones",
-    "MenuExit",
-
-    "ConfigTitle",
-    "ConfigTabGeneral",
-    "ConfigTabMouse",
-    "ConfigTabKeyboard",
-    "ConfigTabBlacklist",
-    "ConfigTabAdvanced",
-    "ConfigTabAbout",
-
-    "GeneralBox",
-    "GeneralAutoFocus",
-    "GeneralAero",
-    "GeneralSmartAero",
-    "GeneralSmarterAero",
-    "GeneralStickyResize",
-    "GeneralInactiveScroll",
-    "GeneralMDI",
-    "GeneralAutoSnap",
-    "GeneralAutoSnap0",
-    "GeneralAutoSnap1",
-    "GeneralAutoSnap2",
-    "GeneralAutoSnap3",
-    "GeneralLanguage",
-    "GeneralFullWin",
-    "GeneralUseZones",
-    "GeneralPiercingClick",
-    "GeneralResizeAll",
-    "GeneralResizeCenter",
-    "GeneralResizeCenterNorm",
-    "GeneralResizeCenterBr",
-    "GeneralResizeCenterMove",
-    "GeneralResizeCenterClose",
-
-    "GeneralAutostartBox",
-    "GeneralAutostart",
-    "GeneralAutostartHide",
-    "GeneralAutostartElevate",
-    "GeneralAutostartElevateTip",
-    "GeneralElevate",
-    "GeneralElevated",
-    "GeneralElevationAborted",
-
-    "InputMouseBox",
-    "InputMouseBtAc1",
-    "InputMouseBtAc2",
-    "InputMouseINTTB",
-    "InputMouseWhileM",
-    "InputMouseWhileR",
-    "InputMouseLMB",
-    "InputMouseMMB",
-    "InputMouseRMB",
-    "InputMouseMB4",
-    "InputMouseMB5",
-    "InputMouseScroll",
-    "InputMouseHScroll",
-    "InputMouseMoveUp",
-    "InputMouseResizeUp",
-    "InputMouseTTBActionBox",
-    "InputMouseTTBActionNA",
-    "InputMouseTTBActionWA",
-    "InputMouseMMBHC",
-    "InputMouseMB4HC",
-    "InputMouseMB5HC",
-    "InputMouseLongClickMove",
-
-    "InputScrollLockState",
-    "InputUniKeyHoldMenu",
-    "InputKeyCombo",
-    "InputGrabWithAlt",
-    "InputGrabWithAltB",
-
-    "InputActionMove",
-    "InputActionResize",
-    "InputActionRestore",
-    "InputActionClose",
-    "InputActionKill",
-    "InputActionPause",
-    "InputActionResume",
-    "InputActionASOnOff",
-    "InputActionMoveOnOff",
-    "InputActionMinimize",
-    "InputActionMaximize",
-    "InputActionLower",
-    "InputActionFocus",
-    "InputActionNStacked",
-    "InputActionNStacked2",
-    "InputActionPStacked",
-    "InputActionPStacked2",
-    "InputActionNPStacked",
-    "InputActionNPStacked2",
-    "InputActionStackList",
-    "InputActionStackList2",
-    "InputActionAltTabList",
-    "InputActionAltTabFullList",
-    "InputActionMLZone",
-    "InputActionMTZone",
-    "InputActionMRZone",
-    "InputActionMBZone",
-    "InputActionXLZone",
-    "InputActionXTZone",
-    "InputActionXRZone",
-    "InputActionXBZone",
-    "InputActionXTNLEdge",
-    "InputActionXTNTEdge",
-    "InputActionXTNREdge",
-    "InputActionXTNBEdge",
-    "InputActionMTNLEdge",
-    "InputActionMTNTEdge",
-    "InputActionMTNREdge",
-    "InputActionMTNBEdge",
-    "InputActionStepl",
-    "InputActionStepT",
-    "InputActionStepR",
-    "InputActionStepB",
-    "InputActionSStepl",
-    "InputActionSStepT",
-    "InputActionSStepR",
-    "InputActionSStepB",
-    "InputActionFocusL",
-    "InputActionFocusT",
-    "InputActionFocusR",
-    "InputActionFocusB",
-    "InputActionRoll",
-    "InputActionAlwaysOnTop",
-    "InputActionBorderless",
-    "InputActionCenter",
-    "InputActionOriClick",
-    "InputActionNothing",
-    "InputActionAltTab",
-    "InputActionVolume",
-    "InputActionMute",
-    "InputActionMenu",
-    "InputActionMaximizeHV",
-    "InputActionSideSnap",
-    "InputActionExtendSnap",
-    "InputActionExtendTNEdge",
-    "InputActionMoveTNEdge",
-    "InputActionMinAllOther",
-    "InputActionTransparency",
-    "InputActionZoom",
-    "InputActionZoom2",
-    "InputActionHScroll",
-
-    "InputHotkeysBox",
-    "InputHotkeysModKey",
-    "InputHotclicksBox",
-    "InputHotclicksMore",
-    "InputHotkeysAlt",
-    "InputHotkeysWinkey",
-    "InputHotkeysCtrl",
-    "InputHotkeysShift",
-    "InputHotkeysShortcuts",
-    "InputHotkeysShortcutsPick",
-    "InputHotkeysShortcutsClear",
-    "InputHotkeysShortcutsSet",
-    "InputHotkeysUsePtWindow",
-    "InputHotkeysLeftAlt",
-    "InputHotkeysRightAlt",
-    "InputHotkeysLeftWinkey",
-    "InputHotkeysRightWinkey",
-    "InputHotkeysLeftCtrl",
-    "InputHotkeysRightCtrl",
-    "InputHotkeysLeftShift",
-    "InputHotkeysRightShift",
-    "InputHotkeysMore",
-
-    "BlacklistBox",
-    "BlacklistProcessBlacklist",
-    "BlacklistBlacklist",
-    "BlacklistScrolllist",
-    "BlacklistMDIs",
-    "BlacklistPause",
-    "BlacklistFindWindowBox",
-
-    "AdvancedMetricsBox",
-    "AdvancedCenterFraction",
-    "AdvancedAeroHoffset",
-    "AdvancedAeroVoffset",
-    "AdvancedSnapThreshold",
-    "AdvancedAeroThreshold",
-    "AdvancedSnapGap",
-    "AdvancedAeroSpeed",
-    "AdvancedTestWindow",
-    "AdvancedMoveTrans",
-
-    "AdvancedBehaviorBox",
-    "AdvancedMultipleInstances",
-    "AdvancedAutoRemaximize",
-    "AdvancedAeroTopMaximizes",
-    "AdvancedAeroDBClickShift",
-    "AdvancedMaxWithLClick",
-    "AdvancedRestoreOnClick",
-    "AdvancedFullScreen",
-    "AdvancedBLMaximized",
-    "AdvancedFancyZone",
-    "AdvancedNoRestore",
-    "AdvancedTopmostIndicator",
-
-    "AboutBox",
-    "AboutVersion",
-    "AboutAuthor",
-    "AboutAuthor2",
-    "AboutLicense",
-    "AboutTranslationCredit",
-
-    "MiscUnhookError",
-    "MiscZoneConfirmation",
-    "MiscZoneTestWinHelp",
-    "A", "B", "C", "D", "E",
-    "F", "G", "H", "I", "J",
-    "K", "L", "M", "N", "O",
-    "P", "Q", "R", "S", "T",
-    "U", "V", "W", "X", "Y", "Z",
-};
-
-// SAME ORDER THAN ABOVE!!!!
-static const struct strings en_US = {
- /* === translation info === */
- /* code               */ TEXT("en-US"),
- /* lang_english       */ TEXT("English"),
- /* lang               */ TEXT("English"),
- /* author             */ TEXT("Stefan Sundin, RamonUnch"),
-
- /* === app === */
- /* menu */
- /* enable             */ TEXT("&Enable"),
- /* disable            */ TEXT("&Disable"),
- /* hide               */ TEXT("&Hide tray"),
- /* config             */ TEXT("&Configure..."),
- /* about              */ TEXT("&About"),
- /* open ini file      */ TEXT("&Open ini file"),
- /* savezones          */ TEXT("&Save test windows as snap layout"),
- /* emptyzone          */ TEXT("(empty)"),
- /* snaplayout         */ TEXT("Snap layout &"),
- /* edit layout        */ TEXT("Edi&t snap layout"),
- /* close all zones    */ TEXT("C&lose all test windows"),
- /* exit               */ TEXT("E&xit"),
-
- /* === config === */
- /* title              */ APP_NAME TEXT(" Configuration"),
- /* tabs */
- /* general            */ TEXT("General"),
- /* Mouse              */ TEXT("Mouse"),
- /* Keybaord           */ TEXT("Keyboard"),
- /* blacklist          */ TEXT("Blacklist"),
- /* advanced           */ TEXT("Advanced"),
- /* about              */ TEXT("About"),
-
- /* general tab */
- /* box                */ TEXT("General settings"),
- /* autofocus          */ TEXT("&Focus windows when dragging.\nYou can also press Ctrl to focus windows."),
- /* aero               */ TEXT("Mimi&c Aero Snap"),
- /* smartaero          */ TEXT("Smart Aero Sna&p dimensions"),
- /* smarteraero        */ TEXT("Smarter Aer&o Snap dimensions"),
- /* stickyresize       */ TEXT("Resi&ze other snapped windows with Shift"),
- /* inactivescroll     */ TEXT("&Scroll inactive windows"),
- /* mdi                */ TEXT("&MDI support"),
- /* autosnap           */ TEXT("S&nap window edges to:"),
- /* autosnap0          */ TEXT("Disabled"),
- /* autosnap1          */ TEXT("To screen borders"),
- /* autosnap2          */ TEXT("+ outside of windows"),
- /* autosnap3          */ TEXT("+ inside of windows"),
- /* language           */ TEXT("&Language:"),
- /* FullWin            */ TEXT("&Drag full windows"),
- /* UseZones           */ TEXT("Snap to Layo&ut with Shift (configure with tray menu)"),
- /* PiercingClick      */ TEXT("Avoi&d blocking Alt+Click (disables AltSnap double-clicks)"),
- /* ResizeAll          */ TEXT("&Resize all windows"),
- /* ResizeCenter       */ TEXT("Center resize mode"),
- /* ResizeCenterNorm   */ TEXT("All d&irections"),
- /* ResizeCenterBr     */ TEXT("&Bottom right"),
- /* ResizeCenterMove   */ TEXT("Mo&ve"),
- /* ResizeCenterClose  */ TEXT("Clos&est side"),
-
- /* autostart_box      */ TEXT("Autostart"),
- /* autostart          */ TEXT("S&tart ") APP_NAME TEXT(" when logging on"),
- /* autostart_hide     */ TEXT("&Hide tray"),
- /* autostart_elevate  */ TEXT("&Elevate to administrator privileges"),
- /* elevate_tip        */ TEXT("Note that a UAC prompt will appear every time you log in, unless you disable UAC completely or use the Task Scheduler.\nTo setup a Scheduled task for this purpose, you can use the sch_On.bat batch files in Altsnap's folder."),
- /* elevate            */ TEXT("E&levate"),
- /* elevated           */ TEXT("Elevated"),
- /* elevation_aborted  */ TEXT("Elevation aborted."),
-
- /* input tab */
- /* mouse */
- /* box                */ TEXT("Mouse actions"),
- /* btac1              */ TEXT("&1. Primary"),
- /* btac2              */ TEXT("&2. Alternate"),
- /* inttb              */ TEXT("&Title bar"),
- /* whilem             */ TEXT("Whil&e moving"),
- /* whiler             */ TEXT("While resi&zing"),
- /* lmb                */ TEXT("Left mouse &button:"),
- /* mmb                */ TEXT("&Middle mouse button:"),
- /* rmb                */ TEXT("Ri&ght mouse button:"),
- /* mb4                */ TEXT("Mouse button &4:"),
- /* mb5                */ TEXT("Mouse button &5:"),
- /* scroll             */ TEXT("&Scroll wheel:"),
- /* hscroll            */ TEXT("Scroll wheel (&horizontal):"),
- /* moveup             */ TEXT("Long &drag-free Move:"),
- /* resizeup           */ TEXT("Long drag-&free Resize:"),
- /* ttbactions box     */ TEXT("Use specific actions when clicking the Title bar"),
- /* ttbaction noalt    */ TEXT("Without hot&key"),
- /* ttbaction walt     */ TEXT("&With hotkey"),
- /* mmb_hr             */ TEXT("M&iddle mouse button"),
- /* mb4_hc             */ TEXT("M&ouse button 4"),
- /* mb5_hc             */ TEXT("Mo&use button 5"),
- /* longclickmove      */ TEXT("Mo&ve windows with a long left-click"),
-
- /* scroll lock state  */ TEXT("Suspend/Resume AltSnap based on &Scroll lock state"),
- /* unikeyholdmenu     */ TEXT("Pop&up an extended character menu when holding an alphabetic key down"),
- /* keycombo           */ TEXT("Use two keys &combo to activate"),
- /* grabwithalt        */ TEXT("&Action without click:"),
- /* grabwithaltb       */ TEXT("Acti&on without click (alt):"),
-
- /* actions */
- /* move               */ TEXT("Move window"),
- /* resize             */ TEXT("Resize window"),
- /* restore            */ TEXT("Restore window"),
- /* close              */ TEXT("&Close window"),
- /* kill               */ TEXT("&Kill program"),
- /* pause              */ TEXT("Pause program"),
- /* resume             */ TEXT("Resume program"),
- /* asonoff            */ TEXT("S&uspend/Resume AltSnap"),
- /* moveonoff          */ TEXT("Movement dis&abled"),
- /* minimize           */ TEXT("Mi&nimize window"),
- /* maximize           */ TEXT("Ma&ximize window"),
- /* lower              */ TEXT("&Lower window"),
- /* focus              */ TEXT("Focus window"),
- /* nstacked           */ TEXT("Next stacked window"),
- /* nstacked 2         */ TEXT("Next laser stacked window"),
- /* pstacked           */ TEXT("Previous stacked window"),
- /* pstacked 2         */ TEXT("Previous laser stacked window"),
- /* npstacked          */ TEXT("Next/Prev stacked window"),
- /* npstacked          */ TEXT("Next/Prev laser stacked window"),
- /* stacklist          */ TEXT("Stacked windows list"),
- /* stacklist2         */ TEXT("Laser stacked windows list"),
- /* alttablist         */ TEXT("Windows list"),
- /* alttabfulllist     */ TEXT("All windows list"),
- /* mlzone             */ TEXT("Move to the left zone"),
- /* mtzone             */ TEXT("Move to the top zone"),
- /* mrzone             */ TEXT("Move to the right zone"),
- /* mbzone             */ TEXT("Move to the bottom zone"),
- /* xlzone             */ TEXT("Extend to the left zone"),
- /* xtzone             */ TEXT("Extend to the top zone"),
- /* xrzone             */ TEXT("Extend to the right zone"),
- /* xbzone             */ TEXT("Extend to the bottom zone"),
- /* xtnledge           */ TEXT("Extend to the next left edge"),
- /* xtntedge           */ TEXT("Extend to the next top edge"),
- /* xtnredge           */ TEXT("Extend to the next right edge"),
- /* xtnbedge           */ TEXT("Extend to the next bottom edge"),
- /* mtnledge           */ TEXT("Move to the next left edge"),
- /* mtntedge           */ TEXT("Move to the next top edge"),
- /* mtnredge           */ TEXT("Move to the next right edge"),
- /* mtnbedge           */ TEXT("Move to the next bottom edge"),
- /* stepl              */ TEXT("Step left"),
- /* stept              */ TEXT("Step up"),
- /* stepr              */ TEXT("Step right"),
- /* stepb              */ TEXT("Step down"),
- /* sstepl             */ TEXT("Small step left"),
- /* sstept             */ TEXT("Small step up"),
- /* sstepr             */ TEXT("Small step right"),
- /* sstepb             */ TEXT("Small step down"),
- /* focusl             */ TEXT("Focus left window"),
- /* focust             */ TEXT("Focus top window"),
- /* focusr             */ TEXT("Focus right window"),
- /* focusb             */ TEXT("Focus bottom window"),
- /* roll               */ TEXT("&Roll/Unroll window"),
- /* alwaysontop        */ TEXT("Toggle always on &top"),
- /* borderless         */ TEXT("Toggle &borderless"),
- /* center             */ TEXT("C&enter window on screen"),
- /* oriclick           */ TEXT("Send ori&ginal click"),
- /* nothing            */ TEXT("Nothing"),
- /* alttab             */ TEXT("Alt+Tab"),
- /* volume             */ TEXT("Volume"),
- /* mute               */ TEXT("Mute &sounds"),
- /* menu               */ TEXT("Action menu"),
- /* maximizehv         */ TEXT("Maximize &Vertically"),
- /* sidesnap           */ TEXT("&Snap to monitor side/corner"),
- /* extendsnap         */ TEXT("Extend to monitor side/corner"),
- /* extendtnedge       */ TEXT("Extend to next edge"),
- /* movedtnedge        */ TEXT("Move to next edge"),
- /* minallother        */ TEXT("Minimize &other windows"),
- /* transparency       */ TEXT("Transparency"),
- /* zoom               */ TEXT("Zoom window"),
- /* zoom2              */ TEXT("Zoom window 2"),
- /* hscroll            */ TEXT("Horizontal scroll"),
-
- /* hotkeys */
- /* box                */ TEXT("Hotkeys"),
- /* modkey             */ TEXT("Modifier key for al&ternate action:"),
- /* hotclicks box      */ TEXT("Hotclick (activate with a click)"),
- /* hotclicks more     */ TEXT("A checked button can be combined with an action but it will always be blocked in this case."),
- /* alt                */ TEXT("Alt"),
- /* winkey             */ TEXT("Winkey"),
- /* ctrl               */ TEXT("Ctrl"),
- /* shift              */ TEXT("Shift"),
- /* shortcuts          */ TEXT("S&hortcut for action:"),
- /* shortcutspick      */ TEXT("Pick &keys"),
- /* shortcutsClear     */ TEXT("Clear ke&ys"),
- /* shortcutsSet       */ TEXT("Sa&ve"),
- /* useptwindow        */ TEXT("Apply to the &pointed window"),
- /* leftalt            */ TEXT("L&eft Alt"),
- /* rightalt           */ TEXT("&Right Alt"),
- /* leftwinkey         */ TEXT("Left &Winkey"),
- /* rightwinkey        */ TEXT("Right W&inkey"),
- /* leftctrl           */ TEXT("&Left Ctrl"),
- /* rightctrl          */ TEXT("Ri&ght Ctrl"),
- /* leftshift          */ TEXT("Left Shift"),
- /* rightshift         */ TEXT("Right Shift"),
- /* hotkeys more       */ TEXT("You can add any key by editing the ini file.\nUse the shift key to snap windows to each other."),
-
- /* blacklist tab */
- /* box                */ TEXT("Blacklist settings"),
- /* processblacklist   */ TEXT("&Process blacklist:"),
- /* blacklist          */ TEXT("&Windows blacklist:"),
- /* scrolllist         */ TEXT("Windows that should ignore &scroll action:"),
- /* MDIs bl            */ TEXT("&MDIs not to be treated as such:"),
- /* Pause list         */ TEXT("Processes not to be pa&used or killed:"),
- /* findwindow_box     */ TEXT("Identify window"),
-
- /* advanced tab */
- /* metrics_box      */   TEXT("Metrics"),
- /* centerfraction   */   TEXT("&Center/Sides fraction (%):"),
- /* aerohoffset      */   TEXT("Aero offset(%) &Horizontal:"),
- /* aeroVoffset      */   TEXT("&Vertical:"),
- /* snapthreshold    */   TEXT("&Snap Threshold (pixels):"),
- /* aerothreshold    */   TEXT("A&ero Threshold (pixels):"),
- /* snapgap          */   TEXT("Snapping &gap (pixels):"),
- /* aerospeed        */   TEXT("Ma&x snapping speed (pixels):"),
- /* testwindow       */   TEXT("Test &Window"),
- /* movetrans        */   TEXT("Opacit&y when moving:"),
-
- /* behavior_box     */   TEXT("Behavior"),
- /* multipleinstances*/   TEXT("Allow multiple &instances of AltSnap"),
- /* autoremaximize   */   TEXT("Automatically &remaximize windows when changing monitor"),
- /* aerotopmaximizes */   TEXT("&Maximize windows snapped at top"),
- /* aerodbclickshift */   TEXT("Invert shift &behavior for double-click aero snapping"),
- /* maxwithlclick    */   TEXT("&Toggle maximize state with the resize button while moving"),
- /* restoreonclick   */   TEXT("Rest&ore window with single click like original AltDrag"),
- /* fullscreen       */   TEXT("Enable on &full screen windows"),
- /* blmaximized      */   TEXT("&Disable AltSnap on Maximized windows"),
- /* fancyzone        */   TEXT("Restore Fancy&Zones snapped windows"),
- /* norestore        */   TEXT("Never restore AltSna&pped windows"),
- /* topmostindicator */   TEXT("Show an i&ndicator on always on top windows"),
-
- /* about tab */
- /* box                */ TEXT("About ") APP_NAME ,
- /* version            */ TEXT("Version ") TEXT( APP_VERSION ),
- /* author             */ TEXT("Created by Stefan Sundin"),
- /* author2            */ TEXT("Maintained by Raymond Gillibert"),
- /* license            */ APP_NAME TEXT(" is free and open source software!\nFeel free to redistribute!"),
- /* translation_credit */ TEXT("Translation credit"),
-
- /* === misc === */
- /* unhook_error       */ TEXT("There was an error disabling AltDrag. This was most likely caused by Windows having already disabled AltDrag's hooks.\n\n")
-                          TEXT("If this is the first time this has happened, you can safely ignore it and continue using AltDrag.\n\n")
-                          TEXT("If this is happening repeatedly, you can read on the website how to prevent this from happening again ")
-                          TEXT("(look for 'AltDrag mysteriously stops working' in the documentation)."),
-
- /* zoneconfirmation   */ TEXT("Erase old snap layout and save current Test Windows positions as the new snap layout?"),
- /* zone test win help */ TEXT("To setup Snap layout:\n")
-                          TEXT("1) Open several of those Test Windows\n")
-                          TEXT("2) Dispose them as you please\n")
-                          TEXT("3) Hit the *&Save test windows as snap layout* option in the tray menu"),
- /* Extended character list  for each virtual key */
- /* A */ TEXT("àáâäæãåª%āăąǎǟǡǣǻǽȁȃȧ|Ȧḁ%ⱥ|Ⱥɐ|Ɐɑ|Ɑɒ|Ɒⲁ|Ⲁⓐ"), \
- /* B */ TEXT("%ƀɓƃƅɃ%ɓḃḅḇⓑ"), \
- /* C */ TEXT("ç¢©%ćĉċčƈḉȼ|Ȼɕⓒ"), \
- /* D */ TEXT("ð%ďđɖɗƌƍḋḍḏḑḓǆǅǳǲȡȸⓓ"), \
- /* E */ TEXT("èéêë€%ēĕėęěǝəɛȅȇḕḗḙḛȩ|Ȩḝɇ|Ɇⱸⓔ"), \
- /* F */ TEXT("ƒ%ḟɸⱷⓕ%♩♪♮♭♯♬♫"), \
- /* G */ TEXT("%ǵǧḡɠɣǥⓖ"), \
- /* H */ TEXT("%ĥħƕǶḣḥḧḩḫȟ|Ȟⱨ|Ⱨⱶ|Ⱶẖⓗ"), \
- /* I */ TEXT("ìíîï%ĩīĭǐȉȋįİıĳɩɨḭḯⓘ"), \
- /* J */ TEXT("%ĵǰȷɉ|Ɉⓙ"), \
- /* K */ TEXT("%ķĸƙǩḱḳⱪ|Ⱪꝁ|Ꝁʞ|Ʞⓚ"), \
- /* L */ TEXT("£%ĺļľŀłƛǉǈȴƚ|Ƚⱡ|Ⱡɫ|Ɫḷḹḻḽⓛ"), \
- /* M */ TEXT("µ%ḿṁṃɱ|Ɱɯⓜ"), \
- /* N */ TEXT("ñ%ńņňŉŋɲƞ|Ƞǌǋǹȵ%ṅṇṉṋⓝ"), \
- /* O */ TEXT("òóôöœõø°%ōŏő%ɔɵơƣǒǫǭǿȍȏȣ|Ȣȫ|Ȫȭ|Ȭȯ|Ȯȱ|Ȱṍṏṑṓ%ⱺⓞ"), \
- /* P */ TEXT("¶þ·•%ƥᵽ|Ᵽṕṗⓟ"), \
- /* Q */ TEXT("¿¤‰‘’“”„…–—«»‹›%ȹɋ|Ɋⓠ"), \
- /* R */ TEXT("®%ŕŗřƦȑȓṙṛṝṟɍ|Ɍɽ|Ɽⱹⓡ"), \
- /* S */ TEXT("šß§%śŝşſ%ƨʃƪș|Șȿ|Ȿ%ṡṣṥṧṩⓢ"), \
- /* T */ TEXT("†‡™%ţťŧƫƭʈț|Țȶⱦ|Ⱦ%ṫṭṯṱẗⓣ"), \
- /* U */ TEXT("ùúûü%ũūůŭűų%ưʊǔǖǘǚǜȕȗʉ|Ʉ%ṳṵṷṹṻⓤ"), \
- /* V */ TEXT("%ʋɅⱱⱴ%ṽṿⓥ"), \
- /* W */ TEXT("%ẁẃŵẅⱳ|Ⱳ%ẇẉⓦ"), \
- /* X */ TEXT("±×÷¬%ẋẍⓧ"), \
- /* Y */ TEXT("ýÿ¥%ŷẏȳ|Ȳƴɏ|Ɏⓨ"), \
- /* Z */ TEXT("ž%źẑżẓẕ%ƶʒƹƺǯȥ|Ȥɀ|Ɀⱬ|Ⱬⓩ"), \
-};
+#define LNGVALUE(x, y, z) z,
+// Default values en-US
+static const struct strings en_US = { LANGUAGE_MAP };
+#undef LANGVALUE
 
 #endif

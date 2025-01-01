@@ -92,7 +92,7 @@ static void LoadTranslationOrTT(const TCHAR *__restrict__ ini, const TCHAR * __r
 
         TCHAR buf[128];
         TCHAR **deststr = &((TCHAR **)l10n_ini)[i*2+offset];
-        if (deststr == &l10n_ini->about_version) {
+        if (deststr == &l10n_ini->AboutVersion) {
             // Append version number to version....
             lstrcpy_s(buf, ARR_SZ(buf), txt);
             lstrcat_s(buf, ARR_SZ(buf), TEXT(" ") TEXT(APP_VERSION));
@@ -134,10 +134,10 @@ void ListAllTranslations()
     // First element
     langinfo = (struct langinfoitem *)malloc( sizeof(struct langinfoitem) );
     if (!langinfo) return;
-    langinfo[0].code = en_US.code;
-    langinfo[0].lang_english = en_US.lang_english;
-    langinfo[0].lang = en_US.lang;
-    langinfo[0].author = en_US.author;
+    langinfo[0].code = en_US.Code;
+    langinfo[0].lang_english = en_US.LangEnglish;
+    langinfo[0].lang = en_US.Lang;
+    langinfo[0].author = en_US.Author;
     langinfo[0].fn = NULL;
     nlanguages = 1;
 

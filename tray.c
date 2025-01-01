@@ -235,7 +235,7 @@ static void CloseAllTestWindows()
 static void catFullLayoutName(TCHAR *txt, size_t len, int laynum)
 {
     TCHAR n1[UINT_DIGITS+1];
-    lstrcat_s(txt, len, l10n->menu_snaplayout);
+    lstrcat_s(txt, len, l10n->MenuSnapLayout);
     lstrcat_s(txt, len, Uint2lStr(n1, laynum+1));
     if (g_dllmsgHKhwnd) {
         DWORD rez =0;
@@ -250,7 +250,7 @@ static void catFullLayoutName(TCHAR *txt, size_t len, int laynum)
             lstrcat_s(txt, len, TEXT(")"));
         } else {
             lstrcat_s(txt, len, TEXT("  "));
-            lstrcat_s(txt, len, l10n->menu_emptyzone); // (empty)
+            lstrcat_s(txt, len, l10n->MenuEmptyZone); // (empty)
         }
     } else {
         lstrcat_s(txt, len, TEXT("  (...)"));
@@ -264,16 +264,16 @@ static void ShowContextMenu(HWND hwnd)
     GetCursorPos(&pt);
     HMENU menu = CreatePopupMenu();
 
-    AppendMenu(menu, MF_STRING, SWM_TOGGLE, (ENABLED()?l10n->menu_disable:l10n->menu_enable));
-    AppendMenu(menu, MF_STRING, SWM_HIDE, l10n->menu_hide);
+    AppendMenu(menu, MF_STRING, SWM_TOGGLE, (ENABLED()?l10n->MenuDisable:l10n->MenuEnable));
+    AppendMenu(menu, MF_STRING, SWM_HIDE, l10n->MenuHideTray);
     if(VISTA)
         InsertMenu(menu, -1, elevated?MF_BYPOSITION|MF_GRAYED:MF_BYPOSITION
-                 , SWM_ELEVATE, (elevated? l10n->general_elevated: l10n->general_elevate));
+                 , SWM_ELEVATE, (elevated? l10n->GeneralElevated: l10n->GeneralElevate));
 
     AppendMenu(menu, MF_SEPARATOR, 0, NULL);
-    AppendMenu(menu, MF_STRING, SWM_CONFIG, l10n->menu_config);
-    AppendMenu(menu, MF_STRING, SWM_ABOUT, l10n->menu_about);
-    AppendMenu(menu, MF_STRING, SWM_OPENINIFILE, l10n->menu_openinifile);
+    AppendMenu(menu, MF_STRING, SWM_CONFIG, l10n->MenuConfigure);
+    AppendMenu(menu, MF_STRING, SWM_ABOUT, l10n->MenuAbout);
+    AppendMenu(menu, MF_STRING, SWM_OPENINIFILE, l10n->MenuOpenIniFile);
 
     if (UseZones&1) { // Zones section
         if(MaxLayouts)
@@ -291,22 +291,22 @@ static void ShowContextMenu(HWND hwnd)
 
         if (!(UseZones&2)) {
             TCHAR numstr[INT_DIGITS+1];
-            lstrcpy_s(txt, ARR_SZ(txt), l10n->menu_editlayout);
+            lstrcpy_s(txt, ARR_SZ(txt), l10n->MenuEditLayout);
             lstrcat_s(txt, ARR_SZ(txt), TEXT(" "));
             lstrcat_s(txt, ARR_SZ(txt), Int2lStr(numstr, LayoutNumber+1));
             AppendMenu(menu, MF_SEPARATOR, 0, NULL);
-            AppendMenu(menu, MF_STRING, SWM_TESTWIN,  l10n->advanced_testwindow);
+            AppendMenu(menu, MF_STRING, SWM_TESTWIN,  l10n->AdvancedTestWindow);
             AppendMenu(menu, MF_STRING, SWM_EDITLAYOUT, txt);
             AppendMenu(menu, FindWindow(TEXT(APP_NAMEA)TEXT("-test"), NULL)? MF_STRING :MF_STRING|MF_GRAYED
-                      , SWM_SAVEZONES, l10n->menu_savezones);
+                      , SWM_SAVEZONES, l10n->MenuSaveZones);
 
             AppendMenu(menu, FindWindow(TEXT(APP_NAMEA)TEXT("-test"), NULL)? MF_STRING :MF_STRING|MF_GRAYED
-                      , SWM_CLOSEZONES, l10n->menu_closeallzones);
+                      , SWM_CLOSEZONES, l10n->MenuCloseAllZones);
         }
     }
 
     AppendMenu(menu, MF_SEPARATOR, 0, NULL);
-    AppendMenu(menu, MF_STRING, SWM_EXIT, l10n->menu_exit);
+    AppendMenu(menu, MF_STRING, SWM_EXIT, l10n->MenuExit);
 
     // Track menu
     SetForegroundWindow(hwnd);

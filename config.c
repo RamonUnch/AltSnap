@@ -392,6 +392,18 @@ static HWND CreateInfoTip(HWND hDlg, int toolID, const TCHAR * const pszText)
     toolInfo.uFlags = TTF_IDISHWND | TTF_SUBCLASS ;
     toolInfo.uId = (UINT_PTR)hwndTool;
     toolInfo.lpszText = (TCHAR * const)pszText;
+
+    TCHAR buf[16];
+    if (GetClassName(hwndTool, buf, ARR_SZ(buf)) > 0
+    &&  !lstrcmp(TEXT("Static"), buf)) {
+        // Use the RECT for STATIC controls
+        toolInfo.uFlags = TTF_SUBCLASS;
+        GetWindowRect(hwndTool, &toolInfo.rect);
+        POINT pt = {0,0};
+        ScreenToClient(hDlg, &pt);
+        OffsetRect(&toolInfo.rect, pt.x, pt.y);
+    }
+
     SendMessage(hwndTip, TTM_ADDTOOL, 0, (LPARAM)&toolInfo);
     SendMessage(hwndTip, TTM_SETDELAYTIME, TTDT_AUTOPOP, MAKELONG(32767,0));
     RECT rc; GetClientRect(hDlg, &rc);
@@ -405,7 +417,7 @@ static void UpdateDialogStrings(HWND hwnd, const struct dialogstring * const str
     unsigned i;
     for (i=0; i < size; i++) {
         SetDlgItemText(hwnd, strlst[i].idc, L10NSTR(strlst[i].l10nidx));
-        //CreateInfoTip(hwnd, strlst[i].idc, L10NSTR(strlst[i].l10nidx));
+        CreateInfoTip(hwnd, strlst[i].idc, L10NSTR(strlst[i].l10nidx + 1));
     }
 }
 // Options to bead or written...
@@ -1745,6 +1757,24 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         lks->idx = idx;
     } break;
 
+    case  WM_MOVE:
+    case  WM_SIZE: {
+        TCHAR num[INT_DIGITS*4+4+1];
+        TCHAR title[256+INT_DIGITS*4+4];
+        RECT rc;
+        GetWindowRectL(hwnd, &rc);
+        lstrcpy_noaccel(title, l10n->advanced_testwindow, ARR_SZ(title));
+        lstrcat_s(title, ARR_SZ(title), TEXT(": "));
+        lstrcat_s(title, ARR_SZ(title), RectToStr(&rc, num));
+
+        lstrcat_s(title, ARR_SZ(title), TEXT(" ("));
+        lstrcat_s(title, ARR_SZ(title), Int2lStr(num, rc.right-rc.left));
+        lstrcat_s(title, ARR_SZ(title), TEXT("x"));
+        lstrcat_s(title, ARR_SZ(title), Int2lStr(num, rc.bottom-rc.top));
+        lstrcat_s(title, ARR_SZ(title), TEXT(")"));
+        SetWindowText(hwnd, title);
+
+    }break;
     case WM_PAINT: {
         if(!GetUpdateRect(hwnd, NULL, FALSE)) return 0;
         /* We must keep track of pens and delete them. */

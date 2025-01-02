@@ -105,7 +105,7 @@ static BOOL ElevateNow(int showconfig)
         if (ret > 32) {
             PostMessage(g_hwnd, WM_CLOSE, 0, 0);
         } else {
-            MessageBox(NULL, l10n->general_elevation_aborted, TEXT(APP_NAMEA), MB_ICONINFORMATION | MB_OK);
+            MessageBox(NULL, l10n->GeneralElevationAborted, TEXT(APP_NAMEA), MB_ICONINFORMATION | MB_OK);
         }
         return FALSE;
 }
@@ -179,19 +179,19 @@ static void MoveButtonUporDown(WORD id, WINDOWPLACEMENT *wndpl, int diffrows)
 static void UpdateStrings()
 {
     // Update window title
-    PropSheet_SetTitle(g_cfgwnd, 0, l10n->title);
+    PropSheet_SetTitle(g_cfgwnd, 0, l10n->ConfigTitle);
 
     // Update tab titles
     // tc = PropSheet_GetTabControl(g_cfgwnd);
     HWND tc = (HWND)SendMessage(g_cfgwnd, PSM_GETTABCONTROL, 0, 0);
     int numrows_prev = TabCtrl_GetRowCount(tc);
     const TCHAR *titles[6];
-    titles[0] = l10n->tab_general;
-    titles[1] = l10n->tab_mouse;
-    titles[2] = l10n->tab_keyboard;
-    titles[3] = l10n->tab_blacklist;
-    titles[4] = l10n->tab_advanced;
-    titles[5] = l10n->tab_about;
+    titles[0] = l10n->ConfigTabGeneral;
+    titles[1] = l10n->ConfigTabMouse;
+    titles[2] = l10n->ConfigTabKeyboard;
+    titles[3] = l10n->ConfigTabBlacklist;
+    titles[4] = l10n->ConfigTabAdvanced;
+    titles[5] = l10n->ConfigTabAbout;
     size_t i;
     for (i = 0; i < ARR_SZ(titles); i++) {
         TCITEM ti;
@@ -392,6 +392,18 @@ static HWND CreateInfoTip(HWND hDlg, int toolID, const TCHAR * const pszText)
     toolInfo.uFlags = TTF_IDISHWND | TTF_SUBCLASS ;
     toolInfo.uId = (UINT_PTR)hwndTool;
     toolInfo.lpszText = (TCHAR * const)pszText;
+
+    TCHAR buf[16];
+    if (GetClassName(hwndTool, buf, ARR_SZ(buf)) > 0
+    &&  !lstrcmp(TEXT("Static"), buf)) {
+        // Use the RECT for STATIC controls
+        toolInfo.uFlags = TTF_SUBCLASS;
+        GetWindowRect(hwndTool, &toolInfo.rect);
+        POINT pt = {0,0};
+        ScreenToClient(hDlg, &pt);
+        OffsetRect(&toolInfo.rect, pt.x, pt.y);
+    }
+
     SendMessage(hwndTip, TTM_ADDTOOL, 0, (LPARAM)&toolInfo);
     SendMessage(hwndTip, TTM_SETDELAYTIME, TTDT_AUTOPOP, MAKELONG(32767,0));
     RECT rc; GetClientRect(hDlg, &rc);
@@ -405,7 +417,7 @@ static void UpdateDialogStrings(HWND hwnd, const struct dialogstring * const str
     unsigned i;
     for (i=0; i < size; i++) {
         SetDlgItemText(hwnd, strlst[i].idc, L10NSTR(strlst[i].l10nidx));
-        //CreateInfoTip(hwnd, strlst[i].idc, L10NSTR(strlst[i].l10nidx));
+        CreateInfoTip(hwnd, strlst[i].idc, L10NSTR(strlst[i].l10nidx + 1));
     }
 }
 // Options to bead or written...
@@ -497,28 +509,28 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     #undef V
 
     static const struct dialogstring strlst[] = {
-        { IDC_GENERAL_BOX,      L10NIDX(general_box) },
-        { IDC_AUTOFOCUS,        L10NIDX(general_autofocus) },
-        { IDC_AERO,             L10NIDX(general_aero) },
-        { IDC_SMARTAERO,        L10NIDX(general_smartaero) },
-        { IDC_SMARTERAERO,      L10NIDX(general_smarteraero) },
-        { IDC_STICKYRESIZE,     L10NIDX(general_stickyresize) },
-        { IDC_INACTIVESCROLL,   L10NIDX(general_inactivescroll) },
-        { IDC_MDI,              L10NIDX(general_mdi) },
-        { IDC_AUTOSNAP_HEADER,  L10NIDX(general_autosnap) },
-        { IDC_LANGUAGE_HEADER,  L10NIDX(general_language) },
-        { IDC_USEZONES,         L10NIDX(general_usezones) },
-        { IDC_PIERCINGCLICK,    L10NIDX(general_piercingclick) },
-        { IDC_RESIZEALL,        L10NIDX(general_resizeall) },
-        { IDC_RESIZECENTER,     L10NIDX(general_resizecenter) },
-        { IDC_RZCENTER_NORM,    L10NIDX(general_resizecenter_norm) },
-        { IDC_RZCENTER_BR,      L10NIDX(general_resizecenter_br) },
-        { IDC_RZCENTER_MOVE,    L10NIDX(general_resizecenter_move) },
-        { IDC_RZCENTER_CLOSE,   L10NIDX(general_resizecenter_close) },
-        { IDC_AUTOSTART_BOX,    L10NIDX(general_autostart_box) },
-        { IDC_AUTOSTART,        L10NIDX(general_autostart) },
-        { IDC_AUTOSTART_HIDE,   L10NIDX(general_autostart_hide) },
-        { IDC_AUTOSTART_ELEVATE,L10NIDX(general_autostart_elevate) }
+        { IDC_GENERAL_BOX,      L10NIDX(GeneralBox) },
+        { IDC_AUTOFOCUS,        L10NIDX(GeneralAutoFocus) },
+        { IDC_AERO,             L10NIDX(GeneralAero) },
+        { IDC_SMARTAERO,        L10NIDX(GeneralSmartAero) },
+        { IDC_SMARTERAERO,      L10NIDX(GeneralSmarterAero) },
+        { IDC_STICKYRESIZE,     L10NIDX(GeneralStickyResize) },
+        { IDC_INACTIVESCROLL,   L10NIDX(GeneralInactiveScroll) },
+        { IDC_MDI,              L10NIDX(GeneralMDI) },
+        { IDC_AUTOSNAP_HEADER,  L10NIDX(GeneralAutoSnap) },
+        { IDC_LANGUAGE_HEADER,  L10NIDX(GeneralLanguage) },
+        { IDC_USEZONES,         L10NIDX(GeneralUseZones) },
+        { IDC_PIERCINGCLICK,    L10NIDX(GeneralPiercingClick) },
+        { IDC_RESIZEALL,        L10NIDX(GeneralResizeAll) },
+        { IDC_RESIZECENTER,     L10NIDX(GeneralResizeCenter) },
+        { IDC_RZCENTER_NORM,    L10NIDX(GeneralResizeCenterNorm) },
+        { IDC_RZCENTER_BR,      L10NIDX(GeneralResizeCenterBr) },
+        { IDC_RZCENTER_MOVE,    L10NIDX(GeneralResizeCenterMove) },
+        { IDC_RZCENTER_CLOSE,   L10NIDX(GeneralResizeCenterClose) },
+        { IDC_AUTOSTART_BOX,    L10NIDX(GeneralAutostartBox) },
+        { IDC_AUTOSTART,        L10NIDX(GeneralAutostart) },
+        { IDC_AUTOSTART_HIDE,   L10NIDX(GeneralAutostartHide) },
+        { IDC_AUTOSTART_ELEVATE,L10NIDX(GeneralAutostartElevate) }
     };
 
     int updatestrings = 0;
@@ -539,7 +551,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         if (langinfo) {
             for (i = 0; i < nlanguages; i++) {
                 CB_AddString(control, langinfo[i].lang);
-                if (langinfo[i].code && !lstrcmpi(l10n->code, langinfo[i].code) ) {
+                if (langinfo[i].code && !lstrcmpi(l10n->Code, langinfo[i].code) ) {
                     CB_SetCurSel(control, i);
                 }
             }
@@ -570,7 +582,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             }
         } else if (id == IDC_AUTOSTART_ELEVATE) {
             if (val && IsUACEnabled()) {
-                MessageBox(NULL, l10n->general_autostart_elevate_tip, TEXT(APP_NAMEA), MB_ICONINFORMATION | MB_OK);
+                MessageBox(NULL, l10n->GeneralAutostartElevateTip, TEXT(APP_NAMEA), MB_ICONINFORMATION | MB_OK);
             }
         } else if (id == IDC_ELEVATE) {
             return ElevateNow(1);
@@ -603,17 +615,17 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
             // Load selected Language
             int i = CB_GetCurSelId(IDC_LANGUAGE);
-            if (i < nlanguages && langinfo && lstrcmp(l10n->code, langinfo[i].code)) {
+            if (i < nlanguages && langinfo && lstrcmp(l10n->Code, langinfo[i].code)) {
                 LoadTranslation(langinfo[i].fn);
                 #ifdef UNICODE
                 wchar_t curlang[16];
                 GetCUserLanguage_xx_XX(curlang);
-                if (!lstrcmpi(l10n->code, curlang)) // Use Auto if selected language is the current user's one.
+                if (!lstrcmpi(l10n->Code, curlang)) // Use Auto if selected language is the current user's one.
                     WritePrivateProfileString(TEXT("General"), TEXT("Language"), TEXT("Auto"), inipath);
                 else
-                    WritePrivateProfileString(TEXT("General"), TEXT("Language"), l10n->code, inipath);
+                    WritePrivateProfileString(TEXT("General"), TEXT("Language"), l10n->Code, inipath);
                 #else
-                WritePrivateProfileString(TEXT("General"), TEXT("Language"), l10n->code, inipath);
+                WritePrivateProfileString(TEXT("General"), TEXT("Language"), l10n->Code, inipath);
                 #endif
                 updatestrings = 1;
                 UpdateStrings();
@@ -634,15 +646,15 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
         // spetial case...
         //CreateToolTip(IDC_AUTOFOCUS, hwnd, TEXT("String\nExample"));
-        SetDlgItemText(hwnd, IDC_ELEVATE, elevated?l10n->general_elevated: l10n->general_elevate);
+        SetDlgItemText(hwnd, IDC_ELEVATE, elevated?l10n->GeneralElevated: l10n->GeneralElevate);
 
         // AutoSnap
         HWND control = GetDlgItem(hwnd, IDC_AUTOSNAP);
         CB_ResetContent(control);
-        CB_AddString(control, l10n->general_autosnap0);
-        CB_AddString(control, l10n->general_autosnap1);
-        CB_AddString(control, l10n->general_autosnap2);
-        CB_AddString(control, l10n->general_autosnap3);
+        CB_AddString(control, l10n->GeneralAutoSnap0);
+        CB_AddString(control, l10n->GeneralAutoSnap1);
+        CB_AddString(control, l10n->GeneralAutoSnap2);
+        CB_AddString(control, l10n->GeneralAutoSnap3);
         TCHAR txt[8];
         GetPrivateProfileString(TEXT("General"), TEXT("AutoSnap"), TEXT("0"), txt, ARR_SZ(txt), inipath);
         CB_SetCurSel(control, strtoi(txt));
@@ -824,42 +836,42 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     };
 
     #define COMMON_ACTIONS \
-        {TEXT("Close"),       L10NIDX(input_actions_close) },   \
-        {TEXT("Kill"),        L10NIDX(input_actions_kill) },    \
-        {TEXT("Minimize"),    L10NIDX(input_actions_minimize) }, \
-        {TEXT("Maximize"),    L10NIDX(input_actions_maximize) }, \
-        {TEXT("Lower"),       L10NIDX(input_actions_lower) },    \
-        {TEXT("Focus"),       L10NIDX(input_actions_focus) },    \
-        {TEXT("NStacked"),    L10NIDX(input_actions_nstacked) }, \
-        {TEXT("PStacked"),    L10NIDX(input_actions_pstacked) }, \
-        {TEXT("StackList"),   L10NIDX(input_actions_stacklist) }, \
-        {TEXT("StackList2"),  L10NIDX(input_actions_stacklist2) }, \
-        {TEXT("AltTabList"),  L10NIDX(input_actions_alttablist) }, \
-        {TEXT("AltTabFullList"), L10NIDX(input_actions_alttabfulllist) }, \
-        {TEXT("Roll"),        L10NIDX(input_actions_roll) },  \
-        {TEXT("AlwaysOnTop"), L10NIDX(input_actions_alwaysontop) }, \
-        {TEXT("Borderless"),  L10NIDX(input_actions_borderless) }, \
-        {TEXT("Center"),      L10NIDX(input_actions_center) }, \
-        {TEXT("MaximizeHV"),  L10NIDX(input_actions_maximizehv) }, \
-        {TEXT("SideSnap"),    L10NIDX(input_actions_sidesnap) }, \
-        {TEXT("ExtendSnap"),  L10NIDX(input_actions_extendsnap) }, \
-        {TEXT("ExtendTNEdge"),L10NIDX(input_actions_extendtnedge) }, \
-        {TEXT("MoveTNEdge"),  L10NIDX(input_actions_movetnedge) }, \
-        {TEXT("MinAllOther"), L10NIDX(input_actions_minallother) }, \
-        {TEXT("Mute"),        L10NIDX(input_actions_mute) }, \
-        {TEXT("Menu"),        L10NIDX(input_actions_menu) }, \
+        {TEXT("Close"),       L10NIDX(InputActionClose) },   \
+        {TEXT("Kill"),        L10NIDX(InputActionKill) },    \
+        {TEXT("Minimize"),    L10NIDX(InputActionMinimize) }, \
+        {TEXT("Maximize"),    L10NIDX(InputActionMaximize) }, \
+        {TEXT("Lower"),       L10NIDX(InputActionLower) },    \
+        {TEXT("Focus"),       L10NIDX(InputActionFocus) },    \
+        {TEXT("NStacked"),    L10NIDX(InputActionNStacked) }, \
+        {TEXT("PStacked"),    L10NIDX(InputActionPStacked) }, \
+        {TEXT("StackList"),   L10NIDX(InputActionStackList) }, \
+        {TEXT("StackList2"),  L10NIDX(InputActionStackList2) }, \
+        {TEXT("AltTabList"),  L10NIDX(InputActionAltTabList) }, \
+        {TEXT("AltTabFullList"), L10NIDX(InputActionAltTabFullList) }, \
+        {TEXT("Roll"),        L10NIDX(InputActionRoll) },  \
+        {TEXT("AlwaysOnTop"), L10NIDX(InputActionAlwaysOnTop) }, \
+        {TEXT("Borderless"),  L10NIDX(InputActionBorderless) }, \
+        {TEXT("Center"),      L10NIDX(InputActionCenter) }, \
+        {TEXT("MaximizeHV"),  L10NIDX(InputActionMaximizeHV) }, \
+        {TEXT("SideSnap"),    L10NIDX(InputActionSideSnap) }, \
+        {TEXT("ExtendSnap"),  L10NIDX(InputActionExtendSnap) }, \
+        {TEXT("ExtendTNEdge"),L10NIDX(InputActionExtendTNEdge) }, \
+        {TEXT("MoveTNEdge"),  L10NIDX(InputActionMoveTNEdge) }, \
+        {TEXT("MinAllOther"), L10NIDX(InputActionMinAllOther) }, \
+        {TEXT("Mute"),        L10NIDX(InputActionMute) }, \
+        {TEXT("Menu"),        L10NIDX(InputActionMenu) }, \
 
 
     static const struct actiondl mouse_actions[] = {
         // Specific to the Primary/Alternate/Titlebar
         // And not available for the MoveUp/ResizeUp
-        {TEXT("Move"),        L10NIDX(input_actions_move) },
-        {TEXT("Resize"),      L10NIDX(input_actions_resize) },
-        {TEXT("Restore"),     L10NIDX(input_actions_restore) },
+        {TEXT("Move"),        L10NIDX(InputActionMove) },
+        {TEXT("Resize"),      L10NIDX(InputActionResize) },
+        {TEXT("Restore"),     L10NIDX(InputActionRestore) },
         // Common mouse actions
         COMMON_ACTIONS
 
-        {TEXT("Nothing"),     L10NIDX(input_actions_nothing) },
+        {TEXT("Nothing"),     L10NIDX(InputActionNothing) },
         {NULL, 0}
     };
 
@@ -890,18 +902,18 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
     };
 
     static const struct actiondl scroll_actions[] = {
-        {TEXT("AltTab"),       L10NIDX(input_actions_alttab) },
-        {TEXT("Volume"),       L10NIDX(input_actions_volume) },
-        {TEXT("Transparency"), L10NIDX(input_actions_transparency) },
-        {TEXT("Zoom"),         L10NIDX(input_actions_zoom) },
-        {TEXT("Zoom2"),        L10NIDX(input_actions_zoom2) },
-        {TEXT("Lower"),        L10NIDX(input_actions_lower) },
-        {TEXT("Roll"),         L10NIDX(input_actions_roll) },
-        {TEXT("Maximize"),     L10NIDX(input_actions_maximize) },
-        {TEXT("NPStacked"),    L10NIDX(input_actions_npstacked) },
-        {TEXT("NPStacked2"),   L10NIDX(input_actions_npstacked2) },
-        {TEXT("HScroll"),      L10NIDX(input_actions_hscroll) },
-        {TEXT("Nothing"),      L10NIDX(input_actions_nothing) },
+        {TEXT("AltTab"),       L10NIDX(InputActionAltTab) },
+        {TEXT("Volume"),       L10NIDX(InputActionVolume) },
+        {TEXT("Transparency"), L10NIDX(InputActionTransparency) },
+        {TEXT("Zoom"),         L10NIDX(InputActionZoom) },
+        {TEXT("Zoom2"),        L10NIDX(InputActionZoom2) },
+        {TEXT("Lower"),        L10NIDX(InputActionLower) },
+        {TEXT("Roll"),         L10NIDX(InputActionRoll) },
+        {TEXT("Maximize"),     L10NIDX(InputActionMaximize) },
+        {TEXT("NPStacked"),    L10NIDX(InputActionNStacked) },
+        {TEXT("NPStacked2"),   L10NIDX(InputActionNStacked2) },
+        {TEXT("HScroll"),      L10NIDX(InputActionHScroll) },
+        {TEXT("Nothing"),      L10NIDX(InputActionNothing) },
         {NULL, 0}
     };
 
@@ -974,32 +986,32 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
 
             // Update text
             static const struct dialogstring strlst[] = {
-                { IDC_MBA1,            L10NIDX(input_mouse_btac1 ) },
-                { IDC_MBA2,            L10NIDX(input_mouse_btac2 ) },
-                { IDC_INTTB,           L10NIDX(input_mouse_inttb ) },
-                { IDC_WHILEM,          L10NIDX(input_mouse_whilem ) },
-                { IDC_WHILER,          L10NIDX(input_mouse_whiler ) },
+                { IDC_MOUSE_BOX,       L10NIDX(InputMouseBox ) },
+                { IDC_MBA1,            L10NIDX(InputMouseBtAc1 ) },
+                { IDC_MBA2,            L10NIDX(InputMouseBtAc2 ) },
+                { IDC_INTTB,           L10NIDX(InputMouseINTTB ) },
+                { IDC_WHILEM,          L10NIDX(InputMouseWhileM ) },
+                { IDC_WHILER,          L10NIDX(InputMouseWhileR ) },
 
-                { IDC_MOUSE_BOX,       L10NIDX(input_mouse_box ) },
-                { IDC_LMB_HEADER,      L10NIDX(input_mouse_lmb ) },
-                { IDC_MMB_HEADER,      L10NIDX(input_mouse_mmb ) },
-                { IDC_RMB_HEADER,      L10NIDX(input_mouse_rmb ) },
-                { IDC_MB4_HEADER,      L10NIDX(input_mouse_mb4 ) },
-                { IDC_MB5_HEADER,      L10NIDX(input_mouse_mb5 ) },
-                { IDC_SCROLL_HEADER,   L10NIDX(input_mouse_scroll ) },
-                { IDC_HSCROLL_HEADER,  L10NIDX(input_mouse_hscroll ) },
-                { IDC_MOVEUP_HEADER,   L10NIDX(input_mouse_moveup ) },
-                { IDC_RESIZEUP_HEADER, L10NIDX(input_mouse_resizeup ) },
-                { IDC_TTBACTIONS_BOX,  L10NIDX(input_mouse_ttbactions_box ) },
-                { IDC_TTBACTIONSNA,    L10NIDX(input_mouse_ttbactionsna ) },
-                { IDC_TTBACTIONSWA,    L10NIDX(input_mouse_ttbactionswa ) },
+                { IDC_LMB_HEADER,      L10NIDX(InputMouseLMB ) },
+                { IDC_MMB_HEADER,      L10NIDX(InputMouseMMB ) },
+                { IDC_RMB_HEADER,      L10NIDX(InputMouseRMB ) },
+                { IDC_MB4_HEADER,      L10NIDX(InputMouseMB4 ) },
+                { IDC_MB5_HEADER,      L10NIDX(InputMouseMB5 ) },
+                { IDC_SCROLL_HEADER,   L10NIDX(InputMouseScroll ) },
+                { IDC_HSCROLL_HEADER,  L10NIDX(InputMouseHScroll ) },
+                { IDC_MOVEUP_HEADER,   L10NIDX(InputMouseMoveUp ) },
+                { IDC_RESIZEUP_HEADER, L10NIDX(InputMouseResizeUp ) },
+                { IDC_TTBACTIONS_BOX,  L10NIDX(InputMouseTTBActionBox ) },
+                { IDC_TTBACTIONSNA,    L10NIDX(InputMouseTTBActionNA ) },
+                { IDC_TTBACTIONSWA,    L10NIDX(InputMouseTTBActionWA ) },
 
-                { IDC_HOTCLICKS_BOX,   L10NIDX(input_hotclicks_box ) },
-                { IDC_HOTCLICKS_MORE,  L10NIDX(input_hotclicks_more ) },
-                { IDC_MMB_HC,          L10NIDX(input_mouse_mmb_hc ) },
-                { IDC_MB4_HC,          L10NIDX(input_mouse_mb4_hc ) },
-                { IDC_MB5_HC,          L10NIDX(input_mouse_mb5_hc ) },
-                { IDC_LONGCLICKMOVE,   L10NIDX(input_mouse_longclickmove ) },
+                { IDC_HOTCLICKS_BOX,   L10NIDX(InputHotclicksBox ) },
+                { IDC_HOTCLICKS_MORE,  L10NIDX(InputHotclicksMore ) },
+                { IDC_MMB_HC,          L10NIDX(InputMouseMMBHC ) },
+                { IDC_MB4_HC,          L10NIDX(InputMouseMB4HC ) },
+                { IDC_MB5_HC,          L10NIDX(InputMouseMB5HC ) },
+                { IDC_LONGCLICKMOVE,   L10NIDX(InputMouseLongClickMove ) },
             };
             UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
             }
@@ -1118,95 +1130,95 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         { 0, 0 }
     };
     static const struct actiondl kb_actions[] = {
-        {TEXT("Move"),        L10NIDX(input_actions_move) },
-        {TEXT("Resize"),      L10NIDX(input_actions_resize) },
-        {TEXT("Close"),       L10NIDX(input_actions_close) },
-        {TEXT("Minimize"),    L10NIDX(input_actions_minimize) },
-        {TEXT("Maximize"),    L10NIDX(input_actions_maximize) },
-        {TEXT("Lower"),       L10NIDX(input_actions_lower) },
-        {TEXT("Roll"),        L10NIDX(input_actions_roll) },
-        {TEXT("AlwaysOnTop"), L10NIDX(input_actions_alwaysontop) },
-        {TEXT("Borderless"),  L10NIDX(input_actions_borderless) },
-        {TEXT("Center"),      L10NIDX(input_actions_center) },
-        {TEXT("MaximizeHV"),  L10NIDX(input_actions_maximizehv) },
-        {TEXT("MinAllOther"), L10NIDX(input_actions_minallother) },
-        {TEXT("Menu"),        L10NIDX(input_actions_menu) },
-        {TEXT("Nothing"),     L10NIDX(input_actions_nothing) },
+        {TEXT("Move"),        L10NIDX(InputActionMove) },
+        {TEXT("Resize"),      L10NIDX(InputActionResize) },
+        {TEXT("Close"),       L10NIDX(InputActionClose) },
+        {TEXT("Minimize"),    L10NIDX(InputActionMinimize) },
+        {TEXT("Maximize"),    L10NIDX(InputActionMaximize) },
+        {TEXT("Lower"),       L10NIDX(InputActionLower) },
+        {TEXT("Roll"),        L10NIDX(InputActionRoll) },
+        {TEXT("AlwaysOnTop"), L10NIDX(InputActionAlwaysOnTop) },
+        {TEXT("Borderless"),  L10NIDX(InputActionBorderless) },
+        {TEXT("Center"),      L10NIDX(InputActionCenter) },
+        {TEXT("MaximizeHV"),  L10NIDX(InputActionMaximizeHV) },
+        {TEXT("MinAllOther"), L10NIDX(InputActionMinAllOther) },
+        {TEXT("Menu"),        L10NIDX(InputActionMenu) },
+        {TEXT("Nothing"),     L10NIDX(InputActionNothing) },
         {NULL, 0}
     };
     static const struct actiondl kbshortcut_actions[] = {
-        {TEXT("Kill"),        L10NIDX(input_actions_kill) },
-        {TEXT("Pause"),       L10NIDX(input_actions_pause) },
-        {TEXT("Resume"),      L10NIDX(input_actions_resume) },
-        {TEXT("ASOnOff"),     L10NIDX(input_actions_asonoff) },
-        {TEXT("Lower"),       L10NIDX(input_actions_lower) },
-        {TEXT("Roll"),        L10NIDX(input_actions_roll) },
-        {TEXT("AlwaysOnTop"), L10NIDX(input_actions_alwaysontop) },
-        {TEXT("Borderless"),  L10NIDX(input_actions_borderless) },
-        {TEXT("Center"),      L10NIDX(input_actions_center) },
-        {TEXT("Mute"),        L10NIDX(input_actions_mute) },
-        {TEXT("Menu"),        L10NIDX(input_actions_menu) },
+        {TEXT("Kill"),        L10NIDX(InputActionKill) },
+        {TEXT("Pause"),       L10NIDX(InputActionPause) },
+        {TEXT("Resume"),      L10NIDX(InputActionResume) },
+        {TEXT("ASOnOff"),     L10NIDX(InputActionASOnOff) },
+        {TEXT("Lower"),       L10NIDX(InputActionLower) },
+        {TEXT("Roll"),        L10NIDX(InputActionRoll) },
+        {TEXT("AlwaysOnTop"), L10NIDX(InputActionAlwaysOnTop) },
+        {TEXT("Borderless"),  L10NIDX(InputActionBorderless) },
+        {TEXT("Center"),      L10NIDX(InputActionCenter) },
+        {TEXT("Mute"),        L10NIDX(InputActionMute) },
+        {TEXT("Menu"),        L10NIDX(InputActionMenu) },
 
-        {TEXT("NStacked"),    L10NIDX(input_actions_nstacked) },
-        {TEXT("NStacked2"),   L10NIDX(input_actions_nstacked2) },
-        {TEXT("PStacked"),    L10NIDX(input_actions_pstacked) },
-        {TEXT("PStacked2"),   L10NIDX(input_actions_pstacked2) },
-        {TEXT("StackList"),   L10NIDX(input_actions_stacklist) },
-        {TEXT("StackList2"),  L10NIDX(input_actions_stacklist2) },
-        {TEXT("AltTabList"),  L10NIDX(input_actions_alttablist) },
-        {TEXT("AltTabFullList"),L10NIDX(input_actions_alttabfulllist) },
+        {TEXT("NStacked"),    L10NIDX(InputActionNStacked) },
+        {TEXT("NStacked2"),   L10NIDX(InputActionNStacked2) },
+        {TEXT("PStacked"),    L10NIDX(InputActionPStacked) },
+        {TEXT("PStacked2"),   L10NIDX(InputActionPStacked2) },
+        {TEXT("StackList"),   L10NIDX(InputActionStackList) },
+        {TEXT("StackList2"),  L10NIDX(InputActionStackList2) },
+        {TEXT("AltTabList"),  L10NIDX(InputActionAltTabList) },
+        {TEXT("AltTabFullList"),L10NIDX(InputActionAltTabFullList) },
 
-        {TEXT("ExtendTNEdge"),L10NIDX(input_actions_extendtnedge) },
-        {TEXT("XTNLEdge"),    L10NIDX(input_actions_xtnledge) },
-        {TEXT("XTNTEdge"),    L10NIDX(input_actions_xtntedge) },
-        {TEXT("XTNREdge"),    L10NIDX(input_actions_xtnredge) },
-        {TEXT("XTNBEdge"),    L10NIDX(input_actions_xtnbedge) },
-        {TEXT("MoveTNEdge"),  L10NIDX(input_actions_movetnedge) },
-        {TEXT("MTNLEdge"),    L10NIDX(input_actions_mtnledge) },
-        {TEXT("MTNTEdge"),    L10NIDX(input_actions_mtntedge) },
-        {TEXT("MTNREdge"),    L10NIDX(input_actions_mtnredge) },
-        {TEXT("MTNBEdge"),    L10NIDX(input_actions_mtnbedge) },
+        {TEXT("ExtendTNEdge"),L10NIDX(InputActionExtendTNEdge) },
+        {TEXT("XTNLEdge"),    L10NIDX(InputActionXTNLEdge) },
+        {TEXT("XTNTEdge"),    L10NIDX(InputActionXTNTEdge) },
+        {TEXT("XTNREdge"),    L10NIDX(InputActionXTNREdge) },
+        {TEXT("XTNBEdge"),    L10NIDX(InputActionXTNBEdge) },
+        {TEXT("MoveTNEdge"),  L10NIDX(InputActionMoveTNEdge) },
+        {TEXT("MTNLEdge"),    L10NIDX(InputActionMTNLEdge) },
+        {TEXT("MTNTEdge"),    L10NIDX(InputActionMTNTEdge) },
+        {TEXT("MTNREdge"),    L10NIDX(InputActionMTNREdge) },
+        {TEXT("MTNBEdge"),    L10NIDX(InputActionMTNBEdge) },
 
-        {TEXT("MLZone"),      L10NIDX(input_actions_mlzone) },
-        {TEXT("MTZone"),      L10NIDX(input_actions_mtzone) },
-        {TEXT("MRZone"),      L10NIDX(input_actions_mrzone) },
-        {TEXT("MBZone"),      L10NIDX(input_actions_mbzone) },
-        {TEXT("XLZone"),      L10NIDX(input_actions_xlzone) },
-        {TEXT("XTZone"),      L10NIDX(input_actions_xtzone) },
-        {TEXT("XRZone"),      L10NIDX(input_actions_xrzone) },
-        {TEXT("XBZone"),      L10NIDX(input_actions_xbzone) },
+        {TEXT("MLZone"),      L10NIDX(InputActionMLZone) },
+        {TEXT("MTZone"),      L10NIDX(InputActionMTZone) },
+        {TEXT("MRZone"),      L10NIDX(InputActionMRZone) },
+        {TEXT("MBZone"),      L10NIDX(InputActionMBZone) },
+        {TEXT("XLZone"),      L10NIDX(InputActionXLZone) },
+        {TEXT("XTZone"),      L10NIDX(InputActionXTZone) },
+        {TEXT("XRZone"),      L10NIDX(InputActionXRZone) },
+        {TEXT("XBZone"),      L10NIDX(InputActionXBZone) },
 
-        {TEXT("StepL"),       L10NIDX(input_actions_stepl) },
-        {TEXT("StepT"),       L10NIDX(input_actions_stept) },
-        {TEXT("StepR"),       L10NIDX(input_actions_stepr) },
-        {TEXT("StepB"),       L10NIDX(input_actions_stepb) },
-        {TEXT("SStepL"),      L10NIDX(input_actions_sstepl) },
-        {TEXT("SStepT"),      L10NIDX(input_actions_sstept) },
-        {TEXT("SStepR"),      L10NIDX(input_actions_sstepr) },
-        {TEXT("SStepB"),      L10NIDX(input_actions_sstepb) },
+        {TEXT("StepL"),       L10NIDX(InputActionStepL) },
+        {TEXT("StepT"),       L10NIDX(InputActionStepT) },
+        {TEXT("StepR"),       L10NIDX(InputActionStepR) },
+        {TEXT("StepB"),       L10NIDX(InputActionStepB) },
+        {TEXT("SStepL"),      L10NIDX(InputActionSStepL) },
+        {TEXT("SStepT"),      L10NIDX(InputActionSStepT) },
+        {TEXT("SStepR"),      L10NIDX(InputActionSStepR) },
+        {TEXT("SStepB"),      L10NIDX(InputActionSStepB) },
 
-        {TEXT("FocusL"),       L10NIDX(input_actions_focusl) },
-        {TEXT("FocusT"),       L10NIDX(input_actions_focust) },
-        {TEXT("FocusR"),       L10NIDX(input_actions_focusr) },
-        {TEXT("FocusB"),       L10NIDX(input_actions_focusb) },
+        {TEXT("FocusL"),       L10NIDX(InputActionFocusL) },
+        {TEXT("FocusT"),       L10NIDX(InputActionFocusT) },
+        {TEXT("FocusR"),       L10NIDX(InputActionFocusR) },
+        {TEXT("FocusB"),       L10NIDX(InputActionFocusB) },
         {NULL, 0}
     };
 
     // Hotkeys
     static const struct actiondl togglekeys[] = {
-        {TEXT(""),      L10NIDX(input_actions_nothing)},
-        {TEXT("A4 A5"), L10NIDX(input_hotkeys_alt)},
-        {TEXT("5B 5C"), L10NIDX(input_hotkeys_winkey)},
-        {TEXT("A2 A3"), L10NIDX(input_hotkeys_ctrl)},
-        {TEXT("A0 A1"), L10NIDX(input_hotkeys_shift)},
-        {TEXT("A4"),    L10NIDX(input_hotkeys_leftalt)},
-        {TEXT("A5"),    L10NIDX(input_hotkeys_rightalt)},
-        {TEXT("5B"),    L10NIDX(input_hotkeys_leftwinkey)},
-        {TEXT("5C"),    L10NIDX(input_hotkeys_rightwinkey)},
-        {TEXT("A2"),    L10NIDX(input_hotkeys_leftctrl)},
-        {TEXT("A3"),    L10NIDX(input_hotkeys_rightctrl)},
-        {TEXT("A0"),    L10NIDX(input_hotkeys_leftshift)},
-        {TEXT("A1"),    L10NIDX(input_hotkeys_rightshift)},
+        {TEXT(""),      L10NIDX(InputActionNothing)},
+        {TEXT("A4 A5"), L10NIDX(InputHotkeysAlt)},
+        {TEXT("5B 5C"), L10NIDX(InputHotkeysWinkey)},
+        {TEXT("A2 A3"), L10NIDX(InputHotkeysCtrl)},
+        {TEXT("A0 A1"), L10NIDX(InputHotkeysShift)},
+        {TEXT("A4"),    L10NIDX(InputHotkeysLeftAlt)},
+        {TEXT("A5"),    L10NIDX(InputHotkeysRightAlt)},
+        {TEXT("5B"),    L10NIDX(InputHotkeysLeftWinkey)},
+        {TEXT("5C"),    L10NIDX(InputHotkeysRightWinkey)},
+        {TEXT("A2"),    L10NIDX(InputHotkeysLeftCtrl)},
+        {TEXT("A3"),    L10NIDX(InputHotkeysRightCtrl)},
+        {TEXT("A0"),    L10NIDX(InputHotkeysLeftShift)},
+        {TEXT("A1"),    L10NIDX(InputHotkeysRightShift)},
         {NULL, 0},
     };
     static const struct optlst optlst[] = {
@@ -1365,31 +1377,31 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 
             // Update text
             static const struct dialogstring strlst[] = {
-                { IDC_KEYBOARD_BOX,    L10NIDX(tab_keyboard) },
-                { IDC_SCROLLLOCKSTATE, L10NIDX(input_scrolllockstate) },
-                { IDC_UNIKEYHOLDMENU,  L10NIDX(input_unikeyholdmenu) },
-                { IDC_HOTKEYS_BOX,     L10NIDX(input_hotkeys_box) },
-                { IDC_MODKEY_H,        L10NIDX(input_hotkeys_modkey) },
+                { IDC_KEYBOARD_BOX,    L10NIDX(ConfigTabKeyboard) },
+                { IDC_SCROLLLOCKSTATE, L10NIDX(InputScrollLockState) },
+                { IDC_UNIKEYHOLDMENU,  L10NIDX(InputUniKeyHoldMenu) },
+                { IDC_HOTKEYS_BOX,     L10NIDX(InputHotkeysBox) },
+                { IDC_MODKEY_H,        L10NIDX(InputHotkeysModKey) },
 
-                { IDC_ALT,             L10NIDX(input_hotkeys_alt) },
-                { IDC_SHIFT,           L10NIDX(input_hotkeys_shift) },
-                { IDC_CONTROL,         L10NIDX(input_hotkeys_ctrl) },
-                { IDC_WINKEY,          L10NIDX(input_hotkeys_winkey) },
-                { IDC_SHORTCUTS_H,     L10NIDX(input_hotkeys_shortcuts) },
-                { IDC_SHORTCUTS_PICK,  L10NIDX(input_hotkeys_shortcutspick) },
-                { IDC_SHORTCUTS_CLEAR, L10NIDX(input_hotkeys_shortcutsclear) },
-                { IDC_SHORTCUTS_SET,   L10NIDX(input_hotkeys_shortcutset) },
-                { IDC_USEPTWINDOW,     L10NIDX(input_hotkeys_useptwindow) },
-                { IDC_LEFTALT,         L10NIDX(input_hotkeys_leftalt) },
-                { IDC_RIGHTALT,        L10NIDX(input_hotkeys_rightalt) },
-                { IDC_LEFTWINKEY,      L10NIDX(input_hotkeys_leftwinkey) },
-                { IDC_RIGHTWINKEY,     L10NIDX(input_hotkeys_rightwinkey) },
-                { IDC_LEFTCTRL,        L10NIDX(input_hotkeys_leftctrl) },
-                { IDC_RIGHTCTRL,       L10NIDX(input_hotkeys_rightctrl) },
-                { IDC_HOTKEYS_MORE,    L10NIDX(input_hotkeys_more) },
-                { IDC_KEYCOMBO,        L10NIDX(input_keycombo) },
-                { IDC_GRABWITHALT_H,   L10NIDX(input_grabwithalt) },
-                { IDC_GRABWITHALTB_H,  L10NIDX(input_grabwithaltb) }
+                { IDC_ALT,             L10NIDX(InputHotkeysAlt) },
+                { IDC_SHIFT,           L10NIDX(InputHotkeysShift) },
+                { IDC_CONTROL,         L10NIDX(InputHotkeysCtrl) },
+                { IDC_WINKEY,          L10NIDX(InputHotkeysWinkey) },
+                { IDC_SHORTCUTS_H,     L10NIDX(InputHotkeysShortcuts) },
+                { IDC_SHORTCUTS_PICK,  L10NIDX(InputHotkeysShortcutsPick) },
+                { IDC_SHORTCUTS_CLEAR, L10NIDX(InputHotkeysShortcutsClear) },
+                { IDC_SHORTCUTS_SET,   L10NIDX(InputHotkeysShortcutsSet) },
+                { IDC_USEPTWINDOW,     L10NIDX(InputHotkeysUsePtWindow) },
+                { IDC_LEFTALT,         L10NIDX(InputHotkeysLeftAlt) },
+                { IDC_RIGHTALT,        L10NIDX(InputHotkeysRightAlt) },
+                { IDC_LEFTWINKEY,      L10NIDX(InputHotkeysLeftWinkey) },
+                { IDC_RIGHTWINKEY,     L10NIDX(InputHotkeysRightWinkey) },
+                { IDC_LEFTCTRL,        L10NIDX(InputHotkeysLeftCtrl) },
+                { IDC_RIGHTCTRL,       L10NIDX(InputHotkeysRightCtrl) },
+                { IDC_HOTKEYS_MORE,    L10NIDX(InputHotkeysMore) },
+                { IDC_KEYCOMBO,        L10NIDX(InputKeyCombo) },
+                { IDC_GRABWITHALT_H,   L10NIDX(InputGrabWithAlt) },
+                { IDC_GRABWITHALTB_H,  L10NIDX(InputGrabWithAltB) }
             };
             UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
 
@@ -1475,13 +1487,13 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
         if (pnmh->code == PSN_SETACTIVE) {
             // Update text
             static const struct dialogstring strlst[] = {
-                { IDC_BLACKLIST_BOX          , L10NIDX(blacklist_box ) },
-                { IDC_PROCESSBLACKLIST_HEADER, L10NIDX(blacklist_processblacklist ) },
-                { IDC_BLACKLIST_HEADER       , L10NIDX(blacklist_blacklist ) },
-                { IDC_SCROLLLIST_HEADER      , L10NIDX(blacklist_scrolllist ) },
-                { IDC_MDISBL_HEADER          , L10NIDX(blacklist_mdis ) },
-                { IDC_PAUSEBL_HEADER         , L10NIDX(blacklist_pause ) },
-                { IDC_FINDWINDOW_BOX         , L10NIDX(blacklist_findwindow_box ) }
+                { IDC_BLACKLIST_BOX          , L10NIDX(BlacklistBox ) },
+                { IDC_PROCESSBLACKLIST_HEADER, L10NIDX(BlacklistProcessBlacklist ) },
+                { IDC_BLACKLIST_HEADER       , L10NIDX(BlacklistBlacklist ) },
+                { IDC_SCROLLLIST_HEADER      , L10NIDX(BlacklistScrolllist ) },
+                { IDC_MDISBL_HEADER          , L10NIDX(BlacklistMDIs ) },
+                { IDC_PAUSEBL_HEADER         , L10NIDX(BlacklistPause ) },
+                { IDC_FINDWINDOW_BOX         , L10NIDX(BlacklistFindWindowBox ) }
             };
             UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
             // Enable or disable buttons if needed
@@ -1581,13 +1593,13 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
             // Update text
-            SetDlgItemText(hwnd, IDC_ABOUT_BOX,        l10n->about_box);
-            SetDlgItemText(hwnd, IDC_VERSION,          l10n->about_version);
+            SetDlgItemText(hwnd, IDC_ABOUT_BOX,        l10n->AboutBox);
+            SetDlgItemText(hwnd, IDC_VERSION,          l10n->AboutVersion);
             SetDlgItemText(hwnd, IDC_URL,              TEXT("https://github.com/RamonUnch/AltSnap"));
-            SetDlgItemText(hwnd, IDC_AUTHOR,           l10n->about_author);
-            SetDlgItemText(hwnd, IDC_AUTHOR2,          l10n->about_author2);
-            SetDlgItemText(hwnd, IDC_LICENSE,          l10n->about_license);
-            SetDlgItemText(hwnd, IDC_TRANSLATIONS_BOX, l10n->about_translation_credit);
+            SetDlgItemText(hwnd, IDC_AUTHOR,           l10n->AboutAuthor);
+            SetDlgItemText(hwnd, IDC_AUTHOR2,          l10n->AboutAuthor2);
+            SetDlgItemText(hwnd, IDC_LICENSE,          l10n->AboutLicense);
+            SetDlgItemText(hwnd, IDC_TRANSLATIONS_BOX, l10n->AboutTranslationCredit);
 
             TCHAR txt[1024] = TEXT("");
             int i;
@@ -1745,6 +1757,24 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         lks->idx = idx;
     } break;
 
+    case  WM_MOVE:
+    case  WM_SIZE: {
+        TCHAR num[INT_DIGITS*4+4+1];
+        TCHAR title[256+INT_DIGITS*4+4];
+        RECT rc;
+        GetWindowRectL(hwnd, &rc);
+        lstrcpy_noaccel(title, l10n->AdvancedTestWindow, ARR_SZ(title));
+        lstrcat_s(title, ARR_SZ(title), TEXT(": "));
+        lstrcat_s(title, ARR_SZ(title), RectToStr(&rc, num));
+
+        lstrcat_s(title, ARR_SZ(title), TEXT(" ("));
+        lstrcat_s(title, ARR_SZ(title), Int2lStr(num, rc.right-rc.left));
+        lstrcat_s(title, ARR_SZ(title), TEXT("x"));
+        lstrcat_s(title, ARR_SZ(title), Int2lStr(num, rc.bottom-rc.top));
+        lstrcat_s(title, ARR_SZ(title), TEXT(")"));
+        SetWindowText(hwnd, title);
+
+    }break;
     case WM_PAINT: {
         if(!GetUpdateRect(hwnd, NULL, FALSE)) return 0;
         /* We must keep track of pens and delete them. */
@@ -1879,7 +1909,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             RECT trc = {lineheight/2, crc.bottom-lineheight*(MAXLINES-i), crc.right, crc.bottom};
             DrawText(hdc, lastkey[didx], lstrlen(lastkey[didx]), &trc, DT_NOCLIP|DT_TABSTOP);
         }
-        TCHAR *str = l10n->zone_testwinhelp;
+        TCHAR *str = l10n->MiscZoneTestWinHelp;
         if (UseZones&1) {
             RECT trc2 = { lineheight/2, lineheight/2, crc.right, splitheight };
             DrawText(hdc, str, lstrlen(str), &trc2, DT_NOCLIP|DT_TABSTOP);
@@ -1936,7 +1966,7 @@ static HWND NewTestWindow()
         RegisterClassEx(&wndd);
     }
     TCHAR wintitle[256];
-    lstrcpy_noaccel(wintitle, l10n->advanced_testwindow, ARR_SZ(wintitle));
+    lstrcpy_noaccel(wintitle, l10n->AdvancedTestWindow, ARR_SZ(wintitle));
     testwnd = CreateWindowEx(0
          , TEXT(APP_NAMEA)TEXT("-Test"), wintitle
          , WS_OVERLAPPEDWINDOW
@@ -2012,29 +2042,29 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         if (pnmh->code == PSN_SETACTIVE) {
             // Update text
             static const struct dialogstring strlst[] = {
-                { IDC_METRICS_BOX,      L10NIDX(advanced_metrics_box ) },
-                { IDC_CENTERFRACTION_H, L10NIDX(advanced_centerfraction ) },
-                { IDC_AEROHOFFSET_H,    L10NIDX(advanced_aerohoffset ) },
-                { IDC_AEROVOFFSET_H,    L10NIDX(advanced_aerovoffset ) },
-                { IDC_SNAPTHRESHOLD_H,  L10NIDX(advanced_snapthreshold ) },
-                { IDC_AEROTHRESHOLD_H,  L10NIDX(advanced_aerothreshold ) },
-                { IDC_SNAPGAP_H,        L10NIDX(advanced_snapgap ) },
-                { IDC_AEROSPEED_H,      L10NIDX(advanced_aerospeed ) },
-                { IDC_MOVETRANS_H,      L10NIDX(advanced_movetrans ) },
-                { IDC_TESTWINDOW,       L10NIDX(advanced_testwindow ) },
+                { IDC_METRICS_BOX,      L10NIDX(AdvancedMetricsBox ) },
+                { IDC_CENTERFRACTION_H, L10NIDX(AdvancedCenterFraction ) },
+                { IDC_AEROHOFFSET_H,    L10NIDX(AdvancedAeroHoffset ) },
+                { IDC_AEROVOFFSET_H,    L10NIDX(AdvancedAeroVoffset ) },
+                { IDC_SNAPTHRESHOLD_H,  L10NIDX(AdvancedSnapThreshold ) },
+                { IDC_AEROTHRESHOLD_H,  L10NIDX(AdvancedAeroThreshold ) },
+                { IDC_SNAPGAP_H,        L10NIDX(AdvancedSnapGap ) },
+                { IDC_AEROSPEED_H,      L10NIDX(AdvancedAeroSpeed ) },
+                { IDC_MOVETRANS_H,      L10NIDX(AdvancedMoveTrans ) },
+                { IDC_TESTWINDOW,       L10NIDX(AdvancedTestWindow ) },
 
-                { IDC_BEHAVIOR_BOX,     L10NIDX(advanced_behavior_box ) },
-                { IDC_MULTIPLEINSTANCES,L10NIDX(advanced_multipleinstances ) },
-                { IDC_AUTOREMAXIMIZE,   L10NIDX(advanced_autoremaximize ) },
-                { IDC_AEROTOPMAXIMIZES, L10NIDX(advanced_aerotopmaximizes ) },
-                { IDC_AERODBCLICKSHIFT, L10NIDX(advanced_aerodbclickshift ) },
-                { IDC_MAXWITHLCLICK,    L10NIDX(advanced_maxwithlclick ) },
-                { IDC_RESTOREONCLICK,   L10NIDX(advanced_restoreonclick ) },
-                { IDC_FULLSCREEN,       L10NIDX(advanced_fullscreen ) },
-                { IDC_BLMAXIMIZED,      L10NIDX(advanced_blmaximized ) },
-                { IDC_FANCYZONE,        L10NIDX(advanced_fancyzone ) },
-                { IDC_NORESTORE,        L10NIDX(advanced_norestore ) },
-                { IDC_TOPMOSTINDICATOR, L10NIDX(advanced_topmostindicator ) },
+                { IDC_BEHAVIOR_BOX,     L10NIDX(AdvancedBehaviorBox ) },
+                { IDC_MULTIPLEINSTANCES,L10NIDX(AdvancedMultipleInstances ) },
+                { IDC_AUTOREMAXIMIZE,   L10NIDX(AdvancedAutoRemaximize ) },
+                { IDC_AEROTOPMAXIMIZES, L10NIDX(AdvancedAeroTopMaximizes ) },
+                { IDC_AERODBCLICKSHIFT, L10NIDX(AdvancedAeroDBClickShift ) },
+                { IDC_MAXWITHLCLICK,    L10NIDX(AdvancedMaxWithLClick ) },
+                { IDC_RESTOREONCLICK,   L10NIDX(AdvancedRestoreOnClick ) },
+                { IDC_FULLSCREEN,       L10NIDX(AdvancedFullScreen ) },
+                { IDC_BLMAXIMIZED,      L10NIDX(AdvancedBLMaximized ) },
+                { IDC_FANCYZONE,        L10NIDX(AdvancedFancyZone ) },
+                { IDC_NORESTORE,        L10NIDX(AdvancedNoRestore ) },
+                { IDC_TOPMOSTINDICATOR, L10NIDX(AdvancedTopmostIndicator ) },
             };
             UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
 

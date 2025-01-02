@@ -3918,6 +3918,8 @@ static void CenterWindow(HWND hwnd, unsigned flags)
 //#define EVENT_HOOK
 // TODO: Event Hook
 #ifdef EVENT_HOOK
+#include "thunks.c"
+
 static HWND GetPinWindow(HWND owner);
 static BOOL CALLBACK PostPinWindowsProcMessage(HWND hwnd, LPARAM lp);
 static void CALLBACK HandleWinEvent(
@@ -3925,20 +3927,23 @@ static void CALLBACK HandleWinEvent(
     LONG idObject, LONG idChild,
     DWORD dwEventThread, DWORD dwmsEventTime)
 {
-    HWND pinhwnd = (HWND) hook; // 1st param...
-    if (hwnd
-    && (event == EVENT_OBJECT_DESTROY || event == EVENT_OBJECT_LOCATIONCHANGE
-       || event == EVENT_SYSTEM_FOREGROUND || event == 0xB || event == 0xA)
-    && idChild == INDEXID_CONTAINER
-    && idObject == OBJID_WINDOW) {
-        if (pinhwnd && GetParent(pinhwnd) == hwnd) {
-            //TCHAR txt[32];
-            //MessageBox(NULL, itostr(event, txt, 16), NULL, 0);
-            PostMessage(pinhwnd, WM_TIMER, 0, 0);
+    HWND pinhwnd = (HWND) hook; // 1st param, THUNKED...
+    if (hwnd && idChild == INDEXID_CONTAINER && idObject == OBJID_WINDOW) {
+        switch(event) {
+            case EVENT_OBJECT_DESTROY:
+                PostMessage(pinhwnd, WM_CLOSE, 0, 0);
+                break;
+            case EVENT_OBJECT_LOCATIONCHANGE:
+            case EVENT_SYSTEM_FOREGROUND:
+//            case EVENT_SYSTEM_MOVESIZEEND:
+//            case EVENT_SYSTEM_MOVESIZESTART:
+            if (pinhwnd && GetParent(pinhwnd) == hwnd) {
+                //TCHAR txt[32];
+                //MessageBox(NULL, itostr(event, txt, 16), NULL, 0);
+                PostMessage(pinhwnd, WM_TIMER, 0, 0);
+            }
         }
     }
-//    if(event == 0xB || event == 0xA)
-//    	LOGA("event = %x", event);
 }
 #endif // EVENT_HOOK
 
@@ -3964,52 +3969,13 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         RemoveProp(owner,  TEXT(APP_NAMEA)TEXT("-Pin"));
 
         if (prop && threadid && lpdwProcessId) {
-            #if defined(_M_AMD64) || defined(WIN64)
-                #define THUNK_SIZE 22
-            #else
-                #define THUNK_SIZE 13
-            #endif
-            BYTE *thunk = (BYTE*)VirtualAlloc( NULL, THUNK_SIZE, MEM_COMMIT, PAGE_READWRITE );
-            if (!thunk) break;
-            // Replace the first parameter with the handle of the PinWindow.
-            // FIXME: Handle MIPS/Alpha/PowerPC/ia-64/ARM/ARM64...
-            #if defined(_M_AMD64) || defined(WIN64)
-                // AMD x86_64 windows : rcx, rdx, r8, r9 (ints).
-                // xmm0, xmm1, xmm2, xmm3, floating points
-                // Then push right to left.
-                // ----------------------------------
-                // ; mov rcx hwnd
-                // ; mov rax Procedure
-                // ; jmp rax
-                *(WORD  *)(thunk+ 0) = 0xB948;
-                *(HWND  *)(thunk+ 2) = hwnd; // <- Replace 1st param
-                *(WORD  *)(thunk+10) = 0xB848;
-                *(void **)(thunk+12) = (LONG_PTR*)HandleWinEvent;
-                *(WORD  *)(thunk+20) = 0xE0FF;
-            #elif defined(_M_IX86)
-                // i386 __stdcall: push right to left
-                // ----------------------------------
-                // ; mov dword ptr [esp+4] hwnd
-                // ; jmp Procedure
-                *(DWORD *)(thunk+0) = 0x042444C7;
-                *(HWND  *)(thunk+4) = hwnd; // <- Replace 1st param
-                *(BYTE  *)(thunk+8) = 0xE9;
-                *(DWORD *)(thunk+9) = (BYTE*)((void*)HandleWinEvent)-(thunk+13);
-            #else
-                #error Unsupported CPU type, implement thunking or undefine EVENT_HOOK.
-            #endif
-            DWORD oldprotect;
-            // Restrict thunk to execute only.
-            BOOL ret = VirtualProtect(thunk, THUNK_SIZE, PAGE_EXECUTE, &oldprotect);
-            if (!ret) break;
-            FlushInstructionCache(GetCurrentProcess(), thunk, THUNK_SIZE);
-
+            void *thunk = AllocThunk((LONG_PTR)HandleWinEvent, hwnd);
             HWINEVENTHOOK hook =
             SetWinEventHook(
                 //EVENT_OBJECT_DESTROY, EVENT_OBJECT_LOCATIONCHANGE, // Range of events=8001-800Bh
                 0, EVENT_OBJECT_LOCATIONCHANGE,
                 NULL, // Handle to DLL.
-                (WINEVENTPROC)thunk, // The callback function (thunked)
+                (WINEVENTPROC)(UINT_PTR)thunk, // The callback function (thunked)
                 lpdwProcessId, threadid, // Process and thread IDs of interest (0 = all)
                 WINEVENT_OUTOFCONTEXT // Flags.
                 );
@@ -4017,12 +3983,13 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             SetWindowLongPtr(hwnd, 0+2*sizeof(LONG_PTR), (LONG_PTR)thunk); // save thunk
             if (hook) {
                 PostMessage(hwnd, WM_TIMER, 0, 0);
-                break;
             }
+            else // fallback
+                SetTimer(hwnd, 1, conf.PinRate, NULL);
         }
+        else
 #endif // EVENT_HOOK
         SetTimer(hwnd, 1, conf.PinRate, NULL);
-
     } break;
     case WM_DPICHANGED: {
         // Reset the oldstyle, so we have to recalculate size/offset
@@ -4151,7 +4118,7 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         if (hook) UnhookWinEvent(hook);
         // Free the thunk.
         BYTE *thunk = (BYTE *)GetWindowLongPtr(hwnd, 0+2*sizeof(LONG_PTR));
-        if (thunk) VirtualFree(thunk, 0, MEM_RELEASE);
+        if (thunk) ReleaseThunk(thunk);
 #endif // EVENT_HOOK
         // Remove topmost flag if the pin gets destroyed.
         HWND ow;

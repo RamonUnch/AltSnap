@@ -126,7 +126,7 @@ int UnhookSystem()
     if (!keyhook) { // System not hooked
         return 1;
     } else if (!UnhookWindowsHookEx(keyhook) && showerror) {
-        MessageBox(NULL, l10n->unhook_error, TEXT(APP_NAMEA),
+        MessageBox(NULL, l10n->MiscUnhookError, TEXT(APP_NAMEA),
                    MB_ICONINFORMATION|MB_OK|MB_TOPMOST|MB_SETFOREGROUND);
     }
     keyhook = NULL;
@@ -189,25 +189,25 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
         UCHAR action; WORD mf; TCHAR *str;
     } mnlst[] = {
        /* hide, action,      MF_FLAG/CHECKED,    menu string */
-        { AC_ALWAYSONTOP, CHK(LP_TOPMOST),    l10n->input_actions_alwaysontop },
-        { AC_BORDERLESS,  CHK(LP_BORDERLESS), l10n->input_actions_borderless },
-        { AC_CENTER,      MF_STRING,          l10n->input_actions_center},
-        { AC_ROLL,        CHK(LP_ROLLED),     l10n->input_actions_roll},
-        { AC_LOWER,       MF_STRING,          l10n->input_actions_lower},
-        { AC_MAXHV,       MF_STRING,          l10n->input_actions_maximizehv},
-        { AC_MINALL,      MF_STRING,          l10n->input_actions_minallother},
-        { AC_SIDESNAP,    MF_STRING,          l10n->input_actions_sidesnap},
+        { AC_ALWAYSONTOP, CHK(LP_TOPMOST),    l10n->InputActionAlwaysOnTop },
+        { AC_BORDERLESS,  CHK(LP_BORDERLESS), l10n->InputActionBorderless },
+        { AC_CENTER,      MF_STRING,          l10n->InputActionCenter},
+        { AC_ROLL,        CHK(LP_ROLLED),     l10n->InputActionRoll},
+        { AC_LOWER,       MF_STRING,          l10n->InputActionLower},
+        { AC_MAXHV,       MF_STRING,          l10n->InputActionMaximizeHV},
+        { AC_MINALL,      MF_STRING,          l10n->InputActionMinAllOther},
+        { AC_SIDESNAP,    MF_STRING,          l10n->InputActionSideSnap},
         { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
-        { AC_MAXIMIZE,    CHK(LP_MAXIMIZED),  l10n->input_actions_maximize},
-        { AC_MINIMIZE,    MF_STRING,          l10n->input_actions_minimize},
-        { AC_CLOSE,       MF_STRING,          l10n->input_actions_close},
+        { AC_MAXIMIZE,    CHK(LP_MAXIMIZED),  l10n->InputActionMaximize},
+        { AC_MINIMIZE,    MF_STRING,          l10n->InputActionMinimize},
+        { AC_CLOSE,       MF_STRING,          l10n->InputActionClose},
         { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
-        { AC_KILL,        MF_STRING,          l10n->input_actions_kill},
+        { AC_KILL,        MF_STRING,          l10n->InputActionKill},
         { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
-        { AC_MOVEONOFF,   CHK(LP_MOVEONOFF),  l10n->input_actions_moveonoff},
+        { AC_MOVEONOFF,   CHK(LP_MOVEONOFF),  l10n->InputActionMoveOnOff},
         { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
-        { show_oriclick,  MF_STRING,          l10n->input_actions_oriclick},
-        { AC_NONE,        MF_STRING,          l10n->input_actions_nothing},
+        { show_oriclick,  MF_STRING,          l10n->InputActionOriClick},
+        { AC_NONE,        MF_STRING,          l10n->InputActionNothing},
     };
     #undef CHK
     #undef K
@@ -365,7 +365,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             DestroyWindow(hwnd);
         } else if (wmId == SWM_SAVEZONES) {
             TCHAR txt[256];
-            lstrcpy_s(txt, ARR_SZ(txt), l10n->zone_confirmation);
+            lstrcpy_s(txt, ARR_SZ(txt), l10n->MiscZoneConfirmation);
             lstrcat_s(txt, ARR_SZ(txt), TEXT("\n\n"));
             catFullLayoutName(txt, ARR_SZ(txt), LayoutNumber);
             int ret = MessageBox(NULL, txt, TEXT(APP_NAMEA), MB_OKCANCEL);
@@ -440,7 +440,8 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
     LOG("\n\nALTSNAP STARTED");
     GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
     inipath[MAX_PATH-1] = '\0';
-    lstrcpy_s(&inipath[lstrlen(inipath)-3], 4, TEXT("ini"));
+    size_t inipath_len = lstrlen(inipath)-3;
+    lstrcpy_s(&inipath[inipath_len], 4, TEXT("ini"));
     if (INVALID_FILE_ATTRIBUTES == GetFileAttributes(inipath)
     && GetEnvironmentVariable(TEXT("APPDATA"), NULL, 0)) {
         // .ini file is not in current directorry, and APPDATA exists
@@ -453,7 +454,10 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
             LOG("CreateDirectory(%S)", userini);
         }
         // Full user ini name.
-        lstrcat_s(userini, ARR_SZ(userini), TEXT("\\AltSnap.ini"));
+        //lstrcat_s(userini, ARR_SZ(userini), TEXT("\\AltSnap.ini"));
+        TCHAR *inifilename = inipath + inipath_len-3;
+        while (inifilename >= inipath && *inifilename != '\\') inifilename--;
+        lstrcat_s(userini, ARR_SZ(userini), inifilename);
         if (INVALID_FILE_ATTRIBUTES == GetFileAttributes(userini)) {
             // Copy AltSnap.dni (Default ini file) if no ini present
             lstrcpy_s(&inipath[lstrlen(inipath)-3], 4, TEXT("dni"));

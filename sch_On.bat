@@ -1,18 +1,68 @@
-::schtasks /CREATE /XML .\AltSnap.xml /TR "%~dp0AltSnap.exe"
-:: If you do not want to use the xml file you can use:
-:: schtasks.exe /CREATE /TN "AltSnap" /TR "%~dp0AltSnap.exe" /SC onlogon /RL highest /DELAY 0:10
-:: However AltSnap will be killed after 3 days by default.
-:: The only way not to have this autokill is to use an xml file.
-:: Make sure to adjust the path to the AltSnap executable in the AltSnap.xml file.
-@echo =======================================================================================================
-@echo = Setup Scheduled task for elevated AltSnap auto-start without UAC prompt                             =
-@echo = Make sure you are running this from an elevated shell                                               =
-@echo = Default AltSnap executable location is %%APPDATA%%\AltSnap\AltSnap.exe                                =
-@echo = Adjust the executable location in AltSnap.xml file if AltSnap is installed in a different location  =
-@echo = If you do not want to continue, close the window or hit Ctrl+C                                      =
-@echo =======================================================================================================
-@echo Going to run command:
-@echo schtasks.exe /CREATE /XML .\AltSnap.xml /TN "AltSnap" %1 %2 %3 %4 %5 %6 %7 %8 %9
-@pause
-schtasks.exe /CREATE /XML .\AltSnap.xml /TN "AltSnap" %1 %2 %3 %4 %5 %6 %7 %8 %9
-@pause
+@echo off
+:: Check for elevation
+fsutil dirty query %systemdrive% >nul 2>&1
+if '%errorlevel%' NEQ '0' (
+    :: Not elevated, so relaunch using vbscript
+    echo Set UAC = CreateObject^("Shell.Application"^) > "%temp%\getadmin.vbs"
+    echo UAC.ShellExecute "cmd.exe", "/c ""%~f0"" %*", "", "runas", 1 >> "%temp%\getadmin.vbs"
+    "%temp%\getadmin.vbs"
+    del "%temp%\getadmin.vbs"
+    exit /b
+)
+
+setlocal
+
+:: =============================================================================
+:: = Setup Scheduled task for elevated AltSnap auto-start without UAC prompt   =
+:: = Make sure you are running this from an elevated shell                     =
+:: = Default AltSnap executable location is %%APPDATA%%\AltSnap\AltSnap.exe     =
+:: = Adjust the executable location in the AltSnap.xml file if AltSnap is      =
+:: = installed in a different location                                         =
+:: = If you do not want to continue, close the window or hit Ctrl+C            =
+:: =============================================================================
+
+echo =============================================================================
+echo = Setup Scheduled task for elevated AltSnap auto-start without UAC prompt   =
+echo = Make sure you are running this from an elevated shell                     =
+echo = Default AltSnap executable location is %%APPDATA%%\AltSnap\AltSnap.exe     =
+echo = Adjust the executable location in the AltSnap.xml file if AltSnap is      =
+echo = installed in a different location                                         =
+echo = If you do not want to continue, close the window or hit Ctrl+C            =
+echo =============================================================================
+
+set "AltSnapXML=%APPDATA%\AltSnap\AltSnap.xml"
+set "AltSnapExe=%APPDATA%\AltSnap\AltSnap.exe"
+
+:: Check if AltSnap.exe exists
+if not exist "%AltSnapExe%" (
+    echo.
+    echo AltSnap executable not found in the default location: %AltSnapExe%
+    echo Please ensure AltSnap is installed or specify the correct path in the AltSnap.xml file.
+    echo.
+    pause
+    exit /b 1
+)
+
+:: Check if AltSnap.xml exists
+if not exist "%AltSnapXML%" (
+    echo.
+    echo AltSnap.xml file not found: %AltSnapXML%
+    echo Please ensure the AltSnap.xml file exists in the specified location.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo.
+echo Going to run command:
+echo schtasks.exe /CREATE /XML "%AltSnapXML%" /TN "AltSnap" %*
+echo.
+pause
+
+schtasks.exe /CREATE /XML "%AltSnapXML%" /TN "AltSnap" %*
+
+echo.
+pause
+
+endlocal
+exit /b 0

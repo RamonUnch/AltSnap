@@ -62,17 +62,11 @@ static void lstrcpy_resolve(TCHAR *__restrict__ dest, const TCHAR *__restrict__ 
 
 /////////////////////////////////////////////////////////////////////////////
 //
-static void LoadTranslation(const TCHAR *__restrict__ ini)
+static void LoadTranslationOrTT(const TCHAR *__restrict__ ini, const TCHAR * __restrict__ section_name, int offset)
 {
-    size_t i;
-    if (!ini) {
-        l10n = (struct strings *)&en_US;
-        return;
-    } else if( INVALID_FILE_ATTRIBUTES == GetFileAttributes(ini) ) {
-        return;
-    }
     // if english is not seleced then we have to allocate l10_ini strings struct
     // and we have to read the ini file...
+    size_t i;
     DWORD ret;
     DWORD tsectionlen=16383;
     TCHAR *tsection = NULL;
@@ -81,20 +75,24 @@ static void LoadTranslation(const TCHAR *__restrict__ ini)
          TCHAR *tmp = (TCHAR *)realloc(tsection, tsectionlen*sizeof(TCHAR));
          if(!tmp) { free(tsection); return; }
          tsection = tmp;
-         ret = GetPrivateProfileSection(TEXT("Translation"), tsection, tsectionlen, ini);
+         ret = GetPrivateProfileSection(section_name, tsection, tsectionlen, ini);
     } while (ret == tsectionlen-2);
-    if (!ret) return;
+
+    if (!ret)
+        tsection[0] = tsection[1] = TEXT('\0');
 
     if(!l10n_ini) l10n_ini = (struct strings *)calloc(1, sizeof(struct strings));
     if(!l10n_ini) return; // Unable to allocate mem
+
     for (i=0; i < ARR_SZ(l10n_inimapping); i++) {
         // Get pointer to default English string to be used if ini entry doesn't exist
-        const TCHAR *const def = ((TCHAR **)&en_US)[i];
+        const TCHAR *const def = ((TCHAR **)&en_US)[i*2+offset];
         const TCHAR *txt = GetSectionOptionCStr(tsection, l10n_inimapping[i], def);
+        if(!txt) continue;
 
         TCHAR buf[128];
-        TCHAR **deststr = &((TCHAR **)l10n_ini)[i];
-        if (deststr == &l10n_ini->about_version) {
+        TCHAR **deststr = &((TCHAR **)l10n_ini)[i*2+offset];
+        if (deststr == &l10n_ini->AboutVersion) {
             // Append version number to version....
             lstrcpy_s(buf, ARR_SZ(buf), txt);
             lstrcat_s(buf, ARR_SZ(buf), TEXT(" ") TEXT(APP_VERSION));
@@ -106,6 +104,20 @@ static void LoadTranslation(const TCHAR *__restrict__ ini)
     l10n = l10n_ini;
     free(tsection); // free the cached Translation section.
 }
+
+static void LoadTranslation(const TCHAR *__restrict__ ini)
+{
+    if (!ini) {
+        l10n = (struct strings *)&en_US;
+        return;
+    } else if( INVALID_FILE_ATTRIBUTES == GetFileAttributes(ini) ) {
+        return;
+    }
+
+    LoadTranslationOrTT(ini, TEXT("Translation"), 0);
+    LoadTranslationOrTT(ini, TEXT("ToolTips"),    1);
+}
+
 struct langinfoitem *langinfo = NULL;
 int nlanguages;
 
@@ -122,10 +134,10 @@ void ListAllTranslations()
     // First element
     langinfo = (struct langinfoitem *)malloc( sizeof(struct langinfoitem) );
     if (!langinfo) return;
-    langinfo[0].code = en_US.code;
-    langinfo[0].lang_english = en_US.lang_english;
-    langinfo[0].lang = en_US.lang;
-    langinfo[0].author = en_US.author;
+    langinfo[0].code = en_US.Code;
+    langinfo[0].lang_english = en_US.LangEnglish;
+    langinfo[0].lang = en_US.Lang;
+    langinfo[0].author = en_US.Author;
     langinfo[0].fn = NULL;
     nlanguages = 1;
 
@@ -188,7 +200,7 @@ void ListAllTranslations()
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// Helper function to get 
+// Helper function to get
 static int GetCUserLanguage_xx_XX(wchar_t txt[AT_LEAST 16])
 {
     txt[0] = L'\0';

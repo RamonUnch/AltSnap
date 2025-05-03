@@ -825,7 +825,7 @@ BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
 }
 /////////////////////////////////////////////////////////////////////////////
 //
-static DWORD WINAPI EndDeferWindowPosThread(LPVOID hwndSS)
+static DWORD WINAPI EndDeferWindowPosNow(LPVOID hwndSS)
 {
     LastWin.resizing_now = 1;
     EndDeferWindowPos(hwndSS);
@@ -834,12 +834,7 @@ static DWORD WINAPI EndDeferWindowPosThread(LPVOID hwndSS)
     LastWin.resizing_now = 0;
     return TRUE;
 }
-static void EndDeferWindowPosAsync(HDWP hwndSS)
-{
-    //DWORD lpThreadId;
-    //CloseHandle(CreateThread(NULL, STACK, EndDeferWindowPosThread, hwndSS, STACK_SIZE_PARAM_IS_A_RESERVATION, &lpThreadId));
-    PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)EndDeferWindowPosThread, (LPARAM)hwndSS);
-}
+
 static int ShouldResizeTouching()
 {
     return state.action == AC_RESIZE
@@ -911,12 +906,12 @@ static int ResizeTouchingWindows(LPVOID lwptr)
         hwndSS = DeferWindowPos(hwndSS, state.hwnd, NULL
                   , lw->x, lw->y, lw->width, lw->height
                   , SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER);
-        if(hwndSS) EndDeferWindowPosAsync(hwndSS);
+        if(hwndSS) EndDeferWindowPosNow(hwndSS);
     }
     return 1;
 }
 /////////////////////////////////////////////////////////////////////////////
-static void ResizeAllSnappedWindowsAsync()
+static void ResizeAllSnappedWindows()
 {
     if (!conf.StickyResize || !numsnwnds) return;
 
@@ -939,7 +934,7 @@ static void ResizeAllSnappedWindowsAsync()
         hwndSS = DeferWindowPos(hwndSS, LastWin.hwnd, NULL
                , LastWin.x, LastWin.y, LastWin.width, LastWin.height
                , SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER);
-    if(hwndSS) EndDeferWindowPosAsync(hwndSS);
+    if(hwndSS) EndDeferWindowPosNow(hwndSS);
     LastWin.hwnd = NULL;
 }
 
@@ -2157,8 +2152,8 @@ static void MouseMoveNow(POINT pt)
             // Update wndwidth and wndheight
             wndwidth  = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
             wndheight = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
-            if( !conf.FullWin && LOBYTE(GetVersion()) < 10 )
-                wndpl.flags |= WPF_ASYNCWINDOWPLACEMENT;
+            //if( !conf.FullWin && LOBYTE(GetVersion()) < 10 )
+            //    wndpl.flags |= WPF_ASYNCWINDOWPLACEMENT;
             SetWindowPlacement(state.hwnd, &wndpl);
             EnumOnce(RECALC_INVISIBLE_BORDERS);
 //            if (!conf.FullWin) {
@@ -5105,7 +5100,7 @@ static DWORD WINAPI FinishMovementNow(LPVOID pp)
     if (LastWin.hwnd
     && (state.moving == NOT_MOVED || (!conf.FullWin && state.moving == 1))) {
         if (!conf.FullWin && state.action == AC_RESIZE) {
-            ResizeAllSnappedWindowsAsync();
+            ResizeAllSnappedWindows();
         }
         if (IsWindow(LastWin.hwnd) && !LastWin.snap){
             if (LastWin.maximize) {

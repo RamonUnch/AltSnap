@@ -231,7 +231,7 @@ static void LOGfunk( const char *fmt, ... )
 #endif
 
 #ifdef DEBUG
-#include <assert.h>
+#define assert(x) do{if(!(x)) { LOGA("Assert: " #x); ExitProcess(1); } }while(0)
 #else
 #undef assert
 #define assert(x)

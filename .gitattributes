@@ -1,1 +1,2 @@
-*.dni text linguist-language=ini working-tree-encoding=utf-16le-bom eol=crlf
+*.dni diff merge text linguist-language=ini working-tree-encoding=utf-16le-bom eol=crlf
+Lang/* diff merge text linguist-language=ini working-tree-encoding=utf-16le-bom eol=crlf

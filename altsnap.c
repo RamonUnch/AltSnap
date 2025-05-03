@@ -263,7 +263,7 @@ static void ShowUnikeyMenu(HWND hwnd, LPARAM param)
     HMENU menu = CreatePopupMenu();
     if (!menu) return;
 
-    const TCHAR *kl, *keylist = ukmap[vkey - 0x41];
+    const TCHAR *kl, *keylist = ukmap[(vkey - 0x41)*2];
     UCHAR i;
     for (kl = keylist, i='A'; *kl; kl++) {
         if(*kl==L'%') {

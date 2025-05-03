@@ -40,6 +40,7 @@ static HWND g_timerhwnd;    // For various timers
 static HWND g_mchwnd;       // For the Action menu messages
 static HWND g_hkhwnd;       // For the hotkeys message window.
 static DWORD g_WorkerThreadID;
+static HANDLE g_WorkerThreadHANDLE;
 static UCHAR g_InFinishMovement;
 
 static void UnhookMouse();
@@ -655,7 +656,8 @@ static DWORD WINAPI WorkerThread(LPVOID p)
     MSG msg;
     BOOL ret = 0;
     while ((ret = GetMessage(&msg, NULL, 0, 0))) {
-        if(ret == -1 || msg.hwnd != NULL) continue;
+        if (ret == -1) return FALSE;
+        if (msg.hwnd != NULL) continue;
 
         // use wParam as proc and lParam as parameter
         UINT message = msg.message;
@@ -663,8 +665,8 @@ static DWORD WINAPI WorkerThread(LPVOID p)
             LPTHREAD_START_ROUTINE work_funk = (LPTHREAD_START_ROUTINE)msg.wParam;
             LPVOID work_param = (LPVOID)msg.lParam;
 
-            // Should not happen...
-            if (!work_funk) continue;
+            // Quit WorkerThread
+            if (!work_funk) break;;
 
             // DO THE WORK!!!
             work_funk(work_param);
@@ -2349,8 +2351,6 @@ static DWORD WINAPI Send_ClickProc(LPVOID buttonD)
 static void Send_Click_Thread(enum button button)
 {
     PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)Send_ClickProc, (LPARAM)button);
-//    DWORD id;
-//    CloseHandle(CreateThread(NULL, STACK, Send_ClickProc, (LPVOID)(LONG_PTR)button, STACK_SIZE_PARAM_IS_A_RESERVATION, &id));
 }
 /////////////////////////////////////////////////////////////////////////////
 // Sends an unicode character to the system.
@@ -2481,8 +2481,6 @@ static int ActionKill(HWND hwnd)
     if(blacklisted(hwnd, &BlkLst.Pause))
        return 0;
 
-//    DWORD lpThreadId;
-//    CloseHandle(CreateThread(NULL, STACK, ActionKillThread, hwnd, STACK_SIZE_PARAM_IS_A_RESERVATION, &lpThreadId));
     PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)ActionKillThread, (LPARAM)hwnd);
 
     return 1;
@@ -6071,7 +6069,7 @@ __declspec(dllexport) void WINAPI Unload()
 #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
 #endif
     // Quit Worker Thread...
-    PostThreadMessage(g_WorkerThreadID, WM_QUIT, 0, 0);
+    PostThreadMessage(g_WorkerThreadID, WM_DOWORK, 0, 0);
 
     conf.keepMousehook = 0;
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
@@ -6112,6 +6110,10 @@ __declspec(dllexport) void WINAPI Unload()
     free(snwnds);
     free(minhwnds);
     freezones();
+
+    // Wait for worker thread to have a clean closing...
+    WaitForSingleObject(g_WorkerThreadHANDLE, 5000);
+    CloseHandle(g_WorkerThreadHANDLE);
 }
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated and title and class are | separated.
@@ -6595,7 +6597,7 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_LEA
     }
 
     // Create worker thread.
-    CloseHandle(CreateThread(NULL, STACK, WorkerThread, NULL, STACK_SIZE_PARAM_IS_A_RESERVATION, &g_WorkerThreadID));
+    g_WorkerThreadHANDLE = CreateThread(NULL, STACK, WorkerThread, NULL, STACK_SIZE_PARAM_IS_A_RESERVATION, &g_WorkerThreadID);
 
     return g_hkhwnd;
 }

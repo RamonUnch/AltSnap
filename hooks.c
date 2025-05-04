@@ -519,14 +519,15 @@ static int IsFullScreenBL(HWND hwnd)
 // WM_ENTERSIZEMOVE or WM_EXITSIZEMOVE...
 static void NotifySizeMoveStaEnd(HWND hwnd, UCHAR sta)
 {
-    //LOGA("NotifySizeMoveStaEnd(%d)", (int)sta);
     // Don't send WM_ENTER/EXIT SIZEMOVE if the window is in SSizeMove BL
     if(!blacklisted(hwnd, &BlkLst.SSizeMove)) {
         PostMessage(hwnd, sta? WM_ENTERSIZEMOVE: WM_EXITSIZEMOVE, 0, 0);
     }
     // Always send the NotifyWinEvent for IAccessible interface.
-    if (conf.NotifyWinEvent)
+    if (conf.NotifyWinEvent) {
+        LOG("NotifySizeMove %s", sta ? "START" : "END");
         NotifyWinEvent(sta? EVENT_SYSTEM_MOVESIZESTART : EVENT_SYSTEM_MOVESIZEEND, hwnd, 0, 0);
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2393,8 +2394,8 @@ static void HotkeyUp()
     // Prevent the alt keyup from triggering the window menu to be selected
     // The way this works is that the alt key is "disguised" by sending
     // ctrl keydown/keyup events
+    LOG("HotkeyUp()");
     if (state.blockaltup || state.action) {
-        //LOGA("SendCtrl");
         Send_CTRL();
         state.blockaltup = 0;
         // If there is more that one key down remaining
@@ -5135,9 +5136,8 @@ static DWORD WINAPI FinishMovementNow(LPVOID pp)
     }
 
     HideTransWin();
-    // Send WM_EXITSIZEMOVE and EVENT_SYSTEM_MOVESIZEEND
-    //NotifySizeMoveStaEnd(state.hwnd, 0);
 
+    // Send WM_EXITSIZEMOVE and EVENT_SYSTEM_MOVESIZEEND
     if(conf.FullWin && state.moving == 1)
         NotifySizeMoveStaEnd(state.hwnd, 0);
 

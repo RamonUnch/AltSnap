@@ -2155,16 +2155,8 @@ static void MouseMoveNow(POINT pt)
             // Update wndwidth and wndheight
             wndwidth  = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
             wndheight = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
-            //if( !conf.FullWin && LOBYTE(GetVersion()) < 10 )
-            //    wndpl.flags |= WPF_ASYNCWINDOWPLACEMENT;
             SetWindowPlacement(state.hwnd, &wndpl);
             EnumOnce(RECALC_INVISIBLE_BORDERS);
-//            if (!conf.FullWin) {
-//                wndpl.flags |= WPF_ASYNCWINDOWPLACEMENT;
-//                SetWindowPlacement(state.hwnd, &wndpl);
-//            } else {
-//                LastWin.end=1;
-//            }
         }
 
     } else if (state.action == AC_RESIZE) {
@@ -4882,7 +4874,7 @@ static int xpure DoubleClamp(int ptx, int left, int right, int rwidth)
 // If we pass buttonX BT_PROBE it will tell us if we pass the blacklist.
 static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, int buttonX)
 {
-    LOG("\ninit_movement_and_actions(pt=%d,%d, hwnd=%x, action=%d, button=%d)", pt.x, pt.y, (UINT)hwnd, (int)action, buttonX);
+    LOG("\ninit_movement_and_actions(pt=%d,%d, hwnd=%x, action=%d, button=%d)", pt.x, pt.y, (UINT)(INT_PTR)hwnd, (int)action, buttonX);
     RECT wnd;
     state.prevpt = pt; // in case
     int button = LOWORD(buttonX);
@@ -4898,7 +4890,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     state.mdiclient = NULL;
     state.hwnd = hwnd? hwnd: MDIorNOT(WindowFromPoint(pt), &state.mdiclient);
     if (!state.hwnd || (LastWin.resizing_now && state.hwnd == LastWin.hwnd) || !IsWindow(state.hwnd)) {
-        LOG("Init failed: state.hwnd=%x, LastWin.hwnd=%d, resizing_now = %d", (UINT)state.hwnd, LastWin.hwnd, (int)LastWin.resizing_now);
+        LOG("Init failed: state.hwnd=%x, LastWin.hwnd=%x, resizing_now = %d", (UINT)(INT_PTR)state.hwnd, (UINT)(INT_PTR)LastWin.hwnd, (int)LastWin.resizing_now);
         return 0;
     }
 

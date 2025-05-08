@@ -17,15 +17,15 @@ static LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 //#define ALTUP_TIMER     WM_APP+4
 #define POOL_TIMER      WM_APP+5
 
+
 #define WM_DOWORK        WM_APP+6
 #define WM_DOMOUSEMOVE   WM_APP+7
 
 // #define NO_HOOK_LL
 
-#define CURSOR_ONLY 66
-#define NOT_MOVED 33
-#define RESET_OFFSET 22
-#define DRAG_WAIT 77
+#define MAX_SNAP_SPEED  65535
+enum { NOT_MOVING=0, NOW_MOVING=1, CURSOR_ONLY=66, RESET_OFFSET=22, DRAG_WAIT=77 };
+
 // Number of actions per button!
 //  2 for Alt+Clikc
 // +2 for Titlebar action
@@ -42,6 +42,7 @@ static HWND g_hkhwnd;       // For the hotkeys message window.
 static DWORD g_WorkerThreadID;
 static HANDLE g_WorkerThreadHANDLE;
 static UCHAR g_InFinishMovement;
+static UCHAR g_InMouseMove;
 
 static void UnhookMouse();
 static void HookMouse();
@@ -78,8 +79,7 @@ static struct windowRR {
     UCHAR moveonly;
     UCHAR maximize;
     UCHAR snap;
-
-    UCHAR resizing_now;
+    //UCHAR resizing_now;
 } LastWin;
 
 struct resizeXY {
@@ -686,7 +686,10 @@ static DWORD WINAPI WorkerThread(LPVOID p)
             LOG("WM_DOMOUSEMOVE skip_count = %d", skip_count);
 
             POINT pt = { (long)msg.wParam, (long)msg.lParam };
+
+            g_InMouseMove = 1;
             MouseMoveNow(pt);
+            g_InMouseMove = 0;
         }
     }
     return TRUE;
@@ -830,11 +833,9 @@ BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
 //
 static DWORD WINAPI EndDeferWindowPosNow(LPVOID hwndSS)
 {
-    LastWin.resizing_now = 1;
     EndDeferWindowPos(hwndSS);
     if (conf.RefreshRate) Sleep(conf.RefreshRate);
     LastWin.hwnd = NULL;
-    LastWin.resizing_now = 0;
     return TRUE;
 }
 
@@ -1379,7 +1380,7 @@ static void MoveResizeWindowNow_(struct windowRR *lw, UINT flag)
 #define MOVEASYNC         SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS
 static void MoveWindowNow(struct windowRR *lw)
 {
-    lw->resizing_now = 1;
+    //lw->resizing_now = 1;
 //    RECT rc;
 //    int notsamesize = 0;
 //    if (GetWindowRect(lw->hwnd, &rc)) {
@@ -1430,7 +1431,7 @@ static void MoveWindowNow(struct windowRR *lw)
     else
         MoveResizeWindowNow_(lw, flag);
 
-    lw->resizing_now = 0;
+    //lw->resizing_now = 0;
 }
 #undef RESIZEFLAG
 #undef MOVETHICKBORDERS
@@ -1514,17 +1515,9 @@ static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
 //    return dpi;
 //}
 
-static void WaitMovementEnd()
-{ // Only wait 64ms maximum
-    if (conf.FullWin) {
-        int i=0;
-        while (LastWin.hwnd && i++ < 4) Sleep(15);
-    }
-    LastWin.hwnd = NULL; // Zero out in case.
-}
 ///////////////////////////////////////////////////////////////////////////
 #define AERO_TH conf.AeroThreshold
-#define MM_THREAD_ON  (LastWin.resizing_now && conf.FullWin) //(LastWin.hwnd && conf.FullWin)
+#define MM_THREAD_ON  (g_InMouseMove && conf.FullWin) //(LastWin.hwnd && conf.FullWin)
 static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight)
 {
     // return if last resizing is not finished or no Aero or not resizable.
@@ -1667,17 +1660,17 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
                 RestoreWindowTo(state.hwnd, *posx, *posy, *wndwidth, *wndheight);
                 EnumOnce(RECALC_INVISIBLE_BORDERS);
             }
-            int mmthreadend = !LastWin.resizing_now;
+            assert(LastWin.hwnd == NULL);
+
             LastWin.hwnd = state.hwnd;
             LastWin.x = *posx;
             LastWin.y = *posy;
             LastWin.width = *wndwidth;
             LastWin.height = *wndheight;
             LastWin.snap = 1;
-            if (mmthreadend) {
-                MoveWindowNow(&LastWin);
-                return 1;
-            }
+
+            MoveWindowNow(&LastWin);
+            return 1;
         }
     }
     return 0;
@@ -2213,7 +2206,6 @@ static void MouseMoveNow(POINT pt)
         }
     }
     // LastWin is GLOBAL !
-    UCHAR mouse_thread_finished = !LastWin.resizing_now;//!LastWin.hwnd;
     LastWin.x      = posx;
     LastWin.y      = posy;
     LastWin.width  = wndwidth;
@@ -2241,16 +2233,13 @@ static void MouseMoveNow(POINT pt)
         state.moving=1;
         ResizeTouchingWindows(&LastWin);
 
-    } else if (mouse_thread_finished) {
+    } else {
         // Resize other windows
         if (!ResizeTouchingWindows(&LastWin)) {
             // The resize touching also resizes LastWin.
             MoveWindowNow(&LastWin);
         }
         state.moving = 1;
-    } else {
-        Sleep(0);
-        state.moving = NOT_MOVED; // Could not Move Window
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -4835,12 +4824,12 @@ static int DoWheelActions(HWND hwnd, enum action action)
 /////////////////////////////////////////////////////////////////////////////
 static void StartSpeedMes()
 {
-    if (conf.AeroMaxSpeed < 65535)
+    if (conf.AeroMaxSpeed < MAX_SNAP_SPEED)
         SetTimer(g_timerhwnd, SPEED_TIMER, conf.AeroSpeedTau, NULL);
 }
 static void StopSpeedMes()
 {
-    if (conf.AeroMaxSpeed < 65535)
+    if (conf.AeroMaxSpeed < MAX_SNAP_SPEED)
         KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
 }
 static DWORD WINAPI SendAltCtrlAlt(LPVOID p)
@@ -4883,8 +4872,8 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     // Get MDI chlild hwnd or root hwnd if not MDI!
     state.mdiclient = NULL;
     state.hwnd = hwnd? hwnd: MDIorNOT(WindowFromPoint(pt), &state.mdiclient);
-    if (!state.hwnd || (LastWin.resizing_now && state.hwnd == LastWin.hwnd) || !IsWindow(state.hwnd)) {
-        LOG("Init failed: state.hwnd=%x, LastWin.hwnd=%x, resizing_now = %d", (UINT)(INT_PTR)state.hwnd, (UINT)(INT_PTR)LastWin.hwnd, (int)LastWin.resizing_now);
+    if (!state.hwnd || (g_InMouseMove && state.hwnd == LastWin.hwnd) || !IsWindow(state.hwnd)) {
+        LOG("Init failed: state.hwnd=%x, LastWin.hwnd=%x, g_InMouseMove = %d", (UINT)(INT_PTR)state.hwnd, (UINT)(INT_PTR)LastWin.hwnd, (int)g_InMouseMove);
         return 0;
     }
 
@@ -5082,9 +5071,8 @@ static DWORD WINAPI FinishMovementNow(LPVOID pp)
     StopSpeedMes();
     ShowSnapLayoutPreview(ZONES_PREV_HIDE);
     //Sleep(5000);
-    if (LastWin.hwnd
-    && (state.moving == NOT_MOVED || (!conf.FullWin && state.moving == 1))) {
-        if (!conf.FullWin && state.action == AC_RESIZE) {
+    if (!conf.FullWin && LastWin.hwnd && state.moving == 1) {
+        if (state.action == AC_RESIZE) {
             ResizeAllSnappedWindows();
         }
         if (IsWindow(LastWin.hwnd) && !LastWin.snap){
@@ -6481,7 +6469,7 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_LEA
     conf.ZoomFracShift = max(2, conf.ZoomFracShift);
     conf.BLCapButtons  = GetSectionOptionInt(inisection, "BLCapButtons", 3);
     conf.BLUpperBorder = GetSectionOptionInt(inisection, "BLUpperBorder", 3);
-    conf.AeroMaxSpeed  = GetSectionOptionInt(inisection, "AeroMaxSpeed", 65535);
+    conf.AeroMaxSpeed  = GetSectionOptionInt(inisection, "AeroMaxSpeed", MAX_SNAP_SPEED);
     conf.LongClickMoveDelay = GetSectionOptionInt(inisection, "LongClickMoveDelay", 0);
     if (conf.LongClickMoveDelay == 0)
         conf.LongClickMoveDelay = GetDoubleClickTime();
@@ -6576,7 +6564,7 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_LEA
     // Capture main hwnd from caller. This is also the cursor wnd
     g_mainhwnd = mainhwnd;
 
-    if (conf.keepMousehook || conf.AeroMaxSpeed < 65535) {
+    if (conf.keepMousehook || conf.AeroMaxSpeed < MAX_SNAP_SPEED) {
         g_timerhwnd = KreateMsgWin(TimerWindowProc, TEXT(APP_NAMEA)TEXT("-Timers"), 0);
     }
 

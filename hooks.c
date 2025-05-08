@@ -1335,7 +1335,7 @@ static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h)
 
 /////////////////////////////////////////////////////////////////////////////
 // Move the windows in a thread in case it is very slow to resize
-static void MoveResizeWindowThread___(struct windowRR *lw, UINT flag)
+static void MoveResizeWindowNow_(struct windowRR *lw, UINT flag)
 {
     HWND hwnd;
     hwnd = lw->hwnd;
@@ -1377,9 +1377,8 @@ static void MoveResizeWindowThread___(struct windowRR *lw, UINT flag)
 #define RESIZEFLAG        SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE
 #define MOVETHICKBORDERS  SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE
 #define MOVEASYNC         SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS
-static DWORD WINAPI MoveWindowNow(LPVOID LastWinV)
+static void MoveWindowNow(struct windowRR *lw)
 {
-    struct windowRR *lw = (struct windowRR *)LastWinV;
     lw->resizing_now = 1;
 //    RECT rc;
 //    int notsamesize = 0;
@@ -1429,19 +1428,14 @@ static DWORD WINAPI MoveWindowNow(LPVOID LastWinV)
     if (nothingtodo)
         lw->hwnd = NULL; // DONE!
     else
-        MoveResizeWindowThread___(lw, flag);
+        MoveResizeWindowNow_(lw, flag);
 
     lw->resizing_now = 0;
-    return 0;
 }
 #undef RESIZEFLAG
 #undef MOVETHICKBORDERS
 #undef MOVEASYNC
 
-//static void MoveWindowInThread(struct windowRR *lw)
-//{
-//	PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)MoveWindowNow, (LPARAM)lw);
-//}
 ///////////////////////////////////////////////////////////////////////////
 // use snwnds[numsnwnds].wnd / .flag
 static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeight, int *bottomHeight, const RECT *mon)
@@ -1524,7 +1518,7 @@ static void WaitMovementEnd()
 { // Only wait 64ms maximum
     if (conf.FullWin) {
         int i=0;
-        while (LastWin.hwnd && i++ < 4) Sleep(16);
+        while (LastWin.hwnd && i++ < 4) Sleep(15);
     }
     LastWin.hwnd = NULL; // Zero out in case.
 }
@@ -5163,28 +5157,35 @@ static void LockMovement()
     LastWin.hwnd = NULL;
     if(!conf.FullWin) HideTransWin();
 }
+
+// Just to be used in the ClickComboActions function
+// and started in the worker thread.
+static DWORD WINAPI DoMoveResizeMaxMinComboAction(LPVOID pp)
+{
+    if (IsZoomed(state.hwnd)) {
+        if (IsSamePTT(&state.clickpt, &state.prevpt)) {
+            state.moving = CURSOR_ONLY;
+            RestoreWindow(state.hwnd);
+        } else {
+            state.moving = 0;
+            MouseMove(state.prevpt);
+        }
+    } else if (state.resizable) {
+        LockMovement();
+        if (IsHotclick(state.alt)) {
+            state.action = AC_NONE;
+            state.moving = 0;
+        }
+        MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE, 2);
+    }
+    return 1;
+}
 static int ClickComboActions(enum action action)
 {
     if (!(conf.MMMaximize&1)) return 0;
     // Maximize/Restore the window if pressing Move, Resize mouse buttons.
     if (state.action == AC_MOVE && action == AC_RESIZE) {
-        WaitMovementEnd();
-        if (IsZoomed(state.hwnd)) {
-            if (IsSamePTT(&state.clickpt, &state.prevpt)) {
-                state.moving = CURSOR_ONLY;
-                RestoreWindow(state.hwnd);
-            } else {
-                state.moving = 0;
-                MouseMove(state.prevpt);
-            }
-        } else if (state.resizable) {
-            LockMovement();
-            if (IsHotclick(state.alt)) {
-                state.action = AC_NONE;
-                state.moving = 0;
-            }
-            MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE, 2);
-        }
+        PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)DoMoveResizeMaxMinComboAction, 0);
         state.blockmouseup = 1;
         return 1;
     }

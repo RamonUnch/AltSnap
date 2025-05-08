@@ -11,15 +11,16 @@ static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h);
 static BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
 static LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 // Timer messages
-#define REHOOK_TIMER    WM_APP+1
-#define SPEED_TIMER     WM_APP+2
-#define GRAB_TIMER      WM_APP+3
-//#define ALTUP_TIMER     WM_APP+4
-#define POOL_TIMER      WM_APP+5
+#define REHOOK_TIMER    (WM_APP+1)
+#define SPEED_TIMER     (WM_APP+2)
+#define GRAB_TIMER      (WM_APP+3)
+//#define ALTUP_TIMER     (WM_APP+4)
+#define POOL_TIMER      (WM_APP+5)
 
 
-#define WM_DOWORK        WM_APP+6
-#define WM_DOMOUSEMOVE   WM_APP+7
+#define WM_DOWORK        (WM_APP+6)
+#define WM_DOMOUSEMOVE   (WM_APP+7)
+#define WM_DOACTION      (WM_APP+8)
 
 // #define NO_HOOK_LL
 
@@ -831,12 +832,11 @@ BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
 }
 /////////////////////////////////////////////////////////////////////////////
 //
-static DWORD WINAPI EndDeferWindowPosNow(LPVOID hwndSS)
+static void EndDeferWindowPosNow(HDWP hwndSS)
 {
     EndDeferWindowPos(hwndSS);
-    if (conf.RefreshRate) Sleep(conf.RefreshRate);
+    if (conf.RefreshRate) ASleep(conf.RefreshRate);
     LastWin.hwnd = NULL;
-    return TRUE;
 }
 
 static int ShouldResizeTouching()
@@ -910,7 +910,7 @@ static int ResizeTouchingWindows(LPVOID lwptr)
         hwndSS = DeferWindowPos(hwndSS, state.hwnd, NULL
                   , lw->x, lw->y, lw->width, lw->height
                   , SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER);
-        if(hwndSS) EndDeferWindowPosNow(hwndSS);
+        if (hwndSS) EndDeferWindowPosNow(hwndSS);
     }
     return 1;
 }
@@ -938,7 +938,7 @@ static void ResizeAllSnappedWindows()
         hwndSS = DeferWindowPos(hwndSS, LastWin.hwnd, NULL
                , LastWin.x, LastWin.y, LastWin.width, LastWin.height
                , SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER);
-    if(hwndSS) EndDeferWindowPosNow(hwndSS);
+    if (hwndSS) EndDeferWindowPosNow(hwndSS);
     LastWin.hwnd = NULL;
 }
 

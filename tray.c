@@ -237,9 +237,9 @@ static void catFullLayoutName(TCHAR *txt, size_t len, int laynum)
     TCHAR n1[UINT_DIGITS+1];
     lstrcat_s(txt, len, l10n->MenuSnapLayout);
     lstrcat_s(txt, len, Uint2lStr(n1, laynum+1));
-    if (g_dllmsgHKhwnd) {
+    if (G_HotKeyProc) {
         DWORD rez =0;
-        if ((rez = SendMessage(g_dllmsgHKhwnd, WM_GETLAYOUTREZ, laynum, 0))) {
+        if ((rez = G_HotKeyProc(g_hwnd, WM_GETLAYOUTREZ, laynum, 0))) {
             // TCHAR n2[UINT_DIGITS+1];
             // Add (width:height) to label the layout.
             // lstrcatM_s(txt, len ,TEXT("  ("), Uint2lStr(n1, LOWORD(rez)),TEXT(":"),Uint2lStr(n2, HIWORD(rez)), TEXT(")"), NULL);

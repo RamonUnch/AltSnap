@@ -150,10 +150,12 @@ enum action { ACTION_MAP AC_MAXVALUE, AC_SHRT0, AC_SHRTF=AC_SHRT0+36, AC_ORICLIC
 #undef ACVALUE
 
 // List of extra info options
-#define ACINFO_MOVE     (1)
-#define ACINFO_RESIZE   (2)
-#define ACINFO_ZORDER   (4)
-#define ACINFO_CLOSE    (8)
+enum {
+    ACINFO_MOVE   =  1,
+    ACINFO_RESIZE =  2,
+    ACINFO_ZORDER =  4,
+    ACINFO_CLOSE  =  8,
+};
 #define MV ACINFO_MOVE
 #define RZ ACINFO_RESIZE
 #define ZO ACINFO_ZORDER

@@ -11,18 +11,22 @@ static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h);
 static BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
 static LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 // Timer messages
-#define REHOOK_TIMER    WM_APP+1
-#define SPEED_TIMER     WM_APP+2
-#define GRAB_TIMER      WM_APP+3
-//#define ALTUP_TIMER     WM_APP+4
-#define POOL_TIMER      WM_APP+5
+#define REHOOK_TIMER    (WM_APP+1)
+#define SPEED_TIMER     (WM_APP+2)
+#define GRAB_TIMER      (WM_APP+3)
+//#define ALTUP_TIMER     (WM_APP+4)
+#define POOL_TIMER      (WM_APP+5)
+
+
+#define WM_DOWORK        (WM_APP+6)
+#define WM_DOMOUSEMOVE   (WM_APP+7)
+#define WM_DOACTION      (WM_APP+8)
 
 // #define NO_HOOK_LL
 
-#define CURSOR_ONLY 66
-#define NOT_MOVED 33
-#define RESET_OFFSET 22
-#define DRAG_WAIT 77
+#define MAX_SNAP_SPEED  65535
+enum { NOT_MOVING=0, NOW_MOVING=1, CURSOR_ONLY=66, RESET_OFFSET=22, DRAG_WAIT=77 };
+
 // Number of actions per button!
 //  2 for Alt+Clikc
 // +2 for Titlebar action
@@ -36,6 +40,10 @@ static HWND g_transhwnd[4]; // 4 windows to make a hollow window
 static HWND g_timerhwnd;    // For various timers
 static HWND g_mchwnd;       // For the Action menu messages
 static HWND g_hkhwnd;       // For the hotkeys message window.
+static DWORD g_WorkerThreadID;
+static HANDLE g_WorkerThreadHANDLE;
+static UCHAR g_InFinishMovement;
+static UCHAR g_InMouseMove;
 
 static void UnhookMouse();
 static void HookMouse();
@@ -56,8 +64,9 @@ enum buttonstate {STATE_NONE, STATE_DOWN, STATE_UP};
 #define BT_PROBE (1<<16)
 
 static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, int button);
-static void FinishMovement();
+static void FinishMovementAsync();
 static void MoveTransWin(int x, int y, int w, int h);
+static void MouseMoveNow(POINT pt);
 
 static struct windowRR {
     HWND hwnd;
@@ -71,6 +80,7 @@ static struct windowRR {
     UCHAR moveonly;
     UCHAR maximize;
     UCHAR snap;
+    //UCHAR resizing_now;
 } LastWin;
 
 struct resizeXY {
@@ -247,11 +257,11 @@ static struct config {
 
     struct {
         enum action // Up to 20 BUTTONS!!!
-          LMB[NACPB],  RMB[NACPB],  MMB[NACPB],  MB4[NACPB],  MB5[NACPB]
+          LMB[NACPB*(20+2)]; /*,  RMB[NACPB],  MMB[NACPB],  MB4[NACPB],  MB5[NACPB]
         , MB6[NACPB],  MB7[NACPB],  MB8[NACPB],  MB9[NACPB],  MB10[NACPB]
         , MB11[NACPB], MB12[NACPB], MB13[NACPB], MB14[NACPB], MB15[NACPB]
         , MB16[NACPB], MB17[NACPB], MB18[NACPB], MB19[NACPB], MB20[NACPB]
-        , Scroll[NACPB], HScroll[NACPB]; // Plus vertical and horizontal wheels
+        , Scroll[NACPB], HScroll[NACPB];*/ // Plus vertical and horizontal wheels
     } Mouse;
     enum action GrabWithAlt[NACPB]; // Actions without click
     enum action MoveUp[NACPB];      // Actions on (long) Move Up w/o drag
@@ -510,14 +520,15 @@ static int IsFullScreenBL(HWND hwnd)
 // WM_ENTERSIZEMOVE or WM_EXITSIZEMOVE...
 static void NotifySizeMoveStaEnd(HWND hwnd, UCHAR sta)
 {
-    //LOGA("NotifySizeMoveStaEnd(%d)", (int)sta);
     // Don't send WM_ENTER/EXIT SIZEMOVE if the window is in SSizeMove BL
     if(!blacklisted(hwnd, &BlkLst.SSizeMove)) {
         PostMessage(hwnd, sta? WM_ENTERSIZEMOVE: WM_EXITSIZEMOVE, 0, 0);
     }
     // Always send the NotifyWinEvent for IAccessible interface.
-    if (conf.NotifyWinEvent)
+    if (conf.NotifyWinEvent) {
+        LOG("NotifySizeMove %s", sta ? "START" : "END");
         NotifyWinEvent(sta? EVENT_SYSTEM_MOVESIZESTART : EVENT_SYSTEM_MOVESIZEEND, hwnd, 0, 0);
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -638,6 +649,53 @@ static int ShouldSnapTo(HWND hwnd)
            || blacklisted(hwnd, &BlkLst.Snaplist)
         );
 }
+
+
+/////////////////////////////////////////////////////////////////////////
+// Worker Thread, use PostThreadMessage...
+static DWORD WINAPI WorkerThread(LPVOID p)
+{
+    MSG msg;
+    BOOL ret = 0;
+    while ((ret = GetMessage(&msg, NULL, 0, 0))) {
+        if (ret == -1) return FALSE;
+        if (msg.hwnd != NULL) continue;
+
+        // use wParam as proc and lParam as parameter
+        UINT message = msg.message;
+        if (message == WM_DOWORK) {
+            LPTHREAD_START_ROUTINE work_funk = (LPTHREAD_START_ROUTINE)msg.wParam;
+            LPVOID work_param = (LPVOID)msg.lParam;
+
+            // Quit WorkerThread
+            if (!work_funk) break;;
+
+            // DO THE WORK!!!
+            work_funk(work_param);
+        } else if (message == WM_DOMOUSEMOVE) {
+            // Skip all consecutive MouseMove messages and only execute the last one.
+            MSG next_msg;
+            int skip_count = 0;
+            while (PeekMessage(&next_msg, (HWND)(-1), 0, 0, PM_NOREMOVE)) {
+                if (next_msg.message == WM_DOMOUSEMOVE) {
+                    PeekMessage(&msg, (HWND)(-1), 0, 0, PM_REMOVE); // Override msg...
+                    skip_count++;
+                } else {
+                    break;
+                }
+            }
+            LOG("WM_DOMOUSEMOVE skip_count = %d", skip_count);
+
+            POINT pt = { (long)msg.wParam, (long)msg.lParam };
+
+            g_InMouseMove = 1;
+            MouseMoveNow(pt);
+            g_InMouseMove = 0;
+        }
+    }
+    return TRUE;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 unsigned wnds_alloc = 0;
 BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
@@ -774,18 +832,13 @@ BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
 }
 /////////////////////////////////////////////////////////////////////////////
 //
-static DWORD WINAPI EndDeferWindowPosThread(LPVOID hwndSS)
+static void EndDeferWindowPosNow(HDWP hwndSS)
 {
     EndDeferWindowPos(hwndSS);
-    if (conf.RefreshRate) Sleep(conf.RefreshRate);
+    if (conf.RefreshRate) ASleep(conf.RefreshRate);
     LastWin.hwnd = NULL;
-    return TRUE;
 }
-static void EndDeferWindowPosAsync(HDWP hwndSS)
-{
-    DWORD lpThreadId;
-    CloseHandle(CreateThread(NULL, STACK, EndDeferWindowPosThread, hwndSS, STACK_SIZE_PARAM_IS_A_RESERVATION, &lpThreadId));
-}
+
 static int ShouldResizeTouching()
 {
     return state.action == AC_RESIZE
@@ -857,12 +910,12 @@ static int ResizeTouchingWindows(LPVOID lwptr)
         hwndSS = DeferWindowPos(hwndSS, state.hwnd, NULL
                   , lw->x, lw->y, lw->width, lw->height
                   , SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER);
-        if(hwndSS) EndDeferWindowPosAsync(hwndSS);
+        if (hwndSS) EndDeferWindowPosNow(hwndSS);
     }
     return 1;
 }
 /////////////////////////////////////////////////////////////////////////////
-static void ResizeAllSnappedWindowsAsync()
+static void ResizeAllSnappedWindows()
 {
     if (!conf.StickyResize || !numsnwnds) return;
 
@@ -885,7 +938,7 @@ static void ResizeAllSnappedWindowsAsync()
         hwndSS = DeferWindowPos(hwndSS, LastWin.hwnd, NULL
                , LastWin.x, LastWin.y, LastWin.width, LastWin.height
                , SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER);
-    if(hwndSS) EndDeferWindowPosAsync(hwndSS);
+    if (hwndSS) EndDeferWindowPosNow(hwndSS);
     LastWin.hwnd = NULL;
 }
 
@@ -1283,7 +1336,7 @@ static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h)
 
 /////////////////////////////////////////////////////////////////////////////
 // Move the windows in a thread in case it is very slow to resize
-static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
+static void MoveResizeWindowNow_(struct windowRR *lw, UINT flag)
 {
     HWND hwnd;
     hwnd = lw->hwnd;
@@ -1325,9 +1378,9 @@ static void MoveResizeWindowThread(struct windowRR *lw, UINT flag)
 #define RESIZEFLAG        SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE
 #define MOVETHICKBORDERS  SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE
 #define MOVEASYNC         SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS
-static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
+static void MoveWindowNow(struct windowRR *lw)
 {
-    struct windowRR *lw = (struct windowRR *)LastWinV;
+    //lw->resizing_now = 1;
 //    RECT rc;
 //    int notsamesize = 0;
 //    if (GetWindowRect(lw->hwnd, &rc)) {
@@ -1376,23 +1429,14 @@ static DWORD WINAPI MoveWindowThread(LPVOID LastWinV)
     if (nothingtodo)
         lw->hwnd = NULL; // DONE!
     else
-        MoveResizeWindowThread(lw, flag);
+        MoveResizeWindowNow_(lw, flag);
 
-    return 0;
+    //lw->resizing_now = 0;
 }
 #undef RESIZEFLAG
 #undef MOVETHICKBORDERS
 #undef MOVEASYNC
 
-static void MoveWindowInThread(struct windowRR *lw)
-{
-    DWORD lpThreadId;
-    CloseHandle(
-        CreateThread( NULL, STACK
-            , MoveWindowThread
-            , lw, STACK_SIZE_PARAM_IS_A_RESERVATION, &lpThreadId)
-    );
-}
 ///////////////////////////////////////////////////////////////////////////
 // use snwnds[numsnwnds].wnd / .flag
 static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeight, int *bottomHeight, const RECT *mon)
@@ -1471,17 +1515,9 @@ static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
 //    return dpi;
 //}
 
-static void WaitMovementEnd()
-{ // Only wait 64ms maximum
-    if (conf.FullWin) {
-        int i=0;
-        while (LastWin.hwnd && i++ < 4) Sleep(16);
-    }
-    LastWin.hwnd = NULL; // Zero out in case.
-}
 ///////////////////////////////////////////////////////////////////////////
 #define AERO_TH conf.AeroThreshold
-#define MM_THREAD_ON (LastWin.hwnd && conf.FullWin)
+#define MM_THREAD_ON  (g_InMouseMove && conf.FullWin) //(LastWin.hwnd && conf.FullWin)
 static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight)
 {
     // return if last resizing is not finished or no Aero or not resizable.
@@ -1624,17 +1660,17 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
                 RestoreWindowTo(state.hwnd, *posx, *posy, *wndwidth, *wndheight);
                 EnumOnce(RECALC_INVISIBLE_BORDERS);
             }
-            int mmthreadend = !LastWin.hwnd;
+            assert(LastWin.hwnd == NULL);
+
             LastWin.hwnd = state.hwnd;
             LastWin.x = *posx;
             LastWin.y = *posy;
             LastWin.width = *wndwidth;
             LastWin.height = *wndheight;
             LastWin.snap = 1;
-            if (mmthreadend) {
-                MoveWindowInThread(&LastWin);
-                return 1;
-            }
+
+            MoveWindowNow(&LastWin);
+            return 1;
         }
     }
     return 0;
@@ -1962,18 +1998,7 @@ static void MoveTransWin(int x, int y, int w, int h)
     }
     MoveTransWinRaw(x, y, w, h);
 }
-static DWORD CALLBACK WinPlacmntTrgead(LPVOID wndplptr)
-{
-    SetWindowPlacement(LastWin.hwnd, (WINDOWPLACEMENT *)wndplptr);
-    LastWin.hwnd = NULL;
-    return 0;
-}
-static void SetWindowPlacementThread(HWND hwnd, WINDOWPLACEMENT *wndplptr)
-{
-    LastWin.hwnd = hwnd;
-    DWORD lpThreadId;
-    CloseHandle(CreateThread(NULL, STACK, WinPlacmntTrgead, wndplptr, STACK_SIZE_PARAM_IS_A_RESERVATION, &lpThreadId));
-}
+
 // state.origin.mon initialized in init_mov..
 // returns the final window rectangle.
 static void RestoreToMonitorSize(HWND hwnd, RECT *wnd)
@@ -2033,6 +2058,14 @@ static void UpdateCursor(POINT pt);
 static void SetEdgeAndOffset(const RECT *wnd, POINT pt);
 static void MouseMove(POINT pt)
 {
+    if(!g_InFinishMovement)
+        PostThreadMessage(g_WorkerThreadID, WM_DOMOUSEMOVE, pt.x, pt.y);
+}
+static void MouseMoveNow(POINT pt)
+{
+    //LOG("MouseMove(%d,%d)", pt.x, pt.y);
+    if (g_InFinishMovement) return; // Skip...
+
     // Check if window still exists
     if (!IsWindow(state.hwnd))
         { LastWin.hwnd = NULL; UnhookMouse(); return; }
@@ -2109,16 +2142,8 @@ static void MouseMove(POINT pt)
             // Update wndwidth and wndheight
             wndwidth  = wndpl.rcNormalPosition.right - wndpl.rcNormalPosition.left;
             wndheight = wndpl.rcNormalPosition.bottom - wndpl.rcNormalPosition.top;
-            if( !conf.FullWin && LOBYTE(GetVersion()) < 10 )
-                wndpl.flags |= WPF_ASYNCWINDOWPLACEMENT;
             SetWindowPlacement(state.hwnd, &wndpl);
             EnumOnce(RECALC_INVISIBLE_BORDERS);
-//            if (!conf.FullWin) {
-//                wndpl.flags |= WPF_ASYNCWINDOWPLACEMENT;
-//                SetWindowPlacement(state.hwnd, &wndpl);
-//            } else {
-//                LastWin.end=1;
-//            }
         }
 
     } else if (state.action == AC_RESIZE) {
@@ -2181,7 +2206,6 @@ static void MouseMove(POINT pt)
         }
     }
     // LastWin is GLOBAL !
-    UCHAR mouse_thread_finished = !LastWin.hwnd;
     LastWin.x      = posx;
     LastWin.y      = posy;
     LastWin.width  = wndwidth;
@@ -2194,7 +2218,7 @@ static void MouseMove(POINT pt)
     wnd.bottom = posy + state.mdipt.y + wndheight;
 
     // Save hwnd After we are sure movement will occur.
-    LastWin.hwnd   = state.hwnd;
+    LastWin.hwnd = state.hwnd;
 
     if (!conf.FullWin) {
         static RECT bd;
@@ -2209,16 +2233,13 @@ static void MouseMove(POINT pt)
         state.moving=1;
         ResizeTouchingWindows(&LastWin);
 
-    } else if (mouse_thread_finished) {
+    } else {
         // Resize other windows
         if (!ResizeTouchingWindows(&LastWin)) {
             // The resize touching also resizes LastWin.
-            MoveWindowInThread(&LastWin);
+            MoveWindowNow(&LastWin);
         }
         state.moving = 1;
-    } else {
-        Sleep(0);
-        state.moving = NOT_MOVED; // Could not Move Window
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -2252,7 +2273,7 @@ static void Send_KEY_UD(unsigned char vkey, WORD flags)
     SendInput(1, &input, sizeof(INPUT));
     InterlockedDecrement(&state.ignorekey);
 }
-#define Send_CTRL() if (conf.EndSendKey) Send_KEY(conf.EndSendKey)
+#define Send_CTRL() if (conf.EndSendKey) { Send_KEY(conf.EndSendKey); LOG("END KEY SENT"); }
 
 // Send a sequence of Inputs.....
 static void SendInputSequence(const UCHAR *seq)
@@ -2305,8 +2326,7 @@ static DWORD WINAPI Send_ClickProc(LPVOID buttonD)
 #define Send_Click(x) Send_ClickProc((LPVOID)(LONG_PTR)(x));
 static void Send_Click_Thread(enum button button)
 {
-    DWORD id;
-    CloseHandle(CreateThread(NULL, STACK, Send_ClickProc, (LPVOID)(LONG_PTR)button, STACK_SIZE_PARAM_IS_A_RESERVATION, &id));
+    PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)Send_ClickProc, (LPARAM)button);
 }
 /////////////////////////////////////////////////////////////////////////////
 // Sends an unicode character to the system.
@@ -2349,8 +2369,8 @@ static void HotkeyUp()
     // Prevent the alt keyup from triggering the window menu to be selected
     // The way this works is that the alt key is "disguised" by sending
     // ctrl keydown/keyup events
+    LOG("HotkeyUp()");
     if (state.blockaltup || state.action) {
-        //LOGA("SendCtrl");
         Send_CTRL();
         state.blockaltup = 0;
         // If there is more that one key down remaining
@@ -2364,7 +2384,7 @@ static void HotkeyUp()
     if (state.action
     && (conf.GrabWithAlt[0] || conf.GrabWithAlt[1])
     && (MOUVEMENT(conf.GrabWithAlt[0]) || MOUVEMENT(conf.GrabWithAlt[1]))) {
-        FinishMovement();
+        FinishMovementAsync();
     }
 
     // Unhook mouse if no actions is ongoing.
@@ -2437,8 +2457,7 @@ static int ActionKill(HWND hwnd)
     if(blacklisted(hwnd, &BlkLst.Pause))
        return 0;
 
-    DWORD lpThreadId;
-    CloseHandle(CreateThread(NULL, STACK, ActionKillThread, hwnd, STACK_SIZE_PARAM_IS_A_RESERVATION, &lpThreadId));
+    PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)ActionKillThread, (LPARAM)hwnd);
 
     return 1;
 }
@@ -2482,7 +2501,7 @@ static int ScrollLockState()
     if( (conf.ScrollLockState&1)
     && !( !(GetKeyState(VK_SCROLL)&1) ^ !(conf.ScrollLockState&2) ) ) {
         if (state.action)
-            FinishMovement();
+            FinishMovementAsync();
         return 1;
     }
     return 0;
@@ -4509,7 +4528,7 @@ static void ActionStackList(int lasermode)
 }
 static void ActionASOnOff()
 {
-    if (state.action) FinishMovement();
+    if (state.action) FinishMovementAsync();
     state.altsnaponoff = !GetProp(g_mainhwnd, APP_ASONOFF);
     SetProp(g_mainhwnd, APP_ASONOFF, (HANDLE)(DorQWORD)state.altsnaponoff);
     PostMessage(g_mainhwnd, WM_UPDATETRAY, 0, 0);
@@ -4805,12 +4824,12 @@ static int DoWheelActions(HWND hwnd, enum action action)
 /////////////////////////////////////////////////////////////////////////////
 static void StartSpeedMes()
 {
-    if (conf.AeroMaxSpeed < 65535)
+    if (conf.AeroMaxSpeed < MAX_SNAP_SPEED)
         SetTimer(g_timerhwnd, SPEED_TIMER, conf.AeroSpeedTau, NULL);
 }
 static void StopSpeedMes()
 {
-    if (conf.AeroMaxSpeed < 65535)
+    if (conf.AeroMaxSpeed < MAX_SNAP_SPEED)
         KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
 }
 static DWORD WINAPI SendAltCtrlAlt(LPVOID p)
@@ -4838,6 +4857,7 @@ static int xpure DoubleClamp(int ptx, int left, int right, int rwidth)
 // If we pass buttonX BT_PROBE it will tell us if we pass the blacklist.
 static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, int buttonX)
 {
+    LOG("\ninit_movement_and_actions(pt=%d,%d, hwnd=%x, action=%d, button=%d)", pt.x, pt.y, (UINT)(INT_PTR)hwnd, (int)action, buttonX);
     RECT wnd;
     state.prevpt = pt; // in case
     int button = LOWORD(buttonX);
@@ -4852,7 +4872,8 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     // Get MDI chlild hwnd or root hwnd if not MDI!
     state.mdiclient = NULL;
     state.hwnd = hwnd? hwnd: MDIorNOT(WindowFromPoint(pt), &state.mdiclient);
-    if (!state.hwnd || state.hwnd == LastWin.hwnd || !IsWindow(state.hwnd)) {
+    if (!state.hwnd || (g_InMouseMove && state.hwnd == LastWin.hwnd) || !IsWindow(state.hwnd)) {
+        LOG("Init failed: state.hwnd=%x, LastWin.hwnd=%x, g_InMouseMove = %d", (UINT)(INT_PTR)state.hwnd, (UINT)(INT_PTR)LastWin.hwnd, (int)g_InMouseMove);
         return 0;
     }
 
@@ -4924,13 +4945,12 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
         && !(GetKeyState(VK_SHIFT)&0x8000)) {
             // This will pop down menu and stuff
             // In case autofocus did not do it.
-            // LOGA("SendAltCtrlAlt");
-            DWORD lpThreadId; // In new thread because of lag under Win10
-            CloseHandle(CreateThread(NULL, STACK, SendAltCtrlAlt, 0, STACK_SIZE_PARAM_IS_A_RESERVATION, &lpThreadId));
+            PostThreadMessage(g_WorkerThreadID, WM_DOWORK,(WPARAM)SendAltCtrlAlt, 0);
         }
 
         // Set action statte.
         state.action = action; // MOVE OR RESIZE
+        state.moving = 0;
         // Wether or not we will use the zones
         state.usezones = ((conf.UseZones&9) == 9)^state.shift;
 
@@ -5044,29 +5064,28 @@ static int TitleBarActions(POINT pt, enum action action, enum button button)
 
 /////////////////////////////////////////////////////////////////////////////
 // Called on MouseUp and on AltUp when using GrabWithAlt
-//static void FinishMovement() { PostMessage(g_hkhwnd, WM_FINISHMOVEMENT, 0, 0); }
-static void FinishMovement()
+static DWORD WINAPI FinishMovementNow(LPVOID pp)
 {
     LOG("FinishMovement");
-    //LogState("");
+    //LogState("FinishMovement\n");
     StopSpeedMes();
     ShowSnapLayoutPreview(ZONES_PREV_HIDE);
-//    Sleep(5000);
-    if (LastWin.hwnd
-    && (state.moving == NOT_MOVED || (!conf.FullWin && state.moving == 1))) {
-        if (!conf.FullWin && state.action == AC_RESIZE) {
-            ResizeAllSnappedWindowsAsync();
+    //Sleep(5000);
+    if (!conf.FullWin && LastWin.hwnd && state.moving == 1) {
+        if (state.action == AC_RESIZE) {
+            ResizeAllSnappedWindows();
         }
         if (IsWindow(LastWin.hwnd) && !LastWin.snap){
             if (LastWin.maximize) {
-                MaximizeRestore_atpt(LastWin.hwnd, SW_MAXIMIZE, 3);
+                MaximizeRestore_atpt(LastWin.hwnd, SW_MAXIMIZE, 1);
                 LastWin.hwnd = NULL;
             } else {
                 LastWin.end = 1;
-                MoveWindowInThread(&LastWin);
+                MoveWindowNow(&LastWin);
             }
         }
     }
+
     // Clear restore data if needed
     unsigned rdata_flag = GetRestoreFlag(state.hwnd);
     if (rdata_flag&SNCLEAR) {
@@ -5080,22 +5099,19 @@ static void FinishMovement()
         state.action = AC_NONE;
         HMONITOR monitor = MonitorFromPoint(state.prevpt, MONITOR_DEFAULTTONEAREST);
         if (monitor != state.origin.monitor) {
-            Sleep(8);  // Wait a little for moveThread.
-            WaitMovementEnd(); // extra waiting in case...
 
             if (state.origin.maximized) {
-                MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE, 2);
+                MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE, 0);
             }
             if (state.origin.fullscreen) {
-                MaximizeRestore_atpt(state.hwnd, SW_FULLSCREEN, 2);
+                MaximizeRestore_atpt(state.hwnd, SW_FULLSCREEN, 0);
             }
         }
     }
 
     HideTransWin();
-    // Send WM_EXITSIZEMOVE and EVENT_SYSTEM_MOVESIZEEND
-    //NotifySizeMoveStaEnd(state.hwnd, 0);
 
+    // Send WM_EXITSIZEMOVE and EVENT_SYSTEM_MOVESIZEEND
     if(conf.FullWin && state.moving == 1)
         NotifySizeMoveStaEnd(state.hwnd, 0);
 
@@ -5110,7 +5126,15 @@ static void FinishMovement()
         // Just hide g_mainhwnd
         HideCursor();
     }
+    g_InFinishMovement = 0;
+    return 1;
 }
+static void FinishMovementAsync()
+{
+    g_InFinishMovement = 1;
+    PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)FinishMovementNow, 0);
+}
+
 
 /////////////////////////////////////////////////////////////////////////////
 // state.action is the current action
@@ -5121,28 +5145,35 @@ static void LockMovement()
     LastWin.hwnd = NULL;
     if(!conf.FullWin) HideTransWin();
 }
+
+// Just to be used in the ClickComboActions function
+// and started in the worker thread.
+static DWORD WINAPI DoMoveResizeMaxMinComboAction(LPVOID pp)
+{
+    if (IsZoomed(state.hwnd)) {
+        if (IsSamePTT(&state.clickpt, &state.prevpt)) {
+            state.moving = CURSOR_ONLY;
+            RestoreWindow(state.hwnd);
+        } else {
+            state.moving = 0;
+            MouseMove(state.prevpt);
+        }
+    } else if (state.resizable) {
+        LockMovement();
+        if (IsHotclick(state.alt)) {
+            state.action = AC_NONE;
+            state.moving = 0;
+        }
+        MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE, 2);
+    }
+    return 1;
+}
 static int ClickComboActions(enum action action)
 {
     if (!(conf.MMMaximize&1)) return 0;
     // Maximize/Restore the window if pressing Move, Resize mouse buttons.
     if (state.action == AC_MOVE && action == AC_RESIZE) {
-        WaitMovementEnd();
-        if (IsZoomed(state.hwnd)) {
-            if (IsSamePTT(&state.clickpt, &state.prevpt)) {
-                state.moving = CURSOR_ONLY;
-                RestoreWindow(state.hwnd);
-            } else {
-                state.moving = 0;
-                MouseMove(state.prevpt);
-            }
-        } else if (state.resizable) {
-            LockMovement();
-            if (IsHotclick(state.alt)) {
-                state.action = AC_NONE;
-                state.moving = 0;
-            }
-            MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE, 2);
-        }
+        PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)DoMoveResizeMaxMinComboAction, 0);
         state.blockmouseup = 1;
         return 1;
     }
@@ -5410,7 +5441,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         && !state.ctrl // Ctrl is not down (because of focusing)
         && IsSamePTT(&pt, &state.clickpt) // same point (within drag)
         && !IsDoubleClick(button)) { // Long click unless PiercingClick=1
-            FinishMovement();
+            FinishMovementAsync();
             // Mouse UP actions here only in case of MOVEMENT!:
             // Perform an action on mouse up without drag on move/resize
             int inTTB = 2*(!!state.hittest); //If we are in the titlebar add two
@@ -5431,7 +5462,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         // If a button performing an action is released,
         // we finish all moveent and proceed.
         if (action && state.action) {
-            FinishMovement();
+            FinishMovementAsync();
             return 1;
         }
     }
@@ -5525,7 +5556,7 @@ LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
                 state.Speed=max(abs(oldpt.x-state.prevpt.x), abs(oldpt.y-state.prevpt.y));
             else state.Speed=0;
             oldpt = state.prevpt;
-            if (state.moving && state.Speed == 0 && !has_moved_to_fixed_pt && !MM_THREAD_ON) {
+            if (state.moving == 1 && state.Speed == 0 && !has_moved_to_fixed_pt && !MM_THREAD_ON) {
                 has_moved_to_fixed_pt = 1;
                 MouseMove(state.prevpt);
             }
@@ -5979,8 +6010,6 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     } else if (msg == WM_STACKLIST) {
         TrackMenuOfWindows((WNDENUMPROC)lParam, wParam);
         return 0;
-//    } else if (msg == WM_FINISHMOVEMENT) {
-//        FinishMovementWM();
     } else if (msg == WM_SETLAYOUTNUM) {
         SetLayoutNumber(wParam);
     } else if (msg == WM_GETLAYOUTREZ) {
@@ -6020,6 +6049,9 @@ __declspec(dllexport) void WINAPI Unload()
 #if defined(_MSC_VER) && _MSC_VER > 1300
 #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
 #endif
+    // Quit Worker Thread...
+    PostThreadMessage(g_WorkerThreadID, WM_DOWORK, 0, 0);
+
     conf.keepMousehook = 0;
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
     DestroyWindow(g_timerhwnd);
@@ -6059,6 +6091,10 @@ __declspec(dllexport) void WINAPI Unload()
     free(snwnds);
     free(minhwnds);
     freezones();
+
+    // Wait for worker thread to have a clean closing...
+    WaitForSingleObject(g_WorkerThreadHANDLE, 5000);
+    CloseHandle(g_WorkerThreadHANDLE);
 }
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated and title and class are | separated.
@@ -6433,7 +6469,7 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_LEA
     conf.ZoomFracShift = max(2, conf.ZoomFracShift);
     conf.BLCapButtons  = GetSectionOptionInt(inisection, "BLCapButtons", 3);
     conf.BLUpperBorder = GetSectionOptionInt(inisection, "BLUpperBorder", 3);
-    conf.AeroMaxSpeed  = GetSectionOptionInt(inisection, "AeroMaxSpeed", 65535);
+    conf.AeroMaxSpeed  = GetSectionOptionInt(inisection, "AeroMaxSpeed", MAX_SNAP_SPEED);
     conf.LongClickMoveDelay = GetSectionOptionInt(inisection, "LongClickMoveDelay", 0);
     if (conf.LongClickMoveDelay == 0)
         conf.LongClickMoveDelay = GetDoubleClickTime();
@@ -6528,7 +6564,7 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_LEA
     // Capture main hwnd from caller. This is also the cursor wnd
     g_mainhwnd = mainhwnd;
 
-    if (conf.keepMousehook || conf.AeroMaxSpeed < 65535) {
+    if (conf.keepMousehook || conf.AeroMaxSpeed < MAX_SNAP_SPEED) {
         g_timerhwnd = KreateMsgWin(TimerWindowProc, TEXT(APP_NAMEA)TEXT("-Timers"), 0);
     }
 
@@ -6540,6 +6576,10 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_LEA
         HookMouse();
         SetTimer(g_timerhwnd, REHOOK_TIMER, 5000, NULL); // Start rehook timer
     }
+
+    // Create worker thread.
+    g_WorkerThreadHANDLE = CreateThread(NULL, STACK, WorkerThread, NULL, STACK_SIZE_PARAM_IS_A_RESERVATION, &g_WorkerThreadID);
+
     return g_hkhwnd;
 }
 /////////////////////////////////////////////////////////////////////////////

@@ -7,6 +7,7 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "hooks.h"
+
 static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h);
 static BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
 static LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -19,7 +20,6 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 #define GRAB_TIMER      (WM_APP+3)
 //#define ALTUP_TIMER     (WM_APP+4)
 #define POOL_TIMER      (WM_APP+5)
-
 
 #define WM_DOWORK        (WM_APP+6)
 #define WM_DOMOUSEMOVE   (WM_APP+7)
@@ -6436,15 +6436,10 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_
     conf.dbclickX = GetSystemMetrics(SM_CXDOUBLECLK);
     conf.dbclickY = GetSystemMetrics(SM_CYDOUBLECLK);
 
-
-    // Get ini path
-//    GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
-//    lstrcpy(&inipath[lstrlen(inipath)-3], TEXT("ini"));
-
     TCHAR stk_inisection[1420], *inisection; // Stack buffer.
     size_t inisectionlen = 8192;
     inisection = (TCHAR *)malloc(inisectionlen*sizeof(TCHAR));
-    if(!inisection) {
+    if (!inisection) {
         inisection = stk_inisection;
         inisectionlen = ARR_SZ(stk_inisection);
     }

@@ -530,11 +530,8 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
             const TCHAR *actionstr = lstrstr(params, TEXT("-a"));
             if (actionstr && actionstr[2] && actionstr[3] && actionstr[4]) {
                 enum action action = MapActionW(&actionstr[3]);
-                HWND msghwnd;
-                if ((msghwnd = FindWindow( TEXT(APP_NAMEA)TEXT("-HotKeys"), TEXT("")))) {
-                    PostMessage(msghwnd, WM_HOTKEY, (actionstr[2] == 'p')*0x1000+action, 0);
-                    return 0;
-                }
+                PostMessage(previnst, WM_HOTKEY, (actionstr[2] == 'p')*0x1000+action, 0);
+                return 0;
             }
             // Change layout if asked...
             #define isUDigit(x) ( TEXT('0') <= (x) && (x) <= TEXT('9') )

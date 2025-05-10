@@ -31,7 +31,7 @@ static HWND g_hwnd = NULL;
 static UINT WM_TASKBARCREATED = 0;
 static TCHAR inipath[MAX_PATH];
 
-static HWND g_dllmsgHKhwnd = NULL;
+static WNDPROC G_HotKeyProc = NULL;
 
 // Cool stuff
 HINSTANCE hinstDLL = NULL;
@@ -86,9 +86,9 @@ int HookSystem()
             return 1;
         }
     }
-    HWND (WINAPI *Load)(HWND, const TCHAR *) = (HWND (WINAPI *)(HWND, const TCHAR*))GetProcAddress(hinstDLL, LOAD_PROC);
+    WNDPROC (WINAPI *Load)(HWND, const TCHAR *) = (WNDPROC (WINAPI *)(HWND, const TCHAR*))GetProcAddress(hinstDLL, LOAD_PROC);
     if(Load) {
-        g_dllmsgHKhwnd = Load(g_hwnd, inipath);
+        G_HotKeyProc = Load(g_hwnd, inipath);
     }
 
     LOG("HOOKS.DLL Loaded");
@@ -136,7 +136,7 @@ int UnhookSystem()
     if (Unload) {
         Unload();
         // Zero out the message hwnd from DLL.
-        g_dllmsgHKhwnd = NULL;
+        G_HotKeyProc = NULL;
     }
     FreeHooksDLL();
 
@@ -382,13 +382,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         } else if (SWM_SNAPLAYOUT <= wmId && wmId <= SWM_SNAPLAYOUTEND) {
             // Inform hooks.dll that the snap layout changed
             LayoutNumber = wmId-SWM_SNAPLAYOUT;
-            if(g_dllmsgHKhwnd)
-                PostMessage(g_dllmsgHKhwnd, WM_SETLAYOUTNUM, LayoutNumber, 0);
+            if(G_HotKeyProc)
+                G_HotKeyProc(hwnd, WM_SETLAYOUTNUM, LayoutNumber, 0);
             // Save new value in the .ini file
             WriteCurrentLayoutNumber();
         } else if (wmId == SWM_EDITLAYOUT) {
-            if (g_dllmsgHKhwnd) {
-                unsigned len = SendMessage(g_dllmsgHKhwnd, WM_GETZONESLEN, LayoutNumber, 0);
+            if (G_HotKeyProc) {
+                unsigned len = G_HotKeyProc(hwnd, WM_GETZONESLEN, LayoutNumber, 0);
                 if (!len) {
                     // Empty layout, Let's open a new Test Window
                     return !NewTestWindow();
@@ -396,7 +396,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 RECT *zones = (RECT*)malloc(len * sizeof(RECT));
                 if(!zones) return 0;
 
-                SendMessage(g_dllmsgHKhwnd, WM_GETZONES, LayoutNumber, (LPARAM)zones);
+                G_HotKeyProc(hwnd, WM_GETZONES, LayoutNumber, (LPARAM)zones);
                 // Open them from bottom to top to ensure
                 // the windows are in the correct order.
                 while (len--) {
@@ -420,14 +420,17 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         return 0;
     } else if (msg == WM_DISPLAYCHANGE || (msg == WM_SETTINGCHANGE && wParam  == SPI_SETWORKAREA)) {
         LOG("WM_DISPLAYCHANGE %d:%d, %dbpp in WindowProc", LOWORD(lParam), HIWORD(lParam), wParam );
-        if (g_dllmsgHKhwnd) {
-            int bestlayout = SendMessage(g_dllmsgHKhwnd, WM_GETBESTLAYOUT, 0, 0);
+        if (G_HotKeyProc) {
+            int bestlayout = G_HotKeyProc(hwnd, WM_GETBESTLAYOUT, 0, 0);
             if( bestlayout != LayoutNumber
             &&  0 <= bestlayout && bestlayout < MaxLayouts ) {
                 LayoutNumber = bestlayout;
-                PostMessage(g_dllmsgHKhwnd, WM_SETLAYOUTNUM, LayoutNumber, 0);
+                G_HotKeyProc(hwnd, WM_SETLAYOUTNUM, LayoutNumber, 0);
             }
         }
+    } else if (msg == WM_HOTKEY) {
+        if (G_HotKeyProc)
+            return G_HotKeyProc(hwnd, msg, wParam, lParam);
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
@@ -527,11 +530,8 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
             const TCHAR *actionstr = lstrstr(params, TEXT("-a"));
             if (actionstr && actionstr[2] && actionstr[3] && actionstr[4]) {
                 enum action action = MapActionW(&actionstr[3]);
-                HWND msghwnd;
-                if ((msghwnd = FindWindow( TEXT(APP_NAMEA)TEXT("-HotKeys"), TEXT("")))) {
-                    PostMessage(msghwnd, WM_HOTKEY, (actionstr[2] == 'p')*0x1000+action, 0);
-                    return 0;
-                }
+                PostMessage(previnst, WM_HOTKEY, (actionstr[2] == 'p')*0x1000+action, 0);
+                return 0;
             }
             // Change layout if asked...
             #define isUDigit(x) ( TEXT('0') <= (x) && (x) <= TEXT('9') )

@@ -7,16 +7,19 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include "hooks.h"
+
 static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h);
 static BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
 static LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT idEvent, DWORD dwTime);
+LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 // Timer messages
 #define REHOOK_TIMER    (WM_APP+1)
 #define SPEED_TIMER     (WM_APP+2)
 #define GRAB_TIMER      (WM_APP+3)
 //#define ALTUP_TIMER     (WM_APP+4)
 #define POOL_TIMER      (WM_APP+5)
-
 
 #define WM_DOWORK        (WM_APP+6)
 #define WM_DOMOUSEMOVE   (WM_APP+7)
@@ -37,9 +40,7 @@ enum { NOT_MOVING=0, NOW_MOVING=1, CURSOR_ONLY=66, RESET_OFFSET=22, DRAG_WAIT=77
 #define STACK 0x1000
 
 static HWND g_transhwnd[4]; // 4 windows to make a hollow window
-static HWND g_timerhwnd;    // For various timers
 static HWND g_mchwnd;       // For the Action menu messages
-static HWND g_hkhwnd;       // For the hotkeys message window.
 static DWORD g_WorkerThreadID;
 static HANDLE g_WorkerThreadHANDLE;
 static UCHAR g_InFinishMovement;
@@ -2639,8 +2640,8 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                kbspeed = 250 + kbspeed * 250; // [0-3] -> 250 - 1000 ms
                //LOGA("Set ALTUP_TIMER to %u (First)", kbspeed);
             }
-            KillTimer(g_timerhwnd, ALTUP_TIMER);
-            SetTimer(g_timerhwnd, ALTUP_TIMER, kbspeed, NULL);
+            KillTimer(g_mainhwnd, ALTUP_TIMER);
+            SetTimer(g_mainhwnd, ALTUP_TIMER, kbspeed, TimerWindowProc);
             #endif
 
             // Hook mouse
@@ -4522,9 +4523,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
 }
 static void ActionStackList(int lasermode)
 {
-    // Just post the message to the Hotkeys message only window
-    // So that we do not get stuck in the hook chain.
-    PostMessage(g_hkhwnd, WM_STACKLIST, lasermode, (LPARAM)EnumStackedWindowsProc);
+    HotKeysWinProc(g_mainhwnd, WM_STACKLIST, lasermode, (LPARAM)EnumStackedWindowsProc);
 }
 static void ActionASOnOff()
 {
@@ -4737,10 +4736,10 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_STACKLIST:   ActionStackList(state.shift ? TRK_LASERMODE : 0); break;
     case AC_STACKLIST2:  ActionStackList(state.shift ? 0 : TRK_LASERMODE); break;
     case AC_ALTTABLIST:
-        PostMessage(g_hkhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
+        HotKeysWinProc(g_mainhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
             state.shift?(LPARAM)EnumAllAltTabWindows:(LPARAM)EnumAltTabWindows); break;
     case AC_ALTTABFULLLIST:
-        PostMessage(g_hkhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
+        HotKeysWinProc(g_mainhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
             state.shift?(LPARAM)EnumAltTabWindows:(LPARAM)EnumAllAltTabWindows); break;
     case AC_MLZONE:      MoveWindowToTouchingZone(hwnd, 0, 0); break; // mLeft
     case AC_MTZONE:      MoveWindowToTouchingZone(hwnd, 1, 0); break; // mTop
@@ -4825,12 +4824,12 @@ static int DoWheelActions(HWND hwnd, enum action action)
 static void StartSpeedMes()
 {
     if (conf.AeroMaxSpeed < MAX_SNAP_SPEED)
-        SetTimer(g_timerhwnd, SPEED_TIMER, conf.AeroSpeedTau, NULL);
+        SetTimer(g_mainhwnd, SPEED_TIMER, conf.AeroSpeedTau, TimerWindowProc);
 }
 static void StopSpeedMes()
 {
     if (conf.AeroMaxSpeed < MAX_SNAP_SPEED)
-        KillTimer(g_timerhwnd, SPEED_TIMER); // Stop speed measurement
+        KillTimer(g_mainhwnd, SPEED_TIMER); // Stop speed measurement
 }
 static DWORD WINAPI SendAltCtrlAlt(LPVOID p)
 {
@@ -5402,10 +5401,10 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         if (wParam == WM_LBUTTONDOWN) {
             state.clickpt = pt;
             // Start Grab timer
-            SetTimer(g_timerhwnd, GRAB_TIMER, conf.LongClickMoveDelay, NULL);
+            SetTimer(g_mainhwnd, GRAB_TIMER, conf.LongClickMoveDelay, TimerWindowProc);
         } else {
             // Cancel Grab timer.
-            KillTimer(g_timerhwnd, GRAB_TIMER);
+            KillTimer(g_mainhwnd, GRAB_TIMER);
             return CALLNEXTHOOK;
         }
     }
@@ -5476,7 +5475,7 @@ static void HookMouse()
     state.moving = 0; // Used to know the first time we call MouseMove.
     #ifndef NO_HOOK_LL
     if (conf.keepMousehook) {
-        PostMessage(g_timerhwnd, WM_TIMER, REHOOK_TIMER, 0);
+        PostMessage(g_mainhwnd, WM_TIMER, REHOOK_TIMER, 0);
     }
     #endif
 
@@ -5486,7 +5485,7 @@ static void HookMouse()
 
     // Set up the mouse hook
     #ifdef NO_HOOK_LL
-    mousehook = (void*)SetTimer(g_timerhwnd, POOL_TIMER, 32, NULL);
+    mousehook = (void*)SetTimer(g_mainhwnd, POOL_TIMER, 32, TimerWindowProc);
     #else
     mousehook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, hinstDLL, 0);
     #endif
@@ -5500,7 +5499,7 @@ static void UnhookMouseOnly()
 
     // Remove mouse hook
     #ifdef NO_HOOK_LL
-    KillTimer(g_timerhwnd, POOL_TIMER);
+    KillTimer(g_mainhwnd, POOL_TIMER);
     #else
     UnhookWindowsHookEx(mousehook);
     #endif
@@ -5533,108 +5532,110 @@ static xpure int IsAreaLongClikcable(int area)
 }
 /////////////////////////////////////////////////////////////////////////////
 // Window for timers only...
-LRESULT CALLBACK TimerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT idEvent, DWORD dwTime)
 {
-    if (msg == WM_TIMER) {
-        switch (wParam) {
-        #ifndef NO_HOOK_LL
-        case REHOOK_TIMER: {
-            // Silently rehook hooks if they have been stopped (>= Win7 and LowLevelHooksTimeout)
-            // This can often happen if locking or sleeping the computer a lot
-            POINT pt;
-            GetCursorPos(&pt); // I donot know if we should really use the ASYN version.
-            if (mousehook && !SamePt(state.prevpt, pt)) {
-                UnhookWindowsHookEx(mousehook);
-                mousehook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, hinstDLL, 0);
-            }
-            } break;
-        #endif
-        case SPEED_TIMER: {
-            static POINT oldpt;
-            static int has_moved_to_fixed_pt;
-            if (state.moving)
-                state.Speed=max(abs(oldpt.x-state.prevpt.x), abs(oldpt.y-state.prevpt.y));
-            else state.Speed=0;
-            oldpt = state.prevpt;
-            if (state.moving == 1 && state.Speed == 0 && !has_moved_to_fixed_pt && !MM_THREAD_ON) {
-                has_moved_to_fixed_pt = 1;
-                MouseMove(state.prevpt);
-            }
-            if (state.Speed) has_moved_to_fixed_pt = 0;
-            } break;
-        case GRAB_TIMER: {
-            // Grab the action after a certain amount of time of click down
-            HWND ptwnd;
-            UCHAR buttonswaped;
-            POINT pt;
-            GetMsgPT(&pt); // Hopefully the real current cursor position
-            if (IsSamePTT(&pt, &state.clickpt)
-            &&  GetAsyncKeyState(1 + (buttonswaped = !!GetSystemMetrics(SM_SWAPBUTTON)))
-            && (ptwnd = WindowFromPoint(pt))
-            &&!IsAreaLongClikcable(HitTestTimeoutbl(ptwnd, pt))) {
-                // Determine if we should actually move the Window by probing with AC_NONE
-                state.hittest = 0; // No specific hittest here.
-                int ret = init_movement_and_actions(pt, NULL, AC_MOVE, BT_PROBE);
-                if (ret) { // Release mouse click if we have to move.
-                    InterlockedIncrement(&state.ignoreclick);
-                    mouse_event(buttonswaped?MOUSEEVENTF_RIGHTUP:MOUSEEVENTF_LEFTUP
-                               , 0, 0, 0, GetMessageExtraInfo());
-                    InterlockedDecrement(&state.ignoreclick);
-                    init_movement_and_actions(pt, NULL, AC_MOVE, 0);
-                }
-            }
-            KillTimer(g_timerhwnd, GRAB_TIMER);
-            return 0;
-            } break;
-        #ifdef ALTUP_TIMER
-        case ALTUP_TIMER : {
-            // Simulate AltUp (dumb)
-            HotkeyUp();
-            KillTimer(g_timerhwnd, ALTUP_TIMER);
-            } break;
-        #endif
-        #ifdef NO_HOOK_LL
-        case POOL_TIMER: {
-            static MSLLHOOKSTRUCT omsll; // old state
-            static BYTE obts[4];
-            BYTE nbts[4] = {
-                !!(GetAsyncKeyState(VK_LBUTTON)&0x8000),
-                !!(GetAsyncKeyState(VK_RBUTTON)&0x8000),
-                !!(GetAsyncKeyState(VK_MBUTTON)&0x8000),
-                0,
-            };
-            MSLLHOOKSTRUCT nmsll = {0};
-            GetCursorPos(&nmsll.pt);
-            nmsll.time = GetTickCount();
-            if (nmsll.time == omsll.time)
-                return 0;
+    if (msg != WM_TIMER)
+        return; // should never happen.
 
-            if (!SamePt(nmsll.pt, omsll.pt))
-                LowLevelMouseProc(HC_ACTION, WM_MOUSEMOVE, (LPARAM)&nmsll);
-            if (nbts[0] != obts[0])
-                LowLevelMouseProc(HC_ACTION, nbts[0]?WM_LBUTTONDOWN:WM_LBUTTONUP, (LPARAM)&nmsll);
-            if (nbts[1] != obts[1])
-                LowLevelMouseProc(HC_ACTION, nbts[1]?WM_RBUTTONDOWN:WM_RBUTTONUP, (LPARAM)&nmsll);
-            if (nbts[2] != obts[2])
-                LowLevelMouseProc(HC_ACTION, nbts[2]?WM_MBUTTONDOWN:WM_MBUTTONUP, (LPARAM)&nmsll);
-
-            memcpy(&omsll, &nmsll, sizeof(omsll));
-            memcpy(obts, nbts, sizeof(obts));
-            return 0;
-            } break;
-        #endif // NO_HOOK_LL
-        default:;
+    //LOG("TimerWindowProc(%x, %u, %u, %lu)", (UINT)(UINT_PTR)hwnd, msg, idEvent, dwTime);
+    switch (idEvent) {
+    #ifndef NO_HOOK_LL
+    case REHOOK_TIMER: {
+        // Silently rehook hooks if they have been stopped (>= Win7 and LowLevelHooksTimeout)
+        // This can often happen if locking or sleeping the computer a lot
+        POINT pt;
+        GetCursorPos(&pt); // I donot know if we should really use the ASYN version.
+        if (mousehook && !SamePt(state.prevpt, pt)) {
+            UnhookWindowsHookEx(mousehook);
+            mousehook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, hinstDLL, 0);
         }
-    } else if (msg == WM_DESTROY) {
-        KillTimer(g_timerhwnd, REHOOK_TIMER);
-        KillTimer(g_timerhwnd, SPEED_TIMER);
-        KillTimer(g_timerhwnd, GRAB_TIMER);
-        #ifdef NO_HOOK_LL
-        KillTimer(g_timerhwnd, POOL_TIMER);
-        #endif // NO_HOOK_LL
+        } break;
+    #endif
+    case SPEED_TIMER: {
+        static POINT oldpt;
+        static int has_moved_to_fixed_pt;
+        if (state.moving)
+            state.Speed=max(abs(oldpt.x-state.prevpt.x), abs(oldpt.y-state.prevpt.y));
+        else state.Speed=0;
+        oldpt = state.prevpt;
+        if (state.moving == 1 && state.Speed == 0 && !has_moved_to_fixed_pt && !MM_THREAD_ON) {
+            has_moved_to_fixed_pt = 1;
+            MouseMove(state.prevpt);
+        }
+        if (state.Speed) has_moved_to_fixed_pt = 0;
+        } break;
+    case GRAB_TIMER: {
+        // Grab the action after a certain amount of time of click down
+        HWND ptwnd;
+        UCHAR buttonswaped;
+        POINT pt;
+        GetMsgPT(&pt); // Hopefully the real current cursor position
+        if (IsSamePTT(&pt, &state.clickpt)
+        &&  GetAsyncKeyState(1 + (buttonswaped = !!GetSystemMetrics(SM_SWAPBUTTON)))
+        && (ptwnd = WindowFromPoint(pt))
+        &&!IsAreaLongClikcable(HitTestTimeoutbl(ptwnd, pt))) {
+            // Determine if we should actually move the Window by probing with AC_NONE
+            state.hittest = 0; // No specific hittest here.
+            int ret = init_movement_and_actions(pt, NULL, AC_MOVE, BT_PROBE);
+            if (ret) { // Release mouse click if we have to move.
+                InterlockedIncrement(&state.ignoreclick);
+                mouse_event(buttonswaped?MOUSEEVENTF_RIGHTUP:MOUSEEVENTF_LEFTUP
+                           , 0, 0, 0, GetMessageExtraInfo());
+                InterlockedDecrement(&state.ignoreclick);
+                init_movement_and_actions(pt, NULL, AC_MOVE, 0);
+            }
+        }
+        KillTimer(g_mainhwnd, GRAB_TIMER);
+        return;
+        } break;
+    #ifdef ALTUP_TIMER
+    case ALTUP_TIMER : {
+        // Simulate AltUp (dumb)
+        HotkeyUp();
+        KillTimer(g_mainhwnd, ALTUP_TIMER);
+        } break;
+    #endif
+    #ifdef NO_HOOK_LL
+    case POOL_TIMER: {
+        static MSLLHOOKSTRUCT omsll; // old state
+        static BYTE obts[4];
+        BYTE nbts[4] = {
+            !!(GetAsyncKeyState(VK_LBUTTON)&0x8000),
+            !!(GetAsyncKeyState(VK_RBUTTON)&0x8000),
+            !!(GetAsyncKeyState(VK_MBUTTON)&0x8000),
+            0,
+        };
+        MSLLHOOKSTRUCT nmsll = {0};
+        GetCursorPos(&nmsll.pt);
+        nmsll.time = GetTickCount();
+        if (nmsll.time == omsll.time)
+            return 0;
 
+        if (!SamePt(nmsll.pt, omsll.pt))
+            LowLevelMouseProc(HC_ACTION, WM_MOUSEMOVE, (LPARAM)&nmsll);
+        if (nbts[0] != obts[0])
+            LowLevelMouseProc(HC_ACTION, nbts[0]?WM_LBUTTONDOWN:WM_LBUTTONUP, (LPARAM)&nmsll);
+        if (nbts[1] != obts[1])
+            LowLevelMouseProc(HC_ACTION, nbts[1]?WM_RBUTTONDOWN:WM_RBUTTONUP, (LPARAM)&nmsll);
+        if (nbts[2] != obts[2])
+            LowLevelMouseProc(HC_ACTION, nbts[2]?WM_MBUTTONDOWN:WM_MBUTTONUP, (LPARAM)&nmsll);
+
+        memcpy(&omsll, &nmsll, sizeof(omsll));
+        memcpy(obts, nbts, sizeof(obts));
+        return;
+        } break;
+    #endif // NO_HOOK_LL
+    default:;
     }
-    return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+static void KillAllTimers()
+{
+    KillTimer(g_mainhwnd, REHOOK_TIMER);
+    KillTimer(g_mainhwnd, SPEED_TIMER);
+    KillTimer(g_mainhwnd, GRAB_TIMER);
+    #ifdef NO_HOOK_LL
+    KillTimer(g_mainhwnd, POOL_TIMER);
+    #endif // NO_HOOK_LL
 }
 ///////////////////////////////////////////////////////////////////////////
 // Function to calculate the necessary dimentions for the menuitem.
@@ -6012,6 +6013,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return 0;
     } else if (msg == WM_SETLAYOUTNUM) {
         SetLayoutNumber(wParam);
+        return 0;
     } else if (msg == WM_GETLAYOUTREZ) {
         return GetLayoutRez(wParam);
     } else if (msg == WM_GETBESTLAYOUT) {
@@ -6023,6 +6025,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         unsigned idx = (unsigned)wParam;
         RECT *dZones = (RECT*)lParam;
         CopyZones(dZones, idx);
+        return 0;
     }
 
     return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -6054,7 +6057,7 @@ __declspec(dllexport) void WINAPI Unload()
 
     conf.keepMousehook = 0;
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
-    DestroyWindow(g_timerhwnd);
+    KillAllTimers();
     KillAltSnapMenu();
     if (conf.TransWinOpacity) {
         DestroyWindow(g_transhwnd[0]);
@@ -6069,8 +6072,7 @@ __declspec(dllexport) void WINAPI Unload()
 
     unsigned ac;
     for(ac=AC_MENU; ac<AC_MAXVALUE; ac++)
-        UnregisterHotKey(g_hkhwnd, 0xC000+ac);
-    DestroyWindow(g_hkhwnd);
+        UnregisterHotKey(g_mainhwnd, 0xC000+ac);
 
     EnumThreadWindows(GetCurrentThreadId(), PostPinWindowsProcMessage, WM_CLOSE);
     UnregisterClass(TEXT(APP_NAMEA)TEXT("-Timers"), hinstDLL);
@@ -6336,10 +6338,9 @@ static void CreateTransWin(const TCHAR *inisection)
 
 void registerAllHotkeys(const TCHAR* inipath)
 {
-    g_hkhwnd = KreateMsgWin(HotKeysWinProc, TEXT(APP_NAMEA)TEXT("-HotKeys"), 0);
-    ChangeWindowMessageFilterExL(g_hkhwnd, WM_HOTKEY, /*MSGFLT_ALLOW*/1, NULL);
+    ChangeWindowMessageFilterExL(g_mainhwnd, WM_HOTKEY, /*MSGFLT_ALLOW*/1, NULL);
     // MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
-    // RegisterHotKey(g_hkhwnd, 0xC000 + AC_KILL,   MOD_ALT|MOD_CONTROL, VK_F4); // F4=73h
+    // RegisterHotKey(g_mainhwnd, 0xC000 + AC_KILL,   MOD_ALT|MOD_CONTROL, VK_F4); // F4=73h
     // Read All shortcuts in the [KBShortcuts] section.
     TCHAR inisection[1800];
     GetPrivateProfileSection(TEXT("KBShortcuts"), inisection, ARR_SZ(inisection), inipath);
@@ -6354,7 +6355,7 @@ void registerAllHotkeys(const TCHAR* inipath)
         WORD HK = GetSectionOptionInt(inisection, action_names[ac], 0);
         if(LOBYTE(HK) && HIBYTE(HK)) {
             // Lobyte is the virtual key code and hibyte is the mod_key
-            if(!RegisterHotKey(g_hkhwnd, 0xC000 + ac, HIBYTE(HK), LOBYTE(HK))) {
+            if(!RegisterHotKey(g_mainhwnd, 0xC000 + ac, HIBYTE(HK), LOBYTE(HK))) {
                 LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
                 #ifdef LOG_STUFF
                 TCHAR title[76], acN[32];
@@ -6409,7 +6410,7 @@ static void freeallinputSequences(void)
 #ifdef __cplusplus
 extern "C"
 #endif
-__declspec(dllexport) HWND WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_LEAST MAX_PATH])
+__declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_LEAST MAX_PATH])
 {
 #if defined(_MSC_VER) && _MSC_VER > 1300
 #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
@@ -6435,15 +6436,10 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_LEA
     conf.dbclickX = GetSystemMetrics(SM_CXDOUBLECLK);
     conf.dbclickY = GetSystemMetrics(SM_CYDOUBLECLK);
 
-
-    // Get ini path
-//    GetModuleFileName(NULL, inipath, ARR_SZ(inipath));
-//    lstrcpy(&inipath[lstrlen(inipath)-3], TEXT("ini"));
-
     TCHAR stk_inisection[1420], *inisection; // Stack buffer.
     size_t inisectionlen = 8192;
     inisection = (TCHAR *)malloc(inisectionlen*sizeof(TCHAR));
-    if(!inisection) {
+    if (!inisection) {
         inisection = stk_inisection;
         inisectionlen = ARR_SZ(stk_inisection);
     }
@@ -6564,23 +6560,19 @@ __declspec(dllexport) HWND WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_LEA
     // Capture main hwnd from caller. This is also the cursor wnd
     g_mainhwnd = mainhwnd;
 
-    if (conf.keepMousehook || conf.AeroMaxSpeed < MAX_SNAP_SPEED) {
-        g_timerhwnd = KreateMsgWin(TimerWindowProc, TEXT(APP_NAMEA)TEXT("-Timers"), 0);
-    }
-
     // read and register all shortcuts related options.
     registerAllHotkeys(inipath);
 
     // Hook mouse if a permanent hook is needed
     if (conf.keepMousehook) {
         HookMouse();
-        SetTimer(g_timerhwnd, REHOOK_TIMER, 5000, NULL); // Start rehook timer
+        SetTimer(g_mainhwnd, REHOOK_TIMER, 5000, TimerWindowProc); // Start rehook timer
     }
 
     // Create worker thread.
     g_WorkerThreadHANDLE = CreateThread(NULL, STACK, WorkerThread, NULL, STACK_SIZE_PARAM_IS_A_RESERVATION, &g_WorkerThreadID);
 
-    return g_hkhwnd;
+    return HotKeysWinProc;
 }
 /////////////////////////////////////////////////////////////////////////////
 // Do not forget the -e_DllMain@12 for gcc... -eDllMain for x86_64

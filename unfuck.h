@@ -854,6 +854,25 @@ static BOOL UnhookWinEventL(HWINEVENTHOOK hWinEventHook)
     return FALSE;
 }
 
+typedef struct tagRgTicTac {
+    LARGE_INTEGER sta;
+    LARGE_INTEGER end;
+    LARGE_INTEGER frq;
+} RGTICTAC;
+
+static BOOL RGTic(RGTICTAC *tt)
+{
+    QueryPerformanceFrequency(&tt->frq);
+    return QueryPerformanceCounter(&tt->sta);
+}
+
+static int RGTac(RGTICTAC *tt)
+{
+    if( QueryPerformanceCounter(&tt->end) ) {
+        return MulDiv(tt->end.LowPart - tt->sta.LowPart, 1000000, tt->frq.LowPart);
+    }
+    return -1;
+}
 
 #ifndef WIN64
 static void NotifyWinEventL(DWORD event, HWND hwnd, LONG idObj, LONG idChild)

@@ -35,7 +35,7 @@ enum { NOT_MOVING=0, NOW_MOVING=1, CURSOR_ONLY=66, RESET_OFFSET=22, DRAG_WAIT=77
 // +2 for Titlebar action
 // +2 for Action while moving
 // +2 for action while resizing
-#define NACPB 8
+enum { NACPB = 8 };
 
 #define STACK 0x1000
 
@@ -3583,11 +3583,11 @@ static int ActionMove(POINT pt, int button)
             MinimizeWindow(state.hwnd);
         } else if (state.resizable) {
             // Toggle Maximize window
-            state.action = AC_NONE; // Stop move action
-            state.clicktime = 0; // Reset double-click time
-            state.blockmouseup = 1; // Block the mouseup, otherwise it can trigger a context menu
             ToggleMaxRestore(state.hwnd);
         }
+        state.action = AC_NONE; // Stop move action
+        state.clicktime = 0; // Reset double-click time
+        state.blockmouseup = 1; // Block the mouseup, otherwise it can trigger a context menu
         // Prevent mousedown from propagating
         return 1;
     } else if (conf.MMMaximize&2) {

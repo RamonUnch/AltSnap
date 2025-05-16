@@ -399,9 +399,7 @@ static HWND CreateInfoTip(HWND hDlg, int toolID, const TCHAR * const pszText)
         // Use the RECT for STATIC controls
         toolInfo.uFlags = TTF_SUBCLASS;
         GetWindowRect(hwndTool, &toolInfo.rect);
-        POINT pt = {0,0};
-        ScreenToClient(hDlg, &pt);
-        OffsetRect(&toolInfo.rect, pt.x, pt.y);
+        MapWindowPoints(NULL, hDlg, (LPPOINT)&toolInfo.rect, 2);
     }
 
     SendMessage(hwndTip, TTM_ADDTOOL, 0, (LPARAM)&toolInfo);
@@ -806,7 +804,7 @@ static void WriteActionDropListS(HWND hwnd, int idc, TCHAR *inioption, const str
     if (0 < (int)(DWORD)SendMessage(control, WM_GETTEXT, ARR_SZ(txt), (LPARAM)txt) && *txt ) {
         // Action was direcly written!
         j = SendMessage(control, CB_FINDSTRINGEXACT, /*start index=*/-1, (LPARAM)txt);
-        if( j>=0 ) // Found index.
+        if (j>=0 && actions[j].action) // Found index.
             WritePrivateProfileString(TEXT("Input"), inioption, actions[j].action, inipath);
         else
             WritePrivateProfileString(TEXT("Input"), inioption, txt, inipath);
@@ -1496,6 +1494,9 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
                 { IDC_FINDWINDOW_BOX         , L10NIDX(BlacklistFindWindowBox ) }
             };
             UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
+            for(size_t i = 0; i < ARR_SZ(optlst); i++)
+                CreateInfoTip(hwnd, optlst[i].idc, l10n->BlacklistFormat);
+            
             // Enable or disable buttons if needed
             EnableDlgItem(hwnd, IDC_MDIS, GetPrivateProfileInt(TEXT("General"), TEXT("MDI"), 1, inipath));
             EnableDlgItem(hwnd, IDC_PAUSEBL

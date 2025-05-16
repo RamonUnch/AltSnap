@@ -211,7 +211,8 @@ struct langinfoitem {
   LNGVALUE(InputHotkeysMore, TEXT("You can add any key by editing the ini file.\nUse the shift key to snap windows to each other."), NULL) \
   /* Blacklits Tab*/ \
   LNGVALUE(BlacklistBox,              TEXT("Blacklist settings"), NULL) \
-  LNGVALUE(BlacklistProcessBlacklist, TEXT("&Process blacklist:"), TEXT("Globally applies\r\nComa separated blacklist entries\r\nFormats:\r\nexename.exe\r\ntitle|class\r\nexename.exe:title|class\r\nyou can use the * as a joker ie:\r\n*|Notepad, Photoshop.exe, explorer.exe*|#32770")) \
+  LNGVALUE(BlacklistFormat,           TEXT("exename.exe\r\ntitle|class\r\n*|class\r\nexename.exe:title|class"), NULL) \
+  LNGVALUE(BlacklistProcessBlacklist, TEXT("&Process blacklist:"), TEXT("Globally applies ie:\r\n*|Notepad, Photoshop.exe, explorer.exe*|#32770")) \
   LNGVALUE(BlacklistBlacklist,        TEXT("&Windows blacklist:"), NULL) \
   LNGVALUE(BlacklistScrolllist,       TEXT("Windows that should ignore &scroll action:"), NULL) \
   LNGVALUE(BlacklistMDIs,             TEXT("&MDIs not to be treated as such:"), NULL) \

@@ -11,7 +11,7 @@
 static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h);
 static BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
 static LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
-static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT idEvent, DWORD dwTime);
+static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT_PTR idEvent, DWORD dwTime);
 LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // Timer messages
@@ -685,7 +685,7 @@ static DWORD WINAPI WorkerThread(LPVOID p)
                     break;
                 }
             }
-            LOG("WM_DOMOUSEMOVE skip_count = %d", skip_count);
+            LOG("WM_DOMOUSEMOVE (%d,%d) skip_count = %d", msg.wParam, msg.lParam, skip_count);
 
             POINT pt = { (long)msg.wParam, (long)msg.lParam };
 
@@ -5532,7 +5532,7 @@ static xpure int IsAreaLongClikcable(int area)
 }
 /////////////////////////////////////////////////////////////////////////////
 // Window for timers only...
-static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT idEvent, DWORD dwTime)
+static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT_PTR idEvent, DWORD dwTime)
 {
     if (msg != WM_TIMER)
         return; // should never happen.

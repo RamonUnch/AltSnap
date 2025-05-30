@@ -1518,7 +1518,6 @@ static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
 
 ///////////////////////////////////////////////////////////////////////////
 #define AERO_TH conf.AeroThreshold
-#define MM_THREAD_ON  (g_InMouseMove && conf.FullWin) //(LastWin.hwnd && conf.FullWin)
 static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight)
 {
     // return if last resizing is not finished or no Aero or not resizable.
@@ -1627,7 +1626,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
         *posy = mon.top + (mon.bottom-mon.top)/2 - *wndheight/2; // Center
     } else {
         restore:
-        if (restore&SNAPPED && !MM_THREAD_ON) {
+        if (restore&SNAPPED) {
             // Restore original window size
             // Clear restore data at the end of the movement
             LastWin.moveonly = 0;
@@ -1680,7 +1679,7 @@ static int AeroMoveSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndh
 static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *wndheight)
 {
     // return if last resizing is not finished
-    if(!conf.Aero || MM_THREAD_ON || state.Speed > conf.AeroMaxSpeed)
+    if(!conf.Aero || state.Speed > conf.AeroMaxSpeed)
         return;
 
     static RECT borders;
@@ -5558,7 +5557,7 @@ static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT_PTR idEvent, DWOR
             state.Speed=max(abs(oldpt.x-state.prevpt.x), abs(oldpt.y-state.prevpt.y));
         else state.Speed=0;
         oldpt = state.prevpt;
-        if (state.moving == 1 && state.Speed == 0 && !has_moved_to_fixed_pt && !MM_THREAD_ON) {
+        if (state.moving == 1 && state.Speed == 0 && !has_moved_to_fixed_pt) {
             has_moved_to_fixed_pt = 1;
             MouseMove(state.prevpt);
         }

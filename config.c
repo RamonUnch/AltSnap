@@ -569,9 +569,8 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             PropSheet_Changed(g_cfgwnd, hwnd);
             have_to_apply = 1;
         }
-        if (IDC_RZCENTER_NORM <= id && id <= IDC_RZCENTER_CLOSE) {
-            CheckRadioButton(hwnd, IDC_RZCENTER_NORM, IDC_RZCENTER_CLOSE, id);
-        } else if (id == IDC_AUTOSTART) {
+
+        if (id == IDC_AUTOSTART) {
             EnableDlgItem(hwnd, IDC_AUTOSTART_HIDE, val);
             EnableDlgItem(hwnd, IDC_AUTOSTART_ELEVATE, val && VISTA);
             if (!val) {
@@ -941,7 +940,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         int event = HIWORD(wParam);
         int id = LOWORD(wParam);
         if (id >= IDC_MBA1 && id <= IDC_WHILER) {
-            CheckRadioButton(hwnd, IDC_MBA1, IDC_WHILER, id); // Check the selected action
+            //CheckRadioButton(hwnd, IDC_MBA1, IDC_WHILER, id); // Check the selected action
             goto FILLACTIONS;
         }
 
@@ -1496,7 +1495,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
             UpdateDialogStrings(hwnd, strlst, ARR_SZ(strlst));
             for(size_t i = 0; i < ARR_SZ(optlst); i++)
                 CreateInfoTip(hwnd, optlst[i].idc, l10n->BlacklistFormat);
-            
+
             // Enable or disable buttons if needed
             EnableDlgItem(hwnd, IDC_MDIS, GetPrivateProfileInt(TEXT("General"), TEXT("MDI"), 1, inipath));
             EnableDlgItem(hwnd, IDC_PAUSEBL

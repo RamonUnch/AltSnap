@@ -816,7 +816,7 @@ BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
         RECT statewnd;
         GetWindowRectL(state.hwnd, &statewnd);
 
-        unsigned flag = conf.StickyResizeMode==1 /* Aligned */
+        unsigned flag = (conf.StickyResizeMode==1) ^ state.ctrl  /* Aligned */
             ? AreRectsAligned2T(&statewnd, &wnd, conf.SnapThreshold/2)
             : AreRectsTouchingT(&statewnd, &wnd, conf.SnapThreshold/2);
 
@@ -889,7 +889,7 @@ static int ResizeTouchingWindows(LPVOID lwptr)
 
         WORD ouflags = (flag&0x0000FFFFu);
         WORD inflags = (flag&0xFFFF0000u)>>16;
-        if (conf.StickyResizeMode == 1 ) {
+        if ((conf.StickyResizeMode == 1) ^ state.ctrl) {
             /* All aligned edges (in and out) */
             POINT Min, Max;
             GetMinMaxInfo(hwnd, &Min, &Max);

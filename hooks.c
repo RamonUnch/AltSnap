@@ -171,6 +171,7 @@ static struct config {
     UCHAR Aero;
     UCHAR SmartAero;
     UCHAR StickyResize;
+    UCHAR StickyResizeMode;
     UCHAR InactiveScroll;
     UCHAR MDI;
     UCHAR ResizeCenter;
@@ -281,6 +282,7 @@ static const struct OptionListItem General_uchars[] = {
     { "Aero", 1 },
     { "SmartAero", 1 },
     { "StickyResize", 0 },
+    { "StickyResizeMode", 0 },
     { "InactiveScroll", 0 },
     { "MDI", 0 },
     { "ResizeCenter", 1 },
@@ -640,9 +642,11 @@ static void OffsetRectMDI(RECT *wnd)
 static int ShouldSnapTo(HWND hwnd)
 {
     LONG_PTR style;
+    RECT rc;
     return hwnd != state.hwnd
         && IsVisible(hwnd)
         && !IsIconic(hwnd)
+        && (GetWindowRect(hwnd, &rc) && !IsRectEmpty(&rc) )
         && !(GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_NOACTIVATE) // != WS_EX_NOACTIVATE
         &&( ((style=GetWindowLongPtr(hwnd, GWL_STYLE))&WS_CAPTION) == WS_CAPTION
            || (style&WS_THICKFRAME)
@@ -685,7 +689,7 @@ static DWORD WINAPI WorkerThread(LPVOID p)
                     break;
                 }
             }
-            LOG("WM_DOMOUSEMOVE (%d,%d) skip_count = %d", msg.wParam, msg.lParam, skip_count);
+            LOG("WM_DOMOUSEMOVE hwnd=%x (%d,%d) skip_count = %d", (UINT)(INT_PTR)state.hwnd, msg.wParam, msg.lParam, skip_count);
 
             POINT pt = { (long)msg.wParam, (long)msg.lParam };
 
@@ -811,7 +815,11 @@ BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
         // touching the currently resized window
         RECT statewnd;
         GetWindowRectL(state.hwnd, &statewnd);
-        unsigned flag = AreRectsTouchingT(&statewnd, &wnd, conf.SnapThreshold/2);
+
+        unsigned flag = conf.StickyResizeMode==1 /* Aligned */
+            ? AreRectsAligned2T(&statewnd, &wnd, conf.SnapThreshold/2)
+            : AreRectsTouchingT(&statewnd, &wnd, conf.SnapThreshold/2);
+
         if (flag) {
             OffsetRectMDI(&wnd);
 
@@ -867,6 +875,7 @@ static int ResizeTouchingWindows(LPVOID lwptr)
         hwndSS = BeginDeferWindowPos(numsnwnds+1);
     }
     unsigned i;
+    //struct resizeXY rz = state.resize;
     for (i=0; i < numsnwnds; i++) {
         RECT *nwnd = &snwnds[i].wnd;
         unsigned flag = snwnds[i].flag;
@@ -878,20 +887,49 @@ static int ResizeTouchingWindows(LPVOID lwptr)
         if(!PtInRect(&state.origin.mon, tpt))
             continue;
 
-        if (PureLeft(flag)) {
-            nwnd->right = posx;
-        } else if (PureRight(flag)) {
+        WORD ouflags = (flag&0x0000FFFFu);
+        WORD inflags = (flag&0xFFFF0000u)>>16;
+        if (conf.StickyResizeMode == 1 ) {
+            /* All aligned edges (in and out) */
             POINT Min, Max;
             GetMinMaxInfo(hwnd, &Min, &Max);
-            nwnd->left = CLAMP(nwnd->right-Max.x, posx + width, nwnd->right-Min.x);
-        } else if (PureTop(flag)) {
-            nwnd->bottom = posy;
-        } else if (PureBottom(flag)) {
-            POINT Min, Max;
-            GetMinMaxInfo(hwnd, &Min, &Max);
-            nwnd->top = CLAMP(nwnd->bottom-Max.x, posy + height, nwnd->bottom-Min.x);
+
+            if (ouflags & SNLEFT)
+                nwnd->right = posx;
+            if (inflags & SNLEFT)
+                nwnd->left = posx;
+
+            if (ouflags & SNRIGHT)
+                nwnd->left = CLAMP(nwnd->right-Max.x, posx + width, nwnd->right-Min.x);
+            if (inflags & SNRIGHT)
+            	nwnd->right = CLAMP(nwnd->left+Min.x, posx + width, nwnd->left+Max.x);
+
+            if (ouflags & SNTOP)
+                nwnd->bottom = posy;
+            if (inflags & SNTOP)
+                nwnd->top = posy;
+
+            if (ouflags & SNBOTTOM)
+                nwnd->top = CLAMP(nwnd->bottom-Max.y, posy + height, nwnd->bottom-Min.y);
+            if (inflags & SNBOTTOM)
+                nwnd->bottom = CLAMP(nwnd->top+Min.y, posy + height, nwnd->top+Max.y);
         } else {
-            continue;
+            /* Only when touching from outside */
+            if (PureLeft(ouflags)) {
+                nwnd->right = posx;
+            } else if (PureRight(ouflags)) {
+                POINT Min, Max;
+                GetMinMaxInfo(hwnd, &Min, &Max);
+                nwnd->left = CLAMP(nwnd->right-Max.x, posx + width, nwnd->right-Min.x);
+            } else if (PureTop(ouflags)) {
+                nwnd->bottom = posy;
+            } else if (PureBottom(ouflags)) {
+                POINT Min, Max;
+                GetMinMaxInfo(hwnd, &Min, &Max);
+                nwnd->top = CLAMP(nwnd->bottom-Max.x, posy + height, nwnd->bottom-Min.x);
+            } else {
+                continue;
+            }
         }
         if (hwndSS) {
             RECT nbd;
@@ -3699,10 +3737,8 @@ static void NextBorders(RECT *pos, const RECT *cur, const RECT *def)
         if (flg&(SNZONE|SNBOTTOM) && rc->top > cur->bottom) pos->bottom = min(pos->bottom, rc->top);
     }
 }
-#define SNTO_CNSNAP 0
-#define SNTO_EXTEND 1
-#define SNTO_NEXTBD 2
-#define SNTO_MOVETO 4
+
+enum { SNTO_CNSNAP=0, SNTO_EXTEND=1, SNTO_NEXTBD=2, SNTO_MOVETO=4 };
 static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
 {
     // When trying to Snap or extend a non-resizeable window

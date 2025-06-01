@@ -1473,13 +1473,26 @@ static pure int EqualRectT(const RECT *a, const RECT *b, const int T)
     return IsEqualT(a->left, b->left, T) && IsEqualT(a->right, b->right, T)
         && IsEqualT(a->top, b->top, T) && IsEqualT(a->bottom, b->bottom, T);
 }
-static pure unsigned AreRectsAlignedT(const RECT *a, const RECT *b, const int tol)
+static pure unsigned AreRectsAlignedOutT(const RECT *a, const RECT *b, const int tol)
 {
     return IsEqualT(a->left, b->right, tol) << 2
          | IsEqualT(a->top, b->bottom, tol) << 4
          | IsEqualT(a->right, b->left, tol) << 3
          | IsEqualT(a->bottom, b->top, tol) << 5;
 }
+static pure unsigned AreRectsAlignedInT(const RECT *a, const RECT *b, const int tol)
+{
+    return IsEqualT(a->left, b->left, tol) << 2
+         | IsEqualT(a->top, b->top, tol) << 4
+         | IsEqualT(a->right, b->right, tol) << 3
+         | IsEqualT(a->bottom, b->bottom, tol) << 5;
+}
+static pure unsigned AreRectsAligned2T(const RECT *a, const RECT *b, const int tol)
+{
+    return AreRectsAlignedOutT(a, b, tol) | (AreRectsAlignedInT(b, a, tol) << 16);
+}
+
+
 static int InRange(int x, int a, int b)
 {
     return (x >= a) && (x <= b);

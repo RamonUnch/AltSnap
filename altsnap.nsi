@@ -2,7 +2,7 @@
 # define the name of the installer
 
 !define APP_NAME "AltSnap"
-!define APP_VERSION "1.65"
+!define APP_VERSION "1.66"
 # define the name of the installer
 OutFile "${APP_NAME}${APP_VERSION}-inst.exe"
 Name "${APP_NAME} ${APP_VERSION}"
@@ -45,23 +45,25 @@ Section
     File sch_Off.bat
     SetOutPath $INSTDIR\Lang
     File "Lang\_en_US baseline.txt"
-    File Lang\ca_ES.ini
-    File Lang\de_DE.ini
-    File Lang\es_ES.ini
-    File Lang\fi_FI.ini
-    File Lang\fr_FR.ini
-    File Lang\gl_ES.ini
-    File Lang\it_IT.ini
-    File Lang\ja_JP.ini
-    File Lang\ko_KR.ini
-    File Lang\nb_NO.ini
-    File Lang\nl_NL.ini
-    File Lang\pl_PL.ini
-    File Lang\pt_PR.ini
-    File Lang\ru_RU.ini
-    File Lang\sz_SK.ini
-    File Lang\zh_CN.ini
-    File Lang\zh_TW.ini
+    File "Lang\ca_ES.ini"
+    File "Lang\de_DE.ini"
+    File "Lang\es_ES.ini"
+    File "Lang\fi_FI.ini"
+    File "Lang\fr_FR.ini"
+    File "Lang\gl_ES.ini"
+    File "Lang\it_IT.ini"
+    File "Lang\ja_JP.ini"
+    File "Lang\ko_KR.ini"
+    File "Lang\nb_NO.ini"
+    File "Lang\nl_NL.ini"
+    File "Lang\pl_PL.ini"
+    File "Lang\pt_PR.ini"
+    File "Lang\ru_RU.ini"
+    File "Lang\sz_SK.ini"
+    File "Lang\tr_TR.ini"
+    File "Lang\uk_UA.ini"
+    File "Lang\zh_CN.ini"
+    File "Lang\zh_TW.ini"
 
     SetOutPath $INSTDIR\Themes\erasmion
     File Themes\erasmion\TRAY_OFF.ico
@@ -146,23 +148,26 @@ Section "Uninstall"
     Delete "$INSTDIR\sch_Off.bat"
 
     Delete "Lang\_en_US baseline.txt"
-    Delete Lang\ca_ES.ini
-    Delete Lang\de_DE.ini
-    Delete Lang\es_ES.ini
-    Delete Lang\fi_FI.ini
-    Delete Lang\fr_FR.ini
-    Delete Lang\gl_ES.ini
-    Delete Lang\it_IT.ini
-    Delete Lang\ja_JP.ini
-    Delete Lang\ko_KR.ini
-    Delete Lang\nb_NO.ini
-    Delete Lang\nl_NL.ini
-    Delete Lang\pl_PL.ini
-    Delete Lang\pt_PR.ini
-    Delete Lang\ru_RU.ini
-    Delete Lang\sz_SK.ini
-    Delete Lang\zh_CN.ini
-    Delete Lang\zh_TW.ini
+    Delete "Lang\ca_ES.ini"
+    Delete "Lang\de_DE.ini"
+    Delete "Lang\es_ES.ini"
+    Delete "Lang\fi_FI.ini"
+    Delete "Lang\fr_FR.ini"
+    Delete "Lang\gl_ES.ini"
+    Delete "Lang\it_IT.ini"
+    Delete "Lang\ja_JP.ini"
+    Delete "Lang\ko_KR.ini"
+    Delete "Lang\nb_NO.ini"
+    Delete "Lang\nl_NL.ini"
+    Delete "Lang\pl_PL.ini"
+    Delete "Lang\pt_PR.ini"
+    Delete "Lang\ru_RU.ini"
+    Delete "Lang\sz_SK.ini"
+    Delete "Lang\tr_TR.ini"
+    Delete "Lang\uk_UA.ini"
+    Delete "Lang\zh_CN.ini"
+    Delete "Lang\zh_TW.ini"
+
     RMDir "$INSTDIR\Lang"
 
     Delete Themes\erasmion\TRAY_OFF.ico

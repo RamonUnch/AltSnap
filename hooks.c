@@ -2449,9 +2449,16 @@ static int ActionKill(HWND hwnd)
     //LOG("hwnd=%lx",(DWORD) hwnd);
     if (!hwnd) return 0;
 
-    if(isClassName(hwnd, TEXT("Ghost"))) {
-        PostMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0);
-        return 1;
+    if (isClassName(hwnd, TEXT("Ghost"))) {
+        HWND tmp = HungWindowFromGhostWindowL(hwnd);
+        if (tmp) {
+            hwnd = tmp;
+        } else {
+            // Unable to get hung window from ghost
+            // Just send the close system command...
+            PostMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0);
+            return 1;
+        }
     }
 
     if(blacklisted(hwnd, &BlkLst.Pause))

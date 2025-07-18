@@ -888,6 +888,24 @@ static void NotifyWinEventL(DWORD event, HWND hwnd, LONG idObj, LONG idChild)
 #define NotifyWinEvent NotifyWinEventL
 #endif
 
+static HWND HungWindowFromGhostWindowL(HWND gost)
+{
+    typedef HWND (WINAPI *funk_t)(HWND hWinEventHook);
+    static funk_t funk=(funk_t)IPTR;
+
+    if (funk == (funk_t)IPTR) { /* First time */
+        funk = (funk_t)LoadDLLProc("USER32.DLL", "HungWindowFromGhostWindow");
+    }
+    if (funk) { /* We know we have the function */
+        return funk(gost);
+    }
+
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED /*120*/);
+    /* Failed */
+    return NULL;
+}
+
+
 static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 {
     typedef HRESULT (WINAPI *funk_t)(HWND hwnd, DWORD a, PVOID b, DWORD c);
@@ -1473,13 +1491,26 @@ static pure int EqualRectT(const RECT *a, const RECT *b, const int T)
     return IsEqualT(a->left, b->left, T) && IsEqualT(a->right, b->right, T)
         && IsEqualT(a->top, b->top, T) && IsEqualT(a->bottom, b->bottom, T);
 }
-static pure unsigned AreRectsAlignedT(const RECT *a, const RECT *b, const int tol)
+static pure unsigned AreRectsAlignedOutT(const RECT *a, const RECT *b, const int tol)
 {
     return IsEqualT(a->left, b->right, tol) << 2
          | IsEqualT(a->top, b->bottom, tol) << 4
          | IsEqualT(a->right, b->left, tol) << 3
          | IsEqualT(a->bottom, b->top, tol) << 5;
 }
+static pure unsigned AreRectsAlignedInT(const RECT *a, const RECT *b, const int tol)
+{
+    return IsEqualT(a->left, b->left, tol) << 2
+         | IsEqualT(a->top, b->top, tol) << 4
+         | IsEqualT(a->right, b->right, tol) << 3
+         | IsEqualT(a->bottom, b->bottom, tol) << 5;
+}
+static pure unsigned AreRectsAligned2T(const RECT *a, const RECT *b, const int tol)
+{
+    return AreRectsAlignedOutT(a, b, tol) | (AreRectsAlignedInT(b, a, tol) << 16);
+}
+
+
 static int InRange(int x, int a, int b)
 {
     return (x >= a) && (x <= b);
@@ -1505,6 +1536,17 @@ static pure unsigned AreRectsTouchingT(const RECT *a, const RECT *b, const int t
          | SegT(a->top, b->bottom, &a->left, &b->left, tol) << 4 /* Top */
          | SegT(a->bottom, b->top, &a->left, &b->left, tol) << 5; /* Bottom */
 }
+//static pure unsigned AreRectsTouchingInT(const RECT *a, const RECT *b, const int tol)
+//{
+//    return SegT(a->left, b->left, &a->top, &b->bottom, tol) << 2 /* Left */
+//         | SegT(a->right, b->right, &a->top, &b->bottom, tol) << 3 /* Right */
+//         | SegT(a->top, b->top, &a->left, &b->right, tol) << 4 /* Top */
+//         | SegT(a->bottom, b->bottom, &a->left, &b->right, tol) << 5; /* Bottom */
+//}
+//static pure unsigned AreRectsTouching2T(const RECT *a, const RECT *b, const int tol)
+//{
+//	return AreRectsTouchingT(a, b, tol) | AreRectsTouchingInT(a, b, tol) << 16;
+//}
 static void CropRect(RECT *__restrict__ wnd, const RECT *crop)
 {
     wnd->left   = max(wnd->left,   crop->left);

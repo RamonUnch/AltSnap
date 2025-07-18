@@ -231,6 +231,7 @@ static struct config {
     UCHAR ShowZonesPrevw;
     UCHAR ZonesPrevwOpacity;
     UCHAR ZSnapMode;
+    UCHAR MaxLayouts;
     UCHAR LayoutNumber;
     char InterZone;
   # ifdef WIN64
@@ -349,6 +350,7 @@ static const struct OptionListItem Zones_uchars[] = {
     { "ShowZonesPrevw", 1 },
     { "ZonesPrevwOpacity", 161 },
     { "ZSnapMode", 0 },
+    { "MaxLayouts", 4 },
     { "LayoutNumber", 0 },
     { "InterZone", 32 },
   # ifdef WIN64
@@ -4776,6 +4778,9 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_FOCUSR:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 2)); break;
     case AC_FOCUSB:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 3)); break;
 
+    case AC_NLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, SWM_SNAPLAYOUT+(conf.LayoutNumber + 1) % conf.MaxLayouts, 0); break;
+    case AC_PLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, SWM_SNAPLAYOUT+(conf.LayoutNumber + conf.MaxLayouts - 1) % conf.MaxLayouts, 0); break;
+
     case AC_ASONOFF:     ActionASOnOff(); break;
     case AC_MOVEONOFF:   ActionMoveOnOff(hwnd); break;
     default:
@@ -4809,6 +4814,7 @@ static int DoWheelActions(HWND hwnd, enum action action)
     case AC_ZOOM2:        ret = ActionZoom(hwnd, state.delta, 1); break;
     case AC_NPSTACKED:    ActionAltTab(state.prevpt, state.delta,  state.shift, EnumStackedWindowsProc); break;
     case AC_NPSTACKED2:   ActionAltTab(state.prevpt, state.delta, !state.shift, EnumStackedWindowsProc); break;
+    case AC_NPLAYOUT:     SClickActions(hwnd, state.delta < 0 ? AC_PLAYOUT : AC_NLAYOUT);
 //    case AC_BRIGHTNESS:   ActionBrightness(state.prevpt, state.delta); break;
     default: {
         ret = 0; // No action
@@ -6548,6 +6554,7 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_
     readalluchars(&conf.UseZones, inisection, Zones_uchars, ARR_SZ(Zones_uchars));
 
     if (conf.UseZones&1) { // We are using Zones
+        conf.MaxLayouts = CLAMP(0, conf.MaxLayouts, 10);
         if(conf.UseZones&2) { // Grid Mode
             ReadGrids(inisection);
         } else {

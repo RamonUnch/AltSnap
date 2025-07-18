@@ -854,6 +854,8 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {TEXT("ExtendSnap"),  L10NIDX(InputActionExtendSnap) }, \
         {TEXT("ExtendTNEdge"),L10NIDX(InputActionExtendTNEdge) }, \
         {TEXT("MoveTNEdge"),  L10NIDX(InputActionMoveTNEdge) }, \
+        {TEXT("NLayout"),     L10NIDX(InputActionNLayout) }, \
+        {TEXT("PLayout"),     L10NIDX(InputActionPLayout) }, \
         {TEXT("MinAllOther"), L10NIDX(InputActionMinAllOther) }, \
         {TEXT("Mute"),        L10NIDX(InputActionMute) }, \
         {TEXT("Menu"),        L10NIDX(InputActionMenu) }, \
@@ -910,6 +912,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {TEXT("NPStacked"),    L10NIDX(InputActionNStacked) },
         {TEXT("NPStacked2"),   L10NIDX(InputActionNStacked2) },
         {TEXT("HScroll"),      L10NIDX(InputActionHScroll) },
+        {TEXT("NPLayout"),     L10NIDX(InputActionNPLayout) },
         {TEXT("Nothing"),      L10NIDX(InputActionNothing) },
         {NULL, 0}
     };

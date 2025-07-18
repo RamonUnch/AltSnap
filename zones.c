@@ -644,6 +644,9 @@ static void SnapLayoutPreviewCreateDestroy(const TCHAR *inisection)
 
 static void SetLayoutNumber(WPARAM number)
 {
+    int was_visible = IsWindowVisible(g_zphwnd);
+    ShowSnapLayoutPreview(0);
     conf.LayoutNumber=CLAMP(0, number, 9);
     ZonesPrevResetRegion(); // re-calculate
+    ShowSnapLayoutPreview(was_visible);
 }

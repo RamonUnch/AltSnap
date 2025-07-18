@@ -8,6 +8,25 @@
 #include <windows.h>
 #include "unfuck.h"
 
+
+// MainWindow Messages
+#define SWM_TOGGLE     (WM_APP+1)
+#define SWM_HIDE       (WM_APP+2)
+#define SWM_ELEVATE    (WM_APP+3)
+#define SWM_CONFIG     (WM_APP+4)
+#define SWM_ABOUT      (WM_APP+5)
+#define SWM_EXIT       (WM_APP+6)
+#define SWM_FIND       (WM_APP+7)
+#define SWM_HELP       (WM_APP+8)
+#define SWM_SAVEZONES  (WM_APP+9)
+#define SWM_TESTWIN    (WM_APP+10)
+#define SWM_OPENINIFILE (WM_APP+11)
+#define SWM_SNAPLAYOUT    (WM_APP+12)
+#define SWM_SNAPLAYOUTEND (WM_APP+22)
+#define SWM_EDITLAYOUT    (WM_APP+30)
+#define SWM_CLOSEZONES    (WM_APP+31)
+
+
 #ifndef LOW_LEVEL_KB_PROC
 	#ifndef DECORATED_HOOKS_DLL_PROCS
 		#define LOW_LEVEL_KB_PROC "LowLevelKeyboardProc"
@@ -134,6 +153,10 @@
     ACVALUE(AC_FOCUSR,  "FocusR",  ZO) \
     ACVALUE(AC_FOCUSB,  "FocusB",  ZO) \
     \
+    ACVALUE(AC_NLAYOUT,  "NLayout",  00) \
+    ACVALUE(AC_PLAYOUT,  "PLayout",  00) \
+    \
+    ACVALUE(AC_NPLAYOUT,     "NPLayout",     00) \
     ACVALUE(AC_ROLL,         "Roll",         MR) \
     ACVALUE(AC_ALTTAB,       "AltTab",       ZO) \
     ACVALUE(AC_VOLUME,       "Volume",       00) \

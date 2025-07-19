@@ -264,7 +264,8 @@ static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *heig
         return;
 
     if (!state.usezones) {
-        ShowSnapLayoutPreview(ZONES_PREV_HIDE);
+        if (!state.forcelayoutdisplay)
+            ShowSnapLayoutPreview(ZONES_PREV_HIDE);
         return;
     }
 
@@ -651,7 +652,9 @@ static void SetLayoutNumber(WPARAM number)
     ShowSnapLayoutPreview(was_visible);
 
     if (!was_visible && conf.ShowZonesOnChange) {
+        state.forcelayoutdisplay = 1;
         ShowSnapLayoutPreview(1);
-        SetTimer(g_mainhwnd, HIDELAYOUT_TIMER, conf.ShowZonesOnChange * 100, TimerWindowProc);
+        UINT id = SetTimer(g_mainhwnd, HIDELAYOUT_TIMER, conf.ShowZonesOnChange * 100, TimerWindowProc);
+        state.forcelayoutdisplay = !!id;
     }
 }

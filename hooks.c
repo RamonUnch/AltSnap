@@ -128,6 +128,7 @@ static struct {
     UCHAR fwmouseup;
     UCHAR enumed;
     UCHAR usezones;
+    UCHAR forcelayoutdisplay;
 
     UCHAR clickbutton;
     UCHAR resizable;
@@ -5604,6 +5605,7 @@ static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT_PTR idEvent, DWOR
         return;
         } break;
     case HIDELAYOUT_TIMER: {
+        state.forcelayoutdisplay = 0;
         ShowSnapLayoutPreview(0);
         KillTimer(g_mainhwnd, HIDELAYOUT_TIMER);
         } break;

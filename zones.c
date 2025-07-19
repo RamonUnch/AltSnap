@@ -649,4 +649,9 @@ static void SetLayoutNumber(WPARAM number)
     conf.LayoutNumber=CLAMP(0, number, 9);
     ZonesPrevResetRegion(); // re-calculate
     ShowSnapLayoutPreview(was_visible);
+
+    if (!was_visible && conf.ShowZonesOnChange) {
+        ShowSnapLayoutPreview(1);
+        SetTimer(g_mainhwnd, HIDELAYOUT_TIMER, conf.ShowZonesOnChange * 100, TimerWindowProc);
+    }
 }

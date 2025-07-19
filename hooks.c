@@ -19,6 +19,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 #define SPEED_TIMER     (WM_APP+2)
 #define GRAB_TIMER      (WM_APP+3)
 //#define ALTUP_TIMER     (WM_APP+4)
+#define HIDELAYOUT_TIMER (WM_APP+4)
 #define POOL_TIMER      (WM_APP+5)
 
 #define WM_DOWORK        (WM_APP+6)
@@ -229,6 +230,7 @@ static struct config {
     // [Zones]
     UCHAR UseZones;
     UCHAR ShowZonesPrevw;
+    UCHAR ShowZonesOnChange;
     UCHAR ZonesPrevwOpacity;
     UCHAR ZSnapMode;
     UCHAR MaxLayouts;
@@ -348,6 +350,7 @@ static const struct OptionListItem Input_uchars[] = {
 static const struct OptionListItem Zones_uchars[] = {
     { "UseZones", 0 },
     { "ShowZonesPrevw", 1 },
+    { "ShowZonesOnChange", 0 },
     { "ZonesPrevwOpacity", 161 },
     { "ZSnapMode", 0 },
     { "MaxLayouts", 4 },
@@ -5600,6 +5603,11 @@ static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT_PTR idEvent, DWOR
         KillTimer(g_mainhwnd, GRAB_TIMER);
         return;
         } break;
+    case HIDELAYOUT_TIMER: {
+        ShowSnapLayoutPreview(0);
+        KillTimer(g_mainhwnd, HIDELAYOUT_TIMER);
+        } break;
+
     #ifdef ALTUP_TIMER
     case ALTUP_TIMER : {
         // Simulate AltUp (dumb)

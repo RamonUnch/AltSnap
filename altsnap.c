@@ -411,7 +411,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 G_HotKeyProc(hwnd, WM_SETLAYOUTNUM, LayoutNumber, 0);
             }
         }
-    } else if (msg == WM_HOTKEY) {
+    } else if (msg == WM_HOTKEY || msg == WM_STACKLIST) {
         if (G_HotKeyProc)
             return G_HotKeyProc(hwnd, msg, wParam, lParam);
     }

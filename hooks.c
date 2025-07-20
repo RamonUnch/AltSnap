@@ -4535,7 +4535,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
 }
 static void ActionStackList(int lasermode)
 {
-    HotKeysWinProc(g_mainhwnd, WM_STACKLIST, lasermode, (LPARAM)EnumStackedWindowsProc);
+    PostMessage(g_mainhwnd, WM_STACKLIST, lasermode, (LPARAM)EnumStackedWindowsProc);
 }
 static void ActionASOnOff()
 {
@@ -4748,10 +4748,10 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_STACKLIST:   ActionStackList(state.shift ? TRK_LASERMODE : 0); break;
     case AC_STACKLIST2:  ActionStackList(state.shift ? 0 : TRK_LASERMODE); break;
     case AC_ALTTABLIST:
-        HotKeysWinProc(g_mainhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
+        PostMessage(g_mainhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
             state.shift?(LPARAM)EnumAllAltTabWindows:(LPARAM)EnumAltTabWindows); break;
     case AC_ALTTABFULLLIST:
-        HotKeysWinProc(g_mainhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
+        PostMessage(g_mainhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
             state.shift?(LPARAM)EnumAltTabWindows:(LPARAM)EnumAllAltTabWindows); break;
     case AC_MLZONE:      MoveWindowToTouchingZone(hwnd, 0, 0); break; // mLeft
     case AC_MTZONE:      MoveWindowToTouchingZone(hwnd, 1, 0); break; // mTop
@@ -6432,7 +6432,7 @@ static void freeallinputSequences(void)
 #ifdef __cplusplus
 extern "C"
 #endif
-__declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_LEAST MAX_PATH])
+__declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
 {
 #if defined(_MSC_VER) && _MSC_VER > 1300
 #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)

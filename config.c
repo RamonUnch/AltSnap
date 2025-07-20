@@ -1197,10 +1197,14 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {TEXT("SStepR"),      L10NIDX(InputActionSStepR) },
         {TEXT("SStepB"),      L10NIDX(InputActionSStepB) },
 
-        {TEXT("FocusL"),       L10NIDX(InputActionFocusL) },
-        {TEXT("FocusT"),       L10NIDX(InputActionFocusT) },
-        {TEXT("FocusR"),       L10NIDX(InputActionFocusR) },
-        {TEXT("FocusB"),       L10NIDX(InputActionFocusB) },
+        {TEXT("FocusL"),      L10NIDX(InputActionFocusL) },
+        {TEXT("FocusT"),      L10NIDX(InputActionFocusT) },
+        {TEXT("FocusR"),      L10NIDX(InputActionFocusR) },
+        {TEXT("FocusB"),      L10NIDX(InputActionFocusB) },
+
+        {TEXT("NLayout"),     L10NIDX(InputActionNLayout) },
+        {TEXT("PLayout"),     L10NIDX(InputActionPLayout) },
+
         {NULL, 0}
     };
 

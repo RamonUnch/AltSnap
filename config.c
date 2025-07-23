@@ -854,6 +854,8 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {TEXT("ExtendSnap"),  L10NIDX(InputActionExtendSnap) }, \
         {TEXT("ExtendTNEdge"),L10NIDX(InputActionExtendTNEdge) }, \
         {TEXT("MoveTNEdge"),  L10NIDX(InputActionMoveTNEdge) }, \
+        {TEXT("NLayout"),     L10NIDX(InputActionNLayout) }, \
+        {TEXT("PLayout"),     L10NIDX(InputActionPLayout) }, \
         {TEXT("MinAllOther"), L10NIDX(InputActionMinAllOther) }, \
         {TEXT("Mute"),        L10NIDX(InputActionMute) }, \
         {TEXT("Menu"),        L10NIDX(InputActionMenu) }, \
@@ -910,6 +912,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {TEXT("NPStacked"),    L10NIDX(InputActionNStacked) },
         {TEXT("NPStacked2"),   L10NIDX(InputActionNStacked2) },
         {TEXT("HScroll"),      L10NIDX(InputActionHScroll) },
+        {TEXT("NPLayout"),     L10NIDX(InputActionNPLayout) },
         {TEXT("Nothing"),      L10NIDX(InputActionNothing) },
         {NULL, 0}
     };
@@ -1194,10 +1197,14 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {TEXT("SStepR"),      L10NIDX(InputActionSStepR) },
         {TEXT("SStepB"),      L10NIDX(InputActionSStepB) },
 
-        {TEXT("FocusL"),       L10NIDX(InputActionFocusL) },
-        {TEXT("FocusT"),       L10NIDX(InputActionFocusT) },
-        {TEXT("FocusR"),       L10NIDX(InputActionFocusR) },
-        {TEXT("FocusB"),       L10NIDX(InputActionFocusB) },
+        {TEXT("FocusL"),      L10NIDX(InputActionFocusL) },
+        {TEXT("FocusT"),      L10NIDX(InputActionFocusT) },
+        {TEXT("FocusR"),      L10NIDX(InputActionFocusR) },
+        {TEXT("FocusB"),      L10NIDX(InputActionFocusB) },
+
+        {TEXT("NLayout"),     L10NIDX(InputActionNLayout) },
+        {TEXT("PLayout"),     L10NIDX(InputActionPLayout) },
+
         {NULL, 0}
     };
 

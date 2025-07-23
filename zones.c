@@ -264,7 +264,8 @@ static void MoveSnapToZone(POINT pt, int *posx, int *posy, int *width, int *heig
         return;
 
     if (!state.usezones) {
-        ShowSnapLayoutPreview(ZONES_PREV_HIDE);
+        if (!state.forcelayoutdisplay)
+            ShowSnapLayoutPreview(ZONES_PREV_HIDE);
         return;
     }
 
@@ -644,6 +645,16 @@ static void SnapLayoutPreviewCreateDestroy(const TCHAR *inisection)
 
 static void SetLayoutNumber(WPARAM number)
 {
+    int was_visible = IsWindowVisible(g_zphwnd);
+    ShowSnapLayoutPreview(0);
     conf.LayoutNumber=CLAMP(0, number, 9);
     ZonesPrevResetRegion(); // re-calculate
+    ShowSnapLayoutPreview(was_visible);
+
+    if (!was_visible && conf.ShowZonesOnChange) {
+        state.forcelayoutdisplay = 1;
+        ShowSnapLayoutPreview(1);
+        UINT id = SetTimer(g_mainhwnd, HIDELAYOUT_TIMER, conf.ShowZonesOnChange * 100, TimerWindowProc);
+        state.forcelayoutdisplay = !!id;
+    }
 }

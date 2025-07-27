@@ -15,12 +15,13 @@ static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT_PTR idEvent, DWOR
 LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // Timer messages
-#define REHOOK_TIMER    (WM_APP+1)
-#define SPEED_TIMER     (WM_APP+2)
-#define GRAB_TIMER      (WM_APP+3)
-//#define ALTUP_TIMER     (WM_APP+4)
-#define HIDELAYOUT_TIMER (WM_APP+4)
-#define POOL_TIMER      (WM_APP+5)
+#define PIN_TIMER         (1)
+#define REHOOK_TIMER      (2)
+#define SPEED_TIMER       (3)
+#define GRAB_TIMER        (4)
+//#define ALTUP_TIMER     (5)
+#define HIDELAYOUT_TIMER  (6)
+#define POOL_TIMER        (7)
 
 #define WM_DOWORK        (WM_APP+6)
 #define WM_DOMOUSEMOVE   (WM_APP+7)
@@ -3972,7 +3973,7 @@ static void CALLBACK HandleWinEvent(
             if (pinhwnd && GetParent(pinhwnd) == hwnd) {
                 //TCHAR txt[32];
                 //MessageBox(NULL, itostr(event, txt, 16), NULL, 0);
-                PostMessage(pinhwnd, WM_TIMER, 0, 0);
+                PostMessage(pinhwnd, WM_TIMER, PIN_TIMER, 0);
             }
         }
     }
@@ -4014,14 +4015,14 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
             SetWindowLongPtr(hwnd, 0+sizeof(LONG_PTR), (LONG_PTR)hook); // save hook
             SetWindowLongPtr(hwnd, 0+2*sizeof(LONG_PTR), (LONG_PTR)thunk); // save thunk
             if (hook) {
-                PostMessage(hwnd, WM_TIMER, 0, 0);
+                PostMessage(hwnd, WM_TIMER, PIN_TIMER, 0);
             }
             else // fallback
-                SetTimer(hwnd, 1, conf.PinRate, NULL);
+                SetTimer(hwnd, PIN_TIMER, conf.PinRate, NULL);
         }
         else
 #endif // EVENT_HOOK
-        SetTimer(hwnd, 1, conf.PinRate, NULL);
+        SetTimer(hwnd, PIN_TIMER, conf.PinRate, NULL);
     } break;
     case WM_DPICHANGED: {
         // Reset the oldstyle, so we have to recalculate size/offset
@@ -4782,8 +4783,8 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_FOCUSR:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 2)); break;
     case AC_FOCUSB:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 3)); break;
 
-    case AC_NLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, SWM_SNAPLAYOUT+(conf.LayoutNumber + 1) % conf.MaxLayouts, 0); break;
-    case AC_PLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, SWM_SNAPLAYOUT+(conf.LayoutNumber + conf.MaxLayouts - 1) % conf.MaxLayouts, 0); break;
+    case AC_NLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, CMD_SNAPLAYOUT+(conf.LayoutNumber + 1) % conf.MaxLayouts, 0); break;
+    case AC_PLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, CMD_SNAPLAYOUT+(conf.LayoutNumber + conf.MaxLayouts - 1) % conf.MaxLayouts, 0); break;
 
     case AC_ASONOFF:     ActionASOnOff(); break;
     case AC_MOVEONOFF:   ActionMoveOnOff(hwnd); break;

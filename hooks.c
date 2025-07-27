@@ -19,6 +19,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 #define SPEED_TIMER     (WM_APP+2)
 #define GRAB_TIMER      (WM_APP+3)
 //#define ALTUP_TIMER     (WM_APP+4)
+#define HIDELAYOUT_TIMER (WM_APP+4)
 #define POOL_TIMER      (WM_APP+5)
 
 #define WM_DOWORK        (WM_APP+6)
@@ -127,6 +128,7 @@ static struct {
     UCHAR fwmouseup;
     UCHAR enumed;
     UCHAR usezones;
+    UCHAR forcelayoutdisplay;
 
     UCHAR clickbutton;
     UCHAR resizable;
@@ -229,8 +231,10 @@ static struct config {
     // [Zones]
     UCHAR UseZones;
     UCHAR ShowZonesPrevw;
+    UCHAR ShowZonesOnChange;
     UCHAR ZonesPrevwOpacity;
     UCHAR ZSnapMode;
+    UCHAR MaxLayouts;
     UCHAR LayoutNumber;
     char InterZone;
   # ifdef WIN64
@@ -347,8 +351,10 @@ static const struct OptionListItem Input_uchars[] = {
 static const struct OptionListItem Zones_uchars[] = {
     { "UseZones", 0 },
     { "ShowZonesPrevw", 1 },
+    { "ShowZonesOnChange", 0 },
     { "ZonesPrevwOpacity", 161 },
     { "ZSnapMode", 0 },
+    { "MaxLayouts", 4 },
     { "LayoutNumber", 0 },
     { "InterZone", 32 },
   # ifdef WIN64
@@ -4529,7 +4535,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
 }
 static void ActionStackList(int lasermode)
 {
-    HotKeysWinProc(g_mainhwnd, WM_STACKLIST, lasermode, (LPARAM)EnumStackedWindowsProc);
+    PostMessage(g_mainhwnd, WM_STACKLIST, lasermode, (LPARAM)EnumStackedWindowsProc);
 }
 static void ActionASOnOff()
 {
@@ -4742,10 +4748,10 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_STACKLIST:   ActionStackList(state.shift ? TRK_LASERMODE : 0); break;
     case AC_STACKLIST2:  ActionStackList(state.shift ? 0 : TRK_LASERMODE); break;
     case AC_ALTTABLIST:
-        HotKeysWinProc(g_mainhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
+        PostMessage(g_mainhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
             state.shift?(LPARAM)EnumAllAltTabWindows:(LPARAM)EnumAltTabWindows); break;
     case AC_ALTTABFULLLIST:
-        HotKeysWinProc(g_mainhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
+        PostMessage(g_mainhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
             state.shift?(LPARAM)EnumAltTabWindows:(LPARAM)EnumAllAltTabWindows); break;
     case AC_MLZONE:      MoveWindowToTouchingZone(hwnd, 0, 0); break; // mLeft
     case AC_MTZONE:      MoveWindowToTouchingZone(hwnd, 1, 0); break; // mTop
@@ -4775,6 +4781,9 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_FOCUST:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 1)); break;
     case AC_FOCUSR:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 2)); break;
     case AC_FOCUSB:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 3)); break;
+
+    case AC_NLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, SWM_SNAPLAYOUT+(conf.LayoutNumber + 1) % conf.MaxLayouts, 0); break;
+    case AC_PLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, SWM_SNAPLAYOUT+(conf.LayoutNumber + conf.MaxLayouts - 1) % conf.MaxLayouts, 0); break;
 
     case AC_ASONOFF:     ActionASOnOff(); break;
     case AC_MOVEONOFF:   ActionMoveOnOff(hwnd); break;
@@ -4809,6 +4818,7 @@ static int DoWheelActions(HWND hwnd, enum action action)
     case AC_ZOOM2:        ret = ActionZoom(hwnd, state.delta, 1); break;
     case AC_NPSTACKED:    ActionAltTab(state.prevpt, state.delta,  state.shift, EnumStackedWindowsProc); break;
     case AC_NPSTACKED2:   ActionAltTab(state.prevpt, state.delta, !state.shift, EnumStackedWindowsProc); break;
+    case AC_NPLAYOUT:     SClickActions(hwnd, state.delta < 0 ? AC_PLAYOUT : AC_NLAYOUT);
 //    case AC_BRIGHTNESS:   ActionBrightness(state.prevpt, state.delta); break;
     default: {
         ret = 0; // No action
@@ -5594,6 +5604,12 @@ static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT_PTR idEvent, DWOR
         KillTimer(g_mainhwnd, GRAB_TIMER);
         return;
         } break;
+    case HIDELAYOUT_TIMER: {
+        state.forcelayoutdisplay = 0;
+        ShowSnapLayoutPreview(0);
+        KillTimer(g_mainhwnd, HIDELAYOUT_TIMER);
+        } break;
+
     #ifdef ALTUP_TIMER
     case ALTUP_TIMER : {
         // Simulate AltUp (dumb)
@@ -6416,7 +6432,7 @@ static void freeallinputSequences(void)
 #ifdef __cplusplus
 extern "C"
 #endif
-__declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_LEAST MAX_PATH])
+__declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
 {
 #if defined(_MSC_VER) && _MSC_VER > 1300
 #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
@@ -6548,6 +6564,7 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR inipath[AT_
     readalluchars(&conf.UseZones, inisection, Zones_uchars, ARR_SZ(Zones_uchars));
 
     if (conf.UseZones&1) { // We are using Zones
+        conf.MaxLayouts = CLAMP(0, conf.MaxLayouts, 10);
         if(conf.UseZones&2) { // Grid Mode
             ReadGrids(inisection);
         } else {

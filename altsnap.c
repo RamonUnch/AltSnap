@@ -302,7 +302,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 SendMessage(hwnd, WM_OPENCONFIG, 0, 0);
             }
         } else if (lParam == WM_MBUTTONDOWN) {
-            SendMessage(hwnd, WM_COMMAND, SWM_OPENINIFILE, 0);
+            SendMessage(hwnd, WM_COMMAND, CMD_OPENINIFILE, 0);
         } else if (lParam == WM_RBUTTONUP) {
             ShowContextMenu(hwnd);
         }
@@ -331,22 +331,22 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         UpdateTray();
     } else if (msg == WM_COMMAND) {
         int wmId = LOWORD(wParam); // int wmEvent = HIWORD(wParam);
-        if (wmId == SWM_TOGGLE) {
+        if (wmId == CMD_TOGGLE) {
             ToggleState();
-        } else if (wmId == SWM_HIDE) {
+        } else if (wmId == CMD_HIDE) {
             hide = 1;
             RemoveTray();
-        } else if (wmId == SWM_ELEVATE) {
+        } else if (wmId == CMD_ELEVATE) {
            ElevateNow(0);
-        } else if (wmId == SWM_CONFIG) {
+        } else if (wmId == CMD_CONFIG) {
             SendMessage(hwnd, WM_OPENCONFIG, 0, 0);
-        } else if (wmId == SWM_ABOUT) {
+        } else if (wmId == CMD_ABOUT) {
             SendMessage(hwnd, WM_OPENCONFIG, 5, 0);
-        } else if (wmId == SWM_OPENINIFILE) {
+        } else if (wmId == CMD_OPENINIFILE) {
             ShellExecute(NULL, TEXT("open"), inipath, NULL, NULL, SW_SHOWNORMAL);
-        } else if (wmId == SWM_EXIT) {
+        } else if (wmId == CMD_EXIT) {
             DestroyWindow(hwnd);
-        } else if (wmId == SWM_SAVEZONES) {
+        } else if (wmId == CMD_SAVEZONES) {
             TCHAR txt[256];
             lstrcpy_s(txt, ARR_SZ(txt), l10n->MiscZoneConfirmation);
             lstrcat_s(txt, ARR_SZ(txt), TEXT("\n\n"));
@@ -358,18 +358,18 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 WriteCurrentLayoutNumber();
                 HookSystem();
             }
-        } else if (wmId == SWM_CLOSEZONES) {
+        } else if (wmId == CMD_CLOSEZONES) {
             CloseAllTestWindows();
-        } else if (wmId == SWM_TESTWIN) {
+        } else if (wmId == CMD_TESTWIN) {
             NewTestWindow();
-        } else if (SWM_SNAPLAYOUT <= wmId && wmId <= SWM_SNAPLAYOUTEND) {
+        } else if (CMD_SNAPLAYOUT <= wmId && wmId <= CMD_SNAPLAYOUTEND) {
             // Inform hooks.dll that the snap layout changed
-            LayoutNumber = wmId-SWM_SNAPLAYOUT;
+            LayoutNumber = wmId-CMD_SNAPLAYOUT;
             if(G_HotKeyProc)
                 G_HotKeyProc(hwnd, WM_SETLAYOUTNUM, LayoutNumber, 0);
             // Save new value in the .ini file
             WriteCurrentLayoutNumber();
-        } else if (wmId == SWM_EDITLAYOUT) {
+        } else if (wmId == CMD_EDITLAYOUT) {
             if (G_HotKeyProc) {
                 unsigned len = G_HotKeyProc(hwnd, WM_GETZONESLEN, LayoutNumber, 0);
                 if (!len) {
@@ -525,7 +525,7 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
                     numstr[1] = TEXT('\0');
                 //MessageBox(NULL, NULL, NULL, 0);
                 int layoutnumber = CLAMP(0, strtoi(numstr)-1, 9);
-                PostMessage(previnst, WM_COMMAND, SWM_SNAPLAYOUT+layoutnumber, 0);
+                PostMessage(previnst, WM_COMMAND, CMD_SNAPLAYOUT+layoutnumber, 0);
                 return 0;
             }
             // Update old instance if no action to be made.

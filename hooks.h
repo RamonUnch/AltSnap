@@ -9,22 +9,22 @@
 #include "unfuck.h"
 
 
-// MainWindow Messages
-#define SWM_TOGGLE     (WM_APP+1)
-#define SWM_HIDE       (WM_APP+2)
-#define SWM_ELEVATE    (WM_APP+3)
-#define SWM_CONFIG     (WM_APP+4)
-#define SWM_ABOUT      (WM_APP+5)
-#define SWM_EXIT       (WM_APP+6)
-#define SWM_FIND       (WM_APP+7)
-#define SWM_HELP       (WM_APP+8)
-#define SWM_SAVEZONES  (WM_APP+9)
-#define SWM_TESTWIN    (WM_APP+10)
-#define SWM_OPENINIFILE (WM_APP+11)
-#define SWM_SNAPLAYOUT    (WM_APP+12)
-#define SWM_SNAPLAYOUTEND (WM_APP+22)
-#define SWM_EDITLAYOUT    (WM_APP+30)
-#define SWM_CLOSEZONES    (WM_APP+31)
+// MainWindow commands
+#define CMD_TOGGLE        (401)
+#define CMD_HIDE          (402)
+#define CMD_ELEVATE       (403)
+#define CMD_CONFIG        (404)
+#define CMD_ABOUT         (405)
+#define CMD_EXIT          (406)
+#define CMD_FIND          (407)
+#define CMD_HELP          (408)
+#define CMD_SAVEZONES     (409)
+#define CMD_TESTWIN       (410)
+#define CMD_OPENINIFILE   (411)
+#define CMD_SNAPLAYOUT    (412)
+#define CMD_SNAPLAYOUTEND (422)
+#define CMD_EDITLAYOUT    (430)
+#define CMD_CLOSEZONES    (431)
 
 
 #ifndef LOW_LEVEL_KB_PROC

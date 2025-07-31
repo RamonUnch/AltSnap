@@ -1330,14 +1330,7 @@ static HICON GetWindowIcon(HWND hwnd)
         if (icon) return icon; /* Sucess */
 
         /* ICON_SMALL2 exists since Windows XP only */
-        static BYTE WINXP_PLUS=0xFF;
-        if (WINXP_PLUS == 0xFF) {
-            WORD wVer = LOWORD(GetVersion());
-            BYTE ver = LOBYTE(wVer);
-            BYTE min = LOBYTE(wVer);
-            WINXP_PLUS = ver > 5 || (ver == 5 && min > 0); /* XP is NT 5.1 */
-        }
-        if (WINXP_PLUS
+        if (OredredWinVer() >= 0x05010000
         &&  SendMessageTimeout(hwnd, WM_GETICON, ICON_SMALL2, 0, SMTO_ABORTIFHUNG, TIMEOUT, (DWORD_PTR*)&icon) && icon)
             return icon;
 

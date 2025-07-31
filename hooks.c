@@ -2405,8 +2405,8 @@ static int ActionPause(HWND hwnd, UCHAR pause)
 {
 //    LOGA("Entering pause/resume %d", (int)pause);
     if (!blacklisted(hwnd, &BlkLst.Pause)) {
-        DWORD pid=0;
-        GetWindowThreadProcessId(hwnd, &pid);
+        TCHAR tmpname[256];
+        DWORD pid = GetWindowProgName((HWND)hwnd, tmpname, ARR_SZ(tmpname));
 
         #define P1_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0xfff)
         #define P2_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0xffff)
@@ -2436,8 +2436,8 @@ DWORD WINAPI ActionKillThread(LPVOID hwnd)
         // TODO: Aggressive command such as:
         // taskkill.exe /F /FI "status eq NOT RESPONDING" /FI "IMAGENAME ne AltSnap.exe" /FI "IMAGENAME ne dwm.exe"
     } else {
-        DWORD pid;
-        GetWindowThreadProcessId((HWND)hwnd, &pid);
+        TCHAR tmpname[256];
+        DWORD pid = GetWindowProgName((HWND)hwnd, tmpname, ARR_SZ(tmpname));
         //LOG("pid=%lu", pid);
 
         // Open the process

@@ -1229,14 +1229,10 @@ static DWORD GetProcessImageFileNameL(HANDLE hProcess, TCHAR *lpImageFileName, D
     return 0;
 }
 
-static DWORD GetWindowProgName(HWND hwnd, TCHAR *title, size_t title_len)
+static DWORD GetWindowProgNameFromPid(DWORD pid, TCHAR *title, size_t title_len)
 {
-    DWORD pid=0;
-    HANDLE proc;
     DWORD ret=0;
-    if (!GetWindowThreadProcessId(hwnd, &pid) || !pid )
-        return 0;
-    proc = OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ, FALSE, pid);
+    HANDLE proc = OpenProcess(PROCESS_QUERY_INFORMATION|PROCESS_VM_READ, FALSE, pid);
 
     if (proc)
         ret = GetModuleFileNameExL(proc, NULL, title, title_len);
@@ -1245,14 +1241,70 @@ static DWORD GetWindowProgName(HWND hwnd, TCHAR *title, size_t title_len)
     if(!proc)
         return 0;
 
-    // Try other function
+    /* Try other function */
     if (!ret) ret = GetProcessImageFileNameL(proc, title, title_len);
 
     CloseHandle(proc);
 
-    PathStripPathL(title);
-    return ret? pid: 0;
+    return ret;
 }
+
+static DWORD GetWindowProgNameSubWindow(DWORD parentpid, HWND parenthwnd, TCHAR *title, size_t title_len);
+static DWORD GetWindowProgName(HWND hwnd, TCHAR *title, size_t title_len)
+{
+    DWORD pid=0;
+    if (!GetWindowThreadProcessId(hwnd, &pid)
+    || !pid
+    || !GetWindowProgNameFromPid(pid, title, title_len))
+        return 0;
+
+    PathStripPathL(title);
+
+    if (pid && !lstrcmpi(title, TEXT("ApplicationFrameHost.exe"))) {
+        DWORD pid2 = GetWindowProgNameSubWindow(pid, hwnd, title, title_len);
+        if (pid2)  {
+            PathStripPathL(title);
+            return pid2;
+        }
+        /* If there is no child to ApplicationFrameHost.exe, */
+        /* Then we keep going with that name */
+    }
+
+    return pid;
+}
+
+struct pid_pair_struct { DWORD parent_pid; DWORD child_pid; };
+static BOOL CALLBACK GetWindowProgName_subwins_EnumProc(HWND hwnd, LPARAM lp)
+{
+    struct pid_pair_struct *pids = (struct pid_pair_struct*)lp;
+    DWORD hwnd_pid = 0;
+    if (GetWindowThreadProcessId(hwnd, &hwnd_pid) && hwnd_pid && hwnd_pid != pids->parent_pid) {
+        // We found a child window with a pid different from its parent!
+        pids->child_pid = hwnd_pid;
+        return FALSE; // DONE!
+    }
+    return TRUE; // Next window
+}
+
+/* This is for UWP applications that are inside an ApplicationFrameHost.exe window
+ * In this case it is possible to look for a child window that has a different pid
+ * This is crazy I know but it seems to work. */
+static DWORD GetWindowProgNameSubWindow(DWORD parentpid, HWND parenthwnd, TCHAR *title, size_t title_len)
+{
+    struct pid_pair_struct pids = { 0, 0 };
+    pids.parent_pid = parentpid; // PID of ApplicationFrameHost or similar
+
+    /* Look for a child window with a different PID !*/
+    EnumChildWindows(parenthwnd, GetWindowProgName_subwins_EnumProc, (LPARAM)&pids);
+
+    // if pids.child_pid it means we found a child window tht belongs to another process
+    // hosted by ApplicationFrameHost.exe
+    if (pids.child_pid && GetWindowProgNameFromPid(pids.child_pid, title, title_len))
+        return pids.child_pid; // return relevent pid
+
+    return 0;
+}
+
 
 /* Function to get the best possible small icon associated with a window
  * We always use SendMessageTimeout to ensure we do not get  locked

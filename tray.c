@@ -264,16 +264,16 @@ static void ShowContextMenu(HWND hwnd)
     GetCursorPos(&pt);
     HMENU menu = CreatePopupMenu();
 
-    AppendMenu(menu, MF_STRING, SWM_TOGGLE, (ENABLED()?l10n->MenuDisable:l10n->MenuEnable));
-    AppendMenu(menu, MF_STRING, SWM_HIDE, l10n->MenuHideTray);
-    if(VISTA)
+    AppendMenu(menu, MF_STRING, CMD_TOGGLE, (ENABLED()?l10n->MenuDisable:l10n->MenuEnable));
+    AppendMenu(menu, MF_STRING, CMD_HIDE, l10n->MenuHideTray);
+    if(WinVer >= 6) // Vista+
         InsertMenu(menu, -1, elevated?MF_BYPOSITION|MF_GRAYED:MF_BYPOSITION
-                 , SWM_ELEVATE, (elevated? l10n->GeneralElevated: l10n->GeneralElevate));
+                 , CMD_ELEVATE, (elevated? l10n->GeneralElevated: l10n->GeneralElevate));
 
     AppendMenu(menu, MF_SEPARATOR, 0, NULL);
-    AppendMenu(menu, MF_STRING, SWM_CONFIG, l10n->MenuConfigure);
-    AppendMenu(menu, MF_STRING, SWM_ABOUT, l10n->MenuAbout);
-    AppendMenu(menu, MF_STRING, SWM_OPENINIFILE, l10n->MenuOpenIniFile);
+    AppendMenu(menu, MF_STRING, CMD_CONFIG, l10n->MenuConfigure);
+    AppendMenu(menu, MF_STRING, CMD_ABOUT, l10n->MenuAbout);
+    AppendMenu(menu, MF_STRING, CMD_OPENINIFILE, l10n->MenuOpenIniFile);
 
     if (UseZones&1) { // Zones section
         if(MaxLayouts)
@@ -286,7 +286,7 @@ static void ShowContextMenu(HWND hwnd)
             // Check the current layout We use a simple checkmark,
             // because a radio button is more complex to setup.
             UINT mfflags = i==LayoutNumber? MF_STRING|MF_CHECKED: MF_STRING|MF_UNCHECKED;
-            AppendMenu(menu, mfflags, SWM_SNAPLAYOUT+i, txt);
+            AppendMenu(menu, mfflags, CMD_SNAPLAYOUT+i, txt);
         }
 
         if (!(UseZones&2)) {
@@ -295,18 +295,18 @@ static void ShowContextMenu(HWND hwnd)
             lstrcat_s(txt, ARR_SZ(txt), TEXT(" "));
             lstrcat_s(txt, ARR_SZ(txt), Int2lStr(numstr, LayoutNumber+1));
             AppendMenu(menu, MF_SEPARATOR, 0, NULL);
-            AppendMenu(menu, MF_STRING, SWM_TESTWIN,  l10n->AdvancedTestWindow);
-            AppendMenu(menu, MF_STRING, SWM_EDITLAYOUT, txt);
+            AppendMenu(menu, MF_STRING, CMD_TESTWIN,  l10n->AdvancedTestWindow);
+            AppendMenu(menu, MF_STRING, CMD_EDITLAYOUT, txt);
             AppendMenu(menu, FindWindow(TEXT(APP_NAMEA)TEXT("-test"), NULL)? MF_STRING :MF_STRING|MF_GRAYED
-                      , SWM_SAVEZONES, l10n->MenuSaveZones);
+                      , CMD_SAVEZONES, l10n->MenuSaveZones);
 
             AppendMenu(menu, FindWindow(TEXT(APP_NAMEA)TEXT("-test"), NULL)? MF_STRING :MF_STRING|MF_GRAYED
-                      , SWM_CLOSEZONES, l10n->MenuCloseAllZones);
+                      , CMD_CLOSEZONES, l10n->MenuCloseAllZones);
         }
     }
 
     AppendMenu(menu, MF_SEPARATOR, 0, NULL);
-    AppendMenu(menu, MF_STRING, SWM_EXIT, l10n->MenuExit);
+    AppendMenu(menu, MF_STRING, CMD_EXIT, l10n->MenuExit);
 
     // Track menu
     SetForegroundWindow(hwnd);

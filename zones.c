@@ -614,7 +614,7 @@ static void SnapLayoutPreviewCreateDestroy(const TCHAR *inisection)
           , wproc
           , 0, 0, hinstDLL
           , NULL, NULL, wbrush
-          , NULL, APP_NAME"-ZonesPreview", NULL };
+          , NULL, APP_NAME TEXT("-ZonesPreview"), NULL };
         RegisterClassEx(&wnd);
 
         int left=0, top=0, width, height;
@@ -639,7 +639,7 @@ static void SnapLayoutPreviewCreateDestroy(const TCHAR *inisection)
 
     } else {
         if (g_zphwnd) DestroyWindow(g_zphwnd);
-        UnregisterClass(APP_NAME"-ZonesPreview", hinstDLL);
+        UnregisterClass(APP_NAME TEXT("-ZonesPreview"), hinstDLL);
     }
 }
 

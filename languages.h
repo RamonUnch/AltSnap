@@ -186,6 +186,9 @@ struct langinfoitem {
   LNGVALUE(InputActionZoom,         TEXT("Zoom window"), NULL) \
   LNGVALUE(InputActionZoom2,        TEXT("Zoom window 2"), NULL) \
   LNGVALUE(InputActionHScroll,      TEXT("Horizontal scroll"), NULL) \
+  LNGVALUE(InputActionNPLayout,     TEXT("Next/Prev Snap Layout"), NULL) \
+  LNGVALUE(InputActionNLayout,     TEXT("Next Snap Layout"), NULL) \
+  LNGVALUE(InputActionPLayout,     TEXT("Prev Snap Layout"), NULL) \
   \
   LNGVALUE(InputHotkeysBox,            TEXT("Hotkeys"), NULL) \
   LNGVALUE(InputHotkeysModKey,         TEXT("Modifier key for al&ternate action:"), NULL) \

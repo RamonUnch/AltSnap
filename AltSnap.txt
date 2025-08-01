@@ -1,7 +1,7 @@
 *=========================================================================*
 *            ALTSNAP for Windows NT4/2000/XP/Vista/7/8.x/10/11            *
 *  Modified by Raymond Gillibert from original AltDrag by Stefan Sundin   *
-*                       release 1.64 (June XX, 2024)                      *
+*                       release 1.65 (May 29, 2025)                       *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltSnap/releases/         *
@@ -184,19 +184,54 @@ Note that this version has some more feature.
 ===========================================================================
 == CHANGELOG ==
 
+== AltSnap 1.65 ==
+
+ * You can disable the WinEvent notification when moving a window with
+ `NotifyWinEvent=0` in the `[Advanced]` section of the .ini file.
+ * You can now add a [ToolTip] section in the Translation ini file to
+   add tooltips to any option.
+ * More work was offloaded to a worker thread reducing the risk for
+   stuck buttons/keys.
+ * dni: Add syntax highlighting by @brian6932 in #571
+ * Make NotifyWinEvent optional #573
+ * NotifyWinEvent only After Drag started #580
+ * reafactor language struct definition #584
+ * Add ToolTips to the config dialog #586
+ * fix: ERRORs and add a quality of life for both sch_off and sch_on batch
+   scripts by @devCKVargas in #608
+ * Fix typos and improve clarity in README.md by @jefflord in #594
+ * fix: dni/ini diffs - attempt 2 by @brian6932 in #605
+ * Update zh_TW translation. by @undecV in #587
+ * Make Use of a worker thread #609
+ * get rid of reduntant windows #611
+
+
 == AltSnap 1.64 ==
+
  + Multi-user is now supported. Portable mode is still automatic if
-   AltSnap.ini is located next to AltSnap.exe.
+   AltSnap.ini is located next to AltSnap.exe. Otherwise the AltSnap.ini
+   file will be written to %APPDATA%\AltSnap\ and it will be copied from
+   the `AltSnap.dni` file if present in altsnap's folder.
 
  + uiAccess flag was added to the .manifest file, see #538 for more details.
+   Basically you can install AltSnap to the `Program Files` directorry,
+   run an AHK script that changes the uiAccess to true and self-sign
+   AltSnap.exe, to be able to move elevated windows without elevation.
+ 
+ * Fix  Compatibility with Komorebi #535 and other accessibility softwares,
+   Huge thanks to @alex-ds13 for the fix! #564
+ 
+ * Fixed crash caused by zero-size window, Thanks to @gizabit #560
+ 
+ * Account for the borders in CenterWindow thanks to @mbartlett21 #555
 
  * Fixed bad offset  when restoring MDI window.
 
- * Add League of Legends to blacklist (not a joke) #533
+ * Add League of Legends to blacklist (not a joke). #533
 
  * Improve move to top/left/right/bottom. #534
 
- * Ignore Ctrl if simulated (vai Alt Gr for exmple) #518
+ * Ignore Ctrl if simulated (vai Alt Gr for exmple). #518
 
 == AltSnap 1.63 ==
 

@@ -1654,13 +1654,15 @@ static void ToggleFullScreen(HWND hwnd)
 // Simple windows proc that draws the resizing regions.
 LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    #define MAXLINES 16
-    #define MAXLL    48
+    enum { MAXLINES = 16, MAXLL = 48 };
     static UCHAR centerfrac=24;
     static UCHAR sidefrac=100;
     static UCHAR centermode=1;
     static UCHAR uDarkMode = 0; // Using dark mode?
     struct lastkeyss {
+        UINT pMSG;
+        WPARAM pWP;
+        LPARAM pLP;
         int idx;
         TCHAR lastkey[MAXLINES][MAXLL];
     };
@@ -1670,7 +1672,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_CREATE: {
         // uDarkMode = AllowDarkTitlebar(hwnd);
 
-        // Allocate sace for the list of last keys.
+        // Allocate space for the list of last keys.
         void *lastkeys = calloc(1, sizeof(struct lastkeyss));
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)lastkeys);
 
@@ -1720,17 +1722,25 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         TCHAR (*lastkey)[MAXLL] = lks->lastkey;
 
         if (!buttonstr) {
-            lstrcpy_s(lastkey[idx], MAXLL, TEXT("vK="));
-            lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, (BYTE)wParam));
-            lstrcat_s(lastkey[idx], MAXLL, lParam&(1u<<31)? TEXT(" U"): lParam&(1u<<30)? TEXT(" R") :TEXT(" D"));
-            lstrcat_s(lastkey[idx], MAXLL, TEXT(" sC="));
-            lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, HIWORD(lParam)&0x00FF));
-            lstrcat_s(lastkey[idx], MAXLL, TEXT(", LP=") );
-            lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, lParam));
-            txt[0] = L','; txt[1] = L' '; txt[2] = L'\0';
-            if (GetKeyNameText(lParam, txt+2, ARR_SZ(txt)-2))
-                lstrcat_s(lastkey[idx], MAXLL, txt);
+            // Key
+            if (lParam&(1u<<30) && wParam == lks->pWP && lParam == lks->pLP) {
+                // Same key repeated, Append dost to the previous idx.
+                idx -= idx > 0; // guard against negative idx.
+                lstrcat_s(lastkey[idx], MAXLL, TEXT("."));
+            } else {
+                lstrcpy_s(lastkey[idx], MAXLL, TEXT("vK="));
+                lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, (BYTE)wParam));
+                lstrcat_s(lastkey[idx], MAXLL, lParam&(1u<<31)? TEXT(" U"): lParam&(1u<<30)? TEXT(" R") :TEXT(" D"));
+                lstrcat_s(lastkey[idx], MAXLL, TEXT(" sC="));
+                lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, HIWORD(lParam)&0x00FF));
+                lstrcat_s(lastkey[idx], MAXLL, TEXT(", LP=") );
+                lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, lParam));
+                txt[0] = L','; txt[1] = L' '; txt[2] = L'\0';
+                if (GetKeyNameText(lParam, txt+2, ARR_SZ(txt)-2))
+                    lstrcat_s(lastkey[idx], MAXLL, txt);
+            }
         } else {
+            // Mouse Button
             short x = LOWORD(lParam);
             short y = HIWORD(lParam);
             lstrcpy_s(lastkey[idx], MAXLL, buttonstr);
@@ -1760,8 +1770,12 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         RECT trc =  { lineheight/2, splitheight, crc.right, crc.bottom };
         InvalidateRect(hwnd, &trc, TRUE);
         idx++;
+        // Save to the lks struct
         idx = idx%MAXLINES;
         lks->idx = idx;
+        lks->pMSG = msg;
+        lks->pWP = wParam;
+        lks->pLP = lParam;
     } break;
 
     case  WM_MOVE:

@@ -1725,7 +1725,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             // Key
             if (lParam&(1u<<30) && wParam == lks->pWP && lParam == lks->pLP) {
                 // Same key repeated, Append dost to the previous idx.
-                idx -= idx > 0; // guard against negative idx.
+                idx = (idx - 1 + MAXLINES) % MAXLINES;
                 lstrcat_s(lastkey[idx], MAXLL, TEXT("."));
             } else {
                 lstrcpy_s(lastkey[idx], MAXLL, TEXT("vK="));

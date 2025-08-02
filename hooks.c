@@ -90,13 +90,14 @@ struct resizeXY {
     enum resizeX x;
     enum resizeY y;
 };
+struct rgMMI {
+    POINT Min;
+    POINT Max;
+};
 static const struct resizeXY AUTORESIZE =   {RZ_XNONE, RZ_YNONE};
 // State
 static struct {
-    struct {
-        POINT Min;
-        POINT Max;
-    } mmi;
+    struct rgMMI mmi;
     POINT clickpt;
     POINT prevpt;
     POINT ctrlpt;
@@ -417,8 +418,11 @@ HHOOK mousehook = NULL;
 // To clamp width and height of windows
 static pure int CLAMPW(int width)  { return CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x); }
 static pure int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state.mmi.Max.y); }
-static pure int ISCLAMPEDW(int x)  { return state.mmi.Min.x <= x && x <= state.mmi.Max.x; }
-static pure int ISCLAMPEDH(int y)  { return state.mmi.Min.y <= y && y <= state.mmi.Max.y; }
+static pure int CLAMPWL(int width, struct rgMMI *mmi)  { return CLAMP(mmi->Min.x, width,  mmi->Max.x); }
+static pure int CLAMPHL(int height, struct rgMMI *mmi) { return CLAMP(mmi->Min.y, height, mmi->Max.y); }
+
+static pure int ISCLAMPEDWL(int x, struct rgMMI *mmi)  { return mmi->Min.x <= x && x <= mmi->Max.x; }
+static pure int ISCLAMPEDHL(int y, struct rgMMI *mmi)  { return mmi->Min.y <= y && y <= mmi->Max.y; }
 
 /* If pt and ptt are it is the same points with 4px tolerence */
 static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
@@ -3520,7 +3524,8 @@ static int ActionZoom(HWND hwnd, short delta, short center)
         T = 1; // Or when no snapping has to occur.
     }
 
-    GetMinMaxInfo(hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
+    struct rgMMI mmi;
+    GetMinMaxInfo(hwnd, &mmi.Min, &mmi.Max); // for CLAMPH/W functions
 
     if (state.resize.x == RZ_LEFT) {
         right = max(T, (rc.right-rc.left)/div);
@@ -3567,13 +3572,13 @@ static int ActionZoom(HWND hwnd, short delta, short center)
               , min( max(top, bottom)-1, conf.SnapThreshold ) );// initial y threshold
     // Make sure that the windows does not move
     // in case it is resized from bottom/right
-    if (state.resize.x == RZ_LEFT) x = x+width - CLAMPW(width);
-    if (state.resize.y == RZ_TOP) y = y+height - CLAMPH(height);
+    if (state.resize.x == RZ_LEFT) x = x+width - CLAMPWL(width, &mmi);
+    if (state.resize.y == RZ_TOP) y = y+height - CLAMPHL(height, &mmi);
     // Avoid runaway effect when zooming in/out too much.
-    if (state.resize.x == RZ_XCENTER && !ISCLAMPEDW(width)) x = orc.left;
-    if (state.resize.y == RZ_YCENTER && !ISCLAMPEDH(height)) y = orc.top;
-    width = CLAMPW(width); // Double check
-    height = CLAMPH(height);
+    if (state.resize.x == RZ_XCENTER && !ISCLAMPEDWL(width, &mmi)) x = orc.left;
+    if (state.resize.y == RZ_YCENTER && !ISCLAMPEDHL(height, &mmi)) y = orc.top;
+    width = CLAMPWL(width, &mmi); // Double check
+    height = CLAMPHL(height, &mmi);
 
     MoveWindowAsync(hwnd, x, y, width, height);
     return 1;
@@ -3724,7 +3729,8 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
         flags = SNTO_MOVETO | SNTO_NEXTBD; // Move to next bd instead
 
     SetOriginFromRestoreData(hwnd, AC_MOVE);
-    GetMinMaxInfo(hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
+    struct rgMMI mmi;
+    GetMinMaxInfo(hwnd, &mmi.Min, &mmi.Max); // for CLAMPH/W functions
 
     // Get and set new position
     int posx, posy; // wndwidth and wndheight are defined above
@@ -3756,17 +3762,17 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
 
         if (resize.y == RZ_TOP) {
             posy = mon->top - bd.top;
-            wndheight = CLAMPH(wnd.bottom-state.mdipt.y - mon->top + bd.top);
+            wndheight = CLAMPHL(wnd.bottom-state.mdipt.y - mon->top + bd.top, &mmi);
         } else if (resize.y == RZ_BOTTOM) {
-            wndheight = CLAMPH(mon->bottom - wnd.top+state.mdipt.y + bd.bottom);
+            wndheight = CLAMPHL(mon->bottom - wnd.top+state.mdipt.y + bd.bottom, &mmi);
         }
         if (resize.x == RZ_RIGHT) {
-            wndwidth =  CLAMPW(mon->right - wnd.left+state.mdipt.x + bd.right);
+            wndwidth =  CLAMPWL(mon->right - wnd.left+state.mdipt.x + bd.right, &mmi);
         } else if (resize.x == RZ_LEFT) {
             posx = mon->left - bd.left;
-            wndwidth =  CLAMPW(wnd.right-state.mdipt.x - mon->left + bd.left);
+            wndwidth =  CLAMPWL(wnd.right-state.mdipt.x - mon->left + bd.left, &mmi);
         } else if (resize.x == RZ_XCENTER && resize.y == RZ_YCENTER) {
-            wndwidth = CLAMPW(mon->right - mon->left + bd.left + bd.right);
+            wndwidth = CLAMPWL(mon->right - mon->left + bd.left + bd.right, &mmi);
             posx = mon->left - bd.left;
             posy = wnd.top - state.mdipt.y + bd.top ;
             restore |= SNMAXW;
@@ -3796,7 +3802,7 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
         restore = SNTOPLEFT;
 
         if (resize.y == RZ_YCENTER) {
-            wndheight = CLAMPH(mon->bottom - mon->top); // Max Height
+            wndheight = CLAMPHL(mon->bottom - mon->top, &mmi); // Max Height
             posy += (mon->bottom - mon->top)/2 - wndheight/2;
             restore &= ~SNTOP;
         } else if (resize.y == RZ_BOTTOM) {
@@ -3807,7 +3813,7 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
         }
 
         if (resize.x == RZ_XCENTER && resize.y != RZ_YCENTER) {
-            wndwidth = CLAMPW( (mon->right-mon->left) ); // Max width
+            wndwidth = CLAMPWL( (mon->right-mon->left) , &mmi ); // Max width
             posx += (mon->right - mon->left)/2 - wndwidth/2;
             restore &= ~SNLEFT;
         } else if (resize.x == RZ_XCENTER) {

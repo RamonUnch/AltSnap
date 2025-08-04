@@ -3433,7 +3433,7 @@ static void UpdateCursor(POINT pt)
     if (conf.UseCursor && g_mainhwnd) {
         SetClassLongPtr(g_mainhwnd, GCLP_HCURSOR, (LONG_PTR)CursorToDraw());
         ShowWindow(g_mainhwnd, SW_SHOWNA);
-        SetWindowPos(g_mainhwnd, HWND_TOPMOST, pt.x-8, pt.y-8, 16, 16
+        SetWindowPos(g_mainhwnd, HWND_TOPMOST, pt.x-128, pt.y-128, 256, 256
             , SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE|SWP_NOSENDCHANGING);
 
     }
@@ -6455,6 +6455,7 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
     DWORD dragthreshold=0;
     if (SystemParametersInfo(/*SPI_GETMOUSEDRAGOUTTHRESHOLD*/0x0084, 0, &dragthreshold, 0)) {
         conf.dragXth = conf.dragYth = dragthreshold;
+        LOG("SPI_GETMOUSEDRAGOUTTHRESHOLD=%lu", dragthreshold);
     } else {
         // Unable to retreave the new drag-out Threshold
         // Default to twice the usual drag threshold.

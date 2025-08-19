@@ -294,7 +294,7 @@ MMB=Menu
 ; exename, == exename:*|*,
 ; title|class, == *:title|class,
 
-Processes=StartMenuExperienceHost.exe,SearchApp.exe,mstsc.exe,msrdc.exe,osk.exe,Virtual PC.exe,LeageClient.exe,LeageClientUx.exe,LeageClientUxRender.exe
+Processes=StartMenuExperienceHost.exe,SearchApp.exe,mstsc.exe,msrdc.exe,osk.exe,Virtual PC.exe,LeagueClient.exe,LeagueClientUx.exe,LeagueClientUxRender.exe
 ; List of processes (comma separated) that AltSnap will not interfere with
 
 Windows=Program Manager|Progman,*|MultitaskingViewFrame,Volume Control|Tray Volume,*|TaskSwitcherWnd,*|TaskSwitcherOverlayWnd,|WorkerW,|Shell_TrayWnd,|BaseBar,|#32768,*|XamlExplorerHostIslandWindow,|MozillaDropShadowWindowClass,*|VistaSwitcher_SwitcherWnd,|TaskListThumbnailWnd,|NotifyIconOverflowWindow,*|Windows.UI.Core.CoreWindow,|NativeHWNDHost,*|Xaml_WindowedPopupClass,|Shell_SecondaryTrayWnd,*|SimpleWindowSwitcher_{BEA057BB-66C7-4758-A610-FAE6013E9F98},yui.exe:Yui|YuiWnd

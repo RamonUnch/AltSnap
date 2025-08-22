@@ -1,0 +1,129 @@
+name: Build Matrix - All Platforms
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            msystem: MINGW64
+            gcc_prefix: mingw-w64-x86_64
+            makefile: MakefileX64
+            artifact_name: altsnap-x64
+          - arch: x86
+            msystem: MINGW32
+            gcc_prefix: mingw-w64-i686
+            makefile: Makefile
+            artifact_name: altsnap-x86
+
+    name: Build ${{ matrix.arch }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install MSYS2 and MINGW
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: ${{ matrix.msystem }}
+        update: true
+        install: >-
+          ${{ matrix.gcc_prefix }}-gcc
+          ${{ matrix.gcc_prefix }}-make
+          ${{ matrix.gcc_prefix }}-binutils
+          make
+
+    - name: Build AltSnap ${{ matrix.arch }}
+      shell: msys2 {0}
+      run: |
+        set -e
+        echo "Building AltSnap for ${{ matrix.arch }}..."
+        
+        # Clean previous builds
+        if [ -f "${{ matrix.makefile }}" ]; then
+          echo "Using ${{ matrix.makefile }}"
+          make -f "${{ matrix.makefile }}" clean || true
+          make -f "${{ matrix.makefile }}"
+        else
+          echo "Makefile ${{ matrix.makefile }} not found, using default"
+          make clean || true
+          make
+        fi
+        
+        echo "Build completed for ${{ matrix.arch }}"
+        ls -la *.exe *.dll 2>/dev/null || echo "No exe/dll files found"
+
+    - name: Collect artifacts
+      shell: msys2 {0}
+      run: |
+        ARTIFACT_DIR="artifacts-${{ matrix.arch }}"
+        mkdir -p "$ARTIFACT_DIR"
+        
+        # Copy built files
+        for f in *.exe *.dll; do
+          if [ -f "$f" ]; then
+            cp -v "$f" "$ARTIFACT_DIR/"
+          fi
+        done
+        
+        # Copy documentation
+        for doc in README.md License.txt AltSnap.txt; do
+          if [ -f "$doc" ]; then
+            cp -v "$doc" "$ARTIFACT_DIR/"
+          fi
+        done
+        
+        echo "Artifacts for ${{ matrix.arch }}:"
+        ls -la "$ARTIFACT_DIR"
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact_name }}-${{ github.run_number }}
+        path: artifacts-${{ matrix.arch }}
+        retention-days: 30
+
+  combine-artifacts:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: all-artifacts
+        
+    - name: Combine artifacts
+      run: |
+        mkdir -p combined-release
+        
+        # Copy x64 version to main directory
+        if [ -d "all-artifacts/altsnap-x64-${{ github.run_number }}" ]; then
+          cp -r all-artifacts/altsnap-x64-${{ github.run_number }}/* combined-release/
+        fi
+        
+        # Copy x86 version to x86 subdirectory
+        if [ -d "all-artifacts/altsnap-x86-${{ github.run_number }}" ]; then
+          mkdir -p combined-release/x86
+          cp all-artifacts/altsnap-x86-${{ github.run_number }}/*.exe combined-release/x86/ || true
+          cp all-artifacts/altsnap-x86-${{ github.run_number }}/*.dll combined-release/x86/ || true
+        fi
+        
+        echo "Combined release contents:"
+        find combined-release -type f
+        
+    - name: Upload combined artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: altsnap-combined-${{ github.run_number }}
+        path: combined-release
+        retention-days: 90

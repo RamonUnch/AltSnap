@@ -1,0 +1,98 @@
+name: Build AltSnap Windows x64
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:  # Manuel tetikleme için
+
+jobs:
+  build-windows-x64:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install MSYS2 and MINGW64
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-make
+          mingw-w64-x86_64-binutils
+          make
+
+    - name: Build AltSnap x64
+      shell: msys2 {0}
+      run: |
+        set -e
+        echo "Building AltSnap for Windows x64..."
+        echo "Current directory: $(pwd)"
+        echo "Files in directory:"
+        ls -la
+        
+        # Clean previous builds
+        if [ -f MakefileX64 ]; then
+          echo "Cleaning previous builds..."
+          make -f MakefileX64 clean || true
+          
+          echo "Building with MakefileX64..."
+          make -f MakefileX64
+        else
+          echo "MakefileX64 not found, using default Makefile"
+          make clean || true
+          make
+        fi
+        
+        echo "Build completed. Checking for output files:"
+        ls -la *.exe *.dll 2>/dev/null || echo "No exe/dll files found"
+
+    - name: Collect build artifacts
+      shell: msys2 {0}
+      run: |
+        echo "Collecting build artifacts..."
+        ARTIFACT_DIR="artifacts"
+        mkdir -p "$ARTIFACT_DIR"
+        
+        # Copy main executable and DLL
+        if [ -f "AltSnap.exe" ]; then
+          echo "Found AltSnap.exe"
+          cp -v "AltSnap.exe" "$ARTIFACT_DIR/"
+        fi
+        
+        if [ -f "hooks.dll" ]; then
+          echo "Found hooks.dll"
+          cp -v "hooks.dll" "$ARTIFACT_DIR/"
+        fi
+        
+        # Copy any other executable files
+        for f in *.exe *.dll; do
+          if [ -f "$f" ]; then
+            cp -v "$f" "$ARTIFACT_DIR/" 2>/dev/null || true
+          fi
+        done
+        
+        # Copy documentation and license
+        if [ -f "README.md" ]; then
+          cp -v "README.md" "$ARTIFACT_DIR/"
+        fi
+        if [ -f "License.txt" ]; then
+          cp -v "License.txt" "$ARTIFACT_DIR/"
+        fi
+        if [ -f "AltSnap.txt" ]; then
+          cp -v "AltSnap.txt" "$ARTIFACT_DIR/"
+        fi
+        
+        echo "Contents of artifact directory:"
+        ls -la "$ARTIFACT_DIR"
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: altsnap-windows-x64-${{ github.run_number }}
+        path: artifacts
+        retention-days: 90

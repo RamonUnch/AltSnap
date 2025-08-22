@@ -1,0 +1,69 @@
+name: Test Build
+
+on:
+  push:
+    branches: [ develop, feature/*, bugfix/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  quick-build-test:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install MSYS2 and MINGW64
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-make
+          make
+
+    - name: Test compilation
+      shell: msys2 {0}
+      run: |
+        set -e
+        echo "Testing compilation..."
+        
+        # Test if project compiles without errors
+        if [ -f "MakefileX64" ]; then
+          echo "Testing with MakefileX64..."
+          make -f MakefileX64 clean || true
+          make -f MakefileX64
+        else
+          echo "Testing with default Makefile..."
+          make clean || true
+          make
+        fi
+        
+        # Check if executables were created
+        if [ -f "AltSnap.exe" ] && [ -f "hooks.dll" ]; then
+          echo "✓ Compilation successful - both AltSnap.exe and hooks.dll created"
+          ls -la *.exe *.dll
+        else
+          echo "✗ Compilation failed - missing output files"
+          exit 1
+        fi
+
+    - name: Basic file checks
+      shell: msys2 {0}
+      run: |
+        echo "Checking file properties..."
+        
+        # Check if files are actual PE executables
+        file AltSnap.exe hooks.dll || true
+        
+        # Check file sizes (should not be empty)
+        if [ -s "AltSnap.exe" ] && [ -s "hooks.dll" ]; then
+          echo "✓ Output files are not empty"
+          echo "AltSnap.exe size: $(stat -c%s AltSnap.exe) bytes"
+          echo "hooks.dll size: $(stat -c%s hooks.dll) bytes"
+        else
+          echo "✗ One or more output files are empty"
+          exit 1
+        fi

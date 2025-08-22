@@ -1,2 +1,15 @@
-*.dni diff merge text linguist-language=ini working-tree-encoding=utf-16le-bom
-Lang/* diff merge text linguist-language=ini working-tree-encoding=utf-16le-bom
+*.dni binary
+Lang/* binary
+
+# Handle GitHub workflows properly
+.github/workflows/*.yml text eol=lf
+
+# Source code files
+*.c text
+*.h text
+*.rc text
+*.md text
+
+# Makefiles
+Makefile* text
+makefile* text

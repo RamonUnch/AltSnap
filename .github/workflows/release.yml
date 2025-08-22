@@ -1,0 +1,103 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0, v2.1.0, etc.
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install MSYS2 and MINGW64
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-make
+          mingw-w64-x86_64-binutils
+          make
+          zip
+
+    - name: Build AltSnap x64 Release
+      shell: msys2 {0}
+      run: |
+        set -e
+        echo "Building AltSnap Release for Windows x64..."
+        
+        # Clean and build
+        make -f MakefileX64 clean || true
+        make -f MakefileX64
+        
+        echo "Build completed successfully!"
+        ls -la *.exe *.dll
+
+    - name: Prepare release package
+      shell: msys2 {0}
+      run: |
+        RELEASE_DIR="AltSnap-${GITHUB_REF_NAME}-x64"
+        mkdir -p "$RELEASE_DIR"
+        
+        # Copy main files
+        cp AltSnap.exe "$RELEASE_DIR/"
+        cp hooks.dll "$RELEASE_DIR/"
+        
+        # Copy documentation
+        cp README.md "$RELEASE_DIR/"
+        cp License.txt "$RELEASE_DIR/"
+        cp AltSnap.txt "$RELEASE_DIR/" || true
+        
+        # Copy language files
+        if [ -d "Lang" ]; then
+          cp -r Lang "$RELEASE_DIR/"
+        fi
+        
+        # Copy themes
+        if [ -d "Themes" ]; then
+          cp -r Themes "$RELEASE_DIR/"
+        fi
+        
+        # Create zip archive
+        zip -r "AltSnap-${GITHUB_REF_NAME}-x64.zip" "$RELEASE_DIR"
+        
+        echo "Release package created:"
+        ls -la *.zip
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          AltSnap-${{ github.ref_name }}-x64.zip
+          AltSnap.exe
+          hooks.dll
+        draft: false
+        prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
+        generate_release_notes: true
+        body: |
+          ## AltSnap ${{ github.ref_name }} - Windows x64 Release
+          
+          ### What's Included:
+          - **AltSnap.exe** - Main application
+          - **hooks.dll** - System hooks library
+          - **Language files** - Multi-language support
+          - **Themes** - Custom tray icon themes
+          - **Documentation** - README and license files
+          
+          ### Installation:
+          1. Download and extract the zip file
+          2. Run AltSnap.exe
+          3. Configure your preferred settings
+          
+          ### System Requirements:
+          - Windows 7 or later (x64)
+          - Administrator privileges recommended for system-level window management
+          
+          Built automatically with GitHub Actions from commit ${{ github.sha }}.
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

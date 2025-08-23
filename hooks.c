@@ -262,14 +262,7 @@ static struct config {
     UCHAR HScrollKey[MAXKEYS+1];
     UCHAR ESCkeys[MAXKEYS+1];
 
-    struct {
-        enum action // Up to 20 BUTTONS!!!
-          LMB[NACPB*(20+4)]; /*,  RMB[NACPB],  MMB[NACPB],  MB4[NACPB],  MB5[NACPB]
-        , MB6[NACPB],  MB7[NACPB],  MB8[NACPB],  MB9[NACPB],  MB10[NACPB]
-        , MB11[NACPB], MB12[NACPB], MB13[NACPB], MB14[NACPB], MB15[NACPB]
-        , MB16[NACPB], MB17[NACPB], MB18[NACPB], MB19[NACPB], MB20[NACPB]
-        , Scroll[NACPB], HScroll[NACPB];*/ // Plus vertical and horizontal wheels
-    } Mouse;
+    enum action Mouse[NACPB*(20+4)]; // Up to 20 buttons + vertical and horizontal wheels D/U;
     enum action GrabWithAlt[NACPB]; // Actions without click
     enum action MoveUp[NACPB];      // Actions on (long) Move Up w/o drag
     enum action ResizeUp[NACPB];    // Actions on (long) Resize Up w/o drag
@@ -1740,7 +1733,7 @@ static pure int ModKey()
 static enum action GetAction(const int button)
 {
     if (button) { // Ugly pointer arithmetic (LMB <==> button == 2)
-        return conf.Mouse.LMB[(button-2)*NACPB+ModKey()];
+        return conf.Mouse[(button-2)*NACPB+ModKey()];
     } else {
         return AC_NONE;
     }
@@ -1748,7 +1741,7 @@ static enum action GetAction(const int button)
 static enum action GetActionT(const int button)
 {
     if (button) { // Ugly pointer arithmetic +2 compared to non titlebar
-        return conf.Mouse.LMB[2+(button-2)*NACPB+ModKey()];
+        return conf.Mouse[2+(button-2)*NACPB+ModKey()];
     } else {
         return AC_NONE;
     }
@@ -1761,7 +1754,7 @@ static enum action GetActionMR(const int button)
         // MB[4/5] == Action/Alt while moving
         // MB[6/7] == Action/Alt while Resizing
         int offset = state.action<<1; // 2 or 4
-        return conf.Mouse.LMB[2+offset+(button-2)*NACPB+ModKey()];
+        return conf.Mouse[2+offset+(button-2)*NACPB+ModKey()];
     } else {
         return AC_NONE;
     }
@@ -6280,7 +6273,7 @@ void readbuttonactions(const TCHAR *inputsection)
 
     unsigned i;
     for (i=0; i < ARR_SZ(buttons); i++) {
-        enum action * const actionptr = &conf.Mouse.LMB[0]; // first action in list
+        enum action * const actionptr = &conf.Mouse[0]; // first action in list
 
         char key[32];
         strcpy(key, buttons[i]);
@@ -6311,12 +6304,12 @@ void readbuttonactions(const TCHAR *inputsection)
 
     for (i = 0; i < NACPB; i++) {
         // ScrollUp
-        if(conf.Mouse.LMB[21 * NACPB + i] == AC_NONE)
-            conf.Mouse.LMB[21 * NACPB + i] = conf.Mouse.LMB[20 * NACPB + i];
+        if(conf.Mouse[21 * NACPB + i] == AC_NONE)
+            conf.Mouse[21 * NACPB + i] = conf.Mouse[20 * NACPB + i];
 
         // HScrollUp
-        if(conf.Mouse.LMB[23 * NACPB + i] == AC_NONE)
-            conf.Mouse.LMB[23 * NACPB + i] = conf.Mouse.LMB[22 * NACPB + i];
+        if(conf.Mouse[23 * NACPB + i] == AC_NONE)
+            conf.Mouse[23 * NACPB + i] = conf.Mouse[22 * NACPB + i];
     }
 }
 ///////////////////////////////////////////////////////////////////////////

@@ -231,7 +231,7 @@ static void LOGfunk( const char *fmt, ... )
 #endif
 
 #ifdef DEBUG
-#define assert(x) do{if(!(x)) { LOGA("Assert: " #x); ExitProcess(1); } }while(0)
+#define assert(x) do{if(!(x)) { LOGA("ASSERT in " __FILE__":%d - " #x, __LINE__); ExitProcess(1); } }while(0)
 #else
 #undef assert
 #define assert(x)

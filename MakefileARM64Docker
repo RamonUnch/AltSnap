@@ -1,0 +1,42 @@
+# Docker-based ARM64 Windows cross-compilation using dockcross
+DOCKER_IMAGE=dockcross/windows-arm64
+DOCKER_RUN=docker run --rm -v $(PWD):/work -w /work $(DOCKER_IMAGE)
+
+# These will be executed inside the container
+CC=aarch64-w64-mingw32-gcc
+WR=llvm-windres
+
+WARNINGS=-Wall -Wformat-security -Wstrict-overflow -Wsign-compare -Wclobbered \
+    -Wempty-body -Wignored-qualifiers -Wuninitialized -Wtype-limits -Woverride-init \
+    -Wlogical-op -Wno-multichar -Wno-attributes -Wduplicated-cond -Wduplicated-branches \
+    -Wnull-dereference -Wno-unused-function -Wshadow -Wstack-usage=4096 -pedantic -Wc++-compat
+
+CFLAGS=-Os -fno-stack-check -fno-stack-protector -fno-ident -fomit-frame-pointer -fmerge-all-constants \
+    -momit-leaf-frame-pointer -march=armv8-a -mtune=generic \
+    -D__USE_MINGW_ANSI_STDIO=0 -Wp,-D_FORTIFY_SOURCE=2 -fshort-enums\
+    $(WARNINGS) -fno-exceptions -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables
+
+LDFLAGS=-lkernel32 -luser32 -lgdi32 -lwinmm
+
+EXELD = $(LDFLAGS) -lcomctl32 -ladvapi32 -lshell32
+
+default: AltSnap.exe hooks.dll
+
+hooks.dll : hooks.c hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c
+	$(DOCKER_RUN) $(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) $(LDFLAGS) -shared
+
+AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages.c unfuck.h nanolibc.h
+	$(DOCKER_RUN) $(CC) -o AltSnap.exe altsnap.c altsnapr.o $(CFLAGS) $(EXELD) -mwindows -DtWinMain=wWinMain -municode
+
+altsnapr.o : altsnap.rc window.rc resource.h AltSnap.exe.manifest media/find.cur media/find.ico media/icon.ico media/tray-disabled.ico media/tray-enabled.ico
+	$(DOCKER_RUN) $(WR) altsnap.rc -o altsnapr.o --target=aarch64-w64-mingw32
+
+hooksr.o: hooks.rc
+	$(DOCKER_RUN) $(WR) hooks.rc -o hooksr.o --target=aarch64-w64-mingw32
+
+clean :
+	rm -f altsnapr.o AltSnap.exe hooksr.o hooks.dll
+
+# Helper target to get shell inside container for debugging
+shell:
+	$(DOCKER_RUN) bash

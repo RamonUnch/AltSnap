@@ -4501,7 +4501,8 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
     }
     POINT pt;
     GetCursorPos(&pt);
-    ReallySetForegroundWindow(g_mchwnd);
+    BringWindowToTop(g_mchwnd);
+    SetForegroundWindow(g_mchwnd);
     i = (unsigned)TrackPopupMenu(menu,
         TPM_RETURNCMD/*|TPM_NONOTIFY*/|GetSystemMetrics(SM_MENUDROPALIGNMENT)
         , pt.x, pt.y, 0, g_mchwnd, NULL);
@@ -4558,7 +4559,8 @@ static void ActionMenu(HWND hwnd)
     g_mchwnd = KreateMsgWin(MenuWindowProc, TEXT(APP_NAMEA)TEXT("-SClick"), 1);
     state.sclickhwnd = hwnd;
     // Send message to Open Action Menu
-    ReallySetForegroundWindow(g_mainhwnd);
+    BringWindowToTop(g_mainhwnd);
+    SetForegroundWindow(g_mainhwnd);
     PostMessage(
         g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd,
        ( !state.ignorept )                                    // LP_CURSORPOS

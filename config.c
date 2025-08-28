@@ -35,7 +35,7 @@ static void CheckAutostart(int *_on, int *_hidden, int *_elevated)
     *_on = *_hidden = *_elevated = 0;
     // Read registry
     HKEY key;
-    TCHAR value[MAX_PATH+20] = TEXT("");
+    TCHAR value[MAX_PATH+20]; value[0] = TEXT('\0');
     DWORD len = sizeof(value);
     RegOpenKeyEx(HKEY_CURRENT_USER, TEXT("Software\\Microsoft\\Windows\\CurrentVersion\\Run"), 0, KEY_QUERY_VALUE, &key);
     RegQueryValueEx(key, TEXT(APP_NAMEA), NULL, NULL, (LPBYTE)value, &len);
@@ -799,7 +799,7 @@ static void WriteActionDropListS(HWND hwnd, int idc, TCHAR *inioption, const str
     }
 
     // User directly Wrote the specified string?
-    TCHAR txt[128]=TEXT("");
+    TCHAR txt[128]; txt[0] = TEXT('\0');
     if (0 < (int)(DWORD)SendMessage(control, WM_GETTEXT, ARR_SZ(txt), (LPARAM)txt) && *txt ) {
         // Action was direcly written!
         j = SendMessage(control, CB_FINDSTRINGEXACT, /*start index=*/-1, (LPARAM)txt);
@@ -1608,7 +1608,7 @@ INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             SetDlgItemText(hwnd, IDC_LICENSE,          l10n->AboutLicense);
             SetDlgItemText(hwnd, IDC_TRANSLATIONS_BOX, l10n->AboutTranslationCredit);
 
-            TCHAR txt[1024] = TEXT("");
+            TCHAR txt[1024]; txt[0] = TEXT('\0');
             int i;
             if (langinfo) {
                 for (i = 0; i < nlanguages; i++) {

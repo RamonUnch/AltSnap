@@ -3,14 +3,16 @@
 
 #include <windows.h>
 
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L && !defined(__WATCOMC__)
-	// C99+ mode but not buggy watcom C99
+#ifndef AT_LEAST
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L && defined(__GNUC__)
+	// C99+ mode but only with gcc
 	#define AT_LEAST static
 #else
 	#define AT_LEAST
 #endif
+#endif
 
-#ifdef __GNUC__
+#if defined(__GNUC__) && __GNUC__ >= 5
 #define flatten __attribute__((flatten))
 #define xpure __attribute__((const))
 #define pure __attribute__((pure))
@@ -682,6 +684,7 @@ static allnonnull pure unsigned lstrhex2u(const TCHAR *s)
 static void *reallocL(void *mem, size_t sz)
 {
 //    if (rand()%256 < 200) return NULL;
+    if(!sz) { if(mem)HeapFree(GetProcessHeap(), 0, mem); return NULL; }
     if(!mem) return HeapAlloc(GetProcessHeap(), 0, sz);
     return HeapReAlloc(GetProcessHeap(), 0, mem, sz);
 }

@@ -310,7 +310,8 @@ static size_t lstrcatM_s(TCHAR *d, size_t dl, ...)
 
 static int PrintHwndDetails(HWND hwnd, TCHAR buf[AT_LEAST 512+40+2*8+4*12+1])
 {
-    TCHAR klass[256]=TEXT(""), title[256]=TEXT("");
+    TCHAR klass[256], title[256];
+    klass[0] = title[0] = TEXT('\0');
     RECT rc;
     GetWindowRect(hwnd, &rc);
     GetClassName(hwnd, klass, ARR_SZ(klass));

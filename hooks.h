@@ -8,6 +8,11 @@
 #include <windows.h>
 #include "unfuck.h"
 
+#if (defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR < 2) || defined(__MINGW32__)
+// Old version of MINGW64 header or mingW32 only!
+// Unable to use endpointvolume.h !
+#define NO_OLEAPI
+#endif
 
 // MainWindow commands
 #define CMD_TOGGLE        (401)

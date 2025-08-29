@@ -207,7 +207,8 @@ Note that this version has some more feature.
 
  * Add instructions for building on Windows on ARM64. @andrewachen, #659
 
- * Different actions for Wheel Up and Down #654, #658
+ * Different actions for Wheel Up and Down #654, #658. Use the ScrollUp
+   and HScrollUp .ini entries to override Up actions only
 
 == AltSnap 1.65 ==
 

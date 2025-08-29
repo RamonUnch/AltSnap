@@ -127,7 +127,7 @@ void * __cdecl memcpy(void *dst, const void * __restrict__ src, size_t n)
     const char *s = (char *)src;
 
     for (i=0; i<n; i++)
-        d++ = s++;
+        *d++ = *s++;
     return dst;
 }
 #endif
@@ -697,9 +697,9 @@ static mallocatrib void *mallocL(size_t sz)
 }
 #define malloc mallocL
 
-static mallocatrib void *callocL(size_t sz, size_t mult)
+static mallocatrib void *callocL(size_t n, size_t sz)
 {
-    return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sz*mult);
+    return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, n*sz);
 }
 #define calloc callocL
 
@@ -708,6 +708,6 @@ static BOOL freeL(void *mem)
     if(mem) return HeapFree(GetProcessHeap(), 0, mem);
     return FALSE;
 }
-#define free freeL
+#define free(x) do { freeL(x); x = NULL; }while(0)
 
 #endif

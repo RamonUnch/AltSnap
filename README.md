@@ -51,6 +51,8 @@ Just install the latest version (I use TDM-gcc 10.3, MinGW64 based) and use:
 
 `> make -fMakefileTCC` for i386 build using tcc, [Bellard's thiny c compiler](https://bellard.org/tcc/)
 
+`> make -fMakefileARM64Docker` for ARM64 Windows build using Docker (see [BUILD_ARM64.md](BUILD_ARM64.md))
+
 You can also use mk.bat and mk64.bat files.
 For Clang, I use LLVM5.0.1 with the headers and libs from Mingw-w64.
 Be sure to adjust your include and lib directorries on the command line with `-IPath\to\mingw\include` and `-LPath\to\mingw\lib`.

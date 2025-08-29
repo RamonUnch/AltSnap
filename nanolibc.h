@@ -3,14 +3,16 @@
 
 #include <windows.h>
 
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L && !defined(__WATCOMC__)
-	// C99+ mode but not buggy watcom C99
+#ifndef AT_LEAST
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L && defined(__GNUC__)
+	// C99+ mode but only with gcc
 	#define AT_LEAST static
 #else
 	#define AT_LEAST
 #endif
+#endif
 
-#ifdef __GNUC__
+#if defined(__GNUC__) && __GNUC__ >= 5
 #define flatten __attribute__((flatten))
 #define xpure __attribute__((const))
 #define pure __attribute__((pure))
@@ -125,7 +127,7 @@ void * __cdecl memcpy(void *dst, const void * __restrict__ src, size_t n)
     const char *s = (char *)src;
 
     for (i=0; i<n; i++)
-        d++ = s++;
+        *d++ = *s++;
     return dst;
 }
 #endif
@@ -682,6 +684,7 @@ static allnonnull pure unsigned lstrhex2u(const TCHAR *s)
 static void *reallocL(void *mem, size_t sz)
 {
 //    if (rand()%256 < 200) return NULL;
+    if(!sz) { if(mem)HeapFree(GetProcessHeap(), 0, mem); return NULL; }
     if(!mem) return HeapAlloc(GetProcessHeap(), 0, sz);
     return HeapReAlloc(GetProcessHeap(), 0, mem, sz);
 }
@@ -694,9 +697,9 @@ static mallocatrib void *mallocL(size_t sz)
 }
 #define malloc mallocL
 
-static mallocatrib void *callocL(size_t sz, size_t mult)
+static mallocatrib void *callocL(size_t n, size_t sz)
 {
-    return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sz*mult);
+    return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, n*sz);
 }
 #define calloc callocL
 
@@ -705,6 +708,6 @@ static BOOL freeL(void *mem)
     if(mem) return HeapFree(GetProcessHeap(), 0, mem);
     return FALSE;
 }
-#define free freeL
+#define free(x) do { freeL(x); x = NULL; }while(0)
 
 #endif

@@ -1,7 +1,7 @@
 *=========================================================================*
 *            ALTSNAP for Windows NT4/2000/XP/Vista/7/8.x/10/11            *
 *  Modified by Raymond Gillibert from original AltDrag by Stefan Sundin   *
-*                       release 1.65 (May 29, 2025)                       *
+*                    release 1.66 (September 01, 2025)                    *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltSnap/releases/         *
@@ -184,6 +184,32 @@ Note that this version has some more feature.
 ===========================================================================
 == CHANGELOG ==
 
+== AltSnap 1.66 ==
+
+ * Simplify resources #619
+
+ * 1.65 zh_CN Translation by @yatli in #624
+
+ * Fix NSI installer with new translations #634, #635
+
+ * Use HungWindowFromGhostWindow() in the Kill action, #134, #637
+
+ * Add next/previous layout actions `N/P/NPLayout` #632, #638
+   Also Show preview on layout change, use the `ShowZonesOnChange` variable
+   in the [Zones] section of the ini file to set the preview time in tenth
+   of seconds. set 0 to disable preview (default).
+
+ * fix UWP apps identification #645, #646
+
+ * Correction traduction FR by @TroudhuK in #649
+
+ * Fix typo in AltSnap.dni after #533 for LoL by @sequencerr in #657
+
+ * Add instructions for building on Windows on ARM64. @andrewachen, #659
+
+ * Different actions for Wheel Up and Down #654, #658. Use the ScrollUp
+   and HScrollUp .ini entries to override Up actions only
+
 == AltSnap 1.65 ==
 
  * You can disable the WinEvent notification when moving a window with
@@ -217,12 +243,12 @@ Note that this version has some more feature.
    Basically you can install AltSnap to the `Program Files` directorry,
    run an AHK script that changes the uiAccess to true and self-sign
    AltSnap.exe, to be able to move elevated windows without elevation.
- 
+
  * Fix  Compatibility with Komorebi #535 and other accessibility softwares,
    Huge thanks to @alex-ds13 for the fix! #564
- 
+
  * Fixed crash caused by zero-size window, Thanks to @gizabit #560
- 
+
  * Account for the borders in CenterWindow thanks to @mbartlett21 #555
 
  * Fixed bad offset  when restoring MDI window.

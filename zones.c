@@ -23,13 +23,16 @@ static void freezones()
     unsigned i;
     for (i=0; i<ARR_SZ(Zones);i++)
         free(Zones[i]);
+
+    mem00(&Zones, sizeof(Zones));
+    mem00(&nzones, sizeof(nzones));
 }
 static int ReadRectFromini(RECT *zone, unsigned laynum, unsigned idx, const TCHAR *inisection)
 {
     if (idx > MAX_ZONES) return 0;
 
     long *ZONE = (long *)zone;
-    char zname[32]="";
+    char zname[32]; zname[0] = '\0';
     TCHAR zaschii[128];
 
     LPCTSTR txt = GetSectionOptionCStr(inisection, ZidxToZonestrA(laynum, idx, zname), NULL);
@@ -654,7 +657,7 @@ static void SetLayoutNumber(WPARAM number)
     if (!was_visible && conf.ShowZonesOnChange) {
         state.forcelayoutdisplay = 1;
         ShowSnapLayoutPreview(1);
-        UINT id = SetTimer(g_mainhwnd, HIDELAYOUT_TIMER, conf.ShowZonesOnChange * 100, TimerWindowProc);
+        UINT id = SetTimer(g_mainhwnd, HIDELAYOUT_TIMER, conf.ShowZonesOnChange * 100, (TIMERPROC)TimerWindowProc);
         state.forcelayoutdisplay = !!id;
     }
 }

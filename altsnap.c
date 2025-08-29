@@ -52,7 +52,8 @@ static HINSTANCE LoadHooksDLL()
 static void FreeHooksDLL()
 {
     if (hinstDLL) {
-        FreeLibrary(hinstDLL);
+        BOOL ret = FreeLibrary(hinstDLL);
+        if (!ret) LOG("FreeLibrary() FAILED!!!");
         hinstDLL = NULL;
     }
 }

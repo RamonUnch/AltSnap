@@ -1,0 +1,57 @@
+CC=gcc
+WR=windres
+
+WARNINGS=-Wall -pedantic -Wno-unused-function
+
+# Optional stuffs
+##DDOPTIONS=-DNO_OLEAPI -DNO_VISTA
+
+CFLAGS=-Os -std=c99 \
+	-finput-charset=UTF-8 \
+	-fshort-wchar \
+	-m32 -march=i386 -mtune=i686 \
+	-mpreferred-stack-boundary=2 \
+	-momit-leaf-frame-pointer \
+	-mno-stack-arg-probe \
+	-fno-stack-check \
+	-fno-ident \
+	-fomit-frame-pointer \
+	-fshort-enums \
+	-fno-exceptions \
+	-fno-asynchronous-unwind-tables \
+	-fmerge-all-constants \
+	$(WARNINGS) $(DDOPTIONS)
+
+LDFLAGS=-nostdlib \
+	-lmsvcrt \
+	-lkernel32 \
+	-luser32 \
+	-lgdi32 \
+	-s \
+	-Wl,-s,-dynamicbase \
+	-Wl,-nxcompat \
+	-Wl,--no-seh \
+
+
+EXELD = $(LDFLAGS) \
+	-Wl,--tsaware \
+	-lcomctl32 \
+	-ladvapi32 \
+	-lshell32
+
+default: AltSnap.exe hooks.dll
+
+hooks.dll : hooks.c hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c
+	$(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) $(LDFLAGS) -mdll -fpic -e_DllMain@12 -Wl,--kill-at
+
+AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages.c unfuck.h nanolibc.h
+	$(CC) -o AltSnap.exe altsnap.c altsnapr.o $(CFLAGS) $(EXELD) -mwindows -e_unfuckWinMain@0
+
+altsnapr.o : altsnap.rc window.rc resource.h AltSnap.exe.manifest media/find.cur media/find.ico media/icon.ico media/tray-disabled.ico media/tray-enabled.ico
+	$(WR) altsnap.rc altsnapr.o -Fpe-i386
+
+hooksr.o: hooks.rc
+	$(WR) hooks.rc hooksr.o -Fpe-i386
+
+clean :
+	rm altsnapr.o AltSnap.exe hooksr.o hooks.dll

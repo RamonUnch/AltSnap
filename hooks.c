@@ -6067,6 +6067,7 @@ static void freeblacklists()
         free(list->items);
         list++;
     }
+    mem00(&BlkLst, sizeof(BlkLst));
 }
 /////////////////////////////////////////////////////////////////////////////
 // To be called before Free Library. Ideally it should free everything
@@ -6114,11 +6115,11 @@ __declspec(dllexport) void WINAPI Unload()
 
     freeallinputSequences();
 
-    free(monitors);
-    free(hwnds);
-    free(wnds);
-    free(snwnds);
-    free(minhwnds);
+    free(monitors); nummonitors = 0;
+    free(hwnds); numhwnds = 0;
+    free(wnds); numwnds = 0;
+    free(snwnds); numsnwnds = 0;
+    free(minhwnds); numminhwnds = 0;
     freezones();
 
     // Wait for worker thread to have a clean closing...

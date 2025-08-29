@@ -654,7 +654,7 @@ static void SetLayoutNumber(WPARAM number)
     if (!was_visible && conf.ShowZonesOnChange) {
         state.forcelayoutdisplay = 1;
         ShowSnapLayoutPreview(1);
-        UINT id = SetTimer(g_mainhwnd, HIDELAYOUT_TIMER, conf.ShowZonesOnChange * 100, TimerWindowProc);
+        UINT id = SetTimer(g_mainhwnd, HIDELAYOUT_TIMER, conf.ShowZonesOnChange * 100, (TIMERPROC)TimerWindowProc);
         state.forcelayoutdisplay = !!id;
     }
 }

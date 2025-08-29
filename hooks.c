@@ -2651,7 +2651,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                //LOGA("Set ALTUP_TIMER to %u (First)", kbspeed);
             }
             KillTimer(g_mainhwnd, ALTUP_TIMER);
-            SetTimer(g_mainhwnd, ALTUP_TIMER, kbspeed, TimerWindowProc);
+            SetTimer(g_mainhwnd, ALTUP_TIMER, kbspeed, (TIMERPROC)TimerWindowProc);
             #endif
 
             // Hook mouse
@@ -4845,7 +4845,7 @@ static int DoWheelActions(HWND hwnd, enum action action)
 static void StartSpeedMes()
 {
     if (conf.AeroMaxSpeed < MAX_SNAP_SPEED)
-        SetTimer(g_mainhwnd, SPEED_TIMER, conf.AeroSpeedTau, TimerWindowProc);
+        SetTimer(g_mainhwnd, SPEED_TIMER, conf.AeroSpeedTau, (TIMERPROC)TimerWindowProc);
 }
 static void StopSpeedMes()
 {
@@ -5422,7 +5422,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         if (wParam == WM_LBUTTONDOWN) {
             state.clickpt = pt;
             // Start Grab timer
-            SetTimer(g_mainhwnd, GRAB_TIMER, conf.LongClickMoveDelay, TimerWindowProc);
+            SetTimer(g_mainhwnd, GRAB_TIMER, conf.LongClickMoveDelay, (TIMERPROC)TimerWindowProc);
         } else {
             // Cancel Grab timer.
             KillTimer(g_mainhwnd, GRAB_TIMER);
@@ -5506,7 +5506,7 @@ static void HookMouse()
 
     // Set up the mouse hook
     #ifdef NO_HOOK_LL
-    mousehook = (void*)SetTimer(g_mainhwnd, POOL_TIMER, 32, TimerWindowProc);
+    mousehook = (void*)SetTimer(g_mainhwnd, POOL_TIMER, 32, (TIMERPROC)TimerWindowProc);
     #else
     mousehook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, hinstDLL, 0);
     #endif
@@ -6605,7 +6605,7 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
     // Hook mouse if a permanent hook is needed
     if (conf.keepMousehook) {
         HookMouse();
-        SetTimer(g_mainhwnd, REHOOK_TIMER, 5000, TimerWindowProc); // Start rehook timer
+        SetTimer(g_mainhwnd, REHOOK_TIMER, 5000, (TIMERPROC)TimerWindowProc); // Start rehook timer
     }
 
     // Create worker thread.

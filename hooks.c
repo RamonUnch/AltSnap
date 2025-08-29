@@ -59,7 +59,7 @@ enum button { BT_NONE=0, BT_LMB=0x02, BT_RMB=0x03, BT_MMB=0x04, BT_MB4=0x05
             , BT_MB9=0x0A,  BT_MB10=0x0B, BT_MB11=0x0C, BT_MB12=0x0D
             , BT_MB13=0x0E, BT_MB14=0x0F, BT_MB15=0x10, BT_MB16=0x11
             , BT_MB17=0x12, BT_MB18=0x13, BT_MB19=0x14, BT_MB20=0x15
-            , BT_WHEEL=0x16, BT_HWHEEL=0x17 };
+            , BT_WHEELD=0x16, BT_WHEELU=0x17, BT_HWHEELU=0x18, BT_HWHEELD=0x19 };
 enum resizeX { RZ_XNONE=0, RZ_LEFT=1, RZ_RIGHT= 2, RZ_XCENTER=3 };
 enum resizeY { RZ_YNONE=0, RZ_TOP= 1, RZ_BOTTOM=2, RZ_YCENTER=3 };
 enum buttonstate {STATE_NONE, STATE_DOWN, STATE_UP};
@@ -262,14 +262,7 @@ static struct config {
     UCHAR HScrollKey[MAXKEYS+1];
     UCHAR ESCkeys[MAXKEYS+1];
 
-    struct {
-        enum action // Up to 20 BUTTONS!!!
-          LMB[NACPB*(20+2)]; /*,  RMB[NACPB],  MMB[NACPB],  MB4[NACPB],  MB5[NACPB]
-        , MB6[NACPB],  MB7[NACPB],  MB8[NACPB],  MB9[NACPB],  MB10[NACPB]
-        , MB11[NACPB], MB12[NACPB], MB13[NACPB], MB14[NACPB], MB15[NACPB]
-        , MB16[NACPB], MB17[NACPB], MB18[NACPB], MB19[NACPB], MB20[NACPB]
-        , Scroll[NACPB], HScroll[NACPB];*/ // Plus vertical and horizontal wheels
-    } Mouse;
+    enum action Mouse[NACPB*(20+4)]; // Up to 20 buttons + vertical and horizontal wheels D/U;
     enum action GrabWithAlt[NACPB]; // Actions without click
     enum action MoveUp[NACPB];      // Actions on (long) Move Up w/o drag
     enum action ResizeUp[NACPB];    // Actions on (long) Resize Up w/o drag
@@ -1740,7 +1733,7 @@ static pure int ModKey()
 static enum action GetAction(const int button)
 {
     if (button) { // Ugly pointer arithmetic (LMB <==> button == 2)
-        return conf.Mouse.LMB[(button-2)*NACPB+ModKey()];
+        return conf.Mouse[(button-2)*NACPB+ModKey()];
     } else {
         return AC_NONE;
     }
@@ -1748,7 +1741,7 @@ static enum action GetAction(const int button)
 static enum action GetActionT(const int button)
 {
     if (button) { // Ugly pointer arithmetic +2 compared to non titlebar
-        return conf.Mouse.LMB[2+(button-2)*NACPB+ModKey()];
+        return conf.Mouse[2+(button-2)*NACPB+ModKey()];
     } else {
         return AC_NONE;
     }
@@ -1761,7 +1754,7 @@ static enum action GetActionMR(const int button)
         // MB[4/5] == Action/Alt while moving
         // MB[6/7] == Action/Alt while Resizing
         int offset = state.action<<1; // 2 or 4
-        return conf.Mouse.LMB[2+offset+(button-2)*NACPB+ModKey()];
+        return conf.Mouse[2+offset+(button-2)*NACPB+ModKey()];
     } else {
         return AC_NONE;
     }
@@ -4508,7 +4501,8 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
     }
     POINT pt;
     GetCursorPos(&pt);
-    ReallySetForegroundWindow(g_mchwnd);
+    BringWindowToTop(g_mchwnd);
+    SetForegroundWindow(g_mchwnd);
     i = (unsigned)TrackPopupMenu(menu,
         TPM_RETURNCMD/*|TPM_NONOTIFY*/|GetSystemMetrics(SM_MENUDROPALIGNMENT)
         , pt.x, pt.y, 0, g_mchwnd, NULL);
@@ -4565,7 +4559,8 @@ static void ActionMenu(HWND hwnd)
     g_mchwnd = KreateMsgWin(MenuWindowProc, TEXT(APP_NAMEA)TEXT("-SClick"), 1);
     state.sclickhwnd = hwnd;
     // Send message to Open Action Menu
-    ReallySetForegroundWindow(g_mainhwnd);
+    BringWindowToTop(g_mainhwnd);
+    SetForegroundWindow(g_mainhwnd);
     PostMessage(
         g_mainhwnd, WM_SCLICK, (WPARAM)g_mchwnd,
        ( !state.ignorept )                                    // LP_CURSORPOS
@@ -4835,11 +4830,14 @@ static int DoWheelActions(HWND hwnd, enum action action)
         &&  conf.inputSequences[rac-AC_SHRT0] ) {
             ret = 1;
             SendInputSequence(conf.inputSequences[rac-AC_SHRT0]); break;
+        } else {
+            SClickActions(hwnd, action);
+            ret = 1;
         }
     }break;
     }
     // ret is 0: next hook or 1: block whel and AltUp.
-    state.blockaltup = ret && state.alt > BT_HWHEEL; // block or not;
+    state.blockaltup = ret && state.alt > BT_HWHEELD; // block or not;
     return ret; // block or next hook
 }
 
@@ -4923,7 +4921,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     if (blacklisted(state.hwnd, &BlkLst.Processes)
     || isClassName(state.hwnd, TEXT(APP_NAMEA)TEXT("-Pin"))
     ||(blacklisted(state.hwnd, &BlkLst.Windows)
-       && !state.hittest && button != BT_WHEEL && button != BT_HWHEEL
+       && !state.hittest && button < BT_WHEELD && BT_HWHEELU > button
       )// does not apply in titlebar, nor for the wheel action...
     || GetWindowPlacement(state.hwnd, &wndpl) == 0
     || GetWindowRect(state.hwnd, &wnd) == 0
@@ -4994,7 +4992,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
         // Send WM_ENTERSIZEMOVE and EVENT_SYSTEM_MOVESIZESTART
         //NotifySizeMoveStaEnd(statse.hwnd, 1);
         LastWin.start = 1;
-    } else if(button == BT_WHEEL || button == BT_HWHEEL) {
+    } else if (BT_WHEELD <= button  && button <= BT_HWHEELU) {
         // Wheel actions, directly return here
         // because maybe the action will not be done
         if (GetProp(state.hwnd, APP_MOVEONOFF)) {
@@ -5213,7 +5211,7 @@ static void DoComboActions(enum action action, enum button button)
     if (ActionInfo(accombo) & (ACINFO_MOVE|ACINFO_RESIZE|ACINFO_CLOSE)) {
         LockMovement();
     }
-    if (button == BT_WHEEL || button == BT_HWHEEL) {
+    if (BT_WHEELD <= button  && button <= BT_HWHEELU) {
         // Handle wheel combo.
         if (accombo) {
             DoWheelActions(state.hwnd, accombo);
@@ -5250,8 +5248,8 @@ static xpure int GetButton(WPARAM wp, LPARAM lp)
         (wp==WM_LBUTTONDOWN||wp==WM_LBUTTONUP)?BT_LMB:
         (wp==WM_MBUTTONDOWN||wp==WM_MBUTTONUP)?BT_MMB:
         (wp==WM_RBUTTONDOWN||wp==WM_RBUTTONUP)?BT_RMB:
-        (wp==WM_MOUSEWHEEL)?BT_WHEEL:
-        (wp==WM_MOUSEHWHEEL)?BT_HWHEEL:
+        (wp==WM_MOUSEWHEEL)  ? BT_WHEELD  + (GET_WHEEL_DELTA_WPARAM(msg->mouseData) > 0):
+        (wp==WM_MOUSEHWHEEL) ? BT_HWHEELD + (GET_WHEEL_DELTA_WPARAM(msg->mouseData) > 0):
         (wp==WM_XBUTTONDOWN||wp==WM_XBUTTONUP)? BT_MB4-1+HIWORD(msg->mouseData):
         BT_NONE;
 }
@@ -6269,7 +6267,7 @@ void readbuttonactions(const TCHAR *inputsection)
         "MB9",  "MB10", "MB11", "MB12",
         "MB13", "MB14", "MB15", "MB16",
         "MB17", "MB18", "MB19", "MB20",
-        "Scroll", "HScroll",
+        "Scroll", "ScrollUp", "HScroll", "HScrollUp",
 
         "GrabWithAlt",
         "MoveUp", "ResizeUp",
@@ -6277,7 +6275,7 @@ void readbuttonactions(const TCHAR *inputsection)
 
     unsigned i;
     for (i=0; i < ARR_SZ(buttons); i++) {
-        enum action * const actionptr = &conf.Mouse.LMB[0]; // first action in list
+        enum action * const actionptr = &conf.Mouse[0]; // first action in list
 
         char key[32];
         strcpy(key, buttons[i]);
@@ -6304,6 +6302,16 @@ void readbuttonactions(const TCHAR *inputsection)
         actionptr[NACPB*i+6] = readaction(inputsection, key);
         key[len+1] = 'B'; key[len+2] = '\0'; // MB
         actionptr[NACPB*i+7] = readaction(inputsection, key);
+    }
+
+    for (i = 0; i < NACPB; i++) {
+        // ScrollUp
+        if(conf.Mouse[21 * NACPB + i] == AC_NONE)
+            conf.Mouse[21 * NACPB + i] = conf.Mouse[20 * NACPB + i];
+
+        // HScrollUp
+        if(conf.Mouse[23 * NACPB + i] == AC_NONE)
+            conf.Mouse[23 * NACPB + i] = conf.Mouse[22 * NACPB + i];
     }
 }
 ///////////////////////////////////////////////////////////////////////////

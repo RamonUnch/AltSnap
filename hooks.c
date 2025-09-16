@@ -214,6 +214,7 @@ static struct config {
     UCHAR AblockHotclick;
     UCHAR MenuShowOffscreenWin;
     UCHAR MenuShowEmptyLabelWin;
+    UCHAR MenuZoom;
     UCHAR IgnoreMinMaxInfo;
     UCHAR NotifyWinEvent;
     // [Performance]
@@ -321,6 +322,7 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "AblockHotclick", 0 },
     { "MenuShowOffscreenWin", 0 },
     { "MenuShowEmptyLabelWin", 0 },
+    { "MenuZoom", 100 },
     { "IgnoreMinMaxInfo", 0 },
     { "NotifyWinEvent", 1},
 };
@@ -5679,13 +5681,19 @@ static LPARAM MeasureMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi,
     HDC dc = GetDC(hwnd);
 
     // Select proper font.
-//    HFONT mfont = CreateNCMenuFont(dpi);
     HFONT oldfont=(HFONT)SelectObject(dc, mfont);
 
     int xmargin = GetSystemMetricsForDpi(SM_CXFIXEDFRAME, dpi);
     int ymargin = GetSystemMetricsForDpi(SM_CYFIXEDFRAME, dpi);
     int xicosz =  GetSystemMetricsForDpi(SM_CXSMICON, dpi);
     int yicosz =  GetSystemMetricsForDpi(SM_CYSMICON, dpi);
+
+    if (dpi==0) {
+        xmargin = xmargin * conf.MenuZoom / 100;
+        ymargin = ymargin * conf.MenuZoom / 100;
+        xicosz = xicosz * conf.MenuZoom / 100;
+        yicosz = yicosz * conf.MenuZoom / 100;
+    }
 
     SIZE sz; // Get text size in both dimentions
     GetTextExtentPoint32(dc, text, lstrlen(text), &sz);
@@ -5697,7 +5705,6 @@ static LPARAM MeasureMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi,
     lpmi->itemHeight = max(sz.cy, yicosz) + ymargin;
 
     SelectObject(dc, oldfont); // restore old font
-//    DeleteObject(mfont); // Delete menufont.
     ReleaseDC(hwnd, dc);
     return TRUE;
 }
@@ -5716,6 +5723,11 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi, H
     int xmargin = GetSystemMetricsForDpi(SM_CXFIXEDFRAME, dpi);
     int xicosz =  GetSystemMetricsForDpi(SM_CXSMICON, dpi);
     int yicosz =  GetSystemMetricsForDpi(SM_CYSMICON, dpi);
+    if (dpi==0) {
+        xmargin = xmargin * conf.MenuZoom / 100;
+        xicosz = xicosz * conf.MenuZoom / 100;
+        yicosz = yicosz * conf.MenuZoom / 100;
+    }
 
     //LOGA("WM_DRAWITEM: id=%u, txt=%S", di->itemID, data->txtptr);
 
@@ -5743,7 +5755,6 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi, H
     HBRUSH oldbrush=(HBRUSH)SelectObject(di->hDC, bgbrush);
     Rectangle(di->hDC, di->rcItem.left, di->rcItem.top, di->rcItem.right+1, di->rcItem.bottom+1);
 
-//    HFONT mfont = CreateNCMenuFont(dpi);
     HFONT oldfont=(HFONT)SelectObject(di->hDC, mfont);
 
     SIZE sz;
@@ -5789,7 +5800,6 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi, H
 
     // Restore dc context
     SelectObject(di->hDC, oldfont); // restore old font
-//    DeleteObject(mfont); // Delete menufont.
     SelectObject(di->hDC, oldpen);
     SelectObject(di->hDC, oldbrush);
 
@@ -5816,18 +5826,19 @@ static void SendSYSCOMMANDToMenuItem(HWND hwnd, int id, HMENU hmenu, WPARAM sc_c
 // Window for single click commands for menu
 LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    static UINT dpi;
+    static UINT dpi = 0;
     static HFONT mfont= NULL;
     static HWND fhwndori = NULL;
     switch (msg) {
     case WM_CREATE: {
+        // dpi will be 0 on non per-monitor dpi aware.
+        dpi = GetDpiForWindow(hwnd) * conf.MenuZoom / 100;
         // Save the original foreground window.
-        dpi = GetDpiForWindow(hwnd);
         fhwndori = GetForegroundWindow();
         mfont = NULL;
         } break;
     case WM_DPICHANGED: {
-        dpi = LOWORD(wParam); // Update dpi value if changed...
+        dpi = LOWORD(wParam) * conf.MenuZoom / 100; // Update dpi value if changed...
         if (mfont) {
             DeleteObject(mfont); // Delete menufont if needed.
             mfont = NULL;
@@ -5897,7 +5908,15 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     // OWNER DRAWN MENU !!!!!
     case WM_MEASUREITEM:
         // Create Menu font if not already created.
-        if(!mfont) mfont = CreateNCMenuFont(dpi);
+        if(!mfont) {
+            //mfont = CreateNCMenuFont(dpi);
+            struct NEWNONCLIENTMETRICSAW ncm;
+            GetNonClientMetricsDpi(&ncm, dpi);
+            if (dpi == 0)
+                ncm.lfMenuFont.lfHeight = ncm.lfMenuFont.lfHeight * conf.MenuZoom / 100;
+            mfont = CreateFontIndirect(&ncm.lfMenuFont);
+
+        }
         return MeasureMenuItem(hwnd, wParam, lParam, dpi, mfont);
 
 //    case msg == WM_MENUSELECT; {
@@ -5951,9 +5970,9 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             }
         }
         } break;
-    case WM_SYSCHAR:
-        MessageBox(NULL, NULL, NULL, 0);
-        break;
+//    case WM_SYSCHAR:
+//        MessageBox(NULL, NULL, NULL, 0);
+//        break;
     case WM_KILLFOCUS:
         // Menu gets hiden, be sure to zero-out the clickhwnd
         state.sclickhwnd = NULL;
@@ -6115,16 +6134,18 @@ __declspec(dllexport) void WINAPI Unload()
 
     freeallinputSequences();
 
-    free(monitors); nummonitors = 0;
-    free(hwnds); numhwnds = 0;
-    free(wnds); numwnds = 0;
-    free(snwnds); numsnwnds = 0;
-    free(minhwnds); numminhwnds = 0;
+    free(monitors); nummonitors = 0; monitors_alloc = 0;
+    free(hwnds); numhwnds = 0; hwnds_alloc = 0;
+    free(wnds); numwnds = 0; wnds_alloc = 0;
+    free(snwnds); numsnwnds = 0; snwnds_alloc = 0;
+    free(minhwnds); numminhwnds = 0; minhwnds_alloc = 0;
     freezones();
 
     // Wait for worker thread to have a clean closing...
     WaitForSingleObject(g_WorkerThreadHANDLE, 5000);
     CloseHandle(g_WorkerThreadHANDLE);
+
+    CHECK_MEMORY_LEAK_DB();
 }
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated and title and class are | separated.

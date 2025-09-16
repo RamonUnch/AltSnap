@@ -709,5 +709,81 @@ static BOOL freeL(void *mem)
     return FALSE;
 }
 #define free(x) do { freeL(x); x = NULL; }while(0)
+#define CHECK_MEMORY_LEAK_DB()
+
+#ifdef DEBUG
+
+#undef CHECK_MEMORY_LEAK_DB
+#define CHECK_MEMORY_LEAK_DB() \
+    if (db_tot_mem_allocated != 0) { \
+        char buf[128]; \
+        wsprintfA(buf, "Leaked %d bytes", (int)db_tot_mem_allocated); \
+        MessageBoxA( NULL, buf, "AltSnap Error", MB_OK); }
+
+#undef malloc
+#undef calloc
+#undef free
+#undef realloc
+#define ALLOC_MAGIK_VALUE 0x66778899
+static INT_PTR db_tot_mem_allocated = 0;
+#define ALLOC_PADDING ( sizeof(INT_PTR) )
+
+static INT_PTR free_db(void *x, const char *file, int ln)
+{
+    if(!x) return 0;
+    x -= ALLOC_PADDING;
+    INT_PTR sz = 0[(INT_PTR*)x];
+    if(ALLOC_MAGIK_VALUE != *(INT_PTR*)(x + sz + ALLOC_PADDING)) {
+        char buf[256];
+        wsprintfA(buf, "Magic value overwritten at the end of %X block %s:%d", (UINT)x, file, ln);
+        MessageBoxA(NULL, buf, "free_db()", MB_OK);
+    }
+    db_tot_mem_allocated -= sz;
+    freeL(x);
+    return sz;
+}
+
+static void *malloc_db(size_t sz)
+{
+    if(sz == 0) return NULL;
+    void *x = mallocL(sz + 2 * ALLOC_PADDING);
+    if(!x) return NULL;
+
+    *(INT_PTR*)x = sz; // Save size before
+    x += ALLOC_PADDING; // Good pos
+    memset(x, 0xBF, sz);
+    *(INT_PTR*)(x+sz) = ALLOC_MAGIK_VALUE; // Tag the end of alloc
+
+    db_tot_mem_allocated += sz;
+    return x;
+}
+static void *calloc_db(size_t n, size_t sz)
+{
+    void *x = malloc_db(n*sz);
+    if(!x) return 0;
+    mem00(x, n*sz);
+    return x;
+}
+
+static void *realloc_db(void *x, size_t sz, const char *file, int ln)
+{
+    if(!sz) { free_db(x, file, ln); return NULL; };
+
+    void *y = malloc_db(sz);
+    if(y && x) {
+        memmove( y, x, min(*(INT_PTR*)(x-ALLOC_PADDING), sz) );
+        free_db( x, file, ln );
+    }
+    return y;
+}
+
+#define free(x) do { int sz = free_db(x, __FILE__, __LINE__); x = NULL; LOGA("free - %d bytes in "__FILE__":%d", (int)sz, __LINE__); } while(0)
+#define malloc(sz) malloc_db(sz); LOGA("malloc + %u bytes in "__FILE__":%d", (UINT)sz, __LINE__);
+#define calloc(n, sz) calloc_db(n, sz); LOGA("calloc + %u bytes in "__FILE__":%d", (UINT)(sz*n), __LINE__);
+#define realloc(x, sz) realloc_db(x, sz, __FILE__, __LINE__)
+
+/*; LOGA("realloc + %u bytes in "__FILE__":%d", (UINT)sz, __LINE__);*/
+
+#endif // DEBUG
 
 #endif

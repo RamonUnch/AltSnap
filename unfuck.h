@@ -666,7 +666,7 @@ static HRESULT GetDpiForMonitorL(HMONITOR hmonitor, int dpiType, UINT *dpiX, UIN
 }
 
 /* Supported wince Windows 10, version 1607 [desktop apps only] */
-static UINT GetDpiForWindowL(const HWND hwnd)
+static UINT GetDpiForWindow10L(const HWND hwnd)
 {
     typedef UINT (WINAPI *funk_t)(const HWND hwnd);
     static funk_t funk=(funk_t)IPTR;
@@ -678,19 +678,28 @@ static UINT GetDpiForWindowL(const HWND hwnd)
         return funk(hwnd);
     }
 
-    /* Windows 8.1 / Server2012 R2 Fallback */
-    UINT dpiX=0;
-    UINT dpiY=0;
-    HMONITOR hmon;
-    if ((hmon = MonitorFromWindowL(hwnd, MONITOR_DEFAULTTONEAREST))
-    && S_OK == GetDpiForMonitorL(hmon, MDT_DEFAULT, &dpiX, &dpiY)) {
-        return dpiX;
-    }
-
     return 0; /* Not handled */
+}
+
+/* With an Windows 8 fallback */
+static UINT GetDpiForWindowL(const HWND hwnd)
+{
+    UINT dpi = GetDpiForWindow10L(hwnd);
+    if (!dpi) {
+        /* Windows 8.1 / Server2012 R2 Fallback */
+        UINT dpiX=0;
+        UINT dpiY=0;
+        HMONITOR hmon;
+        if ((hmon = MonitorFromWindowL(hwnd, MONITOR_DEFAULTTONEAREST))
+        && S_OK == GetDpiForMonitorL(hmon, MDT_DEFAULT, &dpiX, &dpiY)) {
+            return dpiX;
+        }
+    }
+    return dpi;
 }
 #define GetDpiForWindow GetDpiForWindowL
 
+/* Fallbacks for all windows */
 static UINT ReallyGetDpiForWindow(const HWND hwnd)
 {
     UINT dpi = GetDpiForWindowL(hwnd);
@@ -816,7 +825,7 @@ static BOOL SystemParametersInfoForDpiL(UINT uiAction, UINT uiParam, PVOID pvPar
             return funk(uiAction, uiParam, pvParam, fWinIni, dpi);
         }
     }
-    /* Not handeled */
+    /* Not handled Windows 10, version 1607 and below */
     return SystemParametersInfo(uiAction, uiParam, pvParam, fWinIni);
 }
 #define SystemParametersInfoForDpi SystemParametersInfoForDpiL

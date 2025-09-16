@@ -615,6 +615,10 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
     FreeHooksDLL();
     DestroyWindow(g_hwnd);
     LOG("GOOD NORMAL EXIT");
+    FreeAllLangRelated();
+
+    CHECK_MEMORY_LEAK_DB();
+
     return msg.wParam;
 }
 static pure const TCHAR *ParamsFromCmdline(const TCHAR *cmdl)

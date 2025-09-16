@@ -8,7 +8,7 @@
 
 #include "languages.h"
 
-static const struct strings *l10n_ini = NULL;
+static struct strings *l10n_ini = NULL;
 static const struct strings *l10n = &en_US;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -98,7 +98,9 @@ static void LoadTranslationOrTT(const TCHAR *__restrict__ ini, const TCHAR * __r
             lstrcat_s(buf, ARR_SZ(buf), TEXT(" ") TEXT(APP_VERSION));
             txt = (const TCHAR*)buf;
         }
-        *deststr = (TCHAR *)realloc( *deststr, (lstrlen_resolved(txt)+1)*sizeof(TCHAR) );
+        TCHAR *t = (TCHAR *)realloc( *deststr, (lstrlen_resolved(txt)+1)*sizeof(TCHAR) );
+        if (!t) continue;
+        *deststr = t;
         lstrcpy_resolve(*deststr, txt);
     }
     l10n = l10n_ini;
@@ -221,8 +223,9 @@ void UpdateLanguage()
     }
     #endif // _UNICODE
 
-    if (!lstrcmpi(txt, TEXT("en-US")))
+    if (!lstrcmpi(txt, TEXT("en-US"))) {
         return; // Hardcoded language
+    }
 
     ListAllTranslations();
     int i;
@@ -232,4 +235,30 @@ void UpdateLanguage()
             break;
         }
     }
+}
+
+void FreeAllLangRelated()
+{
+    if (langinfo) {
+        for (int i=1; i < nlanguages; i++) {
+            free(langinfo[i].code);
+            free(langinfo[i].lang_english);
+            free(langinfo[i].lang);
+            free(langinfo[i].author);
+            free(langinfo[i].fn);
+        }
+        free(langinfo);
+        langinfo = NULL;
+        nlanguages = 0;
+    }
+
+    if (l10n_ini) {
+        for (size_t i=0; i < sizeof(struct strings) / sizeof(TCHAR*); i++) {
+            TCHAR **deststr = &((TCHAR **)l10n_ini)[i];
+            free(*deststr);
+        }
+        free(l10n_ini);
+        l10n_ini = NULL;
+    }
+    l10n = &en_US;
 }

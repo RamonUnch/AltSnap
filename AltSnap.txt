@@ -1,7 +1,7 @@
 *=========================================================================*
 *            ALTSNAP for Windows NT4/2000/XP/Vista/7/8.x/10/11            *
 *  Modified by Raymond Gillibert from original AltDrag by Stefan Sundin   *
-*                    release 1.66 (September 01, 2025)                    *
+*                    release 1.66 (September 21, 2025)                    *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltSnap/releases/         *
@@ -185,6 +185,9 @@ Note that this version has some more feature.
 == CHANGELOG ==
 
 == AltSnap 1.66 ==
+
+ * Add the MenuZoom option in the [Advanced] section of the ini to set zoom
+   factor in percentage for the windows list menu.
 
  * Simplify resources #619
 

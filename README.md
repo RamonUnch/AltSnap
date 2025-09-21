@@ -23,7 +23,7 @@ This version injects nothing into other applications. This means you do not have
 
 Another feature that was disabled is focus on typing, that was too much unusable for me to even start testing, so I removed it.
 
-Otherwise this has a much simpler source code, added a few extra options, such as transparent windows dragging, Maximize action, pause process options, more blacklists for finer control of AltSnap etc. 
+Otherwise this has a much simpler source code, added a few extra options, such as transparent windows dragging, Maximize action, pause process options, more blacklists for finer control of AltSnap etc.
 
 Finally it fixed a ton of undesired behavior and bugs from the original AltDrag.
 
@@ -36,8 +36,9 @@ You will see with the latest builds that there are some alerts, usually from Sec
 I already reduced the number of false positives significantly, simply by changing build flags and by switching to an older version of the NSIS installer system. This is an indication of the impertinence of some modern antivirus solutions. Chocolatey considers that up to five positives on VirusTotal is not even suspicious.
 
 # Build
-AltSnap builds with gcc, I use Mingw-w64 (for i686).
-Just install the latest version (I use TDM-gcc 10.3, MinGW64 based) and use:
+AltSnap builds with gcc + MinGW-w64
+Just install the latest version (I use TDM-gcc 10.3, MinGW64 based)
+You can also use GCC from [winlibs.com](https://winlibs.com/)
 
 `> make` for i386 Win32 GCC build.
 
@@ -53,6 +54,6 @@ Just install the latest version (I use TDM-gcc 10.3, MinGW64 based) and use:
 
 `> make -fMakefileARM64Docker` for ARM64 Windows build using Docker (see [BUILD_ARM64.md](BUILD_ARM64.md))
 
-You can also use mk.bat and mk64.bat files.
-For Clang, I use LLVM5.0.1 with the headers and libs from Mingw-w64.
-Be sure to adjust your include and lib directorries on the command line with `-IPath\to\mingw\include` and `-LPath\to\mingw\lib`.
+`> mkmsvc.bat` for builds with Microsoft Visual Studio (CL.EXE).
+
+For Visual Studio you can setup a console environement using the  VsDevCmd.bat command with the `-arch` and `-host_arch` parameters to your needs.

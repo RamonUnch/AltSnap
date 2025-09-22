@@ -71,7 +71,7 @@ enum MONITOR_DPI_TYPE {
 #define IPTR ((FARPROC)(1))
 
 #define QWORD unsigned long long
-#ifdef WIN64
+#ifdef _WIN64
     #define CopyRect(x, y) (*(x) = *(y))
     #define DorQWORD QWORD
     #define HIWORDPTR(ll)   ((DWORD) (((QWORD) (ll) >> 32) & 0xFFFFFFFF))
@@ -256,7 +256,7 @@ static void LOGfunk( const char *fmt, ... )
 /* on both x64 and x32 */
 #define NtSuspendProcess NtSuspendProcessL
 #define NtResumeProcess NtResumeProcessL
-#ifndef WIN64
+#ifndef _WIN64
     #define GetLayeredWindowAttributes GetLayeredWindowAttributesL
     #define SetLayeredWindowAttributes SetLayeredWindowAttributesL
     #define GetAncestor GetAncestorL
@@ -884,7 +884,7 @@ static int RGTac(RGTICTAC *tt)
     return -1;
 }
 
-#ifndef WIN64
+#ifndef _WIN64
 static void NotifyWinEventL(DWORD event, HWND hwnd, LONG idObj, LONG idChild)
 {
     typedef  void (WINAPI *funk_t)(DWORD, HWND, LONG, LONG);

@@ -3,7 +3,7 @@
 
 enum {
 	TOT_THUNK_SIZE=4096,
-#if defined(_M_AMD64) || defined(WIN64)
+#if defined(_M_AMD64)
 	THUNK_SIZE=22,
 #elif defined(_M_IX86)
 	THUNK_SIZE=14, // 13 aligned to USHORT
@@ -39,7 +39,7 @@ static void *AllocThunk(LONG_PTR tProc, void *vParam)
 	free_idx = *(WORD*)thunk; // Pick up the free index
 
 	DWORD oldprotect;
-	VirtualProtect(thunks_array, TOT_THUNK_SIZE, PAGE_EXECUTE_READWRITE, &oldprotect);
+	VirtualProtect(thunk, THUNK_SIZE, PAGE_EXECUTE_READWRITE, &oldprotect);
 	// x86
 	//   | mov dword ptr [esp+4] this
 	//   | jmp MainProc
@@ -48,7 +48,7 @@ static void *AllocThunk(LONG_PTR tProc, void *vParam)
 	//   | mov rax MainProc
 	//   | jmp rax
 	//
-	#if defined(_M_AMD64) || defined(WIN64)
+	#if defined(_M_AMD64)
 		*(WORD*)   (thunk + 0) = 0xb948;
 		*(void**)  (thunk + 2) = vParam;
 		*(WORD*)   (thunk +10) = 0xb848;
@@ -64,8 +64,8 @@ static void *AllocThunk(LONG_PTR tProc, void *vParam)
 	#endif
 
 	// Make thuk execute only for safety.
-	VirtualProtect(thunks_array, TOT_THUNK_SIZE, PAGE_EXECUTE, &oldprotect);
-	FlushInstructionCache( GetCurrentProcess(), thunks_array, TOT_THUNK_SIZE );
+	VirtualProtect(thunk, THUNK_SIZE, PAGE_EXECUTE, &oldprotect);
+	FlushInstructionCache( GetCurrentProcess(), thunk, THUNK_SIZE );
 
 	return thunk;
 }

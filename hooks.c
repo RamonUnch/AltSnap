@@ -240,7 +240,7 @@ static struct config {
     UCHAR MaxLayouts;
     UCHAR LayoutNumber;
     char InterZone;
-  # ifdef WIN64
+  # ifdef _WIN64
     UCHAR FancyZone;
   #endif
     // [KBShortcuts]
@@ -354,7 +354,7 @@ static const struct OptionListItem Zones_uchars[] = {
     { "MaxLayouts", 4 },
     { "LayoutNumber", 0 },
     { "InterZone", 32 },
-  # ifdef WIN64
+  # ifdef _WIN64
     { "FancyZone", 0 },
   # endif
 };

@@ -115,7 +115,7 @@ static unsigned GetRestoreData(HWND hwnd, int *width, int *height)
         }
         return (unsigned)(DorQWORD)GetProp(hwnd, APP_PROPFL);;
 
-  # ifdef WIN64 // Try fancy zone flag only in 64bit mode!
+  # ifdef _WIN64 // Try fancy zone flag only in 64bit mode!
     } else if (conf.FancyZone && (WH = (DorQWORD)GetProp(hwnd, FZ_PROPPT))) {
         // It seems FancyZones stores size info in points, not pixels.
         *width  = (int)LOWORDPTR(WH);
@@ -147,7 +147,7 @@ static void ClearRestoreData(HWND hwnd)
     RemoveProp(hwnd, APP_PROPPT);
     RemoveProp(hwnd, APP_PROPFL);
     // RemoveProp(hwnd, APP_PROPOFFSET);
-  # ifdef WIN64
+  # ifdef _WIN64
     if(conf.FancyZone) {
         RemoveProp(hwnd, FZ_PROPPT);
         RemoveProp(hwnd, FZ_PROPZONES);
@@ -172,7 +172,7 @@ static unsigned GetRestoreFlag(HWND hwnd)
 {
     unsigned flag = (DorQWORD)GetProp(hwnd, APP_PROPFL);
 
-  # ifdef WIN64
+  # ifdef _WIN64
     if(conf.FancyZone && GetProp(hwnd, FZ_PROPPT))
         flag |= SNAPPED|SNZONE;
   # endif

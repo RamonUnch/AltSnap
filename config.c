@@ -151,7 +151,7 @@ static void OpenConfig(int startpage)
     psh.hInstance = g_hinst;
     psh.hIcon = icons[1]; //LoadIcon(g_hinst, iconstr[1]);
     psh.pszCaption = TEXT(APP_NAMEA);
-    psh.nPages = ARR_SZ(pages);
+    psh.nPages = ARR_SZ(psp);
     psh.ppsp = psp;
     psh.pfnCallback = PropSheetProc;
     psh.nStartPage = startpage;
@@ -1240,7 +1240,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         // Agressive Pause
         CheckConfigHotKeys(hotkeys, hwnd, TEXT("Hotkeys"), TEXT("A4 A5"));
 
-      # ifndef WIN64
+      # ifndef _WIN64
         // Always enabled in 64 bit mode.
         EnableDlgItem(hwnd, IDC_AGGRESSIVEPAUSE, HaveProc("NTDLL.DLL", "NtResumeProcess"));
         EnableDlgItem(hwnd, IDC_UNIKEYHOLDMENU, WIN2K);
@@ -2043,7 +2043,7 @@ INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
     static int have_to_apply = 0;
     if (msg == WM_INITDIALOG) {
       ReadDialogOptions(hwnd, optlst, ARR_SZ(optlst));
-      # ifndef WIN64
+      # ifndef _WIN64
         EnableDlgItem(hwnd, IDC_FANCYZONE, 0);
       # endif
 

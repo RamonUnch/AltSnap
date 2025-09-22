@@ -368,7 +368,7 @@ static const char *Uint2lStrA(char str[AT_LEAST UINT_DIGITS+1], unsigned n)
     return str+i;
 }
 
-#ifdef WIN64
+#ifdef _WIN64
 #define LPTR_HDIGITS 16
 #else
 #define LPTR_HDIGITS 8

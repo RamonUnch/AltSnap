@@ -491,7 +491,7 @@ static int pure IsResizable(HWND hwnd)
 }
 static HMONITOR GetMonitorInfoFromWin(HWND hwnd, MONITORINFO *mi)
 {
-    mi->cbSize = sizeof(MONITORINFO);
+    mi->cbSize = sizeof(*mi);
     HMONITOR hmon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
     GetMonitorInfo(hmon, mi);
     return hmon;
@@ -629,10 +629,10 @@ unsigned monitors_alloc = 0;
 BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
 {
     // Make sure we have enough space allocated
-    monitors = (RECT *)GetEnoughSpace(monitors, nummonitors, &monitors_alloc, sizeof(RECT));
+    monitors = (RECT *)GetEnoughSpace(monitors, nummonitors, &monitors_alloc, sizeof(*monitors));
     if (!monitors) return FALSE; // Stop enum, we failed
     // Add monitor
-    MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
+    MONITORINFO mi; mi.cbSize = sizeof(mi);
     GetMonitorInfo(hMonitor, &mi);
     CopyRect(&monitors[nummonitors++], &mi.rcWork); //*lprcMonitor;
 
@@ -708,7 +708,7 @@ unsigned wnds_alloc = 0;
 BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    wnds = (RECT *)GetEnoughSpace(wnds, numwnds, &wnds_alloc, sizeof(RECT));
+    wnds = (RECT *)GetEnoughSpace(wnds, numwnds, &wnds_alloc, sizeof(*wnds));
     if (!wnds) return FALSE; // Stop enum, we failed
 
     // Only store window if it's visible, not minimized to taskbar,
@@ -755,7 +755,7 @@ unsigned snwnds_alloc = 0;
 BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    snwnds = (struct snwdata *)GetEnoughSpace(snwnds, numsnwnds, &snwnds_alloc, sizeof(struct snwdata));
+    snwnds = (struct snwdata *)GetEnoughSpace(snwnds, numsnwnds, &snwnds_alloc, sizeof(*snwnds));
     if (!snwnds) return FALSE; // Stop enum, we failed
 
     RECT wnd;
@@ -954,7 +954,7 @@ static void ResizeAllSnappedWindows()
 static void EnumMdi()
 {
     // Make sure we have enough space allocated
-    monitors = (RECT *)GetEnoughSpace(monitors, nummonitors, &monitors_alloc, sizeof(RECT));
+    monitors = (RECT *)GetEnoughSpace(monitors, nummonitors, &monitors_alloc, sizeof(*monitors));
     if (!monitors) return; // Fail
 
     // Add MDIClient as the monitor
@@ -1255,12 +1255,12 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight, UCHA
 #define SW_FULLSCREEN 28
 static void MaximizeRestore_atpt(HWND hwnd, UINT sw_cmd, int origin)
 {
-    WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
+    WINDOWPLACEMENT wndpl; wndpl.length = sizeof(wndpl);
     GetWindowPlacement(hwnd, &wndpl);
     if (sw_cmd != SW_FULLSCREEN)
         wndpl.showCmd = sw_cmd;
 
-    MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
+    MONITORINFO mi; mi.cbSize = sizeof(mi);
     if(sw_cmd == SW_MAXIMIZE || sw_cmd == SW_FULLSCREEN) {
         HMONITOR wndmonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         HMONITOR monitor = MonitorFromPoint(state.prevpt, MONITOR_DEFAULTTONEAREST);
@@ -1297,7 +1297,7 @@ static void RestoreWindowToRect(HWND hwnd, const RECT *rc, UINT flags)
 {
     RECT zbd, bd;
     FixDWMRect(hwnd, &zbd); // Zoomed invisible borders (that were applied)
-    WINDOWPLACEMENT wndpl; wndpl.length = sizeof(WINDOWPLACEMENT);
+    WINDOWPLACEMENT wndpl; wndpl.length = sizeof(wndpl);
     GetWindowPlacement(hwnd, &wndpl);
     wndpl.showCmd = SW_RESTORE;
     wndpl.flags |= flags;
@@ -1494,7 +1494,7 @@ static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
         return; // MDI!
     }
 
-    MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
+    MONITORINFO mi; mi.cbSize = sizeof(mi);
     GetMonitorInfo(MonitorFromPoint(*pt, MONITOR_DEFAULTTONEAREST), &mi);
 
     CopyRect(_mon, full? &mi.rcMonitor : &mi.rcWork);
@@ -1510,7 +1510,7 @@ static void GetMonitorRect(const POINT *pt, int full, RECT *_mon)
 //    }
 //
 //    HMONITOR hmon = MonitorFromPoint(*pt, MONITOR_DEFAULTTONEAREST);
-//    MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
+//    MONITORINFO mi; mi.cbSize = sizeof(mi);
 //    GetMonitorInfo(hmon, &mi);
 //
 //    UINT dpiX, dpiY;
@@ -1912,7 +1912,7 @@ static void RestrictCursorToMon()
         static RECT fmon;
         if (origMonitor != state.origin.monitor || !state.origin.monitor) {
             origMonitor = state.origin.monitor;
-            MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
+            MONITORINFO mi; mi.cbSize = sizeof(mi);
             GetMonitorInfo(state.origin.monitor, &mi);
             CopyRect(&fmon, &mi.rcMonitor);
             fmon.left++; fmon.top++;
@@ -2010,7 +2010,7 @@ static void MoveTransWin(int x, int y, int w, int h)
 static void RestoreToMonitorSize(HWND hwnd, RECT *wnd)
 {
     ClearRestoreData(hwnd); //Clear restore flag and data
-    WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
+    WINDOWPLACEMENT wndpl; wndpl.length = sizeof(wndpl);
     GetWindowPlacement(hwnd, &wndpl);
 
     // Set size to origin monitor to prevent flickering
@@ -2132,7 +2132,7 @@ static void MouseMoveNow(POINT pt)
         // Restore window if maximized when starting
         if (!LastWin.snap && (was_snapped || IsZoomed(state.hwnd))) {
             LastWin.moveonly = 0;
-            WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
+            WINDOWPLACEMENT wndpl; wndpl.length = sizeof(wndpl);
             GetWindowPlacement(state.hwnd, &wndpl);
             // Restore original width and height in case we are restoring
             // A Snapped + Maximized window.
@@ -2259,7 +2259,7 @@ static void Send_KEY(unsigned char vkey)
     input[0].type = input[1].type = INPUT_KEYBOARD;
     input[0].ki = ctrl[0]; input[1].ki = ctrl[1];
     InterlockedIncrement(&state.ignorekey);
-    SendInput(2, input, sizeof(INPUT));
+    SendInput(2, input, sizeof(*input));
     InterlockedDecrement(&state.ignorekey);
 }
 #define KEYEVENTF_KEYDOWN 0
@@ -2276,7 +2276,7 @@ static void Send_KEY_UD(unsigned char vkey, WORD flags)
     input.ki = ctrl;
 
     InterlockedIncrement(&state.ignorekey);
-    SendInput(1, &input, sizeof(INPUT));
+    SendInput(1, &input, sizeof(input));
     InterlockedDecrement(&state.ignorekey);
 }
 #define Send_CTRL() if (conf.EndSendKey) { Send_KEY(conf.EndSendKey); LOG("END KEY SENT"); }
@@ -2315,7 +2315,7 @@ static DWORD WINAPI Send_ClickProc(LPVOID buttonD)
         mdata = button - 0x04; // mdata = 1 for X1 and 2 for X2
     // MouseEvent<<1 corresponds to MOUSEEVENTF_*UP
     MOUSEINPUT click[2];
-    mem00(&click[0], sizeof(MOUSEINPUT)*2);
+    mem00(click, sizeof(click));
     click[0].mouseData = click[1].mouseData = mdata;
     click[0].dwFlags = MouseEvent;
     click[1].dwFlags = MouseEvent<<1;
@@ -2325,7 +2325,7 @@ static DWORD WINAPI Send_ClickProc(LPVOID buttonD)
     input[0].mi = click[0]; input[1].mi = click[1];
 
     InterlockedIncrement(&state.ignoreclick);
-    SendInput(2, input, sizeof(INPUT));
+    SendInput(2, input, sizeof(*input));
     InterlockedDecrement(&state.ignoreclick);
     return 0;
 }
@@ -2355,7 +2355,7 @@ static void SendUnicodeKey(WORD w)
     input[0].ki = ctrl[0]; input[1].ki = ctrl[1];
 
     InterlockedIncrement(&state.ignorekey);
-    SendInput(2, input, sizeof(INPUT));
+    SendInput(2, input, sizeof(*input));
     InterlockedDecrement(&state.ignorekey);
 }
 
@@ -2913,7 +2913,7 @@ unsigned hwnds_alloc = 0;
 BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
+    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(*hwnds));
     if (!hwnds) return FALSE; // Stop enum, we failed
 
     // Only store window if it's visible, not minimized
@@ -2929,7 +2929,7 @@ BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 BOOL CALLBACK EnumAllAltTabWindows(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
+    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(*hwnds));
     if (!hwnds) return FALSE; // Stop enum, we failed
 
     // Only store window if it's visible, not minimized
@@ -2946,7 +2946,7 @@ BOOL CALLBACK EnumAllAltTabWindows(HWND window, LPARAM lParam)
 BOOL CALLBACK EnumTopMostWindows(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
+    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(*hwnds));
     if (!hwnds) return FALSE; // Stop enum, we failed
 
     // Only store window if it's visible, not minimized
@@ -2968,7 +2968,7 @@ BOOL CALLBACK EnumStackedWindowsProc(HWND hwnd, LPARAM lasermode)
 {
     // Make sure we have enough space allocated
 
-    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(HWND));
+    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(*hwnds));
     if (!hwnds) return FALSE; // Stop enum, we failed
     // Only store window if it's visible, not minimized to taskbar
     RECT wnd, refwnd;
@@ -3354,7 +3354,7 @@ static void ActionBrightness(const POINT pt, const short delta)
         }
 
         LOG("NumberOfPhysmons=%lu", numpm);
-        pm = (PHYSICAL_MONITOR *)calloc(numpm, sizeof(PHYSICAL_MONITOR));
+        pm = (PHYSICAL_MONITOR *)calloc(numpm, sizeof(*pm));
         if( !pm ) goto fail;
         pm->szPhysicalMonitorDescription[0] = '\0';
         if (!myGetPhysMonitorsFromHM(hmon, numpm, pm)) {
@@ -3454,7 +3454,7 @@ static void RollWindow(HWND hwnd, int delta)
         int ismxrolled = IsMXRolled(hwnd, &rc);
         if (delta <= 0 && ismxrolled) {
             // Unroll Maximized window
-            WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
+            WINDOWPLACEMENT wndpl; wndpl.length = sizeof(wndpl);
             GetWindowPlacement(hwnd, &wndpl);
             wndpl.showCmd = SW_SHOWMINIMIZED;
             SetWindowPlacement(hwnd, &wndpl);
@@ -4166,11 +4166,10 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 }
 static HWND CreatePinWindow(const HWND owner)
 {
-    WNDCLASSEX wnd;
-    if(!GetClassInfoEx(hinstDLL, TEXT(APP_NAMEA)TEXT("-Pin"), &wnd)) {
+    WNDCLASS wnd;
+    if(!GetClassInfo(hinstDLL, TEXT(APP_NAMEA)TEXT("-Pin"), &wnd)) {
         // Register the class if no already created.
         mem00(&wnd, sizeof(wnd));
-        wnd.cbSize = sizeof(WNDCLASSEX);
         wnd.style = CS_NOCLOSE|CS_HREDRAW|CS_VREDRAW;
         wnd.lpfnWndProc = PinWindowProc;
 #ifdef EVENT_HOOK
@@ -4183,7 +4182,7 @@ static HWND CreatePinWindow(const HWND owner)
         wnd.hCursor = LoadCursor(NULL, IDC_ARROW);
         wnd.hbrBackground = CreateSolidBrush(conf.PinColor&0x00FFFFFF);
         wnd.lpszClassName =  TEXT(APP_NAMEA)TEXT("-Pin");
-        RegisterClassEx(&wnd);
+        RegisterClass(&wnd);
     }
     HWND ret = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST
                    , TEXT(APP_NAMEA)TEXT("-Pin"), NULL
@@ -4289,7 +4288,7 @@ struct MinimizeWindowProcParams {
 };
 BOOL CALLBACK MinimizeWindowProc(HWND hwnd, LPARAM lParam)
 {
-    minhwnds = (HWND *)GetEnoughSpace(minhwnds, numminhwnds, &minhwnds_alloc, sizeof(HWND));
+    minhwnds = (HWND *)GetEnoughSpace(minhwnds, numminhwnds, &minhwnds_alloc, sizeof(*minhwnds));
     if (!minhwnds) return FALSE; // Stop enum, we failed
     const struct MinimizeWindowProcParams *p = (const struct MinimizeWindowProcParams *) lParam;
     hwnd = GetRootOwner(hwnd);
@@ -4487,7 +4486,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
 
         // GetWindowIcon return a shared resource not to be freed
         data[i].icon = GetWindowIcon(hwnds[i]);
-        MENUITEMINFO lpmi= { sizeof(MENUITEMINFO) };
+        MENUITEMINFO lpmi= { sizeof(lpmi) };
         lpmi.fMask = MIIM_DATA|MIIM_TYPE|MIIM_ID;
         lpmi.fType = MFT_OWNERDRAW; /*MFT_STRING*/
         lpmi.wID = i+1; // Id starts at 1 because 0 is for ESCAPE.
@@ -4901,7 +4900,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
 
     // Get monitor info
     HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-    MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
+    MONITORINFO mi; mi.cbSize = sizeof(mi);
     GetMonitorInfo(monitor, &mi);
     CopyRect(&state.origin.mon, &mi.rcWork);
 //    LOGA("MonitorInfo got!");
@@ -4914,7 +4913,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     }
 //    LOGA("MDI info got!");
 
-    WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
+    WINDOWPLACEMENT wndpl; wndpl.length = sizeof(wndpl);
     // Return if window is blacklisted,
     // if we can't get information about it,
     // or if the window is fullscreen.
@@ -6343,15 +6342,14 @@ void readbuttonactions(const TCHAR *inputsection)
 // Create a window for msessages handeling timers, menu etc.
 static HWND KreateMsgWin(WNDPROC proc, const TCHAR *name, LONG_PTR userdata)
 {
-    WNDCLASSEX wnd;
-    if(!GetClassInfoEx(hinstDLL, name, &wnd)) {
+    WNDCLASS wnd;
+    if(!GetClassInfo(hinstDLL, name, &wnd)) {
         // Register the class if no already created.
         mem00(&wnd, sizeof(wnd));
-        wnd.cbSize = sizeof(WNDCLASSEX);
         wnd.lpfnWndProc = proc;
         wnd.hInstance = hinstDLL;
         wnd.lpszClassName = name;
-        RegisterClassEx(&wnd);
+        RegisterClass(&wnd);
     }
     HWND parent =  (LOBYTE(LOWORD(GetVersion())) >= 5)?HWND_MESSAGE:g_mainhwnd;
     HWND hwnd = CreateWindowEx(0, wnd.lpszClassName, NULL, 0
@@ -6367,15 +6365,14 @@ static void CreateTransWin(const TCHAR *inisection)
     int color[2];
     // Read the color for the TransWin from ini file
     readhotkeys(inisection, "FrameColor",  TEXT("80 00 80"), (UCHAR *)&color[0], 3);
-    WNDCLASSEX wnd;
+    WNDCLASS wnd;
     mem00(&wnd, sizeof(wnd));
-    wnd.cbSize = sizeof(WNDCLASSEX);
 //    wnd.style = CS_SAVEBITS;
     wnd.lpfnWndProc = DefWindowProc;
     wnd.hInstance = hinstDLL;
     wnd.hbrBackground = CreateSolidBrush(color[0]);
     wnd.lpszClassName = TEXT(APP_NAMEA)TEXT("-Trans");
-    RegisterClassEx(&wnd);
+    RegisterClass(&wnd);
     g_transhwnd[0] = NULL;
     if (conf.TransWinOpacity) {
         int xflags = conf.TransWinOpacity==255
@@ -6545,7 +6542,7 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
         conf.RezTimer = conf.RezTimer == 2? 0: 3;
         DEVMODE dvm;
         mem00(&dvm, sizeof(dvm));
-        dvm.dmSize = sizeof(DEVMODE);
+        dvm.dmSize = sizeof(dvm);
         if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dvm)) {
             LOG("Display Frequency = %dHz", dvm.dmDisplayFrequency);
             if (dvm.dmDisplayFrequency == 60)

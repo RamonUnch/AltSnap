@@ -756,7 +756,7 @@ static BOOL IsDarkModeEnabled(void)
     DWORD value = 0;
     if ( OredredWinVer() >= 0x0A004563 ) {
         /* In case of Windows 10 build 10.0.17763 or 10.x (future) or 11+ */
-        DWORD len=sizeof(DWORD);
+        DWORD len = sizeof(value);
         HKEY key;
         if (RegOpenKeyEx(HKEY_CURRENT_USER
                 , TEXT("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize")
@@ -1026,7 +1026,7 @@ static void FixDWMRectLL(HWND hwnd, RECT *bbb, const int SnapGap)
 {
     RECT rect, frame;
 
-    if(S_OK == DwmGetWindowAttributeL(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &frame, sizeof(RECT))
+    if(S_OK == DwmGetWindowAttributeL(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &frame, sizeof(frame))
        && GetWindowRect(hwnd, &rect)){
         SubRect(&frame, &rect);
         CopyRect(bbb, &frame);
@@ -1045,7 +1045,7 @@ static void FixDWMRectLL(HWND hwnd, RECT *bbb, const int SnapGap)
  */
 static BOOL GetWindowRectLL(HWND hwnd, RECT *rect, const int SnapGap)
 {
-    HRESULT ret = DwmGetWindowAttributeL(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, rect, sizeof(RECT));
+    HRESULT ret = DwmGetWindowAttributeL(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, rect, sizeof(*rect));
     if( ret == S_OK) {
         ret = TRUE;
     } else {
@@ -1113,7 +1113,7 @@ static HWND GetRootOwner(HWND hwnd)
  */
 static BOOL GetCaptionButtonsRect(HWND hwnd, RECT *rc)
 {
-    int ret = DwmGetWindowAttributeL(hwnd, DWMWA_CAPTION_BUTTON_BOUNDS, rc, sizeof(RECT));
+    int ret = DwmGetWindowAttributeL(hwnd, DWMWA_CAPTION_BUTTON_BOUNDS, rc, sizeof(*rc));
     /* Convert rectangle to to screen coordinate. */
     if (ret == S_OK) {
         RECT wrc;
@@ -1464,7 +1464,7 @@ static int IsWindowSnapped(HWND hwnd)
 {
     RECT rect;
     int W, H, nW, nH;
-    WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
+    WINDOWPLACEMENT wndpl; wndpl.length = sizeof(wndpl);
 
     if(!GetWindowRect(hwnd, &rect)) return 0;
     W = rect.right  - rect.left;

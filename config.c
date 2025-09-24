@@ -135,7 +135,7 @@ static void OpenConfig(int startpage)
     mem00(&psp[0], sizeof(psp));
     size_t i;
     for (i = 0; i < ARR_SZ(pages); i++) {
-        psp[i].dwSize = sizeof(PROPSHEETPAGE);
+        psp[i].dwSize = sizeof(*psp);
         psp[i].hInstance = g_hinst;
         psp[i].pszTemplate = MAKEINTRESOURCE(pages[i].pszTemplate);
         psp[i].pfnDlgProc = pages[i].pfnDlgProc;
@@ -143,8 +143,8 @@ static void OpenConfig(int startpage)
 
     // Define the property sheet
     PROPSHEETHEADER psh;
-    mem00(&psh, sizeof(PROPSHEETHEADER));
-    psh.dwSize = sizeof(PROPSHEETHEADER);
+    mem00(&psh, sizeof(psh));
+    psh.dwSize = sizeof(psh);
     psh.dwFlags = VISTA? PSH_PROPSHEETPAGE|PSH_USECALLBACK|PSH_USEHICON|PSH_NOCONTEXTHELP
                        : PSH_PROPSHEETPAGE|PSH_USECALLBACK|PSH_USEHICON;
     psh.hwndParent = NULL;
@@ -206,7 +206,7 @@ static void UpdateStrings()
         HWND page = PropSheet_GetCurrentPageHwnd(g_cfgwnd);
         if (page != NULL) {
             int diffrows = numrows - numrows_prev;
-            WINDOWPLACEMENT wndpl; wndpl.length = sizeof(WINDOWPLACEMENT);
+            WINDOWPLACEMENT wndpl; wndpl.length = sizeof(wndpl);
             // Resize window
             GetWindowPlacement(g_cfgwnd, &wndpl);
             wndpl.rcNormalPosition.bottom += 18 * diffrows;
@@ -235,7 +235,7 @@ static void MoveToCorner(HWND hwnd)
     ohwnd = hwnd;
 
     RECT rc;
-    MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
+    MONITORINFO mi; mi.cbSize = sizeof(mi);
     POINT pt;
     GetCursorPos(&pt);
     GetMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST), &mi);
@@ -1308,19 +1308,18 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         }
         if (id == IDC_SHORTCUTS_PICK) {
             HWND pickhwnd;
-            WNDCLASSEX wnd;
-            if (!GetClassInfoEx(g_hinst, TEXT(APP_NAMEA)TEXT("-PickShortcut"), &wnd)) {
-                WNDCLASSEX wndd = {
-                    sizeof(WNDCLASSEX)
-                  , CS_PARENTDC
+            WNDCLASS wnd;
+            if (!GetClassInfo(g_hinst, TEXT(APP_NAMEA)TEXT("-PickShortcut"), &wnd)) {
+                WNDCLASS wndd = {
+                    CS_PARENTDC
                   , PickShortcutWinProc
                   , 0, 0, g_hinst
                   , NULL //LoadIcon(g_hinst, iconstr[1])
                   , NULL //LoadCursor(NULL, IDC_ARROW)
                   , NULL //(HBRUSH)(COLOR_HIGHLIGHT+1)
-                  , NULL, TEXT(APP_NAMEA)TEXT("-PickShortcut"), NULL
+                  , NULL, TEXT(APP_NAMEA)TEXT("-PickShortcut")
                 };
-                RegisterClassEx(&wndd);
+                RegisterClass(&wndd);
             }
             RECT rc;
             GetClientRect(hwnd, &rc);
@@ -1476,10 +1475,10 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
              }
 
             // Create Transparent window covering the whole workspace
-            WNDCLASSEX wnd = { sizeof(WNDCLASSEX), 0, FindWindowProc, 0, 0, g_hinst, NULL, NULL
-                             , (HBRUSH) (COLOR_WINDOW + 1), NULL, TEXT(APP_NAMEA)TEXT("-find"), NULL };
+            WNDCLASS wnd = { 0, FindWindowProc, 0, 0, g_hinst, NULL, NULL
+                           , (HBRUSH) (COLOR_WINDOW + 1), NULL, TEXT(APP_NAMEA)TEXT("-find") };
             wnd.hCursor = LoadCursor(g_hinst, MAKEINTRESOURCE(IDI_FIND));
-            RegisterClassEx(&wnd);
+            RegisterClass(&wnd);
             HWND findhwnd = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_TRANSPARENT
                            , wnd.lpszClassName, NULL, WS_POPUP, 0, 0, 0, 0, NULL, NULL, g_hinst, NULL);
             ShowWindow(findhwnd, SW_SHOWNA); // And show it
@@ -1676,7 +1675,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         // uDarkMode = AllowDarkTitlebar(hwnd);
 
         // Allocate space for the list of last keys.
-        void *lastkeys = calloc(1, sizeof(struct lastkeyss));
+        struct lastkeyss *lastkeys = (struct lastkeyss *)calloc(1, sizeof(*lastkeys));
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)lastkeys);
 
         } break;
@@ -1917,7 +1916,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
         // Draw textual info....
         LOGFONT lfont;
-        GetObject(GetStockObject(DEFAULT_GUI_FONT), sizeof(LOGFONT), &lfont);
+        GetObject(GetStockObject(DEFAULT_GUI_FONT), sizeof(lfont), &lfont);
         lfont.lfHeight = -MulDiv(11, ReallyGetDpiForWindow(hwnd), 72);
         long lineheight = -(lfont.lfHeight + lfont.lfHeight/8);
         HFONT oldfont = (HFONT)SelectObject(hdc, CreateFontIndirect(&lfont));
@@ -1963,8 +1962,8 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     } break;
     case WM_DESTROY : {
         // Free the allocatde memory for the key list.
-        void *lastkeyss = (void *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-        free(lastkeyss);
+        struct lastkeyss *lastkeys = (struct lastkeyss *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+        free(lastkeys);
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)NULL); // In case
     } break;
     }
@@ -1975,19 +1974,18 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 static HWND NewTestWindow()
 {
     HWND testwnd;
-    WNDCLASSEX wnd;
-    if (!GetClassInfoEx(g_hinst, TEXT(APP_NAMEA)TEXT("-Test"), &wnd)) {
-        WNDCLASSEX wndd = {
-            sizeof(WNDCLASSEX)
-          , CS_HREDRAW|CS_VREDRAW
+    WNDCLASS wnd;
+    if (!GetClassInfo(g_hinst, TEXT(APP_NAMEA)TEXT("-Test"), &wnd)) {
+        WNDCLASS wndd = {
+            CS_HREDRAW|CS_VREDRAW
           , TestWindowProc
           , 0, sizeof(LONG_PTR) // To store old GWL_STYLE
           , g_hinst, icons[1] //LoadIcon(g_hinst, iconstr[1])
           , LoadCursor(NULL, IDC_ARROW)
           , NULL //(HBRUSH)(COLOR_BACKGROUND+1)
-          , NULL, TEXT(APP_NAMEA)TEXT("-Test"), NULL
+          , NULL, TEXT(APP_NAMEA)TEXT("-Test")
         };
-        RegisterClassEx(&wndd);
+        RegisterClass(&wndd);
     }
     TCHAR wintitle[256];
     lstrcpy_noaccel(wintitle, l10n->AdvancedTestWindow, ARR_SZ(wintitle));

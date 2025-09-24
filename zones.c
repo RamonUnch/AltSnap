@@ -612,13 +612,13 @@ static void SnapLayoutPreviewCreateDestroy(const TCHAR *inisection)
         const UCHAR usetrans = opacity!=0 && opacity!=255;
         const WNDPROC wproc  = opacity==0? DefWindowProc: SnapLayoutWinProc;
         const HBRUSH wbrush  = opacity==0? CreateSolidBrush(bdcol[0]): CreateSolidBrush(bgcol[0]);
-        const WNDCLASSEX wnd = {
-            sizeof(WNDCLASSEX), 0
+        const WNDCLASS wnd = {
+            0
           , wproc
           , 0, 0, hinstDLL
           , NULL, NULL, wbrush
-          , NULL, APP_NAME TEXT("-ZonesPreview"), NULL };
-        RegisterClassEx(&wnd);
+          , NULL, APP_NAME TEXT("-ZonesPreview") };
+        RegisterClass(&wnd);
 
         int left=0, top=0, width, height;
         if(GetSystemMetrics(SM_CMONITORS) >= 1) {

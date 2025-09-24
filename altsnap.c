@@ -211,7 +211,7 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
 static void GetKaretPos(POINT *pt)
 {
     GUITHREADINFO gui;
-    gui.cbSize = sizeof(GUITHREADINFO);
+    gui.cbSize = sizeof(gui);
     gui.hwndCaret = NULL;
     if (GetGUIThreadInfo(0, &gui)) {
         pt->x = (gui.rcCaret.right + gui.rcCaret.left)>>1;
@@ -377,7 +377,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     // Empty layout, Let's open a new Test Window
                     return !NewTestWindow();
                 }
-                RECT *zones = (RECT*)malloc(len * sizeof(RECT));
+                RECT *zones = (RECT*)malloc(len * sizeof(*zones));
                 if(!zones) return 0;
 
                 G_HotKeyProc(hwnd, WM_GETZONES, LayoutNumber, (LPARAM)zones);
@@ -564,11 +564,11 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
     UpdateLanguage(); LOG("Language updated");
 
     // Create window
-    WNDCLASSEX wnd =
-        { sizeof(WNDCLASSEX), 0
+    WNDCLASS wnd =
+        { 0
         , WindowProc, 0, 0, hInst, NULL, NULL
-        , NULL, NULL, TEXT(APP_NAMEA), NULL };
-    RegisterClassEx(&wnd);
+        , NULL, NULL, TEXT(APP_NAMEA) };
+    RegisterClass(&wnd);
     g_hwnd = CreateWindowEx(WS_EX_TOOLWINDOW|WS_EX_TOPMOST| WS_EX_TRANSPARENT
                             , wnd.lpszClassName , NULL , WS_POPUP
                             , 0, 0, 0, 0, NULL, NULL, hInst, NULL);

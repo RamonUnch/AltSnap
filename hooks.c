@@ -708,7 +708,7 @@ unsigned wnds_alloc = 0;
 BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    wnds = (RECT *)GetEnoughSpace(wnds, numwnds, &wnds_alloc, sizeof(RECT));
+    wnds = (RECT *)GetEnoughSpace(wnds, numwnds, &wnds_alloc, sizeof(*wnds));
     if (!wnds) return FALSE; // Stop enum, we failed
 
     // Only store window if it's visible, not minimized to taskbar,
@@ -2010,7 +2010,7 @@ static void MoveTransWin(int x, int y, int w, int h)
 static void RestoreToMonitorSize(HWND hwnd, RECT *wnd)
 {
     ClearRestoreData(hwnd); //Clear restore flag and data
-    WINDOWPLACEMENT wndpl; wndpl.length =sizeof(wndpl);
+    WINDOWPLACEMENT wndpl; wndpl.length = sizeof(wndpl);
     GetWindowPlacement(hwnd, &wndpl);
 
     // Set size to origin monitor to prevent flickering
@@ -2132,7 +2132,7 @@ static void MouseMoveNow(POINT pt)
         // Restore window if maximized when starting
         if (!LastWin.snap && (was_snapped || IsZoomed(state.hwnd))) {
             LastWin.moveonly = 0;
-            WINDOWPLACEMENT wndpl; wndpl.length =sizeof(wndpl);
+            WINDOWPLACEMENT wndpl; wndpl.length = sizeof(wndpl);
             GetWindowPlacement(state.hwnd, &wndpl);
             // Restore original width and height in case we are restoring
             // A Snapped + Maximized window.
@@ -3354,7 +3354,7 @@ static void ActionBrightness(const POINT pt, const short delta)
         }
 
         LOG("NumberOfPhysmons=%lu", numpm);
-        pm = (PHYSICAL_MONITOR *)calloc(numpm, sizeof(pm));
+        pm = (PHYSICAL_MONITOR *)calloc(numpm, sizeof(*pm));
         if( !pm ) goto fail;
         pm->szPhysicalMonitorDescription[0] = '\0';
         if (!myGetPhysMonitorsFromHM(hmon, numpm, pm)) {
@@ -3454,7 +3454,7 @@ static void RollWindow(HWND hwnd, int delta)
         int ismxrolled = IsMXRolled(hwnd, &rc);
         if (delta <= 0 && ismxrolled) {
             // Unroll Maximized window
-            WINDOWPLACEMENT wndpl; wndpl.length =sizeof(wndpl);
+            WINDOWPLACEMENT wndpl; wndpl.length = sizeof(wndpl);
             GetWindowPlacement(hwnd, &wndpl);
             wndpl.showCmd = SW_SHOWMINIMIZED;
             SetWindowPlacement(hwnd, &wndpl);
@@ -4900,7 +4900,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
 
     // Get monitor info
     HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-    MONITORINFO mi; mi.cbSize = sizeof(MONITORINFO);
+    MONITORINFO mi; mi.cbSize = sizeof(mi);
     GetMonitorInfo(monitor, &mi);
     CopyRect(&state.origin.mon, &mi.rcWork);
 //    LOGA("MonitorInfo got!");
@@ -4913,7 +4913,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     }
 //    LOGA("MDI info got!");
 
-    WINDOWPLACEMENT wndpl; wndpl.length =sizeof(WINDOWPLACEMENT);
+    WINDOWPLACEMENT wndpl; wndpl.length = sizeof(wndpl);
     // Return if window is blacklisted,
     // if we can't get information about it,
     // or if the window is fullscreen.
@@ -6542,7 +6542,7 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
         conf.RezTimer = conf.RezTimer == 2? 0: 3;
         DEVMODE dvm;
         mem00(&dvm, sizeof(dvm));
-        dvm.dmSize = sizeof(DEVMODE);
+        dvm.dmSize = sizeof(dvm);
         if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dvm)) {
             LOG("Display Frequency = %dHz", dvm.dmDisplayFrequency);
             if (dvm.dmDisplayFrequency == 60)

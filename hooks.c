@@ -27,6 +27,8 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 #define WM_DOMOUSEMOVE   (WM_APP+7)
 #define WM_DOACTION      (WM_APP+8)
 
+enum { BD_HIDDEN_L = 1, BD_HIDDEN_T = 2, BD_HIDDEN_R = 4, BD_HIDDEN_B = 8 };
+
 // #define NO_HOOK_LL
 
 #define MAX_SNAP_SPEED  65535
@@ -95,6 +97,13 @@ struct rgMMI {
     POINT Max;
 };
 static const struct resizeXY AUTORESIZE =   {RZ_XNONE, RZ_YNONE};
+
+struct snwdata {
+    RECT rc;
+    HWND hwnd;
+    unsigned flag;
+};
+
 // State
 static struct {
     struct rgMMI mmi;
@@ -156,7 +165,7 @@ static struct {
 // Snap
 RECT *monitors = NULL;
 unsigned nummonitors = 0;
-RECT *wnds = NULL;
+struct snwdata *wnds = NULL; /* for the Snap to borders option */
 unsigned numwnds = 0;
 HWND *hwnds = NULL;
 unsigned numhwnds = 0;
@@ -708,13 +717,13 @@ unsigned wnds_alloc = 0;
 BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
 {
     // Make sure we have enough space allocated
-    wnds = (RECT *)GetEnoughSpace(wnds, numwnds, &wnds_alloc, sizeof(*wnds));
+    wnds = (struct snwdata *)GetEnoughSpace(wnds, numwnds, &wnds_alloc, sizeof(*wnds));
     if (!wnds) return FALSE; // Stop enum, we failed
 
     // Only store window if it's visible, not minimized to taskbar,
     // not the window we are dragging and not blacklisted
-    RECT wnd;
-    if (ShouldSnapTo(window) && GetWindowRectL(window, &wnd)) {
+    RECT rc;
+    if (ShouldSnapTo(window) && GetWindowRectL(window, &rc)) {
 
         // Maximized?
         if (IsZoomed(window)) {
@@ -726,28 +735,39 @@ BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
             // Crop this window so that it does not exceed the size of the monitor
             // This is done because when maximized, windows have an extra invisible
             // border (a border that stretches onto other monitors)
-            CropRect(&wnd, &mi.rcWork);
+            CropRect(&rc, &mi.rcWork);
         }
-        OffsetRectMDI(&wnd);
+        OffsetRectMDI(&rc);
         // Return if this window is overlapped by another window
         unsigned i;
+        unsigned flags = 0;
         for (i=0; i < numwnds; i++) {
-            if (RectInRect(&wnds[i], &wnd)) {
+            if (RectInRect(&wnds[i].rc, &rc)) {
                 return TRUE;
             }
+            RECT bdrcL = { rc.left,  rc.top,    rc.left,  rc.bottom };
+            RECT bdrcT = { rc.left,  rc.top,    rc.right, rc.top    };
+            RECT bdrcR = { rc.right, rc.top,    rc.right, rc.bottom };
+            RECT bdrcB = { rc.left,  rc.bottom, rc.right, rc.bottom };
+
+            flags |= (RectInRect(&wnds[i].rc, &bdrcL) << 0)
+                  |  (RectInRect(&wnds[i].rc, &bdrcT) << 1)
+                  |  (RectInRect(&wnds[i].rc, &bdrcR) << 2)
+                  |  (RectInRect(&wnds[i].rc, &bdrcB) << 3);
         }
+
         // Add window to wnds db
-        CopyRect(&wnds[numwnds++], &wnd);
+        CopyRect(&wnds[numwnds].rc, &rc);
+        wnds[numwnds].hwnd = window;
+        // Add flags telling which border is visible
+        wnds[numwnds].flag = flags;
+        ++numwnds;
+
     }
     return TRUE;
 }
 /////////////////////////////////////////////////////////////////////////////
 // snapped windows database.
-struct snwdata {
-    RECT wnd;
-    HWND hwnd;
-    unsigned flag;
-};
 struct snwdata *snwnds;
 unsigned numsnwnds = 0;
 unsigned snwnds_alloc = 0;
@@ -780,7 +800,7 @@ BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
         }
         // Add the window to the list
         OffsetRectMDI(&wnd);
-        CopyRect(&snwnds[numsnwnds].wnd, &wnd);
+        CopyRect(&snwnds[numsnwnds].rc, &wnd);
         snwnds[numsnwnds].hwnd = hwnd;
         numsnwnds++;
     }
@@ -824,12 +844,12 @@ BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
             // Return if this window is overlapped by another window
             unsigned i;
             for (i=0; i < numsnwnds; i++) {
-                if (RectInRect(&snwnds[i].wnd, &wnd)) {
+                if (RectInRect(&snwnds[i].rc, &wnd)) {
                     return TRUE;
                 }
             }
 
-            CopyRect(&snwnds[numsnwnds].wnd, &wnd);
+            CopyRect(&snwnds[numsnwnds].rc, &wnd);
             snwnds[numsnwnds].flag = flag;
             snwnds[numsnwnds].hwnd = hwnd;
             numsnwnds++;
@@ -874,7 +894,7 @@ static int ResizeTouchingWindows(LPVOID lwptr)
     }
     unsigned i;
     for (i=0; i < numsnwnds; i++) {
-        RECT *nwnd = &snwnds[i].wnd;
+        RECT *nwnd = &snwnds[i].rc;
         unsigned flag = snwnds[i].flag;
         HWND hwnd = snwnds[i].hwnd;
 
@@ -932,12 +952,12 @@ static void ResizeAllSnappedWindows()
         if(hwndSS && snwnds[i].flag&TORESIZE) {
             RECT bd;
             FixDWMRect(snwnds[i].hwnd, &bd);
-            InflateRectBorder(&snwnds[i].wnd, &bd);
+            InflateRectBorder(&snwnds[i].rc, &bd);
             hwndSS = DeferWindowPos(hwndSS, snwnds[i].hwnd, NULL
-                    , snwnds[i].wnd.left
-                    , snwnds[i].wnd.top
-                    , snwnds[i].wnd.right - snwnds[i].wnd.left
-                    , snwnds[i].wnd.bottom - snwnds[i].wnd.top
+                    , snwnds[i].rc.left
+                    , snwnds[i].rc.top
+                    , snwnds[i].rc.right - snwnds[i].rc.left
+                    , snwnds[i].rc.bottom - snwnds[i].rc.top
                     , SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER);
         }
     }
@@ -1046,6 +1066,7 @@ void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight, UCHAR pth)
     for (i=0, j=0; i < nummonitors || j < numwnds; ) {
         RECT snapwnd;
         UCHAR snapinside=0;
+        unsigned sflag = 0;
 
         // Get snapwnd
         if (monitors && i < nummonitors) {
@@ -1053,7 +1074,8 @@ void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight, UCHAR pth)
             snapinside = 1;
             i++;
         } else if (wnds && j < numwnds) {
-            snapwnd = wnds[j];
+            snapwnd = wnds[j].rc;
+            sflag   = wnds[j].flag;
             snapinside = (state.snap != 2);
             j++;
         } else {
@@ -1067,22 +1089,22 @@ void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight, UCHAR pth)
             UCHAR snapinside_cond = (snapinside
                                   || posy + wndheight - thresholdx < snapwnd.top
                                   || snapwnd.bottom < posy + thresholdx);
-            if (IsEqualT(snapwnd.right, posx, thresholdx)) {
+            if (IsEqualT(snapwnd.right, posx, thresholdx) && !(sflag&BD_HIDDEN_R)) {
                 // The left edge of the dragged window will snap to this window's right edge
                 stuckx = 1;
                 stickx = snapwnd.right;
                 thresholdx = snapwnd.right-posx;
-            } else if (snapinside_cond && IsEqualT(snapwnd.right, posx+wndwidth, thresholdx)) {
+            } else if (snapinside_cond && IsEqualT(snapwnd.right, posx+wndwidth, thresholdx) && !(sflag&BD_HIDDEN_R)) {
                 // The right edge of the dragged window will snap to this window's right edge
                 stuckx = 1;
                 stickx = snapwnd.right - wndwidth;
                 thresholdx = snapwnd.right-(posx+wndwidth);
-            } else if (snapinside_cond && IsEqualT(snapwnd.left, posx, thresholdx)) {
+            } else if (snapinside_cond && IsEqualT(snapwnd.left, posx, thresholdx) && !(sflag&BD_HIDDEN_L)) {
                 // The left edge of the dragged window will snap to this window's left edge
                 stuckx = 1;
                 stickx = snapwnd.left;
                 thresholdx = snapwnd.left-posx;
-            } else if (IsEqualT(snapwnd.left, posx+wndwidth, thresholdx)) {
+            } else if (IsEqualT(snapwnd.left, posx+wndwidth, thresholdx) && !(sflag&BD_HIDDEN_L)) {
                 // The right edge of the dragged window will snap to this window's left edge
                 stuckx = 1;
                 stickx = snapwnd.left - wndwidth;
@@ -1095,22 +1117,22 @@ void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight, UCHAR pth)
         ||  IsInRangeT(snapwnd.left, posx, posx+wndwidth, thresholdy)) {
             UCHAR snapinside_cond = (snapinside || posx + wndwidth - thresholdy < snapwnd.left
                                   || snapwnd.right < posx+thresholdy);
-            if (IsEqualT(snapwnd.bottom, posy, thresholdy)) {
+            if (IsEqualT(snapwnd.bottom, posy, thresholdy) && !(sflag&BD_HIDDEN_B)) {
                 // The top edge of the dragged window will snap to this window's bottom edge
                 stucky = 1;
                 sticky = snapwnd.bottom;
                 thresholdy = snapwnd.bottom-posy;
-            } else if (snapinside_cond && IsEqualT(snapwnd.bottom, posy+wndheight, thresholdy)) {
+            } else if (snapinside_cond && IsEqualT(snapwnd.bottom, posy+wndheight, thresholdy) && !(sflag&BD_HIDDEN_B)) {
                 // The bottom edge of the dragged window will snap to this window's bottom edge
                 stucky = 1;
                 sticky = snapwnd.bottom - wndheight;
                 thresholdy = snapwnd.bottom-(posy+wndheight);
-            } else if (snapinside_cond && IsEqualT(snapwnd.top, posy, thresholdy)) {
+            } else if (snapinside_cond && IsEqualT(snapwnd.top, posy, thresholdy) && !(sflag&BD_HIDDEN_T)) {
                 // The top edge of the dragged window will snap to this window's top edge
                 stucky = 1;
                 sticky = snapwnd.top;
                 thresholdy = snapwnd.top-posy;
-            } else if (IsEqualT(snapwnd.top, posy+wndheight, thresholdy)) {
+            } else if (IsEqualT(snapwnd.top, posy+wndheight, thresholdy) && !(sflag&BD_HIDDEN_T)) {
                 // The bottom edge of the dragged window will snap to this window's top edge
                 stucky = 1;
                 sticky = snapwnd.top-wndheight;
@@ -1155,7 +1177,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight, UCHA
             snapinside = 1;
             i++;
         } else if (wnds && j < numwnds) {
-            CopyRect(&snapwnd, &wnds[j]);
+            CopyRect(&snapwnd, &wnds[j].rc);
             snapinside = (state.snap != 2);
             j++;
         } else {
@@ -1445,7 +1467,7 @@ static void MoveWindowNow(struct windowRR *lw)
 #undef MOVEASYNC
 
 ///////////////////////////////////////////////////////////////////////////
-// use snwnds[numsnwnds].wnd / .flag
+// use snwnds[numsnwnds].rc / .flag
 static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeight, int *bottomHeight, const RECT *mon)
 {
     *leftWidth    = CLAMPW((mon->right - mon->left)* conf.AHoff     /100);
@@ -1462,7 +1484,7 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
     unsigned i = numsnwnds;
     while (i--) {
         unsigned flag = snwnds[i].flag;
-        const RECT *wnd = &snwnds[i].wnd;
+        const RECT *wnd = &snwnds[i].rc;
         // if the window is in current monitor
         POINT tpt;
         tpt.x = (wnd->left+wnd->right)/2;
@@ -3700,7 +3722,7 @@ static void NextBorders(RECT *pos, const RECT *cur, const RECT *def)
     unsigned i;
     CopyRect(pos, def);
     for (i=0; i<numsnwnds; i++) {
-        const RECT *rc = &snwnds[i].wnd;
+        const RECT *rc = &snwnds[i].rc;
         const unsigned flg = snwnds[i].flag;
         POINT tpt;
         tpt.x =  (rc->left+rc->right)/2; tpt.y = (rc->top+rc->bottom)/2;

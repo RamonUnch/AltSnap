@@ -3938,7 +3938,7 @@ static void ActionBorderless(HWND hwnd)
 /////////////////////////////////////////////////////////////////////////////
 #define CW_RESTORE (1<<0)
 #define CW_TRIM    (1<<1)
-static void CenterWindow(HWND hwnd, unsigned flags)
+static void CenterWindow(HWND hwnd, unsigned flags, int full_monitor)
 {
     RECT mon;// = state.origin.mon;
     POINT pt;
@@ -3954,7 +3954,7 @@ static void CenterWindow(HWND hwnd, unsigned flags)
         height = rc.bottom - rc.top;
     }
     GetCursorPos(&pt);
-    GetMonitorRect(&pt, 0, &mon);
+    GetMonitorRect(&pt, full_monitor, &mon);
 
     RECT bd;
     FixDWMRectLL(hwnd, &bd, 0);
@@ -4455,7 +4455,7 @@ static void MoveToCurrentMonitorIfNeeded(HWND hwnd)
     // accessible for the user)
     if (MonitorFromPoint(pt, MONITOR_DEFAULTTONULL) != state.origin.monitor) {
         // Put the window on-screen
-        CenterWindow(hwnd, CW_TRIM);
+        CenterWindow(hwnd, CW_TRIM, 0);
     }
 }
 static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
@@ -4755,7 +4755,8 @@ static void SClickActions(HWND hwnd, enum action action)
     switch (action) {
     case AC_MINIMIZE:    MinimizeWindow(hwnd); break;
     case AC_MAXIMIZE:    ActionMaximize(hwnd); break;
-    case AC_CENTER:      CenterWindow(hwnd, !state.shift /*state.shift? 0: CW_RESTORE*/); break;
+    case AC_CENTER:      CenterWindow(hwnd, !state.shift  /*state.shift? 0: CW_RESTORE*/, 0); break;
+    case AC_CENTER2:     CenterWindow(hwnd, !state.shift, /*full*/ 1); break;
     case AC_ALWAYSONTOP: TogglesAlwaysOnTop(hwnd); break;
     case AC_CLOSE:       PostMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0); break;
     case AC_LOWER:       ActionLower(hwnd, 0, state.shift, state.ctrl); break;

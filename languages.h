@@ -169,7 +169,8 @@ struct langinfoitem {
   LNGVALUE(InputActionRoll,     TEXT("&Roll/Unroll window"), NULL) \
   LNGVALUE(InputActionAlwaysOnTop,  TEXT("Toggle always on &top"), NULL) \
   LNGVALUE(InputActionBorderless,   TEXT("Toggle &borderless"), NULL) \
-  LNGVALUE(InputActionCenter,       TEXT("C&enter window on screen"), NULL) \
+  LNGVALUE(InputActionCenter,       TEXT("C&enter on desktop"), NULL) \
+  LNGVALUE(InputActionCenter2,      TEXT("Center on &physical monitor"), NULL) \
   LNGVALUE(InputActionOriClick,     TEXT("Send ori&ginal click"), NULL) \
   LNGVALUE(InputActionNothing,      TEXT("Nothing"), NULL) \
   LNGVALUE(InputActionAltTab,       TEXT("Alt+Tab"), NULL) \

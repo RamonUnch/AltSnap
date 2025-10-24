@@ -741,20 +741,27 @@ BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
         // Return if this window is overlapped by another window
         unsigned i;
         unsigned flags = 0;
+
+        RECT bdrcL = { rc.left,  rc.top,    rc.left,  rc.bottom };
+        RECT bdrcT = { rc.left,  rc.top,    rc.right, rc.top    };
+        RECT bdrcR = { rc.right, rc.top,    rc.right, rc.bottom };
+        RECT bdrcB = { rc.left,  rc.bottom, rc.right, rc.bottom };
+
         for (i=0; i < numwnds; i++) {
             if (RectInRect(&wnds[i].rc, &rc)) {
                 return TRUE;
             }
-            RECT bdrcL = { rc.left,  rc.top,    rc.left,  rc.bottom };
-            RECT bdrcT = { rc.left,  rc.top,    rc.right, rc.top    };
-            RECT bdrcR = { rc.right, rc.top,    rc.right, rc.bottom };
-            RECT bdrcB = { rc.left,  rc.bottom, rc.right, rc.bottom };
-
-            flags |= (RectInRect(&wnds[i].rc, &bdrcL) << 0)
-                  |  (RectInRect(&wnds[i].rc, &bdrcT) << 1)
-                  |  (RectInRect(&wnds[i].rc, &bdrcR) << 2)
-                  |  (RectInRect(&wnds[i].rc, &bdrcB) << 3);
+            CropOutRectFromSeg(&bdrcL, &wnds[i].rc);
+            CropOutRectFromSeg(&bdrcT, &wnds[i].rc);
+            CropOutRectFromSeg(&bdrcR, &wnds[i].rc);
+            CropOutRectFromSeg(&bdrcB, &wnds[i].rc);
         }
+        // Check if there is any remaining visibility
+        // for each border of the rectangle
+        flags  = ( (bdrcL.top >= bdrcL.bottom) << 0 )
+               | ( (bdrcT.left >= bdrcT.right) << 1 )
+               | ( (bdrcR.top >= bdrcR.bottom) << 2 )
+               | ( (bdrcB.left >= bdrcB.right) << 3 );
 
         // Add window to wnds db
         CopyRect(&wnds[numwnds].rc, &rc);

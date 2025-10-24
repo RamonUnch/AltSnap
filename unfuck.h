@@ -1533,6 +1533,30 @@ static pure unsigned WhichSideRectInRect(const RECT *mon, const RECT *wnd)
     return flag;
 }
 
+// the seg rectangle must be zero height or zero width
+static void CropOutRectFromSeg(RECT *seg, const RECT *cover)
+{
+    POINT point1 = { seg->left, seg->top };
+    POINT point2 = { seg->right, seg->bottom };
+    if (seg->left == seg->right) {
+        /* Vertical segment */
+        if (PtInRect(cover, point1)) {
+            seg->top = cover->bottom; // top point is under the rect
+        }
+        if (PtInRect(cover, point2)) {
+            seg->bottom = cover->top; // bottom point is under the rect
+        }
+    } else/* if( seg->top == seg->bottom) */{
+        /* Horizontal segment */
+        if (PtInRect(cover, point1)) {
+            seg->left = cover->right; // left point is under the rect
+        }
+        if (PtInRect(cover, point2)) {
+            seg->right = cover->left; // right point is under the rect
+        }
+    }
+}
+
 static xpure int IsEqualT(int a, int b, int th)
 {
     return (b - th <= a) & (a <= b + th);

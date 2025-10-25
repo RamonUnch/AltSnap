@@ -5,8 +5,8 @@
 #define IDC_STATIC (-1)
 #endif
 
-#define VERSIONRC     1,6,6,0
-#define APP_VERSION  "1.66"
+#define VERSIONRC     1,6,7,0
+#define APP_VERSION  "1.67"
 
 #define APP_ICON                         101
 #define TRAY_OFF                         102

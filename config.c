@@ -849,6 +849,7 @@ INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         {TEXT("AlwaysOnTop"), L10NIDX(InputActionAlwaysOnTop) }, \
         {TEXT("Borderless"),  L10NIDX(InputActionBorderless) }, \
         {TEXT("Center"),      L10NIDX(InputActionCenter) }, \
+        {TEXT("Center2"),     L10NIDX(InputActionCenter2) }, \
         {TEXT("MaximizeHV"),  L10NIDX(InputActionMaximizeHV) }, \
         {TEXT("SideSnap"),    L10NIDX(InputActionSideSnap) }, \
         {TEXT("ExtendSnap"),  L10NIDX(InputActionExtendSnap) }, \
@@ -1140,6 +1141,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {TEXT("AlwaysOnTop"), L10NIDX(InputActionAlwaysOnTop) },
         {TEXT("Borderless"),  L10NIDX(InputActionBorderless) },
         {TEXT("Center"),      L10NIDX(InputActionCenter) },
+        {TEXT("Center2"),     L10NIDX(InputActionCenter2) },
         {TEXT("MaximizeHV"),  L10NIDX(InputActionMaximizeHV) },
         {TEXT("MinAllOther"), L10NIDX(InputActionMinAllOther) },
         {TEXT("Menu"),        L10NIDX(InputActionMenu) },
@@ -1159,6 +1161,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         {TEXT("AlwaysOnTop"), L10NIDX(InputActionAlwaysOnTop) },
         {TEXT("Borderless"),  L10NIDX(InputActionBorderless) },
         {TEXT("Center"),      L10NIDX(InputActionCenter) },
+        {TEXT("Center2"),     L10NIDX(InputActionCenter2) },
         {TEXT("Mute"),        L10NIDX(InputActionMute) },
         {TEXT("Menu"),        L10NIDX(InputActionMenu) },
 

@@ -176,6 +176,7 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
         { AC_ALWAYSONTOP, CHK(LP_TOPMOST),    l10n->InputActionAlwaysOnTop },
         { AC_BORDERLESS,  CHK(LP_BORDERLESS), l10n->InputActionBorderless },
         { AC_CENTER,      MF_STRING,          l10n->InputActionCenter},
+        { AC_CENTER2,     MF_STRING,          l10n->InputActionCenter2},
         { AC_ROLL,        CHK(LP_ROLLED),     l10n->InputActionRoll},
         { AC_LOWER,       MF_STRING,          l10n->InputActionLower},
         { AC_MAXHV,       MF_STRING,          l10n->InputActionMaximizeHV},

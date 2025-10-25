@@ -100,6 +100,7 @@
     ACVALUE(AC_MINIMIZE,     "Minimize",    MR) \
     ACVALUE(AC_MAXIMIZE,     "Maximize",    MR) \
     ACVALUE(AC_CENTER,       "Center",      MR) \
+    ACVALUE(AC_CENTER2,      "Center2",     MR) \
     ACVALUE(AC_ALWAYSONTOP,  "AlwaysOnTop", ZO) \
     ACVALUE(AC_CLOSE,        "Close",       CL) \
     ACVALUE(AC_LOWER,        "Lower",       ZO) \

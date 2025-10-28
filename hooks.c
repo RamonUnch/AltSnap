@@ -6436,7 +6436,7 @@ void registerAllHotkeys(const TCHAR* inipath)
 
     conf.UsePtWindow = GetSectionOptionInt(inisection, "UsePtWindow", 0);
 
-    #define ACVALUE(a, b, c) (b),
+    #define ACVALUE(a, b, c) (#b),
     static const char *action_names[] = { ACTION_MAP };
     #undef ACVALUE
     unsigned ac;

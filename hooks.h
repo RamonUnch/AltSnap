@@ -90,89 +90,89 @@
 #define WM_GETZONES       (WM_USER+20)
 
 // List of possible actions
-// ACVALUE(AC_ENUM, "IniString", Info)
+// ACVALUE(AC_ENUM, IniString, Info)
 #define ACTION_MAP \
-    ACVALUE(AC_NONE=0,       "Nothing",     00) \
-    ACVALUE(AC_MOVE,         "Move",        MR) \
-    ACVALUE(AC_RESIZE,       "Resize",      MR) \
-    ACVALUE(AC_RESTORE,      "Restore",     MR) \
-    ACVALUE(AC_MENU,         "Menu",        CL) \
-    ACVALUE(AC_MINIMIZE,     "Minimize",    MR) \
-    ACVALUE(AC_MAXIMIZE,     "Maximize",    MR) \
-    ACVALUE(AC_CENTER,       "Center",      MR) \
-    ACVALUE(AC_CENTER2,      "Center2",     MR) \
-    ACVALUE(AC_ALWAYSONTOP,  "AlwaysOnTop", ZO) \
-    ACVALUE(AC_CLOSE,        "Close",       CL) \
-    ACVALUE(AC_LOWER,        "Lower",       ZO) \
-    ACVALUE(AC_FOCUS,        "Focus",       ZO) \
-    ACVALUE(AC_BORDERLESS,   "Borderless",  00) \
-    ACVALUE(AC_KILL,         "Kill",        CL) \
-    ACVALUE(AC_PAUSE,        "Pause",       CL) \
-    ACVALUE(AC_RESUME,       "Resume",      CL) \
-    ACVALUE(AC_MAXHV,        "MaximizeHV",  MR) \
-    ACVALUE(AC_MINALL,       "MinAllOther", 00) \
-    ACVALUE(AC_MUTE,         "Mute",        00) \
-    ACVALUE(AC_SIDESNAP,     "SideSnap",    MR) \
-    ACVALUE(AC_EXTENDSNAP,   "ExtendSnap",  MR) \
-    ACVALUE(AC_EXTENDTNEDGE, "ExtendTNEdge",MR) \
-    ACVALUE(AC_MOVETNEDGE,   "MoveTNEdge",  MV) \
-    ACVALUE(AC_NSTACKED,     "NStacked",    ZO) \
-    ACVALUE(AC_NSTACKED2,    "NStacked2",   ZO) \
-    ACVALUE(AC_PSTACKED,     "PStacked",    ZO) \
-    ACVALUE(AC_PSTACKED2,    "PStacked2",   ZO) \
-    ACVALUE(AC_STACKLIST,    "StackList",   CL) \
-    ACVALUE(AC_STACKLIST2,   "StackList2",  CL) \
-    ACVALUE(AC_ALTTABLIST,   "AltTabList",  CL) \
-    ACVALUE(AC_ALTTABFULLLIST, "AltTabFullList",  CL) \
-    ACVALUE(AC_ASONOFF,      "ASOnOff",     CL) \
-    ACVALUE(AC_MOVEONOFF,    "MoveOnOff",   CL) \
+    ACVALUE(AC_NONE=0,       Nothing,     00) \
+    ACVALUE(AC_MOVE,         Move,        MR) \
+    ACVALUE(AC_RESIZE,       Resize,      MR) \
+    ACVALUE(AC_RESTORE,      Restore,     MR) \
+    ACVALUE(AC_MENU,         Menu,        CL) \
+    ACVALUE(AC_MINIMIZE,     Minimize,    MR) \
+    ACVALUE(AC_MAXIMIZE,     Maximize,    MR) \
+    ACVALUE(AC_CENTER,       Center,      MR) \
+    ACVALUE(AC_CENTER2,      Center2,     MR) \
+    ACVALUE(AC_ALWAYSONTOP,  AlwaysOnTop, ZO) \
+    ACVALUE(AC_CLOSE,        Close,       CL) \
+    ACVALUE(AC_LOWER,        Lower,       ZO) \
+    ACVALUE(AC_FOCUS,        Focus,       ZO) \
+    ACVALUE(AC_BORDERLESS,   Borderless,  00) \
+    ACVALUE(AC_KILL,         Kill,        CL) \
+    ACVALUE(AC_PAUSE,        Pause,       CL) \
+    ACVALUE(AC_RESUME,       Resume,      CL) \
+    ACVALUE(AC_MAXHV,        MaximizeHV,  MR) \
+    ACVALUE(AC_MINALL,       MinAllOther, 00) \
+    ACVALUE(AC_MUTE,         Mute,        00) \
+    ACVALUE(AC_SIDESNAP,     SideSnap,    MR) \
+    ACVALUE(AC_EXTENDSNAP,   ExtendSnap,  MR) \
+    ACVALUE(AC_EXTENDTNEDGE, ExtendTNEdge,MR) \
+    ACVALUE(AC_MOVETNEDGE,   MoveTNEdge,  MV) \
+    ACVALUE(AC_NSTACKED,     NStacked,    ZO) \
+    ACVALUE(AC_NSTACKED2,    NStacked2,   ZO) \
+    ACVALUE(AC_PSTACKED,     PStacked,    ZO) \
+    ACVALUE(AC_PSTACKED2,    PStacked2,   ZO) \
+    ACVALUE(AC_STACKLIST,    StackList,   CL) \
+    ACVALUE(AC_STACKLIST2,   StackList2,  CL) \
+    ACVALUE(AC_ALTTABLIST,   AltTabList,  CL) \
+    ACVALUE(AC_ALTTABFULLLIST, AltTabFullList,  CL) \
+    ACVALUE(AC_ASONOFF,      ASOnOff,     CL) \
+    ACVALUE(AC_MOVEONOFF,    MoveOnOff,   CL) \
     \
-    ACVALUE(AC_MLZONE, "MLZone", MR) \
-    ACVALUE(AC_MTZONE, "MTZone", MR) \
-    ACVALUE(AC_MRZONE, "MRZone", MR) \
-    ACVALUE(AC_MBZONE, "MBZone", MR) \
-    ACVALUE(AC_XLZONE, "XLZone", MR) \
-    ACVALUE(AC_XTZONE, "XTZone", MR) \
-    ACVALUE(AC_XRZONE, "XRZone", MR) \
-    ACVALUE(AC_XBZONE, "XBZone", MR) \
+    ACVALUE(AC_MLZONE, MLZone, MR) \
+    ACVALUE(AC_MTZONE, MTZone, MR) \
+    ACVALUE(AC_MRZONE, MRZone, MR) \
+    ACVALUE(AC_MBZONE, MBZone, MR) \
+    ACVALUE(AC_XLZONE, XLZone, MR) \
+    ACVALUE(AC_XTZONE, XTZone, MR) \
+    ACVALUE(AC_XRZONE, XRZone, MR) \
+    ACVALUE(AC_XBZONE, XBZone, MR) \
     \
-    ACVALUE(AC_XTNLEDGE, "XTNLEdge", MR) \
-    ACVALUE(AC_XTNTEDGE, "XTNTEdge", MR) \
-    ACVALUE(AC_XTNREDGE, "XTNREdge", MR) \
-    ACVALUE(AC_XTNBEDGE, "XTNBEdge", MR) \
-    ACVALUE(AC_MTNLEDGE, "MTNLEdge", MV) \
-    ACVALUE(AC_MTNTEDGE, "MTNTEdge", MV) \
-    ACVALUE(AC_MTNREDGE, "MTNREdge", MV) \
-    ACVALUE(AC_MTNBEDGE, "MTNBEdge", MV) \
+    ACVALUE(AC_XTNLEDGE, XTNLEdge, MR) \
+    ACVALUE(AC_XTNTEDGE, XTNTEdge, MR) \
+    ACVALUE(AC_XTNREDGE, XTNREdge, MR) \
+    ACVALUE(AC_XTNBEDGE, XTNBEdge, MR) \
+    ACVALUE(AC_MTNLEDGE, MTNLEdge, MV) \
+    ACVALUE(AC_MTNTEDGE, MTNTEdge, MV) \
+    ACVALUE(AC_MTNREDGE, MTNREdge, MV) \
+    ACVALUE(AC_MTNBEDGE, MTNBEdge, MV) \
     \
-    ACVALUE(AC_STEPL,  "StepL",  MR) \
-    ACVALUE(AC_STEPT,  "StepT",  MR) \
-    ACVALUE(AC_STEPR,  "StepR",  MR) \
-    ACVALUE(AC_STEPB,  "StepB",  MR) \
-    ACVALUE(AC_SSTEPL, "SStepL", MR) \
-    ACVALUE(AC_SSTEPT, "SStepT", MR) \
-    ACVALUE(AC_SSTEPR, "SStepR", MR) \
-    ACVALUE(AC_SSTEPB, "SStepB", MR) \
+    ACVALUE(AC_STEPL,  StepL,  MR) \
+    ACVALUE(AC_STEPT,  StepT,  MR) \
+    ACVALUE(AC_STEPR,  StepR,  MR) \
+    ACVALUE(AC_STEPB,  StepB,  MR) \
+    ACVALUE(AC_SSTEPL, SStepL, MR) \
+    ACVALUE(AC_SSTEPT, SStepT, MR) \
+    ACVALUE(AC_SSTEPR, SStepR, MR) \
+    ACVALUE(AC_SSTEPB, SStepB, MR) \
     \
-    ACVALUE(AC_FOCUSL,  "FocusL",  ZO) \
-    ACVALUE(AC_FOCUST,  "FocusT",  ZO) \
-    ACVALUE(AC_FOCUSR,  "FocusR",  ZO) \
-    ACVALUE(AC_FOCUSB,  "FocusB",  ZO) \
+    ACVALUE(AC_FOCUSL,  FocusL,  ZO) \
+    ACVALUE(AC_FOCUST,  FocusT,  ZO) \
+    ACVALUE(AC_FOCUSR,  FocusR,  ZO) \
+    ACVALUE(AC_FOCUSB,  FocusB,  ZO) \
     \
-    ACVALUE(AC_NLAYOUT,  "NLayout",  00) \
-    ACVALUE(AC_PLAYOUT,  "PLayout",  00) \
+    ACVALUE(AC_NLAYOUT,  NLayout,  00) \
+    ACVALUE(AC_PLAYOUT,  PLayout,  00) \
     \
-    ACVALUE(AC_NPLAYOUT,     "NPLayout",     00) \
-    ACVALUE(AC_ROLL,         "Roll",         MR) \
-    ACVALUE(AC_ALTTAB,       "AltTab",       ZO) \
-    ACVALUE(AC_VOLUME,       "Volume",       00) \
- /* ACVALUE(AC_BRIGHTNESS,   "Brightness",   00) */ \
-    ACVALUE(AC_TRANSPARENCY, "Transparency", 00) \
-    ACVALUE(AC_HSCROLL,      "HScroll",      00) \
-    ACVALUE(AC_ZOOM,         "Zoom",         MR) \
-    ACVALUE(AC_ZOOM2,        "Zoom2",        MR) \
-    ACVALUE(AC_NPSTACKED,    "NPStacked",    ZO) \
-    ACVALUE(AC_NPSTACKED2,   "NPStacked2",   ZO)
+    ACVALUE(AC_NPLAYOUT,     NPLayout,     00) \
+    ACVALUE(AC_ROLL,         Roll,         MR) \
+    ACVALUE(AC_ALTTAB,       AltTab,       ZO) \
+    ACVALUE(AC_VOLUME,       Volume,       00) \
+ /* ACVALUE(AC_BRIGHTNESS,   Brightness,   00) */ \
+    ACVALUE(AC_TRANSPARENCY, Transparency, 00) \
+    ACVALUE(AC_HSCROLL,      HScroll,      00) \
+    ACVALUE(AC_ZOOM,         Zoom,         MR) \
+    ACVALUE(AC_ZOOM2,        Zoom2,        MR) \
+    ACVALUE(AC_NPSTACKED,    NPStacked,    ZO) \
+    ACVALUE(AC_NPSTACKED2,   NPStacked2,   ZO)
 
 #define ACVALUE(a, b, c) a,
 enum action { ACTION_MAP AC_MAXVALUE, AC_SHRT0, AC_SHRTF=AC_SHRT0+36, AC_ORICLICK };
@@ -258,7 +258,7 @@ static char *ZidxToZonestrA(int laynum, int idx, char zname[AT_LEAST 32])
 // Map action string to actual action enum
 static enum action MapActionW(const TCHAR *txt)
 {
-    #define ACVALUE(a, b, c) (b),
+    #define ACVALUE(a, b, c) (#b),
     static const char *action_map[] = { ACTION_MAP };
     #undef ACVALUE
     UCHAR ac;

@@ -1862,6 +1862,12 @@ static int NumKeysDown()
     return keys;
 }
 
+// Double check if Ctrl is down
+static int IsCtrlDown()
+{
+    return state.ctrl && GetAsyncKeyState(VK_CONTROL)&0x8000;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // index 1 => normal restore on any move restore & 1
 // restore & 3 => Both 1 & 2 ie: Maximized then rolled.
@@ -1938,7 +1944,7 @@ static void ClipCursorOnce(const RECT *clip)
 static void RestrictCursorToMon()
 {
     // Restrict pt within origin monitor if Ctrl is being pressed
-    if (state.ctrl) {
+    if (IsCtrlDown()) {
         static HMONITOR origMonitor;
         static RECT fmon;
         if (origMonitor != state.origin.monitor || !state.origin.monitor) {
@@ -2193,7 +2199,7 @@ static void MouseMoveNow(POINT pt)
         // Figure out new placement
         if (state.resize.x == RZ_XCENTER && state.resize.y == RZ_YCENTER) {
             if (state.shift) pt.x = state.shiftpt.x;
-            else if (state.ctrl) pt.y = state.ctrlpt.y;
+            else if (IsCtrlDown()) pt.y = state.ctrlpt.y;
             wndwidth  = wnd.right-wnd.left + 2*(pt.x-state.offset.x);
             wndheight = wnd.bottom-wnd.top + 2*(pt.y-state.offset.y);
             posx = wnd.left - (pt.x - state.offset.x) - state.mdipt.x;
@@ -3292,7 +3298,7 @@ static void ActionLower(HWND hwnd, short delta, UCHAR shift, UCHAR fg)
             SetWindowLevel(hwnd, HWND_TOPMOST);
             SetWindowLevel(hwnd, HWND_NOTOPMOST);
         }
-    } else if (delta == 0 && (state.ctrl || IsAeraCapbutton(state.hittest))) {
+    } else if (delta == 0 && (IsCtrlDown() || IsAeraCapbutton(state.hittest))) {
         // turn lower in *Always on top* if Ctrl or [_][O][X]
         TogglesAlwaysOnTop(hwnd);
     } else {
@@ -3315,7 +3321,7 @@ static void ActionMaxRestMin(HWND hwnd, int delta)
 {
     int maximized = IsZoomed(hwnd);
     if (state.shift) {
-        ActionLower(hwnd, delta, 0, state.ctrl);
+        ActionLower(hwnd, delta, 0, IsCtrlDown());
         return;
     }
 
@@ -3541,7 +3547,7 @@ static int ActionZoom(HWND hwnd, short delta, short center)
     int div = state.shift ? conf.ZoomFracShift: conf.ZoomFrac;
     // We increase/decrease at least 1 pixel or SnapThreshold/2.
     UCHAR T = state.shift? 1: conf.SnapThreshold/2+1;
-    UCHAR CT = !center ^ !state.ctrl
+    UCHAR CT = !center ^ !IsCtrlDown()
              || (state.resize.x == RZ_XCENTER && state.resize.y == RZ_YCENTER);
 
     if (!conf.AutoSnap
@@ -3623,7 +3629,7 @@ static int ActionMove(POINT pt, int button)
         LastWin.hwnd = NULL;
         if (state.shift) {
             RollWindow(state.hwnd, 0); // Roll/Unroll Window...
-        } else if (state.ctrl) {
+        } else if (IsCtrlDown()) {
             MinimizeWindow(state.hwnd);
         } else if (state.resizable) {
             // Toggle Maximize window
@@ -3846,7 +3852,7 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
             restore &= ~SNLEFT;
             if(resize.y == RZ_YCENTER) {
                 restore |= SNMAXH;
-                if(state.ctrl) {
+                if(IsCtrlDown()) {
                     LastWin.hwnd = NULL;
                     ToggleMaxRestore(hwnd);
                     return;
@@ -4765,7 +4771,7 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_CENTER2:     CenterWindow(hwnd, !state.shift, /*full*/ 1); break;
     case AC_ALWAYSONTOP: TogglesAlwaysOnTop(hwnd); break;
     case AC_CLOSE:       PostMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0); break;
-    case AC_LOWER:       ActionLower(hwnd, 0, state.shift, state.ctrl); break;
+    case AC_LOWER:       ActionLower(hwnd, 0, state.shift, IsCtrlDown()); break;
     case AC_FOCUS:       ActionLower(hwnd, +120, state.shift, 1); break;
     case AC_BORDERLESS:  ActionBorderless(hwnd); break;
     case AC_KILL:        ActionKill(hwnd); break;
@@ -4849,7 +4855,7 @@ static int DoWheelActions(HWND hwnd, enum action action)
                              , state.shift?EnumStackedWindowsProc:EnumAltTabWindows); break;
     case AC_VOLUME:       ActionVolume(state.delta); break;
     case AC_TRANSPARENCY: ret = ActionTransparency(hwnd, state.delta); break;
-    case AC_LOWER:        ActionLower(hwnd, state.delta, state.shift, state.ctrl); break;
+    case AC_LOWER:        ActionLower(hwnd, state.delta, state.shift, IsCtrlDown()); break;
     case AC_MAXIMIZE:     ActionMaxRestMin(hwnd, state.delta); break;
     case AC_ROLL:         RollWindow(hwnd, state.delta); break;
     case AC_HSCROLL:      ret = ScrollPointedWindow(state.prevpt, -state.delta, WM_MOUSEHWHEEL); break;
@@ -4994,7 +5000,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
             return 0; // Movement was disabled for this window.
         }
         // AutoFocus on movement/resize.
-        if (conf.AutoFocus || state.ctrl) {
+        if (conf.AutoFocus || IsCtrlDown()) {
             SetForegroundWindowL(state.hwnd);
         }
         if (conf.DragSendsAltCtrl
@@ -5495,7 +5501,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         &&( state.action == action || (state.action == AC_MOVE && action == AC_RESIZE))
         &&(!state.moving || state.moving == DRAG_WAIT)// No drag occured
         &&  state.sactiondone <= AC_RESIZE // Only move/resize may have happened in the meantime
-        && !state.ctrl // Ctrl is not down (because of focusing)
+        && !IsCtrlDown() // Ctrl is not down (because of focusing)
         && IsSamePTT(&pt, &state.clickpt) // same point (within drag)
         && !IsDoubleClick(button)) { // Long click unless PiercingClick=1
             FinishMovementAsync();

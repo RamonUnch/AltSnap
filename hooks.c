@@ -272,6 +272,8 @@ static struct config {
     UCHAR HScrollKey[MAXKEYS+1];
     UCHAR ESCkeys[MAXKEYS+1];
 
+    UCHAR MenuAccelMap[46 + 1];
+
     enum action Mouse[NACPB*(20+4)]; // Up to 20 buttons + vertical and horizontal wheels D/U;
     enum action GrabWithAlt[NACPB]; // Actions without click
     enum action MoveUp[NACPB];      // Actions on (long) Move Up w/o drag
@@ -4424,10 +4426,20 @@ static void StepWindow(HWND hwnd, short step, UCHAR direction)
 // And Track it!!!!
 static TCHAR Int2Accel(int i)
 {
-    if (conf.NumberMenuItems)
-        return i<10? TEXT('0')+i: TEXT('A')+i-10;
-    else
-        return i<26? TEXT('A')+i: TEXT('0')+i-26;
+//    WORD buf[4] = { 0 };
+//    static const UCHAR bytes[256] = { 0 };
+//    UINT vk = conf.MenuAccelMap[i];
+//    if (ToAscii(vk, 0, bytes, buf, 0))
+//        return buf[0];
+    //return MapVirtualKey(conf.MenuAccelMap[i], MAPVK_VK_TO_CHAR);    
+    return conf.MenuAccelMap[i];
+}
+static WORD Accel2Int(UCHAR c)
+{
+    for (size_t i = 0; i < ARR_SZ(conf.MenuAccelMap)-1; i++)
+        if (conf.MenuAccelMap[i] == c)
+            return (WORD)i;
+    return (WORD)0xFFFF;
 }
 #include <oleacc.h>
 struct menuitemdata {
@@ -5970,28 +5982,15 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return DrawMenuItem(hwnd, wParam, lParam, dpi, mfont);
 
     case WM_MENUCHAR: {
-//        LOGA("WM_MENUCHAR: %X", wParam);
         // Turn the input character into a menu identifier.
         WORD cc = LOWORD(wParam);
-        TCHAR c = (TCHAR)( cc  |  (('A' <= cc && cc <= 'Z')<<5) );
+        UCHAR vK = (UCHAR)VkKeyScan(cc); // Get the virtual key code.
+        //LOGA("WM_MENUCHAR: %X => ch: %X, vK: %X", wParam, (DWORD)cc, (DWORD)vK);
+        //TCHAR c = (TCHAR)( cc  |  (('A' <= cc && cc <= 'Z')<<5) );
         if (cc==VK_ESCAPE) return MNC_CLOSE<<16;
         if (GetWindowLongPtr(hwnd, GWLP_USERDATA) == 3) {
-            int closewindow=0;
-            WORD item;
-            if (conf.NumberMenuItems) {
-                // Lower case the input character.
-                // O-9 then A-Z
-                item = ('0' <= c && c <= '9')? c-'0'
-                     : ('a' <= c && c <= 'z')? c-'a'+10
-                     : 0xFFFF;
-            } else {
-                // A-Z then 0-9
-                // If UPPERCASE
-                closewindow = conf.RCCloseMItem && 'A' <= cc && cc <= 'Z' && GetKeyState(VK_SHIFT)&0x8000;
-                item = ('a' <= c && c <= 'z')? c-'a'
-                     : ('0' <= c && c <= '9')? c-'0'+26
-                     : 0xFFFF;
-            }
+            UCHAR closewindow = !conf.NumberMenuItems && conf.RCCloseMItem && GetKeyState(VK_SHIFT)&0x8000;;
+            WORD item = Accel2Int(vK);
             // Execute item if the key is valid.
             if (item != 0xFFFF && item <=  numhwnds) {
                 if (closewindow)
@@ -6619,6 +6618,18 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
     UCHAR eHKs[MAXKEYS+1]; // Key to be sent at the end of a movment.
     readhotkeys(inisection, "EndSendKey", TEXT("11"), eHKs, MAXKEYS);
     conf.EndSendKey = eHKs[0];
+    
+    // Window List accelerator map
+    int nb = readhotkeys(inisection, "MenuAccelMap", NULL, conf.MenuAccelMap, ARR_SZ(conf.MenuAccelMap) - 1);
+    
+    // Fill the rest with usual accelerators
+    for (i=nb; i < ARR_SZ(conf.MenuAccelMap); i++) {
+        if (conf.NumberMenuItems)
+            conf.MenuAccelMap[i] = i<10? TEXT('0')+i: TEXT('A')+i-10;
+        else
+            conf.MenuAccelMap[i] = i<26? TEXT('A')+i: TEXT('0')+i-26;
+    }
+    conf.MenuAccelMap[ARR_SZ(conf.MenuAccelMap) - 1] = 0;
 
     // Read User Shortcuts/InputSequences
     readallinputSequences(inisection);

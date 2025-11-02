@@ -272,7 +272,7 @@ static struct config {
     UCHAR HScrollKey[MAXKEYS+1];
     UCHAR ESCkeys[MAXKEYS+1];
 
-    UCHAR MenuAccelMap[46 + 1];
+    UCHAR MenuAccelMap[36 + 1]; UCHAR pad0[3];
 
     enum action Mouse[NACPB*(20+4)]; // Up to 20 buttons + vertical and horizontal wheels D/U;
     enum action GrabWithAlt[NACPB]; // Actions without click
@@ -4426,12 +4426,6 @@ static void StepWindow(HWND hwnd, short step, UCHAR direction)
 // And Track it!!!!
 static TCHAR Int2Accel(int i)
 {
-//    WORD buf[4] = { 0 };
-//    static const UCHAR bytes[256] = { 0 };
-//    UINT vk = conf.MenuAccelMap[i];
-//    if (ToAscii(vk, 0, bytes, buf, 0))
-//        return buf[0];
-    //return MapVirtualKey(conf.MenuAccelMap[i], MAPVK_VK_TO_CHAR);    
     return conf.MenuAccelMap[i];
 }
 static WORD Accel2Int(UCHAR c)
@@ -6618,10 +6612,10 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
     UCHAR eHKs[MAXKEYS+1]; // Key to be sent at the end of a movment.
     readhotkeys(inisection, "EndSendKey", TEXT("11"), eHKs, MAXKEYS);
     conf.EndSendKey = eHKs[0];
-    
+
     // Window List accelerator map
     int nb = readhotkeys(inisection, "MenuAccelMap", NULL, conf.MenuAccelMap, ARR_SZ(conf.MenuAccelMap) - 1);
-    
+
     // Fill the rest with usual accelerators
     for (i=nb; i < ARR_SZ(conf.MenuAccelMap); i++) {
         if (conf.NumberMenuItems)

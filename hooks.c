@@ -2113,6 +2113,15 @@ static void MouseMoveNow(POINT pt)
     if (!IsWindow(state.hwnd))
         { LastWin.hwnd = NULL; UnhookMouse(); return; }
 
+    // Ensure the point is in its clip rectangle (Windows bug)
+    RECT clip;
+    if (GetClipCursor(&clip)) {
+        pt.x = CLAMP(clip.left, pt.x, clip.right-1);
+        pt.y = CLAMP(clip.top, pt.y, clip.bottom-1);
+        //if(!PtInRect(&clip, pt))
+        //  LOGA("WTF pt=%d,%d not in ClipRect=%d,%d,%d,%d", pt.x, pt.y, clip.left, clip.top, clip.right, clip.bottom);
+    }
+
     if (conf.UseCursor) // Draw the invisible cursor window
         MoveWindow(g_mainhwnd, pt.x-128, pt.y-128, 256, 256, FALSE);
 

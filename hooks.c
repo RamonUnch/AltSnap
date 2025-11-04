@@ -4418,13 +4418,13 @@ static void StepWindow(HWND hwnd, short step, UCHAR direction)
 
     if (direction==0) {
         x += step; // x-axis
-        if (threshold) MoveSnap(&x, &y, width, height, threshold);
+        MoveSnap(&x, &y, width, height, threshold);
         y = rc.top; // y does not change.
         rc.left = x;
         rc.right = x + width;
     } else {
         y += step; // y-axis;
-        if (threshold) MoveSnap(&x, &y, width, height, threshold);
+        MoveSnap(&x, &y, width, height, threshold);
         x = rc.left; // x does not change.
         rc.top = y;
         rc.bottom = y + height;

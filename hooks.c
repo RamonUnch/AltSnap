@@ -2771,8 +2771,9 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 if (action) return 1;
             }
         } else if (!state.ctrl
-               && state.alt!=vkey
+               && (state.alt!=vkey) /* avoid cursor trapping at first Ctrl dwn if Ctrl was used as hotkey */
                && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)
+               && (!IsHotkey(vkey) || state.action != AC_NONE) /* If Ctrl is an hotkey, skip unless already moving */
                && !(kbh->scanCode&SCANCODE_SIMULATED) /* Ignore ALT GR Scan Code (&0x0200) */
                && !IsModKey(vkey)/*vkey != conf.ModKey*/ ) {
             RestrictToCurentMonitor();

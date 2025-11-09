@@ -61,7 +61,7 @@ enum button { BT_NONE=0, BT_LMB=0x02, BT_RMB=0x03, BT_MMB=0x04, BT_MB4=0x05
             , BT_MB9=0x0A,  BT_MB10=0x0B, BT_MB11=0x0C, BT_MB12=0x0D
             , BT_MB13=0x0E, BT_MB14=0x0F, BT_MB15=0x10, BT_MB16=0x11
             , BT_MB17=0x12, BT_MB18=0x13, BT_MB19=0x14, BT_MB20=0x15
-            , BT_WHEELD=0x16, BT_WHEELU=0x17, BT_HWHEELU=0x18, BT_HWHEELD=0x19 };
+            , BT_WHEELD=0x16, BT_WHEELU=0x17, BT_HWHEELD=0x18, BT_HWHEELU=0x19 };
 enum resizeX { RZ_XNONE=0, RZ_LEFT=1, RZ_RIGHT= 2, RZ_XCENTER=3 };
 enum resizeY { RZ_YNONE=0, RZ_TOP= 1, RZ_BOTTOM=2, RZ_YCENTER=3 };
 enum buttonstate {STATE_NONE, STATE_DOWN, STATE_UP};
@@ -4893,7 +4893,7 @@ static int DoWheelActions(HWND hwnd, enum action action)
     }break;
     }
     // ret is 0: next hook or 1: block whel and AltUp.
-    state.blockaltup = ret && state.alt > BT_HWHEELD; // block or not;
+    state.blockaltup = ret && state.alt > BT_HWHEELU; // block or not;
     return ret; // block or next hook
 }
 

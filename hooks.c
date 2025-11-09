@@ -2716,7 +2716,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                     state.blockmouseup = 0; // In case.
                 }
             }
-        } else if (conf.KeyCombo && !state.alt1 && IsHotkey(vkey)) {
+        } else if (conf.KeyCombo && !state.alt1 && !state.action && IsHotkey(vkey)) {
             state.alt1 = vkey;
 
         } else if (IsHotkeyy(vkey, conf.Shiftkeys)) {
@@ -2773,7 +2773,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
         } else if (!state.ctrl
                && (state.alt!=vkey) /* avoid cursor trapping at first Ctrl dwn if Ctrl was used as hotkey */
                && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)
-               && (!IsHotkey(vkey) || state.action != AC_NONE) /* If Ctrl is an hotkey, skip unless already moving */
+               && (!IsHotkey(vkey) || state.action) /* If Ctrl is an hotkey, skip unless already moving */
                && !(kbh->scanCode&SCANCODE_SIMULATED) /* Ignore ALT GR Scan Code (&0x0200) */
                && !IsModKey(vkey)/*vkey != conf.ModKey*/ ) {
             RestrictToCurentMonitor();
@@ -2854,17 +2854,20 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             // If there is more that one key down remaining
             // then we must block the next alt up.
             if (NumKeysDown() > 1) state.blockaltup = 1;
-        } else if (vkey == VK_LCONTROL || vkey == VK_RCONTROL) {
-            // If menu is present inform it that we released Ctrl.
-            //if (state.unikeymenu) PostMessage(g_mchwnd, WM_CLOSEMODE, 0, 0);
-            ClipCursorOnce(NULL); // Release cursor trapping
-            state.ctrl = 0;
-       // If there is no action then Control UP prevents AltDragging...
-            if (!state.action) state.alt = 0;
         } else if ((xxbtidx = XXButtonIndex(vkey)) >=0 ) {
             state.xxbutton = 0;
             SimulateXButton(WM_XBUTTONUP, xxbtidx);
             return 1;
+        }
+
+        // Always process Ctrl Up.
+        if (vkey == VK_LCONTROL || vkey == VK_RCONTROL) {
+            // If menu is present inform it that we released Ctrl.
+            //if (state.unikeymenu) PostMessage(g_mchwnd, WM_CLOSEMODE, 0, 0);
+            ClipCursorOnce(NULL); // Release cursor trapping
+            state.ctrl = 0;
+            // If there is no ongoing action then Control UP prevents AltDragging...
+            if (!state.action) state.alt = 0;
         }
     }
 

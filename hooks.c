@@ -5805,9 +5805,8 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi, H
     SetTextColor(di->hDC, GetSysColor(txcol));
 
     // Highlight menu entry
-    HPEN oldpen=(HPEN)SelectObject(di->hDC, GetStockObject(NULL_PEN));
-    HBRUSH oldbrush=(HBRUSH)SelectObject(di->hDC, bgbrush);
-    Rectangle(di->hDC, di->rcItem.left, di->rcItem.top, di->rcItem.right+1, di->rcItem.bottom+1);
+    //RECT bgrc; CopyRect(&bgrc, &di->rcItem); bgrc.bottom+=1; bgrc.left+=1;
+    FillRect(di->hDC, &di->rcItem, bgbrush);
 
     HFONT oldfont=(HFONT)SelectObject(di->hDC, mfont);
 
@@ -5854,8 +5853,6 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi, H
 
     // Restore dc context
     SelectObject(di->hDC, oldfont); // restore old font
-    SelectObject(di->hDC, oldpen);
-    SelectObject(di->hDC, oldbrush);
 
     return TRUE;
 }

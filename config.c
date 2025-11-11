@@ -395,7 +395,7 @@ static HWND CreateInfoTip(HWND hDlg, int toolID, const TCHAR * const pszText)
 
     TCHAR buf[16];
     if (GetClassName(hwndTool, buf, ARR_SZ(buf)) > 0
-    &&  !lstrcmp(TEXT("Static"), buf)) {
+    &&  !lstrcmpi(TEXT("Static"), buf)) {
         // Use the RECT for STATIC controls
         toolInfo.uFlags = TTF_SUBCLASS;
         GetWindowRect(hwndTool, &toolInfo.rect);
@@ -612,7 +612,7 @@ INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
             // Load selected Language
             int i = CB_GetCurSelId(IDC_LANGUAGE);
-            if (i < nlanguages && langinfo && lstrcmp(l10n->Code, langinfo[i].code)) {
+            if (i < nlanguages && langinfo && lstrcmpi(l10n->Code, langinfo[i].code)) {
                 LoadTranslation(langinfo[i].fn);
                 #ifdef UNICODE
                 wchar_t curlang[16];
@@ -777,7 +777,7 @@ static void FillActionDropListS(HWND hwnd, int idc, TCHAR *inioption, const stru
         TCHAR action_name[256];
         lstrcpy_noaccel(action_name, L10NSTR(actions[j].l10nidx), ARR_SZ(action_name));
         CB_AddString(control, action_name);
-        if (inioption && !lstrcmp(txt, actions[j].action)) {
+        if (inioption && !lstrcmpi(txt, actions[j].action)) {
             sel = j;
         }
     }
@@ -1373,7 +1373,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 TCHAR key_name[256];
                 lstrcpy_noaccel(key_name, L10NSTR(togglekeys[j].l10nidx), ARR_SZ(key_name));
                 CB_AddString(control, key_name);
-                if (!lstrcmp(txt, togglekeys[j].action)) {
+                if (!lstrcmpi(txt, togglekeys[j].action)) {
                     sel = j;
                 }
             }
@@ -1720,18 +1720,26 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_SYSKEYUP:
     case WM_SYSKEYDOWN:
     PRINTT: {
+        enum { invalidate_all, invalidate_lastline, invalidate_nothing };
         TCHAR txt[32];
         struct lastkeyss *lks = (struct lastkeyss *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
         if (!lks) break;
         int idx = lks->idx;
         TCHAR (*lastkey)[MAXLL] = lks->lastkey;
+        char zone_to_invalidate = invalidate_all;
 
         if (!buttonstr) {
             // Key
             if (lParam&(1u<<30) && wParam == lks->pWP && lParam == lks->pLP) {
                 // Same key repeated, Append dost to the previous idx.
                 idx = (idx - 1 + MAXLINES) % MAXLINES;
-                lstrcat_s(lastkey[idx], MAXLL, TEXT("."));
+                if (lstrlen(lastkey[idx]) == MAXLL-1) {
+                    zone_to_invalidate = invalidate_nothing;
+                } else {
+                    lstrcat_s(lastkey[idx], MAXLL, TEXT("."));
+                    zone_to_invalidate = invalidate_lastline;
+                }
+
             } else {
                 lstrcpy_s(lastkey[idx], MAXLL, TEXT("vK="));
                 lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, (BYTE)wParam));
@@ -1766,17 +1774,19 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             lstrcat_s(lastkey[idx], MAXLL, TEXT("), WP="));
             lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, wParam));
         }
-        RECT crc;
-        GetClientRect(hwnd, &crc);
-        long lineheight = MulDiv(11, ReallyGetDpiForWindow(hwnd), 72);
-        lineheight = lineheight + lineheight/8;
 
-        long splitheight = crc.bottom-lineheight*MAXLINES;
-        RECT trc =  { lineheight/2, splitheight, crc.right, crc.bottom };
-        InvalidateRect(hwnd, &trc, TRUE);
+        if (zone_to_invalidate != invalidate_nothing) {
+            RECT crc;
+            GetClientRect(hwnd, &crc);
+            long lineheight = MulDiv(11, ReallyGetDpiForWindow(hwnd), 72);
+            lineheight = lineheight + lineheight/8;
+            long splitheight = zone_to_invalidate == invalidate_lastline ? crc.bottom-lineheight : crc.bottom-lineheight*MAXLINES;
+            RECT trc =  { lineheight/2, splitheight, crc.right, crc.bottom };
+            InvalidateRect(hwnd, &trc, FALSE);
+        }
         idx++;
         // Save to the lks struct
-        idx = idx%MAXLINES;
+        idx = idx % MAXLINES;
         lks->idx = idx;
         lks->pMSG = msg;
         lks->pWP = wParam;

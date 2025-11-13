@@ -424,11 +424,11 @@ HHOOK mousehook = NULL;
 // To clamp width and height of windows
 static pure int CLAMPW(int width)  { return CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x); }
 static pure int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state.mmi.Max.y); }
-static pure int CLAMPWL(int width, struct rgMMI *mmi)  { return CLAMP(mmi->Min.x, width,  mmi->Max.x); }
-static pure int CLAMPHL(int height, struct rgMMI *mmi) { return CLAMP(mmi->Min.y, height, mmi->Max.y); }
+static pure int CLAMPWL(int width, const struct rgMMI *mmi)  { return CLAMP(mmi->Min.x, width,  mmi->Max.x); }
+static pure int CLAMPHL(int height, const struct rgMMI *mmi) { return CLAMP(mmi->Min.y, height, mmi->Max.y); }
 
-static pure int ISCLAMPEDWL(int x, struct rgMMI *mmi)  { return mmi->Min.x <= x && x <= mmi->Max.x; }
-static pure int ISCLAMPEDHL(int y, struct rgMMI *mmi)  { return mmi->Min.y <= y && y <= mmi->Max.y; }
+static pure int ISCLAMPEDWL(int x, const struct rgMMI *mmi)  { return mmi->Min.x <= x && x <= mmi->Max.x; }
+static pure int ISCLAMPEDHL(int y, const struct rgMMI *mmi)  { return mmi->Min.y <= y && y <= mmi->Max.y; }
 
 /* If pt and ptt are it is the same points with 4px tolerence */
 static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
@@ -2568,6 +2568,7 @@ static int ScrollLockState()
 static void LogState(const char *Title)
 {
     FILE *f=fopen("ad.log", "a"); // append data...
+    if(!f) return;
     fputs(Title, f);
     fprintf(f,
         "action=%d\n"
@@ -3780,7 +3781,7 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
     // Get and set new position
     int posx, posy; // wndwidth and wndheight are defined above
     unsigned restore = 1;
-    RECT *mon = &state.origin.mon;
+    const RECT *mon = &state.origin.mon;
     RECT bd, wnd;
     GetWindowRect(hwnd, &wnd);
     SetEdgeAndOffset(&wnd, state.prevpt); // state.resize.x/y & state.offset.x/y
@@ -4977,7 +4978,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     if (blacklisted(state.hwnd, &BlkLst.Processes)
     || isClassName(state.hwnd, TEXT(APP_NAMEA)TEXT("-Pin"))
     ||(blacklisted(state.hwnd, &BlkLst.Windows)
-       && !state.hittest && button < BT_WHEELD && BT_HWHEELU > button
+       && !state.hittest && (button < BT_WHEELD /* || BT_HWHEELU > button*/)
       )// does not apply in titlebar, nor for the wheel action...
     || GetWindowPlacement(state.hwnd, &wndpl) == 0
     || GetWindowRect(state.hwnd, &wnd) == 0
@@ -6683,6 +6684,7 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
 
     // Create worker thread.
     g_WorkerThreadHANDLE = CreateThread(NULL, STACK, WorkerThread, NULL, STACK_SIZE_PARAM_IS_A_RESERVATION, &g_WorkerThreadID);
+    //SetThreadPriority(g_WorkerThreadHANDLE, THREAD_PRIORITY_BELOW_NORMAL);
 
     return HotKeysWinProc;
 }

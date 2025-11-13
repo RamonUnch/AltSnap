@@ -58,7 +58,7 @@ static void FreeHooksDLL()
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-int HookSystem()
+static int HookSystem()
 {
     if (keyhook) return 1; // System already hooked
     LOG("Going to Hook the system...");
@@ -103,8 +103,8 @@ int HookSystem()
     return 0;
 }
 /////////////////////////////////////////////////////////////////////////////
-int showerror = 1;
-int UnhookSystem()
+static int showerror = 1;
+static int UnhookSystem()
 {
     LOG("Going to UnHook the system...");
     if (!keyhook) { // System not hooked
@@ -289,7 +289,7 @@ static void ShowUnikeyMenu(HWND hwnd, LPARAM param)
     DestroyMenu(menu);
 }
 /////////////////////////////////////////////////////////////////////////////
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (!msg) {
         // In case some messages are not registered.
@@ -443,7 +443,7 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
         }
         // Full user ini name.
         //lstrcat_s(userini, ARR_SZ(userini), TEXT("\\AltSnap.ini"));
-        TCHAR *inifilename = inipath + inipath_len-3;
+        const TCHAR *inifilename = inipath + inipath_len-3;
         while (inifilename >= inipath && *inifilename != '\\') inifilename--;
         lstrcat_s(userini, ARR_SZ(userini), inifilename);
         if (INVALID_FILE_ATTRIBUTES == GetFileAttributes(userini)) {

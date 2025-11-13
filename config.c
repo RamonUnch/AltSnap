@@ -16,14 +16,14 @@
 #define PSH_NOCONTEXTHELP 0x02000000
 #endif
 
-BOOL    CALLBACK PropSheetProc(HWND, UINT, LPARAM);
-INT_PTR CALLBACK GeneralPageDialogProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK MousePageDialogProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK KeyboardPageDialogProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK BlacklistPageDialogProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK AboutPageDialogProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK AdvancedPageDialogProc(HWND, UINT, WPARAM, LPARAM);
-LRESULT CALLBACK FindWindowProc(HWND, UINT, WPARAM, LPARAM);
+static BOOL    CALLBACK PropSheetProc(HWND, UINT, LPARAM);
+static INT_PTR CALLBACK GeneralPageDialogProc(HWND, UINT, WPARAM, LPARAM);
+static INT_PTR CALLBACK MousePageDialogProc(HWND, UINT, WPARAM, LPARAM);
+static INT_PTR CALLBACK KeyboardPageDialogProc(HWND, UINT, WPARAM, LPARAM);
+static INT_PTR CALLBACK BlacklistPageDialogProc(HWND, UINT, WPARAM, LPARAM);
+static INT_PTR CALLBACK AboutPageDialogProc(HWND, UINT, WPARAM, LPARAM);
+static INT_PTR CALLBACK AdvancedPageDialogProc(HWND, UINT, WPARAM, LPARAM);
+static LRESULT CALLBACK FindWindowProc(HWND, UINT, WPARAM, LPARAM);
 
 HWND g_cfgwnd = NULL;
 
@@ -259,7 +259,7 @@ static void MoveToCorner(HWND hwnd)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BOOL CALLBACK PropSheetProc(HWND hwnd, UINT msg, LPARAM lParam)
+static BOOL CALLBACK PropSheetProc(HWND hwnd, UINT msg, LPARAM lParam)
 {
     if (msg == PSCB_INITIALIZED) {
         g_cfgwnd = hwnd;
@@ -455,7 +455,7 @@ static void WriteDialogOptions(HWND hwnd,const struct optlst *ol, unsigned size)
 
 /////////////////////////////////////////////////////////////////////////////
 // to be used with EnumDesktopWindows()
-BOOL CALLBACK RefreshTestWin(HWND hwnd, LPARAM lp)
+static BOOL CALLBACK RefreshTestWin(HWND hwnd, LPARAM lp)
 {
     TCHAR classn[256];
     if (GetClassName(hwnd, classn, ARR_SZ(classn))
@@ -487,7 +487,7 @@ static void ShowContextHelp(const struct dialogstring sl[], size_t len, HWND hwn
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     #define V (void *)
     // Options to bead or written...
@@ -810,7 +810,7 @@ static void WriteActionDropListS(HWND hwnd, int idc, TCHAR *inioption, const str
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     static int have_to_apply = 0;
     // Mouse actions
@@ -1116,7 +1116,7 @@ static LRESULT WINAPI PickShortcutWinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
     return 0;
 }
 /////////////////////////////////////////////////////////////////////////////
-INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     static int have_to_apply = 0;
     static int edit_shortcut_idx = 0;
@@ -1436,7 +1436,7 @@ INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
 }
 
 /////////////////////////////////////////////////////////////////////////////
-INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     #pragma GCC diagnostic ignored "-Wint-conversion"
     static const struct optlst optlst[] = {
@@ -1524,7 +1524,7 @@ INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
     return FALSE;
 }
 /////////////////////////////////////////////////////////////////////////////
-LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_LBUTTONUP || msg == WM_MBUTTONUP || msg == WM_RBUTTONUP) {
         DWORD msgpos = GetMessagePos();
@@ -1597,7 +1597,7 @@ LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 /////////////////////////////////////////////////////////////////////////////
-INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_INITDIALOG) {
         MoveToCorner(g_cfgwnd);
@@ -1657,7 +1657,7 @@ static void ToggleFullScreen(HWND hwnd)
 }
 /////////////////////////////////////////////////////////////////////////////
 // Simple windows proc that draws the resizing regions.
-LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     enum { MAXLINES = 16, MAXLL = 48 };
     static UCHAR centerfrac=24;
@@ -1671,7 +1671,7 @@ LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         int idx;
         TCHAR lastkey[MAXLINES][MAXLL];
     };
-    TCHAR *buttonstr=NULL;
+    const TCHAR *buttonstr=NULL;
 
     switch (msg) {
     case WM_CREATE: {
@@ -2024,7 +2024,7 @@ static HWND NewTestWindowAt(int x, int y, int width, int height)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+static INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     #define V (void *)
     static const struct optlst optlst[] = {

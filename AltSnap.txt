@@ -1,7 +1,7 @@
 *=========================================================================*
 *            ALTSNAP for Windows NT4/2000/XP/Vista/7/8.x/10/11            *
 *  Modified by Raymond Gillibert from original AltDrag by Stefan Sundin   *
-*                    release 1.66 (September 21, 2025)                    *
+*                     release 1.67 (November 15, 2025)                    *
 *-------------------------------------------------------------------------*
 * Download MEGA: https://mega.nz/folder/mW5ExCCT#gI8DQICICk-y4FIjxaqtGg   *
 * Download GitHub: https://github.com/RamonUnch/AltSnap/releases/         *
@@ -183,6 +183,31 @@ Note that this version has some more feature.
 
 ===========================================================================
 == CHANGELOG ==
+
+== AltSnap 1.67 ==
+
+ * Add a simple MSVC build batch file. #674
+
+ * Update ko_KR.ini by @VenusGirl in #675
+
+ * Do not snap windows to borders that are completely hidden. #681,  #682
+
+ * Add **Center on physical monitor** Action, #684, #685
+
+ * Allow arbitrary accelerators for Windows list menu. #688
+   You can now use the `MenuAccelMap` option to specify a list of virtual key
+   codes in the `[Input]` section of the ini file.
+   This list is limited to 36 entries. see  #687 for more details.
+
+ * Double check the Control key is down when needed. Fixes random "stuck key" problem #689
+
+ * Cursor would not be clamped properly to the monitor when moving fast. #690
+
+ * Fix 1 pixel keyboard move bug. #691, #692
+
+ * Fixes Ctrl repeat locking window to monitor. #694, #695
+
+ * Fix Horizontal Wheel handling. #697 (Fixes #696 bug introduced in #658)
 
 == AltSnap 1.66 ==
 

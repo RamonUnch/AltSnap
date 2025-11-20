@@ -21,7 +21,7 @@
 #define L10NSTR(i) ( ((const TCHAR*const*const)l10n)[i] )
 
 struct langinfoitem {
-  TCHAR *code;
+  TCHAR code[8];
   TCHAR *lang_english;
   TCHAR *lang;
   TCHAR *author;

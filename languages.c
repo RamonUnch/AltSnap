@@ -81,7 +81,7 @@ static void LoadTranslationOrTT(const TCHAR *__restrict__ ini, const TCHAR * __r
     if (!ret)
         tsection[0] = tsection[1] = TEXT('\0');
 
-    if(!l10n_ini) l10n_ini = (struct strings *)calloc(1, sizeof(struct strings));
+    if(!l10n_ini) { l10n_ini = (struct strings *)calloc(1, sizeof(struct strings)); }
     if(!l10n_ini) return; // Unable to allocate mem
 
     for (i=0; i < ARR_SZ(l10n_inimapping); i++) {
@@ -136,7 +136,7 @@ void ListAllTranslations()
     // First element
     langinfo = (struct langinfoitem *)malloc( sizeof(struct langinfoitem) );
     if (!langinfo) return;
-    langinfo[0].code = en_US.Code;
+    lstrcpy_s(langinfo[0].code, ARR_SZ(langinfo[0].code), en_US.Code);
     langinfo[0].lang_english = en_US.LangEnglish;
     langinfo[0].lang = en_US.Lang;
     langinfo[0].author = en_US.Author;
@@ -167,9 +167,7 @@ void ListAllTranslations()
 
             // Short language code such as en-US, fr-FR, it-IT etc.
             txt = GetSectionOptionCStr(tsection, "Code", TEXT(""));
-            langinfo[n].code = (TCHAR *)calloc(lstrlen(txt)+1, sizeof(TCHAR));
-            if (!langinfo[n].code) break;
-            lstrcpy(langinfo[n].code, txt);
+            lstrcpy_s(langinfo[n].code, ARR_SZ(langinfo[n].code), txt);
 
             // Language name in English
             txt = GetSectionOptionCStr(tsection, "LangEnglish", TEXT(""));
@@ -241,7 +239,6 @@ void FreeAllLangRelated()
 {
     if (langinfo) {
         for (int i=1; i < nlanguages; i++) {
-            free(langinfo[i].code);
             free(langinfo[i].lang_english);
             free(langinfo[i].lang);
             free(langinfo[i].author);

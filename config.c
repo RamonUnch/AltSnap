@@ -549,7 +549,7 @@ static INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam
         if (langinfo) {
             for (i = 0; i < nlanguages; i++) {
                 CB_AddString(control, langinfo[i].lang);
-                if (langinfo[i].code && !lstrcmpi(l10n->Code, langinfo[i].code) ) {
+                if ( !lstrcmpi(l10n->Code, langinfo[i].code) ) {
                     CB_SetCurSel(control, i);
                 }
             }

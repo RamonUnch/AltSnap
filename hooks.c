@@ -6612,19 +6612,19 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
 
     // Same order than in the conf struct
     static const struct hklst {
-        char *name; TCHAR *def;
+        char *name; TCHAR *def; UCHAR *dst;
     } hklst[] = {
-        { "Hotkeys",   TEXT("A4 A5") }, // VK_LMENU VK_RMENU
-        { "Shiftkeys", TEXT("A0 A1") }, // VK_LSHIFT VK_RSHIFT
-        { "Hotclicks", NULL },
-        { "Killkeys",  TEXT("09 2E") }, // VK_TAB VK_DELETE
-        { "XXButtons", NULL },
-        { "ModKey",    NULL },
-        { "HScrollKey", TEXT("10") }, // VK_SHIFT
-        { "ESCKeys",   TEXT("1B") }, // VK_ESCAPE = 1B
+        { "Hotkeys",   TEXT("A4 A5"),  conf.Hotkeys}, // VK_LMENU VK_RMENU
+        { "Shiftkeys", TEXT("A0 A1"), conf.Shiftkeys }, // VK_LSHIFT VK_RSHIFT
+        { "Hotclicks", NULL , conf.Hotclick },
+        { "Killkeys",  TEXT("09 2E"), conf.Killkey }, // VK_TAB VK_DELETE
+        { "XXButtons", NULL, conf.XXButtons },
+        { "ModKey",    NULL, conf.ModKey },
+        { "HScrollKey", TEXT("10"), conf.HScrollKey }, // VK_SHIFT
+        { "ESCKeys",   TEXT("1B"), conf.ESCkeys }, // VK_ESCAPE = 1B
     };
     for (i=0; i < ARR_SZ(hklst); i++) {
-        readhotkeys(inisection, hklst[i].name, hklst[i].def, &conf.Hotkeys[i*(MAXKEYS+1)], MAXKEYS);
+        readhotkeys(inisection, hklst[i].name, hklst[i].def, hklst[i].dst, MAXKEYS);
     }
     UCHAR eHKs[MAXKEYS+1]; // Key to be sent at the end of a movment.
     readhotkeys(inisection, "EndSendKey", TEXT("11"), eHKs, MAXKEYS);

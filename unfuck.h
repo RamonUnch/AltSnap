@@ -193,7 +193,7 @@ typedef struct tagMSAAMENUINFO {
     #define GCLP_HICON (-14)
 #endif
 
-//#define LOGA(X, ...) {DWORD err=GetLastError(); FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fprintf(LOG,", LastError=%lu\n",err); fclose(LOG); SetLastError(0); }
+/*#define LOGA(X, ...) {DWORD err=GetLastError(); FILE *LOG=fopen("ad.log", "a"); fprintf(LOG, X, ##__VA_ARGS__); fprintf(LOG,", LastError=%lu\n",err); fclose(LOG); SetLastError(0); }*/
 #define LOGA LOGfunk
 /* Cool warpper for wvsprintf */
 static void LOGfunk( const char *fmt, ... )
@@ -240,13 +240,13 @@ static void LOGfunk( const char *fmt, ... )
 #if !defined(__STDC_VERSION__) || __STDC_VERSION__ <= 202300L
 #ifndef static_assert
     #if defined(__STDC_VERSION__)  && __STDC_VERSION__ >= 201112L
-        // C11 cool _Static_assert
+        /* C11 cool _Static_assert */
         #define static_assert _Static_assert
     #else
         #define static_assert(x, y) enum assert_static__ { assert_static___ = 1/(x) };
     #endif
-#endif //static_assert
-#endif // [C89 - C23[
+#endif /* static_assert */
+#endif /* [C89 - C23[ */
 
 /* Stuff missing in MinGW */
 #ifndef WM_MOUSEHWHEEL
@@ -290,12 +290,11 @@ static void ErrorBox(const TCHAR * const title)
 /* Helper functiont to strcat variable amount of TCHAR*s */
 static size_t lstrcatM_s(TCHAR *d, size_t dl, ...)
 {
-    while( *d && dl-- ) d++;
     va_list arglist;
+    while( *d && dl-- ) d++;
     va_start( arglist, dl );
 
-    while(1) {
-        if(dl == 0) break; /* End of string! */
+    while(dl) {
         const TCHAR *s = (const TCHAR *)va_arg(arglist, const TCHAR*);
         if (s == NULL) break;
         /* inline naive strcpy_s */
@@ -311,8 +310,9 @@ static size_t lstrcatM_s(TCHAR *d, size_t dl, ...)
 static int PrintHwndDetails(HWND hwnd, TCHAR buf[AT_LEAST 512+40+2*8+4*12+1])
 {
     TCHAR klass[256], title[256];
-    klass[0] = title[0] = TEXT('\0');
     RECT rc;
+    klass[0] = title[0] = TEXT('\0');
+
     GetWindowRect(hwnd, &rc);
     GetClassName(hwnd, klass, ARR_SZ(klass));
     GetWindowText(hwnd, title, ARR_SZ(title));
@@ -488,7 +488,7 @@ typedef struct tagCHANGEFILTERSTRUCT {
 } CHANGEFILTERSTRUCT, *PCHANGEFILTERSTRUCT;
 #endif
 
-// On Windows Vista we have to use this one that applies process wide.
+/* On Windows Vista we have to use this one that applies process wide. */
 static BOOL ChangeWindowMessageFilterL(UINT msg, DWORD ac)
 {
     typedef BOOL (WINAPI* funk_t)(UINT msg, DWORD ac);
@@ -503,7 +503,7 @@ static BOOL ChangeWindowMessageFilterL(UINT msg, DWORD ac)
     return FALSE;
 }
 
-// Available only on Windows 7+s
+/* Available only on Windows 7+s */
 static BOOL ChangeWindowMessageFilterExL(HWND hwnd, UINT msg, DWORD ac, PCHANGEFILTERSTRUCT pC)
 {
     typedef BOOL (WINAPI *funk_t)(HWND hwnd, UINT msg, DWORD ac, PCHANGEFILTERSTRUCT pC);
@@ -515,7 +515,7 @@ static BOOL ChangeWindowMessageFilterExL(HWND hwnd, UINT msg, DWORD ac, PCHANGEF
     if (funk) { /* We know we have the function */
         return funk(hwnd, msg, ac, pC);
     }
-    // Process-wide Fallback for Windows Vista!
+    /* Process-wide Fallback for Windows Vista! */
     return ChangeWindowMessageFilterL(msg, ac);
 }
 
@@ -746,7 +746,7 @@ static xpure BOOL OredredWinVer()
 
     /* On Windows 9x, no buildID is available in GetVer */
     if (ver & 0x80000000) {
-        // Only use minor/major ver.
+        /* Only use minor/major ver. */
         oVer |= 0xFFFF0000;
     }
     return oVer;
@@ -787,10 +787,11 @@ static BOOL IsHighContrastEnabled()
 static HRESULT DwmSetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c);
 static BOOL AllowDarkTitlebar(HWND hwnd)
 {
+    BOOL DarkMode = FALSE;
     if( IsHighContrastEnabled() )
         return FALSE; /* Nothing to do and ignore DarkMode */
 
-    BOOL DarkMode = IsDarkModeEnabled();
+    DarkMode = IsDarkModeEnabled();
     if ( OredredWinVer() >= 0x0A004A29 ) {
         /* Windows 10 build 10.0.18985 ie 20H1 */
         DwmSetWindowAttributeL(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &DarkMode, sizeof(DarkMode));
@@ -1035,7 +1036,7 @@ static void FixDWMRectLL(HWND hwnd, RECT *bbb, const int SnapGap)
         /*SetRect(bbb, 10, 10, 10, 10);*/
     }
     if (SnapGap) OffsetRect(bbb, -SnapGap, -SnapGap);
-//    if (IsZoomed(hwnd)) OffsetRect(bbb, 10, 10); // Test for Zoomed stuff
+/*    if (IsZoomed(hwnd)) OffsetRect(bbb, 10, 10); // Test for Zoomed stuff */
 }
 
 /* This function is here because under Windows 10, the GetWindowRect function
@@ -1289,11 +1290,11 @@ static BOOL CALLBACK GetWindowProgName_subwins_EnumProc(HWND hwnd, LPARAM lp)
     struct pid_pair_struct *pids = (struct pid_pair_struct*)lp;
     DWORD hwnd_pid = 0;
     if (GetWindowThreadProcessId(hwnd, &hwnd_pid) && hwnd_pid && hwnd_pid != pids->parent_pid) {
-        // We found a child window with a pid different from its parent!
+        /* We found a child window with a pid different from its parent! */
         pids->child_pid = hwnd_pid;
-        return FALSE; // DONE!
+        return FALSE; /* DONE! */
     }
-    return TRUE; // Next window
+    return TRUE; /* Next window */
 }
 
 /* This is for UWP applications that are inside an ApplicationFrameHost.exe window
@@ -1302,15 +1303,15 @@ static BOOL CALLBACK GetWindowProgName_subwins_EnumProc(HWND hwnd, LPARAM lp)
 static DWORD GetWindowProgNameSubWindow(DWORD parentpid, HWND parenthwnd, TCHAR *title, size_t title_len)
 {
     struct pid_pair_struct pids = { 0, 0 };
-    pids.parent_pid = parentpid; // PID of ApplicationFrameHost or similar
+    pids.parent_pid = parentpid; /* PID of ApplicationFrameHost or similar */
 
     /* Look for a child window with a different PID !*/
     EnumChildWindows(parenthwnd, GetWindowProgName_subwins_EnumProc, (LPARAM)&pids);
 
-    // if pids.child_pid it means we found a child window tht belongs to another process
-    // hosted by ApplicationFrameHost.exe
+    /* if pids.child_pid it means we found a child window tht belongs to another process */
+    /* hosted by ApplicationFrameHost.exe */
     if (pids.child_pid && GetWindowProgNameFromPid(pids.child_pid, title, title_len))
-        return pids.child_pid; // return relevent pid
+        return pids.child_pid; /* return relevent pid */
 
     return 0;
 }
@@ -1397,9 +1398,10 @@ struct NEWNONCLIENTMETRICSAW {
 };
 static BOOL GetNonClientMetricsDpi(struct NEWNONCLIENTMETRICSAW *ncm, UINT dpi)
 {
+    BOOL ret;
     mem00(ncm, sizeof(struct NEWNONCLIENTMETRICSAW));
     ncm->cbSize = sizeof(struct NEWNONCLIENTMETRICSAW);
-    BOOL ret = SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(struct NEWNONCLIENTMETRICSAW), ncm, 0, dpi);
+    ret = SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS, sizeof(struct NEWNONCLIENTMETRICSAW), ncm, 0, dpi);
     if (!ret) { /* Old Windows versions... XP and below */
         ncm->cbSize = sizeof(struct OLDNONCLIENTMETRICSAW);
         ret = SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(struct OLDNONCLIENTMETRICSAW), ncm, 0);
@@ -1481,8 +1483,8 @@ static int IsWindowSnapped(HWND hwnd)
 static void GetMinMaxInfoF(HWND hwnd, POINT *Min, POINT *Max, UCHAR flags)
 {
     MINMAXINFO mmi;
-    mem00(&mmi, sizeof(mmi));
     UINT dpi = GetDpiForWindow(hwnd);
+    mem00(&mmi, sizeof(mmi));
     mmi.ptMinTrackSize.x = GetSystemMetricsForDpi(SM_CXMINTRACK, dpi);
     mmi.ptMinTrackSize.y = GetSystemMetricsForDpi(SM_CYMINTRACK, dpi);
     mmi.ptMaxTrackSize.x = GetSystemMetricsForDpi(SM_CXMAXTRACK, dpi);
@@ -1490,7 +1492,7 @@ static void GetMinMaxInfoF(HWND hwnd, POINT *Min, POINT *Max, UCHAR flags)
     *Min = mmi.ptMinTrackSize;
     *Max = mmi.ptMaxTrackSize;
     if ((flags&3) != 3) {
-        DWORD_PTR ret; // 32ms timeout
+        DWORD_PTR ret; /* 32ms timeout */
         SendMessageTimeout(hwnd, WM_GETMINMAXINFO, 0, (LPARAM)&mmi, SMTO_ABORTIFHUNG, 32, &ret);
         if(!(flags&1)) *Min = mmi.ptMinTrackSize;
         if(!(flags&2)) *Max = mmi.ptMaxTrackSize;
@@ -1533,7 +1535,7 @@ static pure unsigned WhichSideRectInRect(const RECT *mon, const RECT *wnd)
     return flag;
 }
 
-// the seg rectangle must be zero height or zero width
+/* the seg rectangle must be zero height or zero width */
 static void CropOutRectFromSeg(RECT *seg, const RECT *cover)
 {
     POINT point1 = { seg->left, seg->top };
@@ -1541,18 +1543,18 @@ static void CropOutRectFromSeg(RECT *seg, const RECT *cover)
     if (seg->left == seg->right) {
         /* Vertical segment */
         if (PtInRect(cover, point1)) {
-            seg->top = cover->bottom; // top point is under the rect
+            seg->top = cover->bottom; /* top point is under the rect */
         }
         if (PtInRect(cover, point2)) {
-            seg->bottom = cover->top; // bottom point is under the rect
+            seg->bottom = cover->top; /* bottom point is under the rect */
         }
     } else/* if( seg->top == seg->bottom) */{
         /* Horizontal segment */
         if (PtInRect(cover, point1)) {
-            seg->left = cover->right; // left point is under the rect
+            seg->left = cover->right; /* left point is under the rect */
         }
         if (PtInRect(cover, point2)) {
-            seg->right = cover->left; // right point is under the rect
+            seg->right = cover->left; /* right point is under the rect */
         }
     }
 }
@@ -1615,17 +1617,19 @@ static pure unsigned AreRectsTouchingT(const RECT *a, const RECT *b, const int t
          | SegT(a->top, b->bottom, &a->left, &b->left, tol) << 4 /* Top */
          | SegT(a->bottom, b->top, &a->left, &b->left, tol) << 5; /* Bottom */
 }
-//static pure unsigned AreRectsTouchingInT(const RECT *a, const RECT *b, const int tol)
-//{
-//    return SegT(a->left, b->left, &a->top, &b->bottom, tol) << 2 /* Left */
-//         | SegT(a->right, b->right, &a->top, &b->bottom, tol) << 3 /* Right */
-//         | SegT(a->top, b->top, &a->left, &b->right, tol) << 4 /* Top */
-//         | SegT(a->bottom, b->bottom, &a->left, &b->right, tol) << 5; /* Bottom */
-//}
-//static pure unsigned AreRectsTouching2T(const RECT *a, const RECT *b, const int tol)
-//{
-//	return AreRectsTouchingT(a, b, tol) | AreRectsTouchingInT(a, b, tol) << 16;
-//}
+#if 0
+static pure unsigned AreRectsTouchingInT(const RECT *a, const RECT *b, const int tol)
+{
+    return SegT(a->left, b->left, &a->top, &b->bottom, tol) << 2 /* Left */
+         | SegT(a->right, b->right, &a->top, &b->bottom, tol) << 3 /* Right */
+         | SegT(a->top, b->top, &a->left, &b->right, tol) << 4 /* Top */
+         | SegT(a->bottom, b->bottom, &a->left, &b->right, tol) << 5; /* Bottom */
+}
+static pure unsigned AreRectsTouching2T(const RECT *a, const RECT *b, const int tol)
+{
+	return AreRectsTouchingT(a, b, tol) | AreRectsTouchingInT(a, b, tol) << 16;
+}
+#endif
 static void CropRect(RECT *__restrict__ wnd, const RECT *crop)
 {
     wnd->left   = max(wnd->left,   crop->left);
@@ -1681,13 +1685,14 @@ static int LCIDToLocaleNameL(LCID Locale, LPWSTR lpName, int cchName, DWORD dwFl
     }
     return 0;
 }
-#endif // UNICODE
+#endif /* UNICODE */
 
 #if 0
 /* Get the string inside the section returned by GetPrivateProfileSection */
 static void GetSectionOptionStr(const TCHAR *section, const char * const oname, const TCHAR *def, TCHAR * __restrict__ txt, size_t txtlen)
 {
-    if (section) {
+    if (section) 
+    {
         TCHAR name[128];
         str2tchar_s(name, ARR_SZ(name)-1, oname);
         lstrcat_s(name, ARR_SZ(name), TEXT("=")); /* Add equal at the end of name */
@@ -1709,23 +1714,25 @@ static void GetSectionOptionStr(const TCHAR *section, const char * const oname, 
     if (def)
         lstrcpy_s(txt, txtlen, def);
     else if (txtlen)
-        txt[0] = TEXT('\0');  // Empty string
+        txt[0] = TEXT('\0');  /* Empty string */
 }
 #endif
 static const TCHAR* GetSectionOptionCStr(const TCHAR *section, const char * const oname, const TCHAR *const def)
 {
-    TCHAR name[128];
-    str2tchar_s(name, ARR_SZ(name)-1, oname);
-    lstrcat_s(name, ARR_SZ(name), TEXT("=")); /* Add equal at the end of name */
-    const TCHAR *p = section;
-    while (p[0] && p[1]) { /* Double NULL treminated string */
-        if(!lstrcmpi_samestart(p, name)) {
-            return p+lstrlen(name); /* DONE! */
-        } else {
-            /* Go to next string... */
-            p += lstrlen(p); /* p in on the '\0' */
-            p++; /* next string start. */
-            if (!*p) break;
+    if (section) {
+        TCHAR name[128];
+        const TCHAR *p = section;
+        str2tchar_s(name, ARR_SZ(name)-1, oname);
+        lstrcat_s(name, ARR_SZ(name), TEXT("=")); /* Add equal at the end of name */
+        while (p[0] && p[1]) { /* Double NULL treminated string */
+            if(!lstrcmpi_samestart(p, name)) {
+                return p+lstrlen(name); /* DONE! */
+            } else {
+                /* Go to next string... */
+               p += lstrlen(p); /* p in on the '\0' */
+                p++; /* next string start. */
+                if (!*p) break;
+            }
         }
     }
     /* Default to the provided def string */
@@ -1736,9 +1743,9 @@ static int GetSectionOptionInt(const TCHAR *section, const char * const oname, c
 {
     if (section) {
         TCHAR name[128];
+        const TCHAR *p = section;
         str2tchar_s(name, ARR_SZ(name)-1, oname);
         lstrcat_s(name, ARR_SZ(name), TEXT("=")); /* Add equal at the end of name */
-        const TCHAR *p = section;
         while (p[0] && p[1]) { /* Double NULL treminated string */
             if(!lstrcmpi_samestart(p, name)) {
                 /* DONE !*/

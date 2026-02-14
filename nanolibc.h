@@ -5,7 +5,7 @@
 
 #ifndef AT_LEAST
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L && defined(__GNUC__)
-	// C99+ mode but only with gcc
+	/* C99+ mode but only with gcc */
 	#define AT_LEAST static
 #else
 	#define AT_LEAST
@@ -47,26 +47,8 @@ static xpure int sign(int x)
     return (x > 0) - (x < 0);
 }
 
-//#if defined(__GNUC__) && (defined(__i386__) && !defined(__x86_64__)) && !defined(CLANG)
-//static __attribute__(( regparm(1) )) xpure
-//int Iabs(int x)
-//{
-//    __asm__ (
-//        "cdq \n"
-//        "xor %%edx, %%eax \n"
-//        "sub %%edx, %%eax \n"
-//    : "=eax" (x)
-//    : "eax" (x)
-//    : "%edx"
-//    );
-//    return x;
-//}
-//#define abs(x) Iabs(x)
-//#else
-//#define abs(x) ((x)>0? (x): -(x))
-//#endif // x86
-
 #define abs(x) ((x)>0? (x): -(x))
+
 /* Function to set the kth bit of n */
 static int setBit(int n, int k)
 {
@@ -260,7 +242,7 @@ static nonnull1(2) wchar_t *itowL(unsigned num, wchar_t *str, int base)
     return str;
 }
 #define _itow itowL
-static nonnull1(1) inline void reverseA(char *str, int length)
+static nonnull1(1) void reverseA(char *str, int length)
 {
     int start = 0;
     int end = length -1;
@@ -296,7 +278,7 @@ static nonnull1(2) char *itoaL(unsigned num, char *str, int base)
     while (num != 0) {
         int rem = num % base;
         str[i++] = (rem > 9)? (rem-10) + 'A' : rem + '0';
-        /* str[i++] = rem + '0' + (rem > 9) * ('A' - '0' - 10);*//* branchless version */
+        /* str[i++] = rem + '0' + (rem > 9) * ('A' - '0' - 10);*/ /* branchless version */
 
         num = num/base;
     }
@@ -380,11 +362,11 @@ static const TCHAR *LPTR2Hex(TCHAR str[AT_LEAST LPTR_HDIGITS+1], UINT_PTR n)
 
     for( i=LPTR_HDIGITS-1; ; --i )
     {
-        TCHAR rem = n & 15; // MD 16
+        TCHAR rem = n & 15; /* MD 16 */
         str[i] = (rem > 9)? (rem-10) + 'A' : rem + '0';
-        /*str[i++] = rem + '0' + (rem > 9) * ('A' - '0' - 10); *//* branchless version */
+        /*str[i++] = rem + '0' + (rem > 9) * ('A' - '0' - 10); */ /* branchless version */
 
-        n >>=4 ; // Divide by 16.
+        n >>=4 ; /* Divide by 16. */
         if (n==0)
             break;
     }
@@ -621,6 +603,23 @@ static allnonnull const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t
     return NULL;
 }
 
+
+static char *lstrdupA(const char *s)
+{
+	size_t olen_byte = (strlenL(s) + 1) * sizeof(char);
+	char *dup = (char *)malloc(olen_byte);
+	if(!dup) return NULL;
+	return (char *)memmove(dup, s, olen_byte);
+}
+
+static wchar_t *lstrdupW(const wchar_t *s)
+{
+	size_t olen_byte = (wcslenL(s) + 1) * sizeof(wchar_t);
+	wchar_t *dup = (wchar_t *)malloc(olen_byte);
+	if(!dup) return NULL;
+	return (wchar_t *)memmove(dup, s, olen_byte);
+}
+
 #define itostrA itoaL
 #define itostrW itowL
 #define strtoiA atoiL
@@ -647,6 +646,7 @@ static allnonnull const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t
 #define itostr itostrW
 #define strtoi strtoiW
 #define lstrcat_s lstrcat_sW
+#define lstrdup lstrdupW
 #define _itot itowL
 #define Uint2lStr Uint2lStrW
 #else
@@ -655,11 +655,12 @@ static allnonnull const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t
 #define itostr itostrA
 #define strtoi strtoiA
 #define lstrcat_s lstrcat_sA
+#define lstrdup lstrdupA
 #define _itot itoaL
 #define Uint2lStr Uint2lStrA
 #endif
 
-static inline unsigned h2u(const TCHAR c)
+static unsigned h2u(const TCHAR c)
 {
     if      (c >= '0' && c <= '9') return c - '0';
     else if (c >= 'A' && c <= 'F') return c-'A'+10;
@@ -683,7 +684,7 @@ static allnonnull pure unsigned lstrhex2u(const TCHAR *s)
 
 static void *reallocL(void *mem, size_t sz)
 {
-//    if (rand()%256 < 200) return NULL;
+/*    if (rand()%256 < 200) return NULL; */
     if(!sz) { if(mem)HeapFree(GetProcessHeap(), 0, mem); return NULL; }
     if(!mem) return HeapAlloc(GetProcessHeap(), 0, sz);
     return HeapReAlloc(GetProcessHeap(), 0, mem, sz);
@@ -692,7 +693,7 @@ static void *reallocL(void *mem, size_t sz)
 
 static mallocatrib void *mallocL(size_t sz)
 {
-//    if (rand()%256 < 200) return NULL;
+/*    if (rand()%256 < 200) return NULL; */
     return HeapAlloc(GetProcessHeap(), 0, sz);
 }
 #define malloc mallocL
@@ -711,7 +712,7 @@ static BOOL freeL(void *mem)
 #define free(x) do { freeL(x); x = NULL; }while(0)
 #define CHECK_MEMORY_LEAK_DB()
 
-#ifdef DEBUG
+#ifdef DEBUG_MALLOC
 
 #undef CHECK_MEMORY_LEAK_DB
 #define CHECK_MEMORY_LEAK_DB() \
@@ -814,6 +815,6 @@ static void *db_realloc(void *x, size_t sz, const char *file, int ln)
 
 /*; LOGA("realloc + %u bytes in "__FILE__":%d", (UINT)sz, __LINE__);*/
 
-#endif // DEBUG
+#endif /* DEBUG_MALLOC */
 
 #endif

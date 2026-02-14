@@ -171,26 +171,18 @@ void ListAllTranslations()
 
             // Language name in English
             txt = GetSectionOptionCStr(tsection, "LangEnglish", TEXT(""));
-            langinfo[n].lang_english = (TCHAR *)calloc(lstrlen(txt)+1, sizeof(TCHAR));
-            if (!langinfo[n].lang_english) break;
-            lstrcpy(langinfo[n].lang_english, txt);
+            langinfo[n].lang_english = lstrdup(txt);
 
             // Language name in original language
             txt = GetSectionOptionCStr(tsection, "Lang", TEXT(""));
-            langinfo[n].lang = (TCHAR *)calloc(lstrlen(txt)+1, sizeof(TCHAR));
-            if (!langinfo[n].lang) break;
-            lstrcpy(langinfo[n].lang, txt);
+            langinfo[n].lang = lstrdup(txt);
 
             // Author
             txt = GetSectionOptionCStr(tsection, "Author", TEXT(""));
-            langinfo[n].author = (TCHAR *)calloc(lstrlen(txt)+1, sizeof(TCHAR));
-            if (!langinfo[n].author) break;
-            lstrcpy(langinfo[n].author, txt);
+            langinfo[n].author = lstrdup(txt);
 
             // Full file path
-            langinfo[n].fn = (TCHAR *)malloc(lstrlen(fpath)*sizeof(TCHAR)+4);
-            if (!langinfo[n].fn) break;
-            lstrcpy(langinfo[n].fn, fpath);
+            langinfo[n].fn = lstrdup(fpath);
 
             n++;
         } while (FindNextFile(hFind, &ffd));

@@ -160,6 +160,9 @@ static struct {
     UCHAR ignorept;
     enum action action;
     struct resizeXY resize;
+    TCHAR exename[MAX_PATH];
+    TCHAR title[256];
+    TCHAR classname[256];
 } state;
 
 // Snap
@@ -451,24 +454,17 @@ static xpure int IsPtDragOut(const POINT *pt, const POINT *ptt)
 
 /////////////////////////////////////////////////////////////////////////////
 // Wether a window is present or not in a blacklist
-static pure int blacklisted(HWND hwnd, const struct blacklist *list)
+static pure int blacklisted_from_names(const struct blacklist *list, const TCHAR *exename, const TCHAR *title, const TCHAR *classname)
 {
-    // Null hwnd or empty list
-    if (!hwnd || !list->length || !list->items)
+    if (!list->length || !list->items)
         return 0;
+
     // If the first element is *:*|* (NULL:NULL|NULL)then we are in whitelist mode
     // mode = 1 => blacklist, mode = 0 => whitelist;
     UCHAR mode = list->items[0].classname
               || list->items[0].title
               || list->items[0].exename;
     unsigned i = !mode; // Skip the first item...
-
-    TCHAR title[256], classname[256];
-    TCHAR exename[MAX_PATH];
-    title[0] = classname[0] = exename[0] = '\0';
-    GetWindowText(hwnd, title, ARR_SZ(title));
-    GetClassName(hwnd, classname, ARR_SZ(classname));
-    GetWindowProgName(hwnd, exename, ARR_SZ(exename));
 
     for ( ; i < list->length; i++) {
         if (!lstrcmp_star(classname, list->items[i].classname)
@@ -478,7 +474,37 @@ static pure int blacklisted(HWND hwnd, const struct blacklist *list)
             return mode;
         }
     }
+
     return !mode;
+}
+static void blacklist_cache_state()
+{
+    state.title[0] = state.classname[0] = state.exename[0] = TEXT('\0');
+    GetWindowProgName(state.hwnd, state.exename, ARR_SZ(state.exename));
+    GetWindowText(state.hwnd, state.title, ARR_SZ(state.title));
+    GetClassName(state.hwnd, state.classname, ARR_SZ(state.classname));
+}
+static pure int blacklisted(HWND hwnd, const struct blacklist *list)
+{
+    // Null hwnd or empty list
+    if (!hwnd || !list->length || !list->items)
+        return 0;
+
+    if (hwnd == state.hwnd) {
+        if (!state.classname[0]) blacklist_cache_state();
+        return blacklisted_from_names(list, state.exename, state.title, state.classname);
+    }
+
+    TCHAR title[256], classname[256];
+    TCHAR exename[MAX_PATH];
+    title[0] = classname[0] = exename[0] = '\0';
+    GetWindowText(hwnd, title, ARR_SZ(title));
+    GetClassName(hwnd, classname, ARR_SZ(classname));
+    GetWindowProgName(hwnd, exename, ARR_SZ(exename));
+
+    // LOGA( "hwnd=%X (%ls:%ls|%ls) blacklist = %X, thread=%d", (UINT)hwnd, exename, title, classname, (UINT)list, (int)GetCurrentThreadId());
+    return blacklisted_from_names(list, exename, title, classname);
+
 }
 
 static int isClassName(HWND hwnd, const TCHAR *str)
@@ -1742,6 +1768,8 @@ static void AeroResizeSnap(POINT pt, int *posx, int *posy, int *wndwidth, int *w
 static void HideCursor()
 {
     // Reduce the size to 0 to avoid redrawing.
+    if (!IsWindowVisible(g_mainhwnd))
+        return;
     SetWindowPos(g_mainhwnd, NULL, 0,0,0,0
         , SWP_NOMOVE|SWP_NOACTIVATE|SWP_NOREDRAW|SWP_DEFERERASE);
     ShowWindow(g_mainhwnd, SW_HIDE);
@@ -4934,6 +4962,8 @@ static int xpure DoubleClamp(int ptx, int left, int right, int rwidth)
 // If we pass buttonX BT_PROBE it will tell us if we pass the blacklist.
 static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, int buttonX)
 {
+//    RGTICTAC tt;
+//    RGTic(&tt);
     LOG("\ninit_movement_and_actions(pt=%d,%d, hwnd=%x, action=%d, button=%d)", pt.x, pt.y, (UINT)(INT_PTR)hwnd, (int)action, buttonX);
     RECT wnd;
     state.prevpt = pt; // in case
@@ -4944,11 +4974,16 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     HideCursor();
     state.sclickhwnd = NULL;
     KillAltSnapMenu();
+    // LOGA("Nothing in the ways in %d us", (int)RGTac(&tt));
 
     // Get window from point or use the given one.
     // Get MDI chlild hwnd or root hwnd if not MDI!
     state.mdiclient = NULL;
-    state.hwnd = hwnd? hwnd: MDIorNOT(WindowFromPoint(pt), &state.mdiclient);
+    state.exename[0] = state.title[0] = state.classname[0];
+
+    state.hwnd = hwnd ? hwnd : MDIorNOT(WindowFromPoint(pt), &state.mdiclient);
+
+    //LOGA("MDI info got %d us", (int)RGTac(&tt));
     if (!state.hwnd || (g_InMouseMove && state.hwnd == LastWin.hwnd) || !IsWindow(state.hwnd)) {
         LOG("Init failed: state.hwnd=%x, LastWin.hwnd=%x, g_InMouseMove = %d", (UINT)(INT_PTR)state.hwnd, (UINT)(INT_PTR)LastWin.hwnd, (int)g_InMouseMove);
         return 0;
@@ -4959,7 +4994,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     MONITORINFO mi; mi.cbSize = sizeof(mi);
     GetMonitorInfo(monitor, &mi);
     CopyRect(&state.origin.mon, &mi.rcWork);
-//    LOGA("MonitorInfo got!");
+    //LOGA("MonitorInfo got! in %d us", (int)RGTac(&tt));
 
     // state.mdipt HAS to be set to Zero for ClientToScreen adds the offset
     state.mdipt.x = state.mdipt.y = 0;
@@ -4967,7 +5002,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
         GetMDInfo(&state.mdipt, &mi.rcMonitor);
         CopyRect(&state.origin.mon, &mi.rcMonitor);
     }
-//    LOGA("MDI info got!");
+    //LOGA("MDI info got! in %d us", (int)RGTac(&tt));
 
     WINDOWPLACEMENT wndpl; wndpl.length = sizeof(wndpl);
     // Return if window is blacklisted,
@@ -4975,10 +5010,11 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     // or if the window is fullscreen.
     // state.hwnd == GetDesktopWindow()
     // state.hwnd == GetShellWindow()
-    if (blacklisted(state.hwnd, &BlkLst.Processes)
-    || isClassName(state.hwnd, TEXT(APP_NAMEA)TEXT("-Pin"))
+    if (
+       blacklisted(state.hwnd, &BlkLst.Processes)
+    || !lstrcmp(state.classname, TEXT(APP_NAMEA)TEXT("-Pin"))
     ||(blacklisted(state.hwnd, &BlkLst.Windows)
-       && !state.hittest && (button < BT_WHEELD /* || BT_HWHEELU > button*/)
+        && !state.hittest && (button < BT_WHEELD /* || BT_HWHEELU > button*/)
       )// does not apply in titlebar, nor for the wheel action...
     || GetWindowPlacement(state.hwnd, &wndpl) == 0
     || GetWindowRect(state.hwnd, &wnd) == 0
@@ -4987,7 +5023,8 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     ){
         return 0;
     }
-//    LOGA("Blacklists passed!");
+
+    //LOGA("Blacklists passed! in %d us", (int)RGTac(&tt));
 
     // If no action is to be done then we passed all balcklists
     if (probemode || action == AC_NONE) return 1;
@@ -5005,6 +5042,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     state.resizable = IsResizable(state.hwnd);
 
     GetMinMaxInfo(state.hwnd, &state.mmi.Min, &state.mmi.Max); // for CLAMPH/W functions
+    //LOGA("Going to start action! in %d us", (int)RGTac(&tt));
 
     // Do things depending on what button was pressed
     if (MOUVEMENT(action)) {

@@ -583,7 +583,7 @@ static int HitTestTimeoutbl(HWND hwnd, POINT pt)
     DorQWORD area=0;
 
     // Try first with the ancestor window for some buggy AppX?
-    HWND ancestor = GetAncestor(hwnd, GA_ROOT);
+    HWND ancestor = state.hwnd = GetAncestor(hwnd, GA_ROOT);
     if (blacklisted(ancestor, &BlkLst.MMBLower)) return 0;
     if (hwnd != ancestor
     && blacklisted(ancestor, &BlkLst.NCHittest)) {

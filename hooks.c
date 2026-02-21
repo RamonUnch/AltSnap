@@ -160,6 +160,7 @@ static struct {
     UCHAR ignorept;
     enum action action;
     struct resizeXY resize;
+    HWND cached_hwnd_blacklist;
     TCHAR exename[MAX_PATH];
     TCHAR title[256];
     TCHAR classname[256];
@@ -456,9 +457,6 @@ static xpure int IsPtDragOut(const POINT *pt, const POINT *ptt)
 // Wether a window is present or not in a blacklist
 static pure int blacklisted_from_names(const struct blacklist *list, const TCHAR *exename, const TCHAR *title, const TCHAR *classname)
 {
-    if (!list->length || !list->items)
-        return 0;
-
     // If the first element is *:*|* (NULL:NULL|NULL)then we are in whitelist mode
     // mode = 1 => blacklist, mode = 0 => whitelist;
     UCHAR mode = list->items[0].classname
@@ -479,6 +477,7 @@ static pure int blacklisted_from_names(const struct blacklist *list, const TCHAR
 }
 static void blacklist_cache_state()
 {
+    state.cached_hwnd_blacklist = state.hwnd;
     state.title[0] = state.classname[0] = state.exename[0] = TEXT('\0');
     GetWindowProgName(state.hwnd, state.exename, ARR_SZ(state.exename));
     GetWindowText(state.hwnd, state.title, ARR_SZ(state.title));
@@ -491,7 +490,8 @@ static pure int blacklisted(HWND hwnd, const struct blacklist *list)
         return 0;
 
     if (hwnd == state.hwnd) {
-        if (!state.classname[0]) blacklist_cache_state();
+        // Magage a simple cache only for the state window
+        if (state.hwnd != state.cached_hwnd_blacklist) blacklist_cache_state();
         return blacklisted_from_names(list, state.exename, state.title, state.classname);
     }
 
@@ -502,7 +502,7 @@ static pure int blacklisted(HWND hwnd, const struct blacklist *list)
     GetClassName(hwnd, classname, ARR_SZ(classname));
     GetWindowProgName(hwnd, exename, ARR_SZ(exename));
 
-    // LOGA( "hwnd=%X (%ls:%ls|%ls) blacklist = %X, thread=%d", (UINT)hwnd, exename, title, classname, (UINT)list, (int)GetCurrentThreadId());
+    //LOGA( "hwnd=%X (%ls:%ls|%ls) blacklist = %X, thread=%d", (UINT)hwnd, exename, title, classname, (UINT)list, (int)GetCurrentThreadId());
     return blacklisted_from_names(list, exename, title, classname);
 
 }
@@ -4962,8 +4962,7 @@ static int xpure DoubleClamp(int ptx, int left, int right, int rwidth)
 // If we pass buttonX BT_PROBE it will tell us if we pass the blacklist.
 static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, int buttonX)
 {
-//    RGTICTAC tt;
-//    RGTic(&tt);
+    //RGTICTAC tt; RGTic(&tt);
     LOG("\ninit_movement_and_actions(pt=%d,%d, hwnd=%x, action=%d, button=%d)", pt.x, pt.y, (UINT)(INT_PTR)hwnd, (int)action, buttonX);
     RECT wnd;
     state.prevpt = pt; // in case
@@ -4979,8 +4978,6 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     // Get window from point or use the given one.
     // Get MDI chlild hwnd or root hwnd if not MDI!
     state.mdiclient = NULL;
-    state.exename[0] = state.title[0] = state.classname[0];
-
     state.hwnd = hwnd ? hwnd : MDIorNOT(WindowFromPoint(pt), &state.mdiclient);
 
     //LOGA("MDI info got %d us", (int)RGTac(&tt));
@@ -5233,6 +5230,7 @@ static DWORD WINAPI FinishMovementNow(LPVOID pp)
     state.action = AC_NONE;
     state.moving = 0;
     state.snap = conf.AutoSnap;
+    state.cached_hwnd_blacklist = NULL;
 
     // Unhook mouse if Alt is released
     if (!state.alt) {

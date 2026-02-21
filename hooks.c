@@ -395,7 +395,7 @@ struct blacklistitem {
 };
 struct blacklist {
     struct blacklistitem *items;
-    unsigned length;
+    size_t length;
     TCHAR *data;
 };
 static struct {
@@ -475,7 +475,7 @@ static pure int blacklisted_from_names(const struct blacklist *list, const TCHAR
     UCHAR mode = list->items[0].classname
               || list->items[0].title
               || list->items[0].exename;
-    unsigned i = !mode; // Skip the first item...
+    size_t i = !mode; // Skip the first item...
 
     for ( ; i < list->length; i++) {
         if (!lstrcmp_star(classname, list->items[i].classname)
@@ -758,7 +758,7 @@ BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
         }
         OffsetRectMDI(&rc);
         // Return if this window is overlapped by another window
-        unsigned i;
+
         unsigned flags = 0;
 
         RECT bdrcL = { rc.left,  rc.top,    rc.left,  rc.bottom };
@@ -766,7 +766,7 @@ BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
         RECT bdrcR = { rc.right, rc.top,    rc.right, rc.bottom };
         RECT bdrcB = { rc.left,  rc.bottom, rc.right, rc.bottom };
 
-        for (i=0; i < wnds.num; i++) {
+        for (size_t i=0; i < wnds.num; i++) {
             if (RectInRect(&wnds.it[i].rc, &rc)) {
                 return TRUE;
             }
@@ -866,8 +866,7 @@ BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
             OffsetRectMDI(&wnd);
 
             // Return if this window is overlapped by another window
-            unsigned i;
-            for (i=0; i < snwnds.num; i++) {
+            for (size_t i=0; i < snwnds.num; i++) {
                 if (RectInRect(&snwnds.it[i].rc, &wnd)) {
                     return TRUE;
                 }
@@ -917,7 +916,7 @@ static int ResizeTouchingWindows(LPVOID lwptr)
     if (conf.FullWin) {
         hwndSS = BeginDeferWindowPos(snwnds.num+1);
     }
-    unsigned i;
+    size_t i;
     for (i=0; i < snwnds.num; i++) {
         RECT *nwnd = &snwnds.it[i].rc;
         unsigned flag = snwnds.it[i].flag;
@@ -972,8 +971,7 @@ static void ResizeAllSnappedWindows()
     if (!conf.StickyResize || !snwnds.num) return;
 
     HDWP hwndSS = BeginDeferWindowPos(snwnds.num+1);
-    unsigned i;
-    for (i=0; i < snwnds.num; i++) {
+    for (size_t i=0; i < snwnds.num; i++) {
         if(hwndSS && snwnds.it[i].flag&TORESIZE) {
             RECT bd;
             FixDWMRect(snwnds.it[i].hwnd, &bd);
@@ -1085,7 +1083,7 @@ void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight, UCHAR pth)
     thresholdx = thresholdy = pth; // conf.SnapThreshold;
 
     // Loop monitors and windows
-    unsigned i, j;
+    size_t i, j;
     for (i=0, j=0; i < monitors.num || j < wnds.num; ) {
         RECT snapwnd;
         UCHAR snapinside=0;
@@ -1189,7 +1187,7 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight, UCHA
     EnumOnce(&borders);
 
     // Loop monitors and windows
-    unsigned i, j;
+    size_t i, j;
     for (i=0, j=0; i < monitors.num || j < wnds.num;) {
         RECT snapwnd;
         UCHAR snapinside;
@@ -1504,7 +1502,7 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
 
     // Check on all the other snapped windows from the bottom most
     // To give precedence to the topmost windows
-    unsigned i = snwnds.num;
+    size_t i = snwnds.num;
     while (i--) {
         unsigned flag = snwnds.it[i].flag;
         const RECT *wnd = &snwnds.it[i].rc;
@@ -2936,7 +2934,7 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
         VK_XBUTTON1,// MK_XBUTTON1 }, 32
         VK_XBUTTON2,// MK_XBUTTON2 }  64
     };
-    unsigned i;
+    size_t i;
     for (i=0; i < ARR_SZ(toOr); i++) // Should we use GetKeyState?
         if (GetAsyncKeyState(toOr[i]) &0x8000) wp |= (1<<i);
 
@@ -3746,9 +3744,8 @@ static void SetEdgeAndOffset(const RECT *wnd, const POINT pt)
 
 static void NextBorders(RECT *pos, const RECT *cur, const RECT *def)
 {
-    unsigned i;
     CopyRect(pos, def);
-    for (i=0; i < snwnds.num; i++) {
+    for (size_t i=0; i < snwnds.num; i++) {
         const RECT *rc = &snwnds.it[i].rc;
         const unsigned flg = snwnds.it[i].flag;
         POINT tpt;
@@ -4366,8 +4363,7 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
     if (restore == hwnd) {
         // We have to restore all saved windows (minhwnds) when
         // we click again on the same hwnd and have everything saved...
-        unsigned i;
-        for (i=0; i < minhwnds.num; i++) {
+        for (size_t i=0; i < minhwnds.num; i++) {
             HWND hrest = minhwnds.it[i];
             if (IsWindow(hrest)
             && IsIconic(hrest)
@@ -4395,8 +4391,7 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
 
 static pure BOOL IsRectInMonitors(const RECT *rc)
 {
-    unsigned i;
-    for(i=0; i < monitors.num; i++) {
+    for(size_t i=0; i < monitors.num; i++) {
         int inx = monitors.it[i].left < rc->right-8 && rc->left+8 < monitors.it[i].right;
         int iny = monitors.it[i].top < rc->bottom-8 && rc->top+8 < monitors.it[i].bottom;
         if (inx && iny) // Windows is inside one of the monitors.
@@ -4506,7 +4501,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
 
     HMENU menu = CreatePopupMenu();
     state.unikeymenu = menu;
-    unsigned i;
+    size_t i;
     TCHAR * const failed_string = TEXT("---");
 
     struct menuitemdata data[36]; // Always fits into the stack
@@ -4557,7 +4552,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
     GetCursorPos(&pt);
     BringWindowToTop(g_mchwnd);
     SetForegroundWindow(g_mchwnd);
-    i = (unsigned)TrackPopupMenu(menu,
+    i = (size_t)TrackPopupMenu(menu,
         TPM_RETURNCMD/*|TPM_NONOTIFY*/|GetSystemMetrics(SM_MENUDROPALIGNMENT)
         , pt.x, pt.y, 0, g_mchwnd, NULL);
     state.mdiclient = mdiclient;
@@ -6128,8 +6123,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 static void freeblacklists()
 {
     struct blacklist *list = (struct blacklist *)&BlkLst;
-    unsigned i;
-    for (i=0; i< sizeof(BlkLst)/sizeof(struct blacklist); i++) {
+    for (size_t i=0; i < sizeof(BlkLst)/sizeof(struct blacklist); i++) {
         free(list->data);
         free(list->items);
         list++;
@@ -6165,8 +6159,7 @@ __declspec(dllexport) void WINAPI Unload()
         }
     }
 
-    unsigned ac;
-    for(ac=AC_MENU; ac<AC_MAXVALUE; ac++)
+    for (unsigned ac=AC_MENU; ac<AC_MAXVALUE; ac++)
         UnregisterHotKey(g_mainhwnd, 0xC000+ac);
 
     EnumThreadWindows(GetCurrentThreadId(), PostPinWindowsProcMessage, WM_CLOSE);
@@ -6295,8 +6288,7 @@ void readallblacklists(const TCHAR *inipath)
     GetPrivateProfileSection(TEXT("Blacklist"), section, blacklist_section_length, inipath);
 
     struct blacklist *list = &BlkLst.Processes;
-    unsigned i;
-    for (i=0; i< sizeof(BlkLst)/sizeof(struct blacklist); i++) {
+    for (size_t i=0; i < sizeof(BlkLst)/sizeof(struct blacklist); i++) {
         readblacklist(section, list+i, BlackListStrings[i]);
     }
     free(section);
@@ -6307,7 +6299,7 @@ void readallblacklists(const TCHAR *inipath)
 static unsigned readhotkeys(const TCHAR *inisection, const char *name, const TCHAR *def, UCHAR *keys, unsigned MaxKeys)
 {
     LPCTSTR txt = GetSectionOptionCStr(inisection, name, def);
-    unsigned i=0;
+    size_t i=0;
     if(!txt || !*txt) return i;
     const TCHAR *pos = txt;
     while (*pos) {
@@ -6343,8 +6335,7 @@ void readbuttonactions(const TCHAR *inputsection)
         "MoveUp", "ResizeUp",
     };
 
-    unsigned i;
-    for (i=0; i < ARR_SZ(buttons); i++) {
+    for (size_t i=0; i < ARR_SZ(buttons); i++) {
         enum action * const actionptr = &conf.Mouse[0]; // first action in list
 
         char key[32];
@@ -6374,7 +6365,7 @@ void readbuttonactions(const TCHAR *inputsection)
         actionptr[NACPB*i+7] = readaction(inputsection, key);
     }
 
-    for (i = 0; i < NACPB; i++) {
+    for (size_t i = 0; i < NACPB; i++) {
         // ScrollUp
         if(conf.Mouse[21 * NACPB + i] == AC_NONE)
             conf.Mouse[21 * NACPB + i] = conf.Mouse[20 * NACPB + i];
@@ -6455,8 +6446,8 @@ void registerAllHotkeys(const TCHAR* inipath)
     #define ACVALUE(a, b, c) (#b),
     static const char *action_names[] = { ACTION_MAP };
     #undef ACVALUE
-    unsigned ac;
-    for (ac=AC_MENU; ac < ARR_SZ(action_names); ac++) {
+
+    for (unsigned ac=AC_MENU; ac < ARR_SZ(action_names); ac++) {
         WORD HK = GetSectionOptionInt(inisection, action_names[ac], 0);
         if(LOBYTE(HK) && HIBYTE(HK)) {
             // Lobyte is the virtual key code and hibyte is the mod_key
@@ -6477,8 +6468,7 @@ void registerAllHotkeys(const TCHAR* inipath)
 static void readalluchars(UCHAR *dest, const TCHAR * const inisection, const struct OptionListItem *optlist, size_t listlen)
 {
     // Read all char options
-    unsigned i;
-    for (i=0; i < listlen; i++) {
+    for (size_t i=0; i < listlen; i++) {
         *dest++ = GetSectionOptionInt(inisection, optlist[i].name, optlist[i].def);
     }
 }
@@ -6486,11 +6476,10 @@ void readallinputSequences(const TCHAR *inisection)
 {
     UCHAR buf[512];
     char shrtN[6] = "Shrt0";
-    size_t i;
 
     mem00(conf.inputSequences, sizeof(conf.inputSequences));
 
-    for (i=0; i< ARR_SZ(conf.inputSequences); i++) {
+    for (size_t i=0; i < ARR_SZ(conf.inputSequences); i++) {
         shrtN[4] = i<10? '0' + i: 'A'-10 + i;
         unsigned len = readhotkeys(inisection, shrtN, TEXT(""), buf+1, 508) / 2;
         buf[0] = len;
@@ -6521,7 +6510,6 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
 #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
 #endif
     // Load settings
-    unsigned i;
     state.action = AC_NONE;
     state.shift = 0;
     state.moving = 0;
@@ -6629,7 +6617,7 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
         { "HScrollKey", TEXT("10"), conf.HScrollKey }, // VK_SHIFT
         { "ESCKeys",   TEXT("1B"), conf.ESCkeys }, // VK_ESCAPE = 1B
     };
-    for (i=0; i < ARR_SZ(hklst); i++) {
+    for (size_t i=0; i < ARR_SZ(hklst); i++) {
         readhotkeys(inisection, hklst[i].name, hklst[i].def, hklst[i].dst, MAXKEYS);
     }
     UCHAR eHKs[MAXKEYS+1]; // Key to be sent at the end of a movment.
@@ -6640,7 +6628,7 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
     int nb = readhotkeys(inisection, "MenuAccelMap", NULL, conf.MenuAccelMap, ARR_SZ(conf.MenuAccelMap) - 1);
 
     // Fill the rest with usual accelerators
-    for (i=nb; i < ARR_SZ(conf.MenuAccelMap); i++) {
+    for (size_t i=nb; i < ARR_SZ(conf.MenuAccelMap); i++) {
         if (conf.NumberMenuItems)
             conf.MenuAccelMap[i] = i<10? TEXT('0')+i: TEXT('A')+i-10;
         else

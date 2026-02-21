@@ -603,23 +603,6 @@ static allnonnull const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t
     return NULL;
 }
 
-
-static char *lstrdupA(const char *s)
-{
-	size_t olen_byte = (strlenL(s) + 1) * sizeof(char);
-	char *dup = (char *)malloc(olen_byte);
-	if(!dup) return NULL;
-	return (char *)memmove(dup, s, olen_byte);
-}
-
-static wchar_t *lstrdupW(const wchar_t *s)
-{
-	size_t olen_byte = (wcslenL(s) + 1) * sizeof(wchar_t);
-	wchar_t *dup = (wchar_t *)malloc(olen_byte);
-	if(!dup) return NULL;
-	return (wchar_t *)memmove(dup, s, olen_byte);
-}
-
 #define itostrA itoaL
 #define itostrW itowL
 #define strtoiA atoiL
@@ -816,5 +799,24 @@ static void *db_realloc(void *x, size_t sz, const char *file, int ln)
 /*; LOGA("realloc + %u bytes in "__FILE__":%d", (UINT)sz, __LINE__);*/
 
 #endif /* DEBUG_MALLOC */
+
+
+static char *lstrdupA(const char *s)
+{
+    size_t olen_byte = (strlenL(s) + 1) * sizeof(char);
+    char *dup = (char *)malloc(olen_byte);
+    if(!dup) return NULL;
+    memcpy(dup, s, olen_byte);
+    return dup;
+}
+
+static wchar_t *lstrdupW(const wchar_t *s)
+{
+    size_t olen_byte = (wcslenL(s) + 1) * sizeof(wchar_t);
+    wchar_t *dup = (wchar_t *)malloc(olen_byte);
+    if(!dup) return NULL;
+    memcpy(dup, s, olen_byte);
+    return dup;
+}
 
 #endif

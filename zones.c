@@ -24,8 +24,8 @@ static void freezones()
     for (i=0; i<ARR_SZ(Zones);i++)
         free(Zones[i]);
 
-    mem00(&Zones, sizeof(Zones));
-    mem00(&nzones, sizeof(nzones));
+    mem00(Zones, sizeof(Zones));
+    mem00(nzones, sizeof(nzones));
 }
 static int ReadRectFromini(RECT *zone, unsigned laynum, unsigned idx, const TCHAR *inisection)
 {
@@ -87,17 +87,17 @@ static unsigned CopyZones(RECT *dZones, unsigned idx)
 static void GenerateGridZones(unsigned layout, unsigned short Nx, unsigned short Ny)
 {
     // Enumerate monitors
-    nummonitors = 0;
+    monitors.num = 0;
     unsigned nz = 0;
     EnumDisplayMonitors(NULL, NULL, EnumMonitorsProc, 0);
-    RECT *tmp = (RECT *)realloc(Zones[layout], nummonitors * Nx * Ny * sizeof(*tmp));
+    RECT *tmp = (RECT *)realloc(Zones[layout], monitors.num * Nx * Ny * sizeof(*tmp));
     if(!tmp) return;
     Zones[layout] = tmp;
 
     // Loop on all monitors
     unsigned m;
-    for (m=0; m<nummonitors; m++) {
-        const RECT *mon = &monitors[m];
+    for (m=0; m < monitors.num; m++) {
+        const RECT *mon = &monitors.it[m];
         unsigned i;
         for(i=0; i<Nx; i++) { // Horizontal
             unsigned j;
@@ -435,10 +435,10 @@ static DWORD GetFullMonitorsRez()
 {
     // Enumerate monitors
     EnumDisplayMonitors(NULL, NULL, EnumMonitorsProc, 0);
-    if (!monitors || !nummonitors)
+    if (!monitors.it || !monitors.num)
         return 0; // ERROR! do nothing
     RECT urc;
-    UnionMultiRect(&urc, monitors, nummonitors);
+    UnionMultiRect(&urc, monitors.it, monitors.num);
 
     // Return dimentions width:height
     return (urc.right-urc.left) | (urc.bottom-urc.top)<<16;
@@ -467,7 +467,7 @@ static int GetBestLayoutFromMonitors()
 
     // Check if the current Layout is good for the current monitor
     DWORD monRZ;
-    if (nummonitors <= 1) {
+    if (monitors.num <= 1) {
         RECT mrc;
         SystemParametersInfo(SPI_GETWORKAREA, 0, &mrc, 0);
         monRZ = (mrc.right-mrc.left) | (mrc.bottom-mrc.top)<<16;

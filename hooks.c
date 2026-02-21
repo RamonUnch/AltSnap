@@ -167,12 +167,25 @@ static struct {
 } state;
 
 // Snap
-RECT *monitors = NULL;
-unsigned nummonitors = 0;
-struct snwdata *wnds = NULL; /* for the Snap to borders option */
-unsigned numwnds = 0;
-HWND *hwnds = NULL;
-unsigned numhwnds = 0;
+static struct rgMonitors {
+    RECT     *it;
+    size_t   num;
+    size_t   cap;
+} monitors = { NULL, 0, 0 };
+
+/* for the Snap to borders option */
+static struct rgSnData {
+    struct snwdata    *it;
+    size_t            num;
+    size_t            cap;
+} wnds = { NULL, 0, 0 };
+
+static struct rghWnds {
+    HWND     *it;
+    size_t  num;
+    size_t  cap;
+} hwnds = { NULL, 0, 0 };
+
 
 // Settings
 #define MAXKEYS 15
@@ -648,32 +661,15 @@ static void SetWindowTrans(HWND hwnd)
         oldtrans = 0;
     }
 }
-static void *GetEnoughSpace(void *ptr, unsigned num, unsigned *alloc, size_t size)
-{
-    if (num >= *alloc) {
-        void *nptr = realloc(ptr, (*alloc+4)*size);
-        if (!nptr) { free(ptr);  *alloc=0; return NULL; }
-        ptr = nptr;
-        if(ptr) *alloc = (*alloc+4); // Realloc succeeded, increase count.
-        else *alloc = 0;
-    }
-    return ptr;
-}
 
 /////////////////////////////////////////////////////////////////////////////
 // Enumerate callback proc
-unsigned monitors_alloc = 0;
 BOOL CALLBACK EnumMonitorsProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
 {
-    // Make sure we have enough space allocated
-    monitors = (RECT *)GetEnoughSpace(monitors, nummonitors, &monitors_alloc, sizeof(*monitors));
-    if (!monitors) return FALSE; // Stop enum, we failed
     // Add monitor
     MONITORINFO mi; mi.cbSize = sizeof(mi);
     GetMonitorInfo(hMonitor, &mi);
-    CopyRect(&monitors[nummonitors++], &mi.rcWork); //*lprcMonitor;
-
-    return TRUE;
+    return !!ListAppend(&monitors, &mi.rcWork, sizeof(*monitors.it)); //*lprcMonitor;
 }
 /////////////////////////////////////////////////////////////////////////////
 static void OffsetRectMDI(RECT *wnd)
@@ -741,13 +737,8 @@ static DWORD WINAPI WorkerThread(LPVOID p)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-unsigned wnds_alloc = 0;
 BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
 {
-    // Make sure we have enough space allocated
-    wnds = (struct snwdata *)GetEnoughSpace(wnds, numwnds, &wnds_alloc, sizeof(*wnds));
-    if (!wnds) return FALSE; // Stop enum, we failed
-
     // Only store window if it's visible, not minimized to taskbar,
     // not the window we are dragging and not blacklisted
     RECT rc;
@@ -775,14 +766,14 @@ BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
         RECT bdrcR = { rc.right, rc.top,    rc.right, rc.bottom };
         RECT bdrcB = { rc.left,  rc.bottom, rc.right, rc.bottom };
 
-        for (i=0; i < numwnds; i++) {
-            if (RectInRect(&wnds[i].rc, &rc)) {
+        for (i=0; i < wnds.num; i++) {
+            if (RectInRect(&wnds.it[i].rc, &rc)) {
                 return TRUE;
             }
-            CropOutRectFromSeg(&bdrcL, &wnds[i].rc);
-            CropOutRectFromSeg(&bdrcT, &wnds[i].rc);
-            CropOutRectFromSeg(&bdrcR, &wnds[i].rc);
-            CropOutRectFromSeg(&bdrcB, &wnds[i].rc);
+            CropOutRectFromSeg(&bdrcL, &wnds.it[i].rc);
+            CropOutRectFromSeg(&bdrcT, &wnds.it[i].rc);
+            CropOutRectFromSeg(&bdrcR, &wnds.it[i].rc);
+            CropOutRectFromSeg(&bdrcB, &wnds.it[i].rc);
         }
         // Check if there is any remaining visibility
         // for each border of the rectangle
@@ -791,28 +782,29 @@ BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
                | ( (bdrcR.top >= bdrcR.bottom) << 2 )
                | ( (bdrcB.left >= bdrcB.right) << 3 );
 
-        // Add window to wnds db
-        CopyRect(&wnds[numwnds].rc, &rc);
-        wnds[numwnds].hwnd = window;
-        // Add flags telling which border is visible
-        wnds[numwnds].flag = flags;
-        ++numwnds;
 
+        // Add window to wnds db
+        struct snwdata *wnd_dst = (struct snwdata *)ListAppend(&wnds, NULL, sizeof(*wnds.it));
+        if ( !wnd_dst )
+            return FALSE; // Stop enum, we failed
+
+        CopyRect(&wnd_dst->rc, &rc);
+        wnd_dst->hwnd = window;
+        // Add flags telling which border is visible
+        wnd_dst->flag = flags;
     }
     return TRUE;
 }
 /////////////////////////////////////////////////////////////////////////////
 // snapped windows database.
-struct snwdata *snwnds;
-unsigned numsnwnds = 0;
-unsigned snwnds_alloc = 0;
+static struct rgSnWnds {
+    struct snwdata *it;
+    size_t  num;
+    size_t  cap;
+} snwnds = { NULL, 0, 0 };
 
 BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 {
-    // Make sure we have enough space allocated
-    snwnds = (struct snwdata *)GetEnoughSpace(snwnds, numsnwnds, &snwnds_alloc, sizeof(*snwnds));
-    if (!snwnds) return FALSE; // Stop enum, we failed
-
     RECT wnd;
     if (ShouldSnapTo(hwnd)
     && !IsZoomed(hwnd)
@@ -825,19 +817,20 @@ BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
             // to determine its snapping state
             MONITORINFO mi;
             GetMonitorInfoFromWin(hwnd, &mi);
-            snwnds[numsnwnds].flag = WhichSideRectInRect(&mi.rcWork, &wnd);
+            snwnds.it[snwnds.num].flag = WhichSideRectInRect(&mi.rcWork, &wnd);
         } else if ((restore = GetRestoreFlag(hwnd)) && restore&SNAPPED && restore&SNAPPEDSIDE) {
             // The window was AltSnapped...
-            snwnds[numsnwnds].flag = restore;
+            snwnds.it[snwnds.num].flag = restore;
         } else {
             // thiw window is not snapped.
             return TRUE; // next hwnd
         }
         // Add the window to the list
+        struct snwdata *new_wnd = (struct snwdata *)ListAppend(&snwnds, NULL, sizeof(*snwnds.it));
+        if (!new_wnd) return FALSE;
         OffsetRectMDI(&wnd);
-        CopyRect(&snwnds[numsnwnds].rc, &wnd);
-        snwnds[numsnwnds].hwnd = hwnd;
-        numsnwnds++;
+        CopyRect(&new_wnd->rc, &wnd);
+        new_wnd->hwnd = hwnd;
     }
     return TRUE;
 }
@@ -845,7 +838,7 @@ BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 // touching the current window will be considered.
 static void EnumSnapped()
 {
-    numsnwnds = 0;
+    snwnds.num = 0;
     if (conf.SmartAero&1) {
         if(state.mdiclient)
             EnumChildWindows(state.mdiclient, EnumSnappedWindows, 0);
@@ -858,10 +851,6 @@ static void EnumSnapped()
 // be used together Enum() vs EnumSnapped()
 BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
 {
-    // Make sure we have enough space allocated
-    snwnds = (struct snwdata *)GetEnoughSpace(snwnds, numsnwnds, &snwnds_alloc, sizeof(*snwnds));
-    if (!snwnds) return FALSE; // Stop enum, we failed
-
     RECT wnd;
     if (ShouldSnapTo(hwnd)
     && !IsZoomed(hwnd)
@@ -878,16 +867,17 @@ BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
 
             // Return if this window is overlapped by another window
             unsigned i;
-            for (i=0; i < numsnwnds; i++) {
-                if (RectInRect(&snwnds[i].rc, &wnd)) {
+            for (i=0; i < snwnds.num; i++) {
+                if (RectInRect(&snwnds.it[i].rc, &wnd)) {
                     return TRUE;
                 }
             }
-
-            CopyRect(&snwnds[numsnwnds].rc, &wnd);
-            snwnds[numsnwnds].flag = flag;
-            snwnds[numsnwnds].hwnd = hwnd;
-            numsnwnds++;
+            // Add the window to the list
+            struct snwdata *new_wnd = (struct snwdata *)ListAppend(&snwnds, NULL, sizeof(*snwnds.it));
+            if (!new_wnd) return FALSE;
+            CopyRect(&new_wnd->rc, &wnd);
+            new_wnd->flag = flag;
+            new_wnd->hwnd = hwnd;
         }
     }
     return TRUE;
@@ -914,7 +904,7 @@ static int ResizeTouchingWindows(LPVOID lwptr)
     if (!ShouldResizeTouching()) return 0;
     RECT *bd;
     EnumOnce(&bd);
-    if (!snwnds || !numsnwnds) return 0;
+    if (!snwnds.it || !snwnds.num) return 0;
     struct windowRR *lw = (struct windowRR *)lwptr;
     // posx, posy,  correspond to the VISIBLE rect
     // of the current window...
@@ -925,13 +915,13 @@ static int ResizeTouchingWindows(LPVOID lwptr)
 
     HDWP hwndSS = NULL; // For DeferwindowPos.
     if (conf.FullWin) {
-        hwndSS = BeginDeferWindowPos(numsnwnds+1);
+        hwndSS = BeginDeferWindowPos(snwnds.num+1);
     }
     unsigned i;
-    for (i=0; i < numsnwnds; i++) {
-        RECT *nwnd = &snwnds[i].rc;
-        unsigned flag = snwnds[i].flag;
-        HWND hwnd = snwnds[i].hwnd;
+    for (i=0; i < snwnds.num; i++) {
+        RECT *nwnd = &snwnds.it[i].rc;
+        unsigned flag = snwnds.it[i].flag;
+        HWND hwnd = snwnds.it[i].hwnd;
 
         POINT tpt;
         tpt.x = (nwnd->left+nwnd->right)/2;
@@ -964,7 +954,7 @@ static int ResizeTouchingWindows(LPVOID lwptr)
                     , nwnd->bottom - nwnd->top + nbd.top + nbd.bottom
                     , SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER);
         }
-        snwnds[i].flag = flag|TORESIZE;
+        snwnds.it[i].flag = flag|TORESIZE;
     }
 
     if (hwndSS) {
@@ -979,20 +969,20 @@ static int ResizeTouchingWindows(LPVOID lwptr)
 /////////////////////////////////////////////////////////////////////////////
 static void ResizeAllSnappedWindows()
 {
-    if (!conf.StickyResize || !numsnwnds) return;
+    if (!conf.StickyResize || !snwnds.num) return;
 
-    HDWP hwndSS = BeginDeferWindowPos(numsnwnds+1);
+    HDWP hwndSS = BeginDeferWindowPos(snwnds.num+1);
     unsigned i;
-    for (i=0; i < numsnwnds; i++) {
-        if(hwndSS && snwnds[i].flag&TORESIZE) {
+    for (i=0; i < snwnds.num; i++) {
+        if(hwndSS && snwnds.it[i].flag&TORESIZE) {
             RECT bd;
-            FixDWMRect(snwnds[i].hwnd, &bd);
-            InflateRectBorder(&snwnds[i].rc, &bd);
-            hwndSS = DeferWindowPos(hwndSS, snwnds[i].hwnd, NULL
-                    , snwnds[i].rc.left
-                    , snwnds[i].rc.top
-                    , snwnds[i].rc.right - snwnds[i].rc.left
-                    , snwnds[i].rc.bottom - snwnds[i].rc.top
+            FixDWMRect(snwnds.it[i].hwnd, &bd);
+            InflateRectBorder(&snwnds.it[i].rc, &bd);
+            hwndSS = DeferWindowPos(hwndSS, snwnds.it[i].hwnd, NULL
+                    , snwnds.it[i].rc.left
+                    , snwnds.it[i].rc.top
+                    , snwnds.it[i].rc.right - snwnds.it[i].rc.left
+                    , snwnds.it[i].rc.bottom - snwnds.it[i].rc.top
                     , SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER);
         }
     }
@@ -1008,12 +998,10 @@ static void ResizeAllSnappedWindows()
 // Just used in Enum
 static void EnumMdi()
 {
-    // Make sure we have enough space allocated
-    monitors = (RECT *)GetEnoughSpace(monitors, nummonitors, &monitors_alloc, sizeof(*monitors));
-    if (!monitors) return; // Fail
-
     // Add MDIClient as the monitor
-    nummonitors = !!GetClientRect(state.mdiclient, &monitors[0]);
+    RECT rc;
+    if (GetClientRect(state.mdiclient, &rc))
+        ListAppend(&monitors, &rc, sizeof(*monitors.it));
 
     if (state.snap > 1) {
         EnumChildWindows(state.mdiclient, EnumWindowsProc, 0);
@@ -1026,9 +1014,9 @@ static void EnumMdi()
 // Enumerate all monitors/windows/MDI depending on state.
 static void Enum()
 {
-    nummonitors = 0;
-    numwnds = 0;
-    numsnwnds = 0;
+    monitors.num = 0;
+    wnds.num = 0;
+    snwnds.num = 0;
 
     // MDI
     if (state.mdiclient && IsWindow(state.mdiclient)) {
@@ -1098,19 +1086,19 @@ void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight, UCHAR pth)
 
     // Loop monitors and windows
     unsigned i, j;
-    for (i=0, j=0; i < nummonitors || j < numwnds; ) {
+    for (i=0, j=0; i < monitors.num || j < wnds.num; ) {
         RECT snapwnd;
         UCHAR snapinside=0;
         unsigned sflag = 0;
 
         // Get snapwnd
-        if (monitors && i < nummonitors) {
-            snapwnd = monitors[i];
+        if (monitors.it && i < monitors.num) {
+            snapwnd = monitors.it[i];
             snapinside = 1;
             i++;
-        } else if (wnds && j < numwnds) {
-            snapwnd = wnds[j].rc;
-            sflag   = wnds[j].flag;
+        } else if (wnds.it && j < wnds.num) {
+            snapwnd = wnds.it[j].rc;
+            sflag   = wnds.it[j].flag;
             snapinside = (state.snap != 2);
             j++;
         } else {
@@ -1202,17 +1190,17 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight, UCHA
 
     // Loop monitors and windows
     unsigned i, j;
-    for (i=0, j=0; i < nummonitors || j < numwnds;) {
+    for (i=0, j=0; i < monitors.num || j < wnds.num;) {
         RECT snapwnd;
         UCHAR snapinside;
 
         // Get snapwnd
-        if (monitors && i < nummonitors) {
-            CopyRect(&snapwnd, &monitors[i]);
+        if (monitors.it && i < monitors.num) {
+            CopyRect(&snapwnd, &monitors.it[i]);
             snapinside = 1;
             i++;
-        } else if (wnds && j < numwnds) {
-            CopyRect(&snapwnd, &wnds[j].rc);
+        } else if (wnds.it && j < wnds.num) {
+            CopyRect(&snapwnd, &wnds.it[j].rc);
             snapinside = (state.snap != 2);
             j++;
         } else {
@@ -1502,7 +1490,7 @@ static void MoveWindowNow(struct windowRR *lw)
 #undef MOVEASYNC
 
 ///////////////////////////////////////////////////////////////////////////
-// use snwnds[numsnwnds].rc / .flag
+// use snwnds.it[snwnds.num].rc / .flag
 static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeight, int *bottomHeight, const RECT *mon)
 {
     *leftWidth    = CLAMPW((mon->right - mon->left)* conf.AHoff     /100);
@@ -1516,10 +1504,10 @@ static void GetAeroSnappingMetrics(int *leftWidth, int *rightWidth, int *topHeig
 
     // Check on all the other snapped windows from the bottom most
     // To give precedence to the topmost windows
-    unsigned i = numsnwnds;
+    unsigned i = snwnds.num;
     while (i--) {
-        unsigned flag = snwnds[i].flag;
-        const RECT *wnd = &snwnds[i].rc;
+        unsigned flag = snwnds.it[i].flag;
+        const RECT *wnd = &snwnds.it[i].rc;
         // if the window is in current monitor
         POINT tpt;
         tpt.x = (wnd->left+wnd->right)/2;
@@ -2986,31 +2974,21 @@ static int IsToolWindow(HWND hwnd)
     return GetWindowLongPtr(hwnd, GWL_EXSTYLE)&WS_EX_TOOLWINDOW;
 }
 /////////////////////////////////////////////////////////////////////////////
-unsigned hwnds_alloc = 0;
-
 // lParam means to include minimized windows (pass TRK_LASERMODE to TrackMenuOfWindows)
 BOOL CALLBACK EnumAltTabWindows(HWND window, LPARAM lParam)
 {
-    // Make sure we have enough space allocated
-    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(*hwnds));
-    if (!hwnds) return FALSE; // Stop enum, we failed
-
     // Only store window if it's visible, not minimized
     // to taskbar and on the same monitor as the cursor
     if (IsAltTabAble(window)
     && (!IsIconic(window) || (lParam && !IsToolWindow(window)))
     && state.origin.monitor == MonitorFromWindow(window,
             conf.MenuShowOffscreenWin ? MONITOR_DEFAULTTONEAREST : MONITOR_DEFAULTTONULL)) {
-        hwnds[numhwnds++] = window;
+        return !!ListAppend(&hwnds, &window, sizeof(*hwnds.it));
     }
     return TRUE;
 }
 BOOL CALLBACK EnumAllAltTabWindows(HWND window, LPARAM lParam)
 {
-    // Make sure we have enough space allocated
-    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(*hwnds));
-    if (!hwnds) return FALSE; // Stop enum, we failed
-
     // Only store window if it's visible, not minimized
     // to taskbar, and either:
     //   offscreen windows are shown, or
@@ -3018,21 +2996,17 @@ BOOL CALLBACK EnumAllAltTabWindows(HWND window, LPARAM lParam)
     if (IsAltTabAble(window)
     && (!IsIconic(window) || (lParam && !IsToolWindow(window)))
     && (conf.MenuShowOffscreenWin || MonitorFromWindow(window, MONITOR_DEFAULTTONULL))) {
-        hwnds[numhwnds++] = window;
+        return !!ListAppend(&hwnds, &window, sizeof(*hwnds.it));
     }
     return TRUE;
 }
 BOOL CALLBACK EnumTopMostWindows(HWND window, LPARAM lParam)
 {
-    // Make sure we have enough space allocated
-    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(*hwnds));
-    if (!hwnds) return FALSE; // Stop enum, we failed
-
     // Only store window if it's visible, not minimized
     // to taskbar and on the same monitor as the cursor
     if (IsAltTabAble(window)
     && GetWindowLongPtr(window, GWL_EXSTYLE)&WS_EX_TOPMOST) {
-        hwnds[numhwnds++] = window;
+        return !!ListAppend(&hwnds, &window, sizeof(*hwnds.it));
     }
     return TRUE;
 }
@@ -3045,10 +3019,6 @@ static pure BOOL StackedRectsT(const RECT *a, const RECT *b, const int T)
 // Similar to the EnumAltTabWindows, to be used in AltTab();
 BOOL CALLBACK EnumStackedWindowsProc(HWND hwnd, LPARAM lasermode)
 {
-    // Make sure we have enough space allocated
-
-    hwnds = (HWND *)GetEnoughSpace(hwnds, numhwnds, &hwnds_alloc, sizeof(*hwnds));
-    if (!hwnds) return FALSE; // Stop enum, we failed
     // Only store window if it's visible, not minimized to taskbar
     RECT wnd, refwnd;
     if (IsAltTabAble(hwnd)
@@ -3059,7 +3029,7 @@ BOOL CALLBACK EnumStackedWindowsProc(HWND hwnd, LPARAM lasermode)
     && InflateRect(&wnd, conf.SnapThreshold, conf.SnapThreshold)
     &&(state.ignorept || PtInRect(&wnd, state.prevpt))
     ){
-        hwnds[numhwnds++] = hwnd;
+        return !!ListAppend(&hwnds, &hwnd, sizeof(*hwnds.it));
         LOG("EnumStackedWindowsProc found");
     } else {
         LOG("EnumStackedWindowsProc skip");
@@ -3096,7 +3066,7 @@ static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_)
 /////////////////////////////////////////////////////////////////////////////
 static int ActionAltTab(POINT pt, short delta, short laser, WNDENUMPROC lpEnumFunc)
 {
-    numhwnds = 0;
+    hwnds.num = 0;
 
     if (conf.MDI) {
         // Get Class name
@@ -3114,32 +3084,32 @@ static int ActionAltTab(POINT pt, short delta, short laser, WNDENUMPROC lpEnumFu
         if (mdiclient) {
             EnumChildWindows(mdiclient, lpEnumFunc, laser);
 
-            if (numhwnds > 1) {
+            if (hwnds.num > 1) {
                 if (delta > 0) {
-                    PostMessage(mdiclient, WM_MDIACTIVATE, (WPARAM) hwnds[numhwnds-1], 0);
+                    PostMessage(mdiclient, WM_MDIACTIVATE, (WPARAM) hwnds.it[hwnds.num-1], 0);
                 } else {
-                    SetWindowLevel(hwnds[0], hwnds[numhwnds-1]);
-                    PostMessage(mdiclient, WM_MDIACTIVATE, (WPARAM) hwnds[1], 0);
+                    SetWindowLevel(hwnds.it[0], hwnds.it[hwnds.num-1]);
+                    PostMessage(mdiclient, WM_MDIACTIVATE, (WPARAM) hwnds.it[1], 0);
                 }
             }
         }
     } // End if MDI
 
     // Enumerate windows
-    if (numhwnds <= 1) {
+    if (hwnds.num <= 1) {
         state.origin.monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-        numhwnds = 0;
+        hwnds.num = 0;
         EnumDesktopWindows(NULL, lpEnumFunc, laser);
-        if (numhwnds <= 1) {
+        if (hwnds.num <= 1) {
             return 0;
         }
 
         // Reorder windows
         if (delta > 0) {
-            ReallySetForegroundWindow(hwnds[numhwnds-1]);
+            ReallySetForegroundWindow(hwnds.it[hwnds.num-1]);
         } else {
-            SetWindowLevel(hwnds[0], hwnds[numhwnds-1]);
-            ReallySetForegroundWindow(hwnds[1]);
+            SetWindowLevel(hwnds.it[0], hwnds.it[hwnds.num-1]);
+            ReallySetForegroundWindow(hwnds.it[1]);
         }
     }
     return 1;
@@ -3778,9 +3748,9 @@ static void NextBorders(RECT *pos, const RECT *cur, const RECT *def)
 {
     unsigned i;
     CopyRect(pos, def);
-    for (i=0; i<numsnwnds; i++) {
-        const RECT *rc = &snwnds[i].rc;
-        const unsigned flg = snwnds[i].flag;
+    for (i=0; i < snwnds.num; i++) {
+        const RECT *rc = &snwnds.it[i].rc;
+        const unsigned flg = snwnds.it[i].flag;
         POINT tpt;
         tpt.x =  (rc->left+rc->right)/2; tpt.y = (rc->top+rc->bottom)/2;
         if (!PtInRect(def, tpt) )
@@ -4358,17 +4328,17 @@ static void MaximizeHV(HWND hwnd, int horizontal)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-HWND *minhwnds=NULL;
-unsigned minhwnds_alloc=0;
-unsigned numminhwnds=0;
+struct rgMinhWnd {
+    HWND *it;
+    size_t num;
+    size_t cap;
+} minhwnds = { NULL, 0, 0 };
 struct MinimizeWindowProcParams {
     HMONITOR hMon;
     HWND clickedhwnd;
 };
 BOOL CALLBACK MinimizeWindowProc(HWND hwnd, LPARAM lParam)
 {
-    minhwnds = (HWND *)GetEnoughSpace(minhwnds, numminhwnds, &minhwnds_alloc, sizeof(*minhwnds));
-    if (!minhwnds) return FALSE; // Stop enum, we failed
     const struct MinimizeWindowProcParams *p = (const struct MinimizeWindowProcParams *) lParam;
     hwnd = GetRootOwner(hwnd);
 
@@ -4379,7 +4349,7 @@ BOOL CALLBACK MinimizeWindowProc(HWND hwnd, LPARAM lParam)
     && (WS_MINIMIZEBOX&GetWindowLongPtr(hwnd, GWL_STYLE))){
         if (!p->hMon || p->hMon == MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)) {
             MinimizeWindow(hwnd);
-            minhwnds[numminhwnds++] = hwnd;
+            return !!ListAppend(&minhwnds, &hwnd, sizeof(*minhwnds.it));
         }
     }
     return TRUE;
@@ -4397,8 +4367,8 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
         // We have to restore all saved windows (minhwnds) when
         // we click again on the same hwnd and have everything saved...
         unsigned i;
-        for (i=0; i < numminhwnds; i++) {
-            HWND hrest = minhwnds[i];
+        for (i=0; i < minhwnds.num; i++) {
+            HWND hrest = minhwnds.it[i];
             if (IsWindow(hrest)
             && IsIconic(hrest)
             && (!hMon || hMon == MonitorFromWindow(hrest, MONITOR_DEFAULTTONEAREST))){
@@ -4408,12 +4378,12 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
             }
         }
         SetForegroundWindowL(hwnd);
-        numminhwnds = 0;
+        minhwnds.num = 0;
         restore = NULL;
     } else {
         struct MinimizeWindowProcParams p = { NULL, hwnd };
         restore = hwnd;
-        numminhwnds = 0;
+        minhwnds.num = 0;
         if (state.mdiclient) {
             EnumChildWindows(state.mdiclient, MinimizeWindowProc, (LPARAM)&p);
         } else {
@@ -4426,9 +4396,9 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
 static pure BOOL IsRectInMonitors(const RECT *rc)
 {
     unsigned i;
-    for(i=0; i < nummonitors; i++) {
-        int inx = monitors[i].left < rc->right-8 && rc->left+8 < monitors[i].right;
-        int iny = monitors[i].top < rc->bottom-8 && rc->top+8 < monitors[i].bottom;
+    for(i=0; i < monitors.num; i++) {
+        int inx = monitors.it[i].left < rc->right-8 && rc->left+8 < monitors.it[i].right;
+        int iny = monitors.it[i].top < rc->bottom-8 && rc->top+8 < monitors.it[i].bottom;
         if (inx && iny) // Windows is inside one of the monitors.
             return TRUE;
     }
@@ -4519,20 +4489,20 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
     g_mchwnd = KreateMsgWin(MenuWindowProc, TEXT(APP_NAMEA)TEXT("-SClick"), 3);
     if (!g_mchwnd) return; // Failed to create g_mchwnd...
     // Fill up hwnds[] with the stacked windows.
-    numhwnds = 0;
+    hwnds.num = 0;
     HWND mdiclient = state.mdiclient;
     if (mdiclient) {
         EnumChildWindows(mdiclient, EnumProc, flags & TRK_LASERMODE);
     } else {
         EnumDesktopWindows(NULL, EnumProc, flags & TRK_LASERMODE);
     }
-    if (!hwnds) return; // Enum failed
+    if (!hwnds.it) return; // Enum failed
 
-    LOG("Number of stacked windows = %u", numhwnds);
-    if(numhwnds == 0) return;
+    LOG("Number of stacked windows = %u", hwnds.num);
+    if(hwnds.num == 0) return;
 
     state.sclickhwnd = state.hwnd;
-    numhwnds = min(numhwnds, 36); // Max 36 stacked windows
+    hwnds.num = min(hwnds.num, 36); // Max 36 stacked windows
 
     HMENU menu = CreatePopupMenu();
     state.unikeymenu = menu;
@@ -4540,8 +4510,8 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
     TCHAR * const failed_string = TEXT("---");
 
     struct menuitemdata data[36]; // Always fits into the stack
-    for (i=0; i < numhwnds; i++) {
-        int textlen = GetWindowTextLength(hwnds[i]);
+    for (i=0; i < hwnds.num; i++) {
+        int textlen = GetWindowTextLength(hwnds.it[i]);
         // Limit the size to the asked width
         if (conf.MaxMenuWidth)
             textlen = min(textlen, conf.MaxMenuWidth);
@@ -4552,7 +4522,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
         if (data[i].txtptr) {
             // Allocation succeeded
             TCHAR *txt = data[i].txtptr;
-            GetWindowText(hwnds[i], txt+5, textlen + 1);
+            GetWindowText(hwnds.it[i], txt+5, textlen + 1);
             txt[0] = TEXT('&');
             txt[1] = Int2Accel(i);
             txt[2] = TEXT(' '); txt[3] = TEXT('-'); txt[4] = TEXT(' ');
@@ -4568,7 +4538,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
         #endif
 
         // GetWindowIcon return a shared resource not to be freed
-        data[i].icon = GetWindowIcon(hwnds[i]);
+        data[i].icon = GetWindowIcon(hwnds.it[i]);
         MENUITEMINFO lpmi= { sizeof(lpmi) };
         lpmi.fMask = MIIM_DATA|MIIM_TYPE|MIIM_ID;
         lpmi.fType = MFT_OWNERDRAW; /*MFT_STRING*/
@@ -4593,8 +4563,8 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
     state.mdiclient = mdiclient;
     LOG("menu=%u", i);
     // if the return value is in the range..
-    if (0 < i && i <= numhwnds) {
-        HWND hwnd = hwnds[i-1];
+    if (0 < i && i <= hwnds.num) {
+        HWND hwnd = hwnds.it[i-1];
 //        TCHAR buf[128];
 //        PrintHwndDetails(hwnd, buf);
 //        MessageBox(NULL, buf, TEXT("Info"), 0);
@@ -4611,7 +4581,7 @@ static void TrackMenuOfWindows(WNDENUMPROC EnumProc, LPARAM flags)
     g_mchwnd = NULL;
 
     // Free strings
-    for (i=0; i < numhwnds; i++) {
+    for (i=0; i < hwnds.num; i++) {
         if (data[i].txtptr != failed_string)
             free(data[i].txtptr);
     }
@@ -5863,7 +5833,7 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi, H
           : data->icon
         , xicosz, yicosz
         , 0, NULL, DI_NORMAL);
-    if (IsIconic(hwnds[di->itemID-1])) {
+    if (IsIconic(hwnds.it[di->itemID-1])) {
         HPEN npen = CreatePen(PS_SOLID, yicosz/5, GetSysColor(txcol));
         HPEN prevpen = (HPEN)SelectObject(di->hDC, npen);
         MoveToEx(di->hDC, di->rcItem.left+xmargin, di->rcItem.top + yicooffset+yicosz-1, NULL);
@@ -5896,15 +5866,15 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi, H
 static void SendSYSCOMMANDToMenuItem(HWND hwnd, int id, HMENU hmenu, WPARAM sc_command )
 {
     if (conf.RCCloseMItem
-    && 0 <= id && (UINT)id < numhwnds
+    && 0 <= id && (UINT)id < hwnds.num
     && GetWindowLongPtr(hwnd, GWLP_USERDATA) == 3
-    && IsWindow(hwnds[id]) ) {
+    && IsWindow(hwnds.it[id]) ) {
         if (sc_command == SC_CLOSE // remove topmost flag for close command
-        &&  GetWindowLongPtr(hwnds[id], GWL_EXSTYLE)&WS_EX_TOPMOST) {
-            HWND pinhwnd = GetPinWindow(hwnds[id]);
+        &&  GetWindowLongPtr(hwnds.it[id], GWL_EXSTYLE)&WS_EX_TOPMOST) {
+            HWND pinhwnd = GetPinWindow(hwnds.it[id]);
             if (pinhwnd) DestroyWindow(pinhwnd);
         }
-        PostMessage(hwnds[id], WM_SYSCOMMAND, sc_command, 0);
+        PostMessage(hwnds.it[id], WM_SYSCOMMAND, sc_command, 0);
 
         if (sc_command == SC_CLOSE)
             EnableMenuItem(hmenu, id, MF_BYPOSITION|MF_GRAYED);
@@ -6039,7 +6009,7 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             UCHAR closewindow = !conf.NumberMenuItems && conf.RCCloseMItem && GetKeyState(VK_SHIFT)&0x8000;;
             WORD item = Accel2Int(vK);
             // Execute item if the key is valid.
-            if (item != 0xFFFF && item <=  numhwnds) {
+            if (item != 0xFFFF && item <=  hwnds.num) {
                 if (closewindow)
                     //PostMessage(hwnd, WM_MENURBUTTONUP, item, lParam);
                     SendSYSCOMMANDToMenuItem(hwnd, item, (HMENU)lParam, SC_CLOSE);
@@ -6212,11 +6182,11 @@ __declspec(dllexport) void WINAPI Unload()
 
     freeallinputSequences();
 
-    free(monitors); nummonitors = 0; monitors_alloc = 0;
-    free(hwnds); numhwnds = 0; hwnds_alloc = 0;
-    free(wnds); numwnds = 0; wnds_alloc = 0;
-    free(snwnds); numsnwnds = 0; snwnds_alloc = 0;
-    free(minhwnds); numminhwnds = 0; minhwnds_alloc = 0;
+    free(monitors.it); monitors.num = 0; monitors.cap = 0;
+    free(hwnds.it); hwnds.num = 0; hwnds.cap = 0;
+    free(wnds.it); wnds.num = 0; wnds.cap = 0;
+    free(snwnds.it); snwnds.num = 0; snwnds.cap = 0;
+    free(minhwnds.it); minhwnds.num = 0; minhwnds.cap = 0;
     freezones();
 
     // Wait for worker thread to have a clean closing...

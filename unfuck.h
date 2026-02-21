@@ -1691,7 +1691,7 @@ static int LCIDToLocaleNameL(LCID Locale, LPWSTR lpName, int cchName, DWORD dwFl
 /* Get the string inside the section returned by GetPrivateProfileSection */
 static void GetSectionOptionStr(const TCHAR *section, const char * const oname, const TCHAR *def, TCHAR * __restrict__ txt, size_t txtlen)
 {
-    if (section) 
+    if (section)
     {
         TCHAR name[128];
         str2tchar_s(name, ARR_SZ(name)-1, oname);
@@ -1760,6 +1760,32 @@ static int GetSectionOptionInt(const TCHAR *section, const char * const oname, c
     }
     /* Default to the provided def value */
     return def;
+}
+
+/* Simple function to append to a simple list */
+static void* ListAppend(void *list_p, void *elem, size_t elemsize)
+{
+    struct my_list { void *buf; size_t count; size_t cap; };
+    struct my_list *list = (struct my_list *)list_p;
+    void *dst = NULL;
+    size_t cap = list->cap;
+
+    if (list->count >= cap) {
+        cap = max(cap * 2, 8);
+        void *nptr = realloc(list->buf, cap * elemsize);
+        if (!nptr) return NULL;
+
+        list->buf = nptr;
+        list->cap = cap;  /* Realloc succeeded, increase count. */
+    }
+
+    dst = ((unsigned char *)list->buf) + list->count * elemsize;
+    list->count++;
+    /* Copy element to the end if non null */
+    if (elem)
+        memcpy(dst, elem, elemsize);
+
+    return dst;
 }
 
 #endif

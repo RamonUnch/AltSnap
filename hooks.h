@@ -178,6 +178,12 @@
 enum action { ACTION_MAP AC_MAXVALUE, AC_SHRT0, AC_SHRTF=AC_SHRT0+36, AC_ORICLICK };
 #undef ACVALUE
 
+typedef struct rgTagAction {
+    BYTE  ac;
+//    BYTE  fl;
+//    short wp;
+} action_t;
+
 // List of extra info options
 enum {
     ACINFO_MOVE   =  1,
@@ -193,13 +199,13 @@ enum {
 #define MR (ACINFO_MOVE|ACINFO_RESIZE)
 
 // Helper function to get extra action info
-static xpure UCHAR ActionInfo(enum action action)
+static xpure UCHAR ActionInfo(action_t action)
 {
     #define ACVALUE(a, b, c) (c),
     static const UCHAR action_info[] = { ACTION_MAP };
 
     #undef ACVALUE
-    return action_info[action];
+    return action_info[action.ac];
 }
 #undef MV
 #undef RZ
@@ -207,7 +213,7 @@ static xpure UCHAR ActionInfo(enum action action)
 #undef CL
 #undef MR
 
-#define MOUVEMENT(action) (action <= AC_RESIZE)
+#define MOUVEMENT(action) (action.ac <= AC_RESIZE)
 
 ///////////////////////////////////////////////////////////////////////////
 // Check if key is assigned in the HKlist
@@ -256,6 +262,7 @@ static char *ZidxToZonestrA(int laynum, int idx, char zname[AT_LEAST 32])
 }
 
 // Map action string to actual action enum
+/* TOTO: IMPLEMENT action parameters */
 static enum action MapActionW(const TCHAR *txt)
 {
     #define ACVALUE(a, b, c) (#b),

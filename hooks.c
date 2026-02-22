@@ -6044,21 +6044,26 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     if (msg == WM_HOTKEY) {
         int actionint = 0;
         int ptwindow = 0;
+        action_t action = (action_t){ AC_NONE };
         if (wParam > 0xC000) { // HOTKEY
             // The user Pressed a hotkey.
             actionint = wParam - 0xC000; // Remove the Offset
+            action.ac = (BYTE)actionint;
             ptwindow = conf.UsePtWindow;
             LOG("Hotkey Pressed, action = %d", actionint);
         } else if (0x0000 < wParam && wParam < 0x1000) {
             // The user called AltSnap.exe -afACTION
             actionint = wParam - 0x0000; // Remove the Offset
+            UNPACK_ACTION(action, lParam);
+            assert(actionint == action.ac);
             ptwindow = 0;
         } else if (0x1000 < wParam && wParam < 0x2000) {
             // The user called AltSnap.exe -apACTION
             actionint = wParam - 0x1000; // Remove the Offset
+            UNPACK_ACTION(action, lParam);
+            assert(actionint == action.ac);
             ptwindow = 1;
         }
-        action_t action = (action_t){ actionint };
 
         if (action.ac > AC_RESIZE) { // Exclude resize action in case...
             POINT pt;
@@ -6319,7 +6324,7 @@ static action_t readaction(const TCHAR *section, const char *key)
     LPCTSTR txt = GetSectionOptionCStr(section, key, TEXT("Nothing"));
     if(!txt || !*txt) return (action_t){ AC_NONE };
 
-    return (action_t){ MapActionW(txt) };
+    return MapActionW(txt);
 }
 // Read all buttons actions from inipath
 void readbuttonactions(const TCHAR *inputsection)
@@ -6448,6 +6453,7 @@ void registerAllHotkeys(const TCHAR* inipath)
     static const char *action_names[] = { ACTION_MAP };
     #undef ACVALUE
 
+    // TODO!!!!! READ FULL ACTIONS!!!!!
     for (unsigned ac=AC_MENU; ac < ARR_SZ(action_names); ac++) {
         WORD HK = GetSectionOptionInt(inisection, action_names[ac], 0);
         if(LOBYTE(HK) && HIBYTE(HK)) {

@@ -180,9 +180,12 @@ enum action { ACTION_MAP AC_MAXVALUE, AC_SHRT0, AC_SHRTF=AC_SHRT0+36, AC_ORICLIC
 
 typedef struct rgTagAction {
     BYTE  ac;
-//    BYTE  fl;
-//    short wp;
+    BYTE  fl;
+    short wp;
 } action_t;
+
+#define PACK_ACTION(x) ( (LPARAM)(x.ac << 24) | (LPARAM)(x.fl << 16) | (LPARAM)(x.wp << 0) )
+#define UNPACK_ACTION(dst, lp) do { dst.ac = (lp>>24) & 0xFF; dst.fl = (lp>>16) & 0xFF; dst.wp = lp&0xFFFF; } while(0)
 
 // List of extra info options
 enum {
@@ -261,27 +264,48 @@ static char *ZidxToZonestrA(int laynum, int idx, char zname[AT_LEAST 32])
     return zname;
 }
 
-// Map action string to actual action enum
-/* TOTO: IMPLEMENT action parameters */
-static enum action MapActionW(const TCHAR *txt)
+
+static pure TCHAR* is_base_action(const TCHAR *a, const char *b)
 {
+    while (*a && *a != '_' && *a == *b) {
+        b++; a++;
+    }
+    return (*a == '_' || *a == *b) ? (TCHAR*)a : NULL;
+}
+
+/* Map action string to actual action_t struct */
+static pure action_t MapActionW(const TCHAR *txt)
+{
+    action_t action = { AC_NONE };
+    if(!txt || !*txt) return action:
     #define ACVALUE(a, b, c) (#b),
     static const char *action_map[] = { ACTION_MAP };
     #undef ACVALUE
     UCHAR ac;
+
     for (ac=0; ac < ARR_SZ(action_map); ac++) {
-        if(!strtotcharicmp(txt, action_map[ac]))
-            return (enum action)ac;
+        TCHAR *params;
+        if ((params = is_base_action(txt, action_map[ac]))) {
+            action.ac = ac;
+            if (*params == TEXT('_') && *++params) {
+                // We got 1 parameter.
+                BYTE flagparam = 0;
+                TCHAR cc = *params;
+                for (; cc != '_' && cc; cc = *++params)
+                    flagparam = flagparam * 10 + (cc - TEXT('0'));
+                action.fl = flagparam;
+
+                if (*params == ('_') && *++params) {
+                    // We got 2 parameters.
+                    action.wp = strtoi(params);
+                }
+                LOG("Read action %s_%d_%d",  action_map[ac], (int)action.fl, (int)action.wp);
+            }
+            // We got the action!
+            return action;
+        }
     }
-    // ShrtX X = 0 to F.
-    if (txt[0] == 'S' && txt[1] == 'h' && txt[2] == 'r' && txt[3] == 't'
-    && '0' <= txt[4] && txt[4] <= 'Z' && txt[5] == '\0' ) {
-        TCHAR c = txt[4];
-        UCHAR num = c<='9' ? c - '0' : c-'A'+10;
-        num = min(num, AC_SHRTF-AC_SHRT0-1);
-        return (enum action)(AC_SHRT0 + num);
-    }
-    return AC_NONE;
+    return action;
 }
 
 #endif /* ALTDRAG_RPC_H */

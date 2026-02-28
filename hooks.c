@@ -296,7 +296,8 @@ static struct config {
     action_t MoveUp[NACPB];      // Actions on (long) Move Up w/o drag
     action_t ResizeUp[NACPB];    // Actions on (long) Resize Up w/o drag
 
-    UCHAR *inputSequences[AC_SHRTF-AC_SHRT0]; // 36
+    UCHAR *inputSequences[36]; // 36
+    action_t KBShortcutsList[64];
 } conf;
 
 struct OptionListItem {
@@ -4779,7 +4780,10 @@ static void SClickActions(HWND hwnd, action_t action)
     case AC_ALWAYSONTOP: TogglesAlwaysOnTop(hwnd); break;
     case AC_CLOSE:       PostMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0); break;
     case AC_LOWER:       ActionLower(hwnd, 0, state.shift, IsCtrlDown()); break;
-    case AC_FOCUS:       ActionLower(hwnd, +120, state.shift, 1); break;
+    case AC_FOCUS:
+        if      (action.fl == 0) { ActionLower(hwnd, +120, state.shift, 1); }
+        else if (action.fl <= 4) { ReallySetForegroundWindow(FindTiledWindow(hwnd, action.fl-1)); }
+        break;
     case AC_BORDERLESS:  ActionBorderless(hwnd); break;
     case AC_KILL:        ActionKill(hwnd); break;
     case AC_PAUSE:       ActionPause(hwnd, 1); break;
@@ -4829,22 +4833,17 @@ static void SClickActions(HWND hwnd, action_t action)
     case AC_SSTEPT:      StepWindow(hwnd, -conf.KBMoveSStep, 1); break;
     case AC_SSTEPR:      StepWindow(hwnd, +conf.KBMoveSStep, 0); break;
     case AC_SSTEPB:      StepWindow(hwnd, +conf.KBMoveSStep, 1); break;
-    case AC_FOCUSL:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 0)); break;
-    case AC_FOCUST:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 1)); break;
-    case AC_FOCUSR:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 2)); break;
-    case AC_FOCUSB:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 3)); break;
 
     case AC_NLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, CMD_SNAPLAYOUT+(conf.LayoutNumber + 1) % conf.MaxLayouts, 0); break;
     case AC_PLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, CMD_SNAPLAYOUT+(conf.LayoutNumber + conf.MaxLayouts - 1) % conf.MaxLayouts, 0); break;
 
     case AC_ASONOFF:     ActionASOnOff(); break;
     case AC_MOVEONOFF:   ActionMoveOnOff(hwnd); break;
-    default:
-        // Shortcuts 0 - 35
-        if (AC_SHRT0 <=action.ac && action.ac < AC_SHRT0+ARR_SZ(conf.inputSequences)
-        &&  conf.inputSequences[action.ac-AC_SHRT0] ) {
-            SendInputSequence(conf.inputSequences[action.ac-AC_SHRT0]); break;
+    case AC_SHRT:
+        if(action.fl < ARR_SZ(conf.inputSequences) && conf.inputSequences[action.fl] ) {
+            SendInputSequence(conf.inputSequences[action.fl]);
         }
+        break;
     }
 }
 /////////////////////////////////////////////////////////////////////////////
@@ -4872,19 +4871,20 @@ static int DoWheelActions(HWND hwnd, action_t action)
     case AC_NPSTACKED2:   ActionAltTab(state.prevpt, state.delta, !state.shift, EnumStackedWindowsProc); break;
     case AC_NPLAYOUT:     SClickActions(hwnd, state.delta < 0 ? (action_t){ AC_PLAYOUT } : (action_t){ AC_NLAYOUT });
 //    case AC_BRIGHTNESS:   ActionBrightness(state.prevpt, state.delta); break;
-    default: {
-        ret = 0; // No action
+    case AC_SHRT: {
+        action_t rac = action;
         // Use Shrt(X) on WheelUp and Shrt(X+1) on Wheel Down.
-        UCHAR rac = action.ac + (state.delta<0);
-        if (AC_SHRT0 <=rac && rac < AC_SHRT0+ARR_SZ(conf.inputSequences)
-        &&  conf.inputSequences[rac-AC_SHRT0] ) {
+        rac.fl += (state.delta < 0);
+        if (rac.fl < ARR_SZ(conf.inputSequences)
+        &&  conf.inputSequences[rac.fl] ) {
             ret = 1;
-            SendInputSequence(conf.inputSequences[rac-AC_SHRT0]); break;
-        } else {
-            SClickActions(hwnd, action);
-            ret = 1;
+            SendInputSequence(conf.inputSequences[rac.fl]); break;
         }
-    }break;
+        }break;
+
+    default:
+        SClickActions(hwnd, action);
+        ret = 1;
     }
     // ret is 0: next hook or 1: block whel and AltUp.
     state.blockaltup = ret && state.alt > BT_HWHEELU; // block or not;
@@ -6042,26 +6042,24 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_HOTKEY) {
-        int actionint = 0;
         int ptwindow = 0;
         action_t action = (action_t){ AC_NONE };
         if (wParam > 0xC000) { // HOTKEY
             // The user Pressed a hotkey.
-            actionint = wParam - 0xC000; // Remove the Offset
-            action.ac = (BYTE)actionint;
+            size_t action_idx = wParam - 0xC001; // Remove the Offset
+            assert(action_idx < ARR_SZ(conf.KBShortcutsList));
+            action = conf.KBShortcutsList[action_idx];
             ptwindow = conf.UsePtWindow;
-            LOG("Hotkey Pressed, action = %d", actionint);
+            LOG("Hotkey Pressed, action = %d", action.ac);
         } else if (0x0000 < wParam && wParam < 0x1000) {
             // The user called AltSnap.exe -afACTION
-            actionint = wParam - 0x0000; // Remove the Offset
             UNPACK_ACTION(action, lParam);
-            assert(actionint == action.ac);
+            assert(wParam - 0x0000 == action.ac);
             ptwindow = 0;
         } else if (0x1000 < wParam && wParam < 0x2000) {
             // The user called AltSnap.exe -apACTION
-            actionint = wParam - 0x1000; // Remove the Offset
             UNPACK_ACTION(action, lParam);
-            assert(actionint == action.ac);
+            assert(wParam - 0x1000 == action.ac);
             ptwindow = 1;
         }
 
@@ -6164,8 +6162,8 @@ __declspec(dllexport) void WINAPI Unload()
         }
     }
 
-    for (unsigned ac=AC_MENU; ac<AC_MAXVALUE; ac++)
-        UnregisterHotKey(g_mainhwnd, 0xC000+ac);
+    for (size_t idx = 0; idx < ARR_SZ(conf.KBShortcutsList); idx++)
+        UnregisterHotKey(g_mainhwnd, 0xC001 + idx);
 
     EnumThreadWindows(GetCurrentThreadId(), PostPinWindowsProcMessage, WM_CLOSE);
     UnregisterClass(TEXT(APP_NAMEA)TEXT("-Timers"), hinstDLL);
@@ -6440,6 +6438,7 @@ static void CreateTransWin(const TCHAR *inisection)
 
 void registerAllHotkeys(const TCHAR* inipath)
 {
+    LOG("registerAllHotkeys START");
     ChangeWindowMessageFilterExL(g_mainhwnd, WM_HOTKEY, /*MSGFLT_ALLOW*/1, NULL);
     // MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
     // RegisterHotKey(g_mainhwnd, 0xC000 + AC_KILL,   MOD_ALT|MOD_CONTROL, VK_F4); // F4=73h
@@ -6453,24 +6452,36 @@ void registerAllHotkeys(const TCHAR* inipath)
     static const char *action_names[] = { ACTION_MAP };
     #undef ACVALUE
 
-    // TODO!!!!! READ FULL ACTIONS!!!!!
-    for (unsigned ac=AC_MENU; ac < ARR_SZ(action_names); ac++) {
-        WORD HK = GetSectionOptionInt(inisection, action_names[ac], 0);
+    size_t idx = 0;
+    for (const TCHAR *p = inisection; *p && idx < ARR_SZ(conf.KBShortcutsList); p += lstrlen(p)+1) {
+        if(*p == ';') continue;
+
+        action_t action = MapActionW(p);
+        if (action.ac == AC_NONE) continue;
+
+        const TCHAR *pp = lstrchr(p, TEXT('='));
+        if(!pp) continue;
+
+        WORD HK = strtoi(p = ++pp); // Read HOTKEY
         if(LOBYTE(HK) && HIBYTE(HK)) {
             // Lobyte is the virtual key code and hibyte is the mod_key
-            if(!RegisterHotKey(g_mainhwnd, 0xC000 + ac, HIBYTE(HK), LOBYTE(HK))) {
-                LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
+            if (RegisterHotKey(g_mainhwnd, 0xC001 + idx, HIBYTE(HK), LOBYTE(HK))) {
+                conf.KBShortcutsList[idx] = action; // Add action to the list
+                LOG("OK registering hotkey %s_%d_%d=%x, [idx=%d]", action_names[action.ac], (int)action.fl, (int)action.wp, (unsigned)HK, (int)idx);
+                idx++;
+            } else {
+                LOG("Error registering hotkey %s=%x", action_names[action.ac], (unsigned)HK);
                 #ifdef LOG_STUFF
                 TCHAR title[76], acN[32];
                 lstrcpy_s(title, ARR_SZ(title), TEXT(APP_NAMEA)TEXT(": unable to register hotkey for action "));
-                str2tchar_s(acN, ARR_SZ(acN)-1, action_names[ac]);
+                str2tchar_s(acN, ARR_SZ(acN)-1, action_names[action.ac]);
                 lstrcat_s(title, ARR_SZ(title), acN);
                 ErrorBox(title);
                 #endif // LOG_STUFF
             }
-            LOG("OK registering hotkey %s=%x", action_names[ac], (unsigned)HK);
         }
     }
+    LOG("registerAllHotkeys END");
 }
 static void readalluchars(UCHAR *dest, const TCHAR * const inisection, const struct OptionListItem *optlist, size_t listlen)
 {

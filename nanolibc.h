@@ -133,23 +133,23 @@ static allnonnull wchar_t *wcslwrL(wchar_t *s)
     return s;
 }
 
-static nonnull1(1) pure wchar_t *wcschrL(wchar_t *__restrict__ str, const wchar_t c)
+static nonnull1(1) pure wchar_t *wcschrL(const wchar_t *__restrict__ str, const wchar_t c)
 {
     while(*str != c) {
         if(!*str) return NULL;
         str++;
     }
-    return str;
+    return (wchar_t *)str;
 }
 #define wcschr wcschrL
 
-static nonnull1(1) pure char *strchrL(char *__restrict__ str, const char c)
+static nonnull1(1) pure char *strchrL(const char *__restrict__ str, const char c)
 {
     while(*str != c) {
         if(!*str) return NULL;
         str++;
     }
-    return str;
+    return (char *)str;
 }
 #define strchr strchrL
 
@@ -164,7 +164,7 @@ static allnonnull pure int atoiL(const char *s)
     case '-': ssign=-1; /* fall through */
     case '+': ++s;
     }
-    while ((unsigned)(*s - '0') < 10u) {
+    while ('0' <= *s && *s <= '9') {
         v = v * 10 + (*s - '0');
         ++s;
     }
@@ -182,7 +182,7 @@ static pure allnonnull int wtoiL(const wchar_t *s)
     case '-': ssign=-1; /* fall through */
     case '+': ++s;
     }
-    while ((unsigned)(*s - '0') < 10u) {
+    while ('0' <= *s && *s <= '9') {
         v = v * 10 + (*s - '0');
         ++s;
     }
@@ -804,7 +804,7 @@ static void *db_realloc(void *x, size_t sz, const char *file, int ln)
 static char *lstrdupA(const char *s)
 {
     size_t olen_byte = (strlenL(s) + 1) * sizeof(char);
-    char *dup = (char *)malloc(olen_byte);
+    char *dup = (char *)mallocL(olen_byte);
     if(!dup) return NULL;
     memcpy(dup, s, olen_byte);
     return dup;
@@ -813,7 +813,7 @@ static char *lstrdupA(const char *s)
 static wchar_t *lstrdupW(const wchar_t *s)
 {
     size_t olen_byte = (wcslenL(s) + 1) * sizeof(wchar_t);
-    wchar_t *dup = (wchar_t *)malloc(olen_byte);
+    wchar_t *dup = (wchar_t *)mallocL(olen_byte);
     if(!dup) return NULL;
     memcpy(dup, s, olen_byte);
     return dup;

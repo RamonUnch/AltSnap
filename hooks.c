@@ -68,7 +68,7 @@ enum buttonstate {STATE_NONE, STATE_DOWN, STATE_UP};
 
 #define BT_PROBE (1<<16)
 
-static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, int button);
+static int init_movement_and_actions(POINT pt, HWND hwnd, action_t action, int button);
 static void FinishMovementAsync();
 static void MoveTransWin(int x, int y, int w, int h);
 static void MouseMoveNow(POINT pt);
@@ -155,10 +155,10 @@ static struct {
         UINT dpi;
     } origin;
 
-    UCHAR sactiondone;
+    action_t sactiondone;
     UCHAR xxbutton;
     UCHAR ignorept;
-    enum action action;
+    action_t action;
     struct resizeXY resize;
     HWND cached_hwnd_blacklist;
     TCHAR exename[MAX_PATH];
@@ -217,8 +217,6 @@ static struct config {
     UCHAR AutoRemaximize;
     UCHAR SnapThreshold;
     UCHAR AeroThreshold;
-    UCHAR KBMoveStep;
-    UCHAR KBMoveSStep;
     UCHAR AeroTopMaximizes;
     UCHAR UseCursor;
     UCHAR MinAlpha;
@@ -291,12 +289,13 @@ static struct config {
 
     UCHAR MenuAccelMap[36 + 1]; UCHAR pad0[3];
 
-    enum action Mouse[NACPB*(20+4)]; // Up to 20 buttons + vertical and horizontal wheels D/U;
-    enum action GrabWithAlt[NACPB]; // Actions without click
-    enum action MoveUp[NACPB];      // Actions on (long) Move Up w/o drag
-    enum action ResizeUp[NACPB];    // Actions on (long) Resize Up w/o drag
+    action_t Mouse[NACPB*(20+4)]; // Up to 20 buttons + vertical and horizontal wheels D/U;
+    action_t GrabWithAlt[NACPB]; // Actions without click
+    action_t MoveUp[NACPB];      // Actions on (long) Move Up w/o drag
+    action_t ResizeUp[NACPB];    // Actions on (long) Resize Up w/o drag
 
-    UCHAR *inputSequences[AC_SHRTF-AC_SHRT0]; // 36
+    UCHAR *inputSequences[36]; // 36
+    action_t KBShortcutsList[64];
 } conf;
 
 struct OptionListItem {
@@ -327,8 +326,6 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "AutoRemaximize", 0 },
     { "SnapThreshold", 20 },
     { "AeroThreshold", 5 },
-    { "KBMoveStep", 100 },
-    { "KBMoveSStep", 10 },
     { "AeroTopMaximizes", 1 },
     { "UseCursor", 1 },
     { "MinAlpha", 32 },
@@ -892,7 +889,7 @@ static void EndDeferWindowPosNow(HDWP hwndSS)
 
 static int ShouldResizeTouching()
 {
-    return state.action == AC_RESIZE
+    return state.action.ac == AC_RESIZE
         && ( (conf.StickyResize&1 && state.shift)
           || ((conf.StickyResize&3)==2 && !state.shift)
         );
@@ -1777,33 +1774,33 @@ static pure int ModKey()
 }
 ///////////////////////////////////////////////////////////////////////////
 // Get action of button
-static enum action GetAction(const int button)
+static action_t GetAction(const int button)
 {
     if (button) { // Ugly pointer arithmetic (LMB <==> button == 2)
         return conf.Mouse[(button-2)*NACPB+ModKey()];
     } else {
-        return AC_NONE;
+        return (action_t){ AC_NONE };
     }
 }
-static enum action GetActionT(const int button)
+static action_t GetActionT(const int button)
 {
     if (button) { // Ugly pointer arithmetic +2 compared to non titlebar
         return conf.Mouse[2+(button-2)*NACPB+ModKey()];
     } else {
-        return AC_NONE;
+        return (action_t){ AC_NONE };
     }
 }
-static enum action GetActionMR(const int button)
+static action_t GetActionMR(const int button)
 {
     if (button) {
         // Ugly pointer arithmetic
         // state.action == 1 or 2
         // MB[4/5] == Action/Alt while moving
         // MB[6/7] == Action/Alt while Resizing
-        int offset = state.action<<1; // 2 or 4
+        int offset = state.action.ac << 1; // 2 or 4
         return conf.Mouse[2+offset+(button-2)*NACPB+ModKey()];
     } else {
-        return AC_NONE;
+        return (action_t) { AC_NONE };
     }
 }
 #define IsHotkey(a)   IsHotkeyy(a, conf.Hotkeys)
@@ -1992,13 +1989,13 @@ static BOOL GetMDInfo(POINT *mdicpt, RECT *wnd)
 }
 ///////////////////////////////////////////////////////////////////////////
 //
-static void SetOriginFromRestoreData(HWND hwnd, enum action action)
+static void SetOriginFromRestoreData(HWND hwnd, action_t action)
 {
     // Set Origin width and height needed for AC_MOVE/RESIZE/CENTER/MAXHV
     int rwidth=0, rheight=0;
     unsigned rdata_flag = GetRestoreData(hwnd, &rwidth, &rheight);
     // Clear snapping info if asked.
-    if (rdata_flag&SNCLEAR || (conf.SmartAero&4 && action == AC_MOVE)) {
+    if (rdata_flag&SNCLEAR || (conf.SmartAero&4 && action.ac == AC_MOVE)) {
         ClearRestoreData(hwnd);
         rdata_flag=0;
     }
@@ -2140,7 +2137,7 @@ static void MouseMoveNow(POINT pt)
         MoveWindow(g_mainhwnd, pt.x-128, pt.y-128, 256, 256, FALSE);
 
     if (state.moving == CURSOR_ONLY) {
-        if (state.action == AC_RESIZE) {
+        if (state.action.ac == AC_RESIZE) {
             RECT rc;
             GetWindowRect(state.hwnd, &rc);
             SetEdgeAndOffset(&rc, pt);
@@ -2158,7 +2155,7 @@ static void MouseMoveNow(POINT pt)
     if (!state.moving) {
         LastWin.odpi = state.origin.dpi;
         SetOriginFromRestoreData(state.hwnd, state.action);
-        if (state.action == AC_MOVE) {
+        if (state.action.ac == AC_MOVE) {
             was_snapped = IsWindowSnapped(state.hwnd);
             RestoreOldWin(pt, was_snapped, &wnd);
         }
@@ -2175,7 +2172,7 @@ static void MouseMoveNow(POINT pt)
     // Get new position for window
     LastWin.end = 0;
     LastWin.moveonly = 0;
-    if (state.action == AC_MOVE) {
+    if (state.action.ac == AC_MOVE) {
         // SWP_NOSIZE to SetWindowPos
         LastWin.moveonly = state.moving;
         posx = pt.x-state.offset.x;
@@ -2212,7 +2209,7 @@ static void MouseMoveNow(POINT pt)
             EnumOnce(RECALC_INVISIBLE_BORDERS);
         }
 
-    } else if (state.action == AC_RESIZE) {
+    } else if (state.action.ac == AC_RESIZE) {
         // Restore the window (to monitor size) if it's maximized
         if (!state.moving && IsZoomed(state.hwnd)) {
               RestoreToMonitorSize(state.hwnd, &wnd);
@@ -2422,7 +2419,7 @@ static void SendUnicodeKey(WORD w)
 ///////////////////////////////////////////////////////////////////////////
 static void RestrictToCurentMonitor()
 {
-    if (state.action || state.alt) {
+    if (state.action.ac || state.alt) {
         POINT pt;
         GetCursorPos(&pt);
         state.origin.maximized = 0; // To prevent auto-remax on Ctrl
@@ -2436,7 +2433,7 @@ static void HotkeyUp()
     // The way this works is that the alt key is "disguised" by sending
     // ctrl keydown/keyup events
     LOG("HotkeyUp()");
-    if (state.blockaltup || state.action) {
+    if (state.blockaltup || state.action.ac) {
         Send_CTRL();
         state.blockaltup = 0;
         // If there is more that one key down remaining
@@ -2447,14 +2444,14 @@ static void HotkeyUp()
     // Hotkeys have been released
     state.alt = 0;
     state.alt1 = 0;
-    if (state.action
-    && (conf.GrabWithAlt[0] || conf.GrabWithAlt[1])
+    if (state.action.ac
+    && (conf.GrabWithAlt[0].ac || conf.GrabWithAlt[1].ac)
     && (MOUVEMENT(conf.GrabWithAlt[0]) || MOUVEMENT(conf.GrabWithAlt[1]))) {
         FinishMovementAsync();
     }
 
     // Unhook mouse if no actions is ongoing.
-    if (!state.action) {
+    if (!state.action.ac) {
         UnhookMouse();
     }
 }
@@ -2573,7 +2570,7 @@ static int ScrollLockState()
 
     if( (conf.ScrollLockState&1)
     && !( !(GetKeyState(VK_SCROLL)&1) ^ !(conf.ScrollLockState&2) ) ) {
-        if (state.action)
+        if (state.action.ac)
             FinishMovementAsync();
         return 1;
     }
@@ -2591,7 +2588,7 @@ static void LogState(const char *Title)
         "shift=%d\n"
         "alt=%d\n"
         "alt1=%d\n"
-    , (int)state.action
+    , (int)state.action.ac
     , (int)state.moving
     , (int)state.ctrl
     , (int)state.shift
@@ -2689,7 +2686,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
     if (ScrollLockState()) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
-        if (!state.alt && !state.action
+        if (!state.alt && !state.action.ac
         && (!conf.KeyCombo || (state.alt1 && state.alt1 != vkey))
         && IsHotkey(vkey)
         && (!conf.MaxKeysNum || TotNumberOfKeysDown() < conf.MaxKeysNum)) {
@@ -2719,10 +2716,10 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 
             // Hook mouse
             HookMouse();
-            if (conf.GrabWithAlt[0] || conf.GrabWithAlt[1]) {
+            if (conf.GrabWithAlt[0].ac || conf.GrabWithAlt[1].ac) {
                 POINT pt;
-                enum action action = conf.GrabWithAlt[IsModKey(vkey) || (!IsHotkey(conf.ModKey[0])&&ModKey())];
-                if (action) {
+                action_t action = conf.GrabWithAlt[IsModKey(vkey) || (!IsHotkey(conf.ModKey[0])&&ModKey())];
+                if (action.ac) {
                     state.blockmouseup = 0; // In case.
                     GetCursorPos(&pt);
                     if (!init_movement_and_actions(pt, NULL, action, vkey)) {
@@ -2731,7 +2728,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                     state.blockmouseup = 0; // In case.
                 }
             }
-        } else if (conf.KeyCombo && !state.alt1 && !state.action && IsHotkey(vkey)) {
+        } else if (conf.KeyCombo && !state.alt1 && !state.action.ac && IsHotkey(vkey)) {
             state.alt1 = vkey;
 
         } else if (IsHotkeyy(vkey, conf.Shiftkeys)) {
@@ -2746,13 +2743,13 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             }
 
             // Block keydown to prevent Windows from changing keyboard layout
-            if (state.alt && state.action) {
+            if (state.alt && state.action.ac) {
                 return 1;
             }
-        } else if (vkey == VK_SPACE && state.action && !IsSamePTT(&state.clickpt, &state.prevpt)) {
+        } else if (vkey == VK_SPACE && state.action.ac && !IsSamePTT(&state.clickpt, &state.prevpt)) {
             ToggleSnapState();
             return 1; // Block to avoid sys menu.
-        } else if (state.alt && state.action == conf.GrabWithAlt[ModKey()] && IsKillkey(vkey)) {
+        } else if (state.alt && state.action.ac == conf.GrabWithAlt[ModKey()].ac && IsKillkey(vkey)) {
            // Release Hook on Alt+KillKey
            // eg: DisplayFusion Alt+Tab elevated windows captures AltUp
             HotkeyUp();
@@ -2771,8 +2768,8 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             }
 
             // Stop current action
-            if (state.action || state.alt) {
-                enum action action = state.action;
+            if (state.action.ac || state.alt) {
+                action_t action = state.action;
                 HideTransWin();
                 // Send WM_EXITSIZEMOVE and EVENT_SYSTEM_MOVESIZEEND
                 NotifySizeMoveStaEnd(state.hwnd, 0);
@@ -2783,12 +2780,12 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
                 UnhookMouse();
 
                 // Block ESC if an action was ongoing
-                if (action) return 1;
+                if (action.ac) return 1;
             }
         } else if (!state.ctrl
                && (state.alt!=vkey) /* avoid cursor trapping at first Ctrl dwn if Ctrl was used as hotkey */
                && (vkey == VK_LCONTROL || vkey == VK_RCONTROL)
-               && (!IsHotkey(vkey) || state.action) /* If Ctrl is an hotkey, skip unless already moving */
+               && (!IsHotkey(vkey) || state.action.ac) /* If Ctrl is an hotkey, skip unless already moving */
                && !(kbh->scanCode&SCANCODE_SIMULATED) /* Ignore ALT GR Scan Code (&0x0200) */
                && !IsModKey(vkey)/*vkey != conf.ModKey*/ ) {
             RestrictToCurentMonitor();
@@ -2797,7 +2794,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             //LOGA("sC=%lu", kbh->scanCode);
             state.ctrl = 1;
             state.ctrlpt = state.prevpt; // Save point where ctrl was pressed.
-            if (state.action) {
+            if (state.action.ac) {
                 SetForegroundWindowL(state.hwnd);
             }
         } else if (state.sclickhwnd && g_mchwnd && state.alt && (vkey == VK_LMENU || vkey == VK_RMENU)) {
@@ -2806,7 +2803,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             || (IsWindow(state.sclickhwnd)  && IsWindow(g_mchwnd) && IsMenu(state.unikeymenu)))
                 return 1;
         } else if ((xxbtidx = XXButtonIndex(vkey)) >=0
-        && (GetAction(BT_MMB+xxbtidx) ||  GetActionT(BT_MMB+xxbtidx) || IsHotclick(BT_MMB+xxbtidx))) {
+        && (GetAction(BT_MMB+xxbtidx).ac ||  GetActionT(BT_MMB+xxbtidx).ac || IsHotclick(BT_MMB+xxbtidx))) {
             if (!state.xxbutton) {
                 state.xxbutton = 1; // To Ignore autorepeat...
                 SimulateXButton(WM_XBUTTONDOWN, xxbtidx);
@@ -2882,7 +2879,7 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
             ClipCursorOnce(NULL); // Release cursor trapping
             state.ctrl = 0;
             // If there is no ongoing action then Control UP prevents AltDragging...
-            if (!state.action) state.alt = 0;
+            if (!state.action.ac) state.alt = 0;
         }
     }
 
@@ -3445,7 +3442,7 @@ static HCURSOR CursorToDraw()
     if (conf.UseCursor == 3) {
         return LoadCursor(NULL, IDC_ARROW);
     }
-    if (state.action == AC_MOVE) {
+    if (state.action.ac == AC_MOVE) {
         if (conf.UseCursor == 4)
             return LoadCursor(NULL, IDC_SIZEALL);
         cursor = LoadCursor(NULL, conf.UseCursor>1? IDC_ARROW: IDC_HAND);
@@ -3635,7 +3632,7 @@ static int ActionMove(POINT pt, int button)
 {
     // If this is a double-click
     if (IsDoubleClick(button)) {
-        SetOriginFromRestoreData(state.hwnd, AC_MOVE);
+        SetOriginFromRestoreData(state.hwnd, (action_t){ AC_MOVE });
         LastWin.hwnd = NULL;
         if (state.shift) {
             RollWindow(state.hwnd, 0); // Roll/Unroll Window...
@@ -3645,7 +3642,7 @@ static int ActionMove(POINT pt, int button)
             // Toggle Maximize window
             ToggleMaxRestore(state.hwnd);
         }
-        state.action = AC_NONE; // Stop move action
+        state.action = (action_t){ AC_NONE }; // Stop move action
         state.clicktime = 0; // Reset double-click time
         state.blockmouseup = 1; // Block the mouseup, otherwise it can trigger a context menu
         // Prevent mousedown from propagating
@@ -3769,7 +3766,7 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
     if (!(flags&SNTO_MOVETO) && !IsResizable(hwnd))
         flags = SNTO_MOVETO | SNTO_NEXTBD; // Move to next bd instead
 
-    SetOriginFromRestoreData(hwnd, AC_MOVE);
+    SetOriginFromRestoreData(hwnd, (action_t){ AC_MOVE });
     struct rgMMI mmi;
     GetMinMaxInfo(hwnd, &mmi.Min, &mmi.Max); // for CLAMPH/W functions
 
@@ -3889,12 +3886,12 @@ static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
 static int ActionResize(POINT pt, const RECT *wnd, int button)
 {
     if(!state.resizable) {
-        state.action = AC_NONE;
+        state.action = (action_t){ AC_NONE };
         return 0;// Next Hook
     }
     // Aero-move this window if this is a double-click
     if (IsDoubleClick(button)) {
-        state.action = AC_NONE; // Stop resize action
+        state.action = (action_t){ AC_NONE };; // Stop resize action
         SnapToCorner(state.hwnd, AUTORESIZE, !state.shift ^ !(conf.AeroTopMaximizes&2));
         state.blockmouseup = 1; // Block mouse up (context menu would pop)
         state.clicktime = 0;    // Reset double-click time
@@ -3911,7 +3908,7 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
             state.offset.x = wnd->right-pt.x;
         } else if (conf.ResizeCenter == 2) {
             // Switch to Move action
-            state.action = AC_MOVE;
+            state.action.ac = AC_MOVE;
         } else if (conf.ResizeCenter == 3) {
             // Use diagonals to select pure L/C R/C T/C B/C
             SetEdgeToClosestSide(wnd, pt);
@@ -3961,7 +3958,7 @@ static void CenterWindow(HWND hwnd, unsigned flags, int full_monitor)
     POINT pt;
     int width, height;
     if (flags & CW_RESTORE) {
-        SetOriginFromRestoreData(hwnd, AC_MOVE);
+        SetOriginFromRestoreData(hwnd, (action_t){ AC_MOVE });
         width = state.origin.width;
         height = state.origin.height;
     } else {
@@ -4303,7 +4300,7 @@ static void MaximizeHV(HWND hwnd, int horizontal)
     POINT pt;
     GetCursorPos(&pt);
     GetMonitorRect(&pt, 0, &mon);
-    SetOriginFromRestoreData(hwnd, AC_MOVE);
+    SetOriginFromRestoreData(hwnd, (action_t){ AC_MOVE });
 
     SetRestoreData(hwnd, state.origin.width, state.origin.height, SNAPPED);
     FixDWMRect(hwnd, &bd);
@@ -4401,8 +4398,12 @@ static pure BOOL IsRectInMonitors(const RECT *rc)
 }
 // Move the window step by step to a direction.
 // signed step size and direction = 0 for X 1 for Y
-static void StepWindow(HWND hwnd, short step, UCHAR direction)
+static void StepWindow(HWND hwnd, action_t action)
 {
+    // action.fl = 1=>LEFT, 2=>TOP, 3=>RIGHT, 4=>BOTTOM
+    short step = action.fl <= 2 ? -action.wp : +action.wp;
+    UCHAR direction = !(action.fl & 1);
+
     RECT rc;
     if (IsZoomed(hwnd)) {
         //return;
@@ -4589,7 +4590,7 @@ static void ActionStackList(int lasermode)
 }
 static void ActionASOnOff()
 {
-    if (state.action) FinishMovementAsync();
+    if (state.action.ac) FinishMovementAsync();
     state.altsnaponoff = !GetProp(g_mainhwnd, APP_ASONOFF);
     SetProp(g_mainhwnd, APP_ASONOFF, (HANDLE)(DorQWORD)state.altsnaponoff);
     PostMessage(g_mainhwnd, WM_UPDATETRAY, 0, 0);
@@ -4760,18 +4761,20 @@ static HWND FindTiledWindow(HWND hwnd, unsigned char direction)
     }
     return NULL;
 }
+
 /////////////////////////////////////////////////////////////////////////////
 // Single click commands
-static void SClickActions(HWND hwnd, enum action action)
+static void SClickActions(HWND hwnd, action_t action)
 {
-    const struct resizeXY RXY_LEFT_CENTER =   {RZ_LEFT, RZ_YCENTER};
-    const struct resizeXY RXY_RIGHT_CENTER =  {RZ_RIGHT, RZ_YCENTER};
-    const struct resizeXY RXY_CENTER_TOP =    {RZ_XCENTER, RZ_TOP};
-    const struct resizeXY RXY_CENTER_BOTTOM = {RZ_XCENTER, RZ_BOTTOM};
-
+    const struct resizeXY rxy_map[] = {
+        { RZ_LEFT, RZ_YCENTER   },
+        { RZ_XCENTER, RZ_TOP    },
+        { RZ_RIGHT, RZ_YCENTER  },
+        { RZ_XCENTER, RZ_BOTTOM },
+    };
     state.sactiondone = action;
-    LOG("Going to perform action %d", (int)action);
-    switch (action) {
+    LOG("Going to perform action (%d)_%d_%d", (int)action.ac, (int)action.fl, (int)action.wp);
+    switch (action.ac) {
     case AC_MINIMIZE:    MinimizeWindow(hwnd); break;
     case AC_MAXIMIZE:    ActionMaximize(hwnd); break;
     case AC_CENTER:      CenterWindow(hwnd, !state.shift  /*state.shift? 0: CW_RESTORE*/, 0); break;
@@ -4779,7 +4782,10 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_ALWAYSONTOP: TogglesAlwaysOnTop(hwnd); break;
     case AC_CLOSE:       PostMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0); break;
     case AC_LOWER:       ActionLower(hwnd, 0, state.shift, IsCtrlDown()); break;
-    case AC_FOCUS:       ActionLower(hwnd, +120, state.shift, 1); break;
+    case AC_FOCUS:
+        if      (action.fl == 0) { ActionLower(hwnd, +120, state.shift, 1); }
+        else if (action.fl <= 4) { ReallySetForegroundWindow(FindTiledWindow(hwnd, action.fl-1)); }
+        break;
     case AC_BORDERLESS:  ActionBorderless(hwnd); break;
     case AC_KILL:        ActionKill(hwnd); break;
     case AC_PAUSE:       ActionPause(hwnd, 1); break;
@@ -4790,8 +4796,14 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_MUTE:        Send_KEY(VK_VOLUME_MUTE); break;
     case AC_SIDESNAP:    SnapToCorner(hwnd, AUTORESIZE, !!state.shift); break;
     case AC_EXTENDSNAP:  SnapToCorner(hwnd, AUTORESIZE, !state.shift); break;
-    case AC_EXTENDTNEDGE:SnapToCorner(hwnd, AUTORESIZE, state.shift?SNTO_MOVETO|SNTO_NEXTBD:SNTO_EXTEND|SNTO_NEXTBD); break;
-    case AC_MOVETNEDGE:  SnapToCorner(hwnd, AUTORESIZE, state.shift?SNTO_EXTEND|SNTO_NEXTBD:SNTO_MOVETO|SNTO_NEXTBD); break;
+    case AC_EXTENDTNEDGE:
+        if (!action.fl) SnapToCorner(hwnd, AUTORESIZE, state.shift?SNTO_MOVETO|SNTO_NEXTBD:SNTO_EXTEND|SNTO_NEXTBD);
+        else            SnapToCorner(hwnd, rxy_map[min(action.fl-1, 3)], SNTO_EXTEND|SNTO_NEXTBD);
+        break;
+    case AC_MOVETNEDGE:
+        if(!action.fl) SnapToCorner(hwnd, AUTORESIZE, state.shift?SNTO_EXTEND|SNTO_NEXTBD:SNTO_MOVETO|SNTO_NEXTBD);
+        else           SnapToCorner(hwnd, rxy_map[min(action.fl-1, 3)], SNTO_MOVETO|SNTO_NEXTBD);
+        break;
     case AC_MENU:        ActionMenu(hwnd); break;
     case AC_NSTACKED:    ActionAltTab(state.prevpt, +120,  state.shift, EnumStackedWindowsProc); break;
     case AC_NSTACKED2:   ActionAltTab(state.prevpt, +120, !state.shift, EnumStackedWindowsProc); break;
@@ -4805,51 +4817,26 @@ static void SClickActions(HWND hwnd, enum action action)
     case AC_ALTTABFULLLIST:
         PostMessage(g_mainhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
             state.shift?(LPARAM)EnumAltTabWindows:(LPARAM)EnumAllAltTabWindows); break;
-    case AC_MLZONE:      MoveWindowToTouchingZone(hwnd, 0, 0); break; // mLeft
-    case AC_MTZONE:      MoveWindowToTouchingZone(hwnd, 1, 0); break; // mTop
-    case AC_MRZONE:      MoveWindowToTouchingZone(hwnd, 2, 0); break; // mRight
-    case AC_MBZONE:      MoveWindowToTouchingZone(hwnd, 3, 0); break; // mBottom
-    case AC_XLZONE:      MoveWindowToTouchingZone(hwnd, 0, 1); break; // xLeft
-    case AC_XTZONE:      MoveWindowToTouchingZone(hwnd, 1, 1); break; // xTop
-    case AC_XRZONE:      MoveWindowToTouchingZone(hwnd, 2, 1); break; // xRight
-    case AC_XBZONE:      MoveWindowToTouchingZone(hwnd, 3, 1); break; // xBottom
-    case AC_XTNLEDGE:    SnapToCorner(hwnd, RXY_LEFT_CENTER,   SNTO_EXTEND|SNTO_NEXTBD); break;
-    case AC_XTNTEDGE:    SnapToCorner(hwnd, RXY_CENTER_TOP,    SNTO_EXTEND|SNTO_NEXTBD); break;
-    case AC_XTNREDGE:    SnapToCorner(hwnd, RXY_RIGHT_CENTER,  SNTO_EXTEND|SNTO_NEXTBD); break;
-    case AC_XTNBEDGE:    SnapToCorner(hwnd, RXY_CENTER_BOTTOM, SNTO_EXTEND|SNTO_NEXTBD); break;
-    case AC_MTNLEDGE:    SnapToCorner(hwnd, RXY_LEFT_CENTER,   SNTO_MOVETO|SNTO_NEXTBD); break;
-    case AC_MTNTEDGE:    SnapToCorner(hwnd, RXY_CENTER_TOP,    SNTO_MOVETO|SNTO_NEXTBD); break;
-    case AC_MTNREDGE:    SnapToCorner(hwnd, RXY_RIGHT_CENTER,  SNTO_MOVETO|SNTO_NEXTBD); break;
-    case AC_MTNBEDGE:    SnapToCorner(hwnd, RXY_CENTER_BOTTOM, SNTO_MOVETO|SNTO_NEXTBD); break;
-    case AC_STEPL:       StepWindow(hwnd, -conf.KBMoveStep, 0); break;
-    case AC_STEPT:       StepWindow(hwnd, -conf.KBMoveStep, 1); break;
-    case AC_STEPR:       StepWindow(hwnd, +conf.KBMoveStep, 0); break;
-    case AC_STEPB:       StepWindow(hwnd, +conf.KBMoveStep, 1); break;
-    case AC_SSTEPL:      StepWindow(hwnd, -conf.KBMoveSStep, 0); break;
-    case AC_SSTEPT:      StepWindow(hwnd, -conf.KBMoveSStep, 1); break;
-    case AC_SSTEPR:      StepWindow(hwnd, +conf.KBMoveSStep, 0); break;
-    case AC_SSTEPB:      StepWindow(hwnd, +conf.KBMoveSStep, 1); break;
-    case AC_FOCUSL:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 0)); break;
-    case AC_FOCUST:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 1)); break;
-    case AC_FOCUSR:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 2)); break;
-    case AC_FOCUSB:      ReallySetForegroundWindow(FindTiledWindow(hwnd, 3)); break;
+
+    case AC_MZONE:       MoveWindowToTouchingZone(hwnd, action.fl-1, 0); break;
+    case AC_XZONE:       MoveWindowToTouchingZone(hwnd, action.fl-1, 1); break;
+    case AC_STEP:        StepWindow(hwnd, action); break;
 
     case AC_NLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, CMD_SNAPLAYOUT+(conf.LayoutNumber + 1) % conf.MaxLayouts, 0); break;
     case AC_PLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, CMD_SNAPLAYOUT+(conf.LayoutNumber + conf.MaxLayouts - 1) % conf.MaxLayouts, 0); break;
 
     case AC_ASONOFF:     ActionASOnOff(); break;
     case AC_MOVEONOFF:   ActionMoveOnOff(hwnd); break;
-    default:
-        // Shortcuts 0 - 35
-        if (AC_SHRT0 <=action && action < AC_SHRT0+ARR_SZ(conf.inputSequences)
-        &&  conf.inputSequences[action-AC_SHRT0] ) {
-            SendInputSequence(conf.inputSequences[action-AC_SHRT0]); break;
+    case AC_SHRT:
+        if(action.fl < ARR_SZ(conf.inputSequences) && conf.inputSequences[action.fl] ) {
+            SendInputSequence(conf.inputSequences[action.fl]);
         }
+        break;
     }
 }
 /////////////////////////////////////////////////////////////////////////////
 //
-static int DoWheelActions(HWND hwnd, enum action action)
+static int DoWheelActions(HWND hwnd, action_t action)
 {
     state.sactiondone = action;
     // Return if in the scroll blacklist.
@@ -4857,7 +4844,7 @@ static int DoWheelActions(HWND hwnd, enum action action)
         return 0; // Next hook!
     }
     int ret=1;
-    switch (action) {
+    switch (action.ac) {
     case AC_ALTTAB:       ActionAltTab(state.prevpt, state.delta, /*laser=0*/0
                              , state.shift?EnumStackedWindowsProc:EnumAltTabWindows); break;
     case AC_VOLUME:       ActionVolume(state.delta); break;
@@ -4870,21 +4857,22 @@ static int DoWheelActions(HWND hwnd, enum action action)
     case AC_ZOOM2:        ret = ActionZoom(hwnd, state.delta, 1); break;
     case AC_NPSTACKED:    ActionAltTab(state.prevpt, state.delta,  state.shift, EnumStackedWindowsProc); break;
     case AC_NPSTACKED2:   ActionAltTab(state.prevpt, state.delta, !state.shift, EnumStackedWindowsProc); break;
-    case AC_NPLAYOUT:     SClickActions(hwnd, state.delta < 0 ? AC_PLAYOUT : AC_NLAYOUT);
+    case AC_NPLAYOUT:     SClickActions(hwnd, state.delta < 0 ? (action_t){ AC_PLAYOUT } : (action_t){ AC_NLAYOUT });
 //    case AC_BRIGHTNESS:   ActionBrightness(state.prevpt, state.delta); break;
-    default: {
-        ret = 0; // No action
+    case AC_SHRT: {
+        action_t rac = action;
         // Use Shrt(X) on WheelUp and Shrt(X+1) on Wheel Down.
-        UCHAR rac = action + (state.delta<0);
-        if (AC_SHRT0 <=rac && rac < AC_SHRT0+ARR_SZ(conf.inputSequences)
-        &&  conf.inputSequences[rac-AC_SHRT0] ) {
+        rac.fl += (state.delta < 0);
+        if (rac.fl < ARR_SZ(conf.inputSequences)
+        &&  conf.inputSequences[rac.fl] ) {
             ret = 1;
-            SendInputSequence(conf.inputSequences[rac-AC_SHRT0]); break;
-        } else {
-            SClickActions(hwnd, action);
-            ret = 1;
+            SendInputSequence(conf.inputSequences[rac.fl]); break;
         }
-    }break;
+        }break;
+
+    default:
+        SClickActions(hwnd, action);
+        ret = 1;
     }
     // ret is 0: next hook or 1: block whel and AltUp.
     state.blockaltup = ret && state.alt > BT_HWHEELU; // block or not;
@@ -4925,10 +4913,10 @@ static int xpure DoubleClamp(int ptx, int left, int right, int rwidth)
 }
 /////////////////////////////////////////////////////////////////////////////
 // If we pass buttonX BT_PROBE it will tell us if we pass the blacklist.
-static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, int buttonX)
+static int init_movement_and_actions(POINT pt, HWND hwnd, action_t action, int buttonX)
 {
     //RGTICTAC tt; RGTic(&tt);
-    LOG("\ninit_movement_and_actions(pt=%d,%d, hwnd=%x, action=%d, button=%d)", pt.x, pt.y, (UINT)(INT_PTR)hwnd, (int)action, buttonX);
+    LOG("\ninit_movement_and_actions(pt=%d,%d, hwnd=%x, action=%d, button=%d)", pt.x, pt.y, (UINT)(INT_PTR)hwnd, (int)action.ac, buttonX);
     RECT wnd;
     state.prevpt = pt; // in case
     int button = LOWORD(buttonX);
@@ -4989,7 +4977,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     //LOGA("Blacklists passed! in %d us", (int)RGTac(&tt));
 
     // If no action is to be done then we passed all balcklists
-    if (probemode || action == AC_NONE) return 1;
+    if (probemode || action.ac == AC_NONE) return 1;
 
     // Set state
     state.blockaltup = state.alt; // If alt is down...
@@ -5010,7 +4998,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
     if (MOUVEMENT(action)) {
         state.sactiondone = action;
         if (GetProp(state.hwnd, APP_MOVEONOFF)) {
-            state.action = AC_NONE;
+            state.action = (action_t){ AC_NONE };
             return 0; // Movement was disabled for this window.
         }
         // AutoFocus on movement/resize.
@@ -5035,7 +5023,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
         StartSpeedMes(); // Speed timer
 
         int ret;
-        if (state.action == AC_MOVE) {
+        if (state.action.ac == AC_MOVE) {
             ret = ActionMove(pt, button);
         } else {
             ret = ActionResize(pt, &wnd, button);
@@ -5053,11 +5041,11 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, enum action action, in
         // Wheel actions, directly return here
         // because maybe the action will not be done
         if (GetProp(state.hwnd, APP_MOVEONOFF)) {
-            state.action = AC_NONE;
+            state.action = (action_t){ AC_NONE };
             return 0; // Wheel was disabled for this window.
         }
         return DoWheelActions(state.hwnd, action);
-    } else if (action==AC_RESTORE) {
+    } else if (action.ac==AC_RESTORE) {
         int rwidth, rheight;
         if (GetRestoreData(state.hwnd, &rwidth, &rheight)&SNAPPED) {
             ClearRestoreData(state.hwnd);
@@ -5102,11 +5090,11 @@ static int xpure IsAreaTopRZ(int area)
 {
     return (area >= HTTOP && area <= HTTOPRIGHT); // Top resizing border
 }
-static int InTitlebar(POINT pt, enum action action,  enum button button)
+static int InTitlebar(POINT pt, action_t action,  enum button button)
 {
     int willtest = ((conf.TTBActions&1) && !state.alt)
                 || ((conf.TTBActions&2) &&  state.alt);
-    if (willtest && action) {
+    if (willtest && action.ac) {
         HWND nhwnd = WindowFromPoint(pt);
         if (!nhwnd) return 0; // Next hook!
         // HWND hwnd = MDIorNOT(nhwnd, &state.mdiclient);
@@ -5129,7 +5117,7 @@ static int InTitlebar(POINT pt, enum action action,  enum button button)
 }
 /////////////////////////////////////////////////////////////////////////////
 // Actions to be performed in the Titlebar...
-static int TitleBarActions(POINT pt, enum action action, enum button button)
+static int TitleBarActions(POINT pt, action_t action, enum button button)
 {
     state.hittest = 0; // Cursor in titlebar?
     if (!conf.TTBActions) return -1; // fall through
@@ -5149,7 +5137,7 @@ static DWORD WINAPI FinishMovementNow(LPVOID pp)
     ShowSnapLayoutPreview(ZONES_PREV_HIDE);
     //Sleep(5000);
     if (!conf.FullWin && LastWin.hwnd && state.moving == 1) {
-        if (state.action == AC_RESIZE) {
+        if (state.action.ac == AC_RESIZE) {
             ResizeAllSnappedWindows();
         }
         if (IsWindow(LastWin.hwnd) && !LastWin.snap){
@@ -5172,8 +5160,8 @@ static DWORD WINAPI FinishMovementNow(LPVOID pp)
     // Auto Remaximize if option enabled and conditions are met.
     if (conf.AutoRemaximize && state.moving
     && (state.origin.maximized || state.origin.fullscreen)
-    && !state.shift && !state.mdiclient && state.action == AC_MOVE) {
-        state.action = AC_NONE;
+    && !state.shift && !state.mdiclient && state.action.ac == AC_MOVE) {
+        state.action = (action_t){ AC_NONE };
         HMONITOR monitor = MonitorFromPoint(state.prevpt, MONITOR_DEFAULTTONEAREST);
         if (monitor != state.origin.monitor) {
 
@@ -5192,7 +5180,7 @@ static DWORD WINAPI FinishMovementNow(LPVOID pp)
     if(conf.FullWin && state.moving == 1)
         NotifySizeMoveStaEnd(state.hwnd, 0);
 
-    state.action = AC_NONE;
+    state.action = (action_t){ AC_NONE };
     state.moving = 0;
     state.snap = conf.AutoSnap;
     state.cached_hwnd_blacklist = NULL;
@@ -5239,18 +5227,18 @@ static DWORD WINAPI DoMoveResizeMaxMinComboAction(LPVOID pp)
     } else if (state.resizable) {
         LockMovement();
         if (IsHotclick(state.alt)) {
-            state.action = AC_NONE;
+            state.action = (action_t){ AC_NONE };
             state.moving = 0;
         }
         MaximizeRestore_atpt(state.hwnd, SW_MAXIMIZE, 2);
     }
     return 1;
 }
-static int ClickComboActions(enum action action)
+static int ClickComboActions(action_t action)
 {
     if (!(conf.MMMaximize&1)) return 0;
     // Maximize/Restore the window if pressing Move, Resize mouse buttons.
-    if (state.action == AC_MOVE && action == AC_RESIZE) {
+    if (state.action.ac == AC_MOVE && action.ac == AC_RESIZE) {
         PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)DoMoveResizeMaxMinComboAction, 0);
         state.blockmouseup = 1;
         return 1;
@@ -5259,25 +5247,25 @@ static int ClickComboActions(enum action action)
 }
 
 // Generalization of Click combo.
-static void DoComboActions(enum action action, enum button button)
+static void DoComboActions(action_t action, enum button button)
 {
     // For safety
     if( !MOUVEMENT(state.action) )
         return;
 
-    enum action accombo = GetActionMR(button);
+    action_t accombo = GetActionMR(button);
     if (ActionInfo(accombo) & (ACINFO_MOVE|ACINFO_RESIZE|ACINFO_CLOSE)) {
         LockMovement();
     }
     if (BT_WHEELD <= button  && button <= BT_HWHEELU) {
         // Handle wheel combo.
-        if (accombo) {
+        if (accombo.ac) {
             DoWheelActions(state.hwnd, accombo);
             // No mouseup to block for wheel actions...
         }
     } else {
         // Other buttons.
-        if (accombo) {
+        if (accombo.ac) {
             SClickActions(state.hwnd, accombo);
             state.blockmouseup = 1;
         } else {
@@ -5363,7 +5351,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             state.clicktime = 0;
         }
         // Move the window  && (state.moving || !IsSamePTT(&pt, &state.clickpt))
-        if (state.action && !state.blockmouseup) { // resize or move...
+        if (state.action.ac && !state.blockmouseup) { // resize or move...
             // Move the window every few frames.
             static DWORD oldtime;
             if (conf.RezTimer==1) {
@@ -5375,7 +5363,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
                 }
             } else {
                 static UCHAR updaterate;
-                updaterate = (updaterate+1)%(state.action==AC_MOVE? conf.MoveRate: conf.ResizeRate);
+                updaterate = (updaterate+1)%(state.action.ac==AC_MOVE? conf.MoveRate: conf.ResizeRate);
                 if (!updaterate) {
                     MouseMove(pt);
                 } else if (conf.RezTimer == 3 && msg->time != oldtime) {
@@ -5397,28 +5385,28 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 //        LOGA("button=%d, %s", button, buttonstate==STATE_DOWN?"DOWN":buttonstate==STATE_UP?"UP":"NONE");
 
     // Get actions or alternate (depends on ModKey())!
-    enum action action = GetAction(button); // Normal action
-    enum action ttbact = GetActionT(button);// Titlebar action
+    action_t action = GetAction(button); // Normal action
+    action_t ttbact = GetActionT(button);// Titlebar action
 
     // Handle another click if we are already busy with an action
-    if (buttonstate == STATE_DOWN && state.action && state.action != conf.GrabWithAlt[ModKey()]) {
+    if (buttonstate == STATE_DOWN && state.action.ac && state.action.ac != conf.GrabWithAlt[ModKey()].ac) {
         // Handle click combo action!
         DoComboActions(action, button);
         return 1; // Block mousedown so altsnap does not remove g_mainhwnd
     }
 
     // Handle Titlebars actions if any
-    if (ttbact && buttonstate == STATE_DOWN) {
+    if (ttbact.ac && buttonstate == STATE_DOWN) {
         int ret = TitleBarActions(pt, ttbact, button);
         // If we have nothing to do in the titlebar
-        if (ret < 0 && conf.InactiveScroll && !state.alt && !state.action
+        if (ret < 0 && conf.InactiveScroll && !state.alt && !state.action.ac
         && (wParam == WM_MOUSEWHEEL || wParam == WM_MOUSEHWHEEL)) {
             // Scroll inactive window with wheel action...
             ret = ScrollPointedWindow(pt, state.delta, wParam);
         }
         if (ret == 0) return CALLNEXTHOOK;
         else if (ret == 1) return 1;
-        ttbact = AC_NONE; // No titlebar action to be done.
+        ttbact = (action_t){AC_NONE }; // No titlebar action to be done.
     }
 
     // Check if the click is is a Hotclick and should enable ALT.
@@ -5428,17 +5416,17 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         state.alt = button;
         // Start an action now if hotclick is also an action.
         // If action == AC_NONE, we are checking for blacklists...
-        if (!action) {
+        if (!action.ac) {
             // If no action is to be made,we must reset
             // clickpt and actiondone for the Click UP
             // to be forwarded.
-            state.sactiondone = AC_NONE;
+            state.sactiondone = (action_t){ AC_NONE };
             state.clickpt = pt;
         }
         int ret = init_movement_and_actions(pt, NULL, action, button);
         if (ret) {
             // Not balcklisted, action may have been performed!
-            if (action) state.alt = 0; // Done!
+            if (action.ac) state.alt = 0; // Done!
             return 1;
         }
 
@@ -5452,7 +5440,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         // Block hotclick up if not an action
         // Because it will not be done by state.blockmouseup
         // if (!action) return 1;
-        if (!action && (conf.AblockHotclick || state.sactiondone))
+        if (!action.ac && (conf.AblockHotclick || state.sactiondone.ac))
             return 1;
         // If no action is to be done, we forward the click
         Send_Click_Thread(button);
@@ -5468,7 +5456,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             return CALLNEXTHOOK;
         } else if (state.blockmouseup) {
             state.blockmouseup--;
-            if(!state.blockmouseup && !state.action && !state.alt)
+            if(!state.blockmouseup && !state.action.ac && !state.alt)
                 UnhookMouseOnly(); // We no longer need the hook.
             //LOGA("blocked BT%d mouse up", button);
             return 1;
@@ -5476,7 +5464,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     }
 
     // Long click grab timer
-    if (conf.LongClickMove && !state.action && !state.alt) {
+    if (conf.LongClickMove && !state.action.ac && !state.alt) {
         if (wParam == WM_LBUTTONDOWN) {
             state.clickpt = pt;
             // Start Grab timer
@@ -5489,14 +5477,14 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
     }
 
     // Nothing to do...
-    if (!action && !ttbact && buttonstate == STATE_DOWN)
+    if (!action.ac && !ttbact.ac && buttonstate == STATE_DOWN)
         return CALLNEXTHOOK;//CallNextHookEx(NULL, nCode, wParam, lParam);
 
     // INIT ACTIONS on mouse down if Alt is down...
     if (buttonstate == STATE_DOWN && state.alt) {
         //LogState("BUTTON DOWN:\n");
         // Double ckeck some hotkey is pressed.
-        if (!state.action
+        if (!state.action.ac
         && !IsHotclick(state.alt)
         && !IsHotkeyDown()) {
             UnhookMouse();
@@ -5512,10 +5500,10 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         //LogState("BUTTON UP:\n");
         SetWindowTrans(NULL); // Reset window transparency
 
-        if( action
-        &&( state.action == action || (state.action == AC_MOVE && action == AC_RESIZE))
+        if( action.ac
+        &&( state.action.ac == action.ac || (state.action.ac == AC_MOVE && action.ac == AC_RESIZE))
         &&(!state.moving || state.moving == DRAG_WAIT)// No drag occured
-        &&  state.sactiondone <= AC_RESIZE // Only move/resize may have happened in the meantime
+        &&  state.sactiondone.ac <= AC_RESIZE // Only move/resize may have happened in the meantime
         && !IsCtrlDown() // Ctrl is not down (because of focusing)
         && IsSamePTT(&pt, &state.clickpt) // same point (within drag)
         && !IsDoubleClick(button)) { // Long click unless PiercingClick=1
@@ -5523,10 +5511,10 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             // Mouse UP actions here only in case of MOVEMENT!:
             // Perform an action on mouse up without drag on move/resize
             int inTTB = 2*(!!state.hittest); //If we are in the titlebar add two
-            if (action == AC_MOVE)   action = conf.MoveUp[ModKey()+inTTB];
-            if (action == AC_RESIZE) action = conf.ResizeUp[ModKey()+inTTB];
+            if (action.ac == AC_MOVE)   action = conf.MoveUp[ModKey()+inTTB];
+            if (action.ac == AC_RESIZE) action = conf.ResizeUp[ModKey()+inTTB];
 
-            if (action > AC_RESIZE) {
+            if (action.ac > AC_RESIZE) {
                 SClickActions(state.hwnd, action);
             } else {
                 LOG("Forwarding the %d the click!", button);
@@ -5539,7 +5527,7 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
         }
         // If a button performing an action is released,
         // we finish all moveent and proceed.
-        if (action && state.action) {
+        if (action.ac && state.action.ac) {
             FinishMovementAsync();
             return 1;
         }
@@ -5587,7 +5575,7 @@ static void UnhookMouseOnly()
 static void UnhookMouse()
 {
     // Stop action
-    state.action = AC_NONE;
+    state.action = (action_t){ AC_NONE };
     state.ctrl = 0;
     state.shift = 0;
     state.moving = 0;
@@ -5655,13 +5643,13 @@ static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT_PTR idEvent, DWOR
         &&!IsAreaLongClikcable(HitTestTimeoutbl(ptwnd, pt))) {
             // Determine if we should actually move the Window by probing with AC_NONE
             state.hittest = 0; // No specific hittest here.
-            int ret = init_movement_and_actions(pt, NULL, AC_MOVE, BT_PROBE);
+            int ret = init_movement_and_actions(pt, NULL, (action_t){ AC_MOVE }, BT_PROBE);
             if (ret) { // Release mouse click if we have to move.
                 InterlockedIncrement(&state.ignoreclick);
                 mouse_event(buttonswaped?MOUSEEVENTF_RIGHTUP:MOUSEEVENTF_LEFTUP
                            , 0, 0, 0, GetMessageExtraInfo());
                 InterlockedDecrement(&state.ignoreclick);
-                init_movement_and_actions(pt, NULL, AC_MOVE, 0);
+                init_movement_and_actions(pt, NULL, (action_t){ AC_MOVE }, 0);
             }
         }
         KillTimer(g_mainhwnd, GRAB_TIMER);
@@ -5919,10 +5907,10 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         } else if (HIWORD(wParam) && IsWindow(state.sclickhwnd) ) {
             // ACTION MENU LOWORD(wParam) has to be zero to differenctiae with unikey menu
             LOG("Action Menu WM_COMMAND, wp=%X, lp=%X", (UINT)wParam, (UINT)lParam);
-            enum action action = (enum action)HIWORD(wParam);
-            if (action) {
+            action_t action = (action_t){ HIWORD(wParam) }; // TOTO: FIXME!!!!!!!
+            if (action.ac) {
                 state.prevpt = state.clickpt;
-                if(action == AC_ORICLICK) {
+                if(action.ac == AC_ORICLICK) {
                     ShowWindow(hwnd, SW_HIDE);
                     SetCursorPos(state.clickpt.x, state.clickpt.y);
                     Send_Click(state.clickbutton);
@@ -5932,8 +5920,8 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
                 // We should not refocus windows if those
                 // actions were performed...
-                if (action == AC_LOWER || action == AC_MINIMIZE
-                ||  action == AC_KILL || action == AC_CLOSE)
+                if (action.ac == AC_LOWER || action.ac == AC_MINIMIZE
+                ||  action.ac == AC_KILL || action.ac == AC_CLOSE)
                     fhwndori = NULL;
             }
             // Menu closes now.
@@ -6042,29 +6030,32 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_HOTKEY) {
-        int actionint = 0;
         int ptwindow = 0;
+        action_t action = (action_t){ AC_NONE };
         if (wParam > 0xC000) { // HOTKEY
             // The user Pressed a hotkey.
-            actionint = wParam - 0xC000; // Remove the Offset
+            size_t action_idx = wParam - 0xC001; // Remove the Offset
+            assert(action_idx < ARR_SZ(conf.KBShortcutsList));
+            action = conf.KBShortcutsList[action_idx];
             ptwindow = conf.UsePtWindow;
-            LOG("Hotkey Pressed, action = %d", actionint);
+            LOG("Hotkey Pressed, action = %d", action.ac);
         } else if (0x0000 < wParam && wParam < 0x1000) {
             // The user called AltSnap.exe -afACTION
-            actionint = wParam - 0x0000; // Remove the Offset
+            UNPACK_ACTION(action, lParam);
+            assert(wParam - 0x0000 == action.ac);
             ptwindow = 0;
         } else if (0x1000 < wParam && wParam < 0x2000) {
             // The user called AltSnap.exe -apACTION
-            actionint = wParam - 0x1000; // Remove the Offset
+            UNPACK_ACTION(action, lParam);
+            assert(wParam - 0x1000 == action.ac);
             ptwindow = 1;
         }
-        enum action action =  (enum action)actionint;
 
-        if (action > AC_RESIZE) { // Exclude resize action in case...
+        if (action.ac > AC_RESIZE) { // Exclude resize action in case...
             POINT pt;
             GetMsgPT(&pt);
             static const enum action noinitactions[] = { AC_KILL, AC_PAUSE, AC_RESUME, AC_ASONOFF, AC_NONE };
-            if (IsActionInList(action, noinitactions)) {
+            if (IsActionInList((enum action)action.ac, noinitactions)) {
                 // Some actions pass directly through the default blacklists...
                 HWND targethwnd = ptwindow? WindowFromPoint(pt): GetForegroundWindow();
                 if (IsWindow(targethwnd)) {
@@ -6077,7 +6068,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
                     target_hwnd = GetForegroundWindow();
                     // List of actions for which point should default to center.
                     static const enum action resetPTaclist[] = {AC_MENU, AC_NSTACKED, AC_PSTACKED, AC_NONE };
-                    if (IsActionInList(action, resetPTaclist)) {
+                    if (IsActionInList((enum action)action.ac, resetPTaclist)) {
                         state.ignorept = 1;
                     }
                     // Might be of use for something?
@@ -6159,8 +6150,8 @@ __declspec(dllexport) void WINAPI Unload()
         }
     }
 
-    for (unsigned ac=AC_MENU; ac<AC_MAXVALUE; ac++)
-        UnregisterHotKey(g_mainhwnd, 0xC000+ac);
+    for (size_t idx = 0; idx < ARR_SZ(conf.KBShortcutsList); idx++)
+        UnregisterHotKey(g_mainhwnd, 0xC001 + idx);
 
     EnumThreadWindows(GetCurrentThreadId(), PostPinWindowsProcMessage, WM_CLOSE);
     UnregisterClass(TEXT(APP_NAMEA)TEXT("-Timers"), hinstDLL);
@@ -6313,10 +6304,11 @@ static unsigned readhotkeys(const TCHAR *inisection, const char *name, const TCH
     keys[i] = 0;
     return i;
 }
-static enum action readaction(const TCHAR *section, const char *key)
+/* TOTO: IMPLEMENT action parameters */
+static action_t readaction(const TCHAR *section, const char *key)
 {
     LPCTSTR txt = GetSectionOptionCStr(section, key, TEXT("Nothing"));
-    if(!txt || !*txt) return AC_NONE;
+    if(!txt || !*txt) return (action_t){ AC_NONE };
 
     return MapActionW(txt);
 }
@@ -6336,7 +6328,7 @@ void readbuttonactions(const TCHAR *inputsection)
     };
 
     for (size_t i=0; i < ARR_SZ(buttons); i++) {
-        enum action * const actionptr = &conf.Mouse[0]; // first action in list
+        action_t * const actionptr = &conf.Mouse[0]; // first action in list
 
         char key[32];
         strcpy(key, buttons[i]);
@@ -6367,11 +6359,11 @@ void readbuttonactions(const TCHAR *inputsection)
 
     for (size_t i = 0; i < NACPB; i++) {
         // ScrollUp
-        if(conf.Mouse[21 * NACPB + i] == AC_NONE)
+        if(conf.Mouse[21 * NACPB + i].ac == AC_NONE)
             conf.Mouse[21 * NACPB + i] = conf.Mouse[20 * NACPB + i];
 
         // HScrollUp
-        if(conf.Mouse[23 * NACPB + i] == AC_NONE)
+        if(conf.Mouse[23 * NACPB + i].ac == AC_NONE)
             conf.Mouse[23 * NACPB + i] = conf.Mouse[22 * NACPB + i];
     }
 }
@@ -6434,6 +6426,7 @@ static void CreateTransWin(const TCHAR *inisection)
 
 void registerAllHotkeys(const TCHAR* inipath)
 {
+    LOG("registerAllHotkeys START");
     ChangeWindowMessageFilterExL(g_mainhwnd, WM_HOTKEY, /*MSGFLT_ALLOW*/1, NULL);
     // MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
     // RegisterHotKey(g_mainhwnd, 0xC000 + AC_KILL,   MOD_ALT|MOD_CONTROL, VK_F4); // F4=73h
@@ -6447,23 +6440,36 @@ void registerAllHotkeys(const TCHAR* inipath)
     static const char *action_names[] = { ACTION_MAP };
     #undef ACVALUE
 
-    for (unsigned ac=AC_MENU; ac < ARR_SZ(action_names); ac++) {
-        WORD HK = GetSectionOptionInt(inisection, action_names[ac], 0);
+    size_t idx = 0;
+    for (const TCHAR *p = inisection; *p && idx < ARR_SZ(conf.KBShortcutsList); p += lstrlen(p)+1) {
+        if(*p == ';') continue;
+
+        action_t action = MapActionW(p);
+        if (action.ac == AC_NONE) continue;
+
+        const TCHAR *pp = lstrchr(p, TEXT('='));
+        if(!pp) continue;
+
+        WORD HK = strtoi(p = ++pp); // Read HOTKEY
         if(LOBYTE(HK) && HIBYTE(HK)) {
             // Lobyte is the virtual key code and hibyte is the mod_key
-            if(!RegisterHotKey(g_mainhwnd, 0xC000 + ac, HIBYTE(HK), LOBYTE(HK))) {
-                LOG("Error registering hotkey %s=%x", action_names[ac], (unsigned)HK);
+            if (RegisterHotKey(g_mainhwnd, 0xC001 + idx, HIBYTE(HK), LOBYTE(HK))) {
+                conf.KBShortcutsList[idx] = action; // Add action to the list
+                LOG("OK registering hotkey %s_%d_%d=%x, [idx=%d]", action_names[action.ac], (int)action.fl, (int)action.wp, (unsigned)HK, (int)idx);
+                idx++;
+            } else {
+                LOG("Error registering hotkey %s=%x", action_names[action.ac], (unsigned)HK);
                 #ifdef LOG_STUFF
                 TCHAR title[76], acN[32];
                 lstrcpy_s(title, ARR_SZ(title), TEXT(APP_NAMEA)TEXT(": unable to register hotkey for action "));
-                str2tchar_s(acN, ARR_SZ(acN)-1, action_names[ac]);
+                str2tchar_s(acN, ARR_SZ(acN)-1, action_names[action.ac]);
                 lstrcat_s(title, ARR_SZ(title), acN);
                 ErrorBox(title);
                 #endif // LOG_STUFF
             }
-            LOG("OK registering hotkey %s=%x", action_names[ac], (unsigned)HK);
         }
     }
+    LOG("registerAllHotkeys END");
 }
 static void readalluchars(UCHAR *dest, const TCHAR * const inisection, const struct OptionListItem *optlist, size_t listlen)
 {
@@ -6510,7 +6516,7 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
 #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
 #endif
     // Load settings
-    state.action = AC_NONE;
+    state.action = (action_t){ AC_NONE };
     state.shift = 0;
     state.moving = 0;
     LastWin.hwnd = NULL;

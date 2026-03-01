@@ -127,40 +127,14 @@
     ACVALUE(AC_ASONOFF,      ASOnOff,     CL) \
     ACVALUE(AC_MOVEONOFF,    MoveOnOff,   CL) \
     \
-    ACVALUE(AC_MLZONE, MLZone, MR) \
-    ACVALUE(AC_MTZONE, MTZone, MR) \
-    ACVALUE(AC_MRZONE, MRZone, MR) \
-    ACVALUE(AC_MBZONE, MBZone, MR) \
-    ACVALUE(AC_XLZONE, XLZone, MR) \
-    ACVALUE(AC_XTZONE, XTZone, MR) \
-    ACVALUE(AC_XRZONE, XRZone, MR) \
-    ACVALUE(AC_XBZONE, XBZone, MR) \
+    ACVALUE(AC_MZONE, MZone, MR) \
+    ACVALUE(AC_XZONE, XZone, MR) \
     \
-    ACVALUE(AC_XTNLEDGE, XTNLEdge, MR) \
-    ACVALUE(AC_XTNTEDGE, XTNTEdge, MR) \
-    ACVALUE(AC_XTNREDGE, XTNREdge, MR) \
-    ACVALUE(AC_XTNBEDGE, XTNBEdge, MR) \
-    ACVALUE(AC_MTNLEDGE, MTNLEdge, MV) \
-    ACVALUE(AC_MTNTEDGE, MTNTEdge, MV) \
-    ACVALUE(AC_MTNREDGE, MTNREdge, MV) \
-    ACVALUE(AC_MTNBEDGE, MTNBEdge, MV) \
-    \
-    ACVALUE(AC_STEPL,  StepL,  MR) \
-    ACVALUE(AC_STEPT,  StepT,  MR) \
-    ACVALUE(AC_STEPR,  StepR,  MR) \
-    ACVALUE(AC_STEPB,  StepB,  MR) \
-    ACVALUE(AC_SSTEPL, SStepL, MR) \
-    ACVALUE(AC_SSTEPT, SStepT, MR) \
-    ACVALUE(AC_SSTEPR, SStepR, MR) \
-    ACVALUE(AC_SSTEPB, SStepB, MR) \
-    \
-    ACVALUE(AC_FOCUSL,  FocusL,  ZO) \
-    ACVALUE(AC_FOCUST,  FocusT,  ZO) \
-    ACVALUE(AC_FOCUSR,  FocusR,  ZO) \
-    ACVALUE(AC_FOCUSB,  FocusB,  ZO) \
+    ACVALUE(AC_STEP,  Step,  MR) \
     \
     ACVALUE(AC_NLAYOUT,  NLayout,  00) \
     ACVALUE(AC_PLAYOUT,  PLayout,  00) \
+    ACVALUE(AC_SHRT,     Shrt,     00) \
     \
     ACVALUE(AC_NPLAYOUT,     NPLayout,     00) \
     ACVALUE(AC_ROLL,         Roll,         MR) \
@@ -175,8 +149,18 @@
     ACVALUE(AC_NPSTACKED2,   NPStacked2,   ZO)
 
 #define ACVALUE(a, b, c) a,
-enum action { ACTION_MAP AC_MAXVALUE, AC_SHRT0, AC_SHRTF=AC_SHRT0+36, AC_ORICLICK };
+enum action { ACTION_MAP AC_MAXVALUE, AC_ORICLICK };
 #undef ACVALUE
+
+typedef struct rgTagAction {
+    BYTE  ac;
+    BYTE  fl;
+    short wp;
+} action_t;
+
+
+#define PACK_ACTION(x) ( (LPARAM)(x.ac << 24) | (LPARAM)(x.fl << 16) | (LPARAM)(x.wp << 0) )
+#define UNPACK_ACTION(dst, lp) do { dst.ac = (lp>>24) & 0xFF; dst.fl = (lp>>16) & 0xFF; dst.wp = lp&0xFFFF; } while(0)
 
 // List of extra info options
 enum {
@@ -193,13 +177,13 @@ enum {
 #define MR (ACINFO_MOVE|ACINFO_RESIZE)
 
 // Helper function to get extra action info
-static xpure UCHAR ActionInfo(enum action action)
+static xpure UCHAR ActionInfo(action_t action)
 {
     #define ACVALUE(a, b, c) (c),
     static const UCHAR action_info[] = { ACTION_MAP };
 
     #undef ACVALUE
-    return action_info[action];
+    return action_info[action.ac];
 }
 #undef MV
 #undef RZ
@@ -207,7 +191,7 @@ static xpure UCHAR ActionInfo(enum action action)
 #undef CL
 #undef MR
 
-#define MOUVEMENT(action) (action <= AC_RESIZE)
+#define MOUVEMENT(action) (action.ac <= AC_RESIZE)
 
 ///////////////////////////////////////////////////////////////////////////
 // Check if key is assigned in the HKlist
@@ -255,26 +239,82 @@ static char *ZidxToZonestrA(int laynum, int idx, char zname[AT_LEAST 32])
     return zname;
 }
 
-// Map action string to actual action enum
-static enum action MapActionW(const TCHAR *txt)
+
+static pure TCHAR* is_base_action(const TCHAR *a, const char *b)
 {
+    while (*a && *a != '=' && *a != '_' && *a == *b) {
+        b++; a++;
+    }
+    return (*a == '_' || *a == '=' || *a == *b) ? (TCHAR*)a : NULL;
+}
+
+/* Map action string to actual action_t struct
+ * Possible formats:
+ * MyActionName[_XXX][_XXX_YYY]\0 ; ending with a NULL
+ * MyActionName[_XXX][_XXX_YYY]=  ; Or with an equal
+ */
+static pure action_t MapActionW(const TCHAR *txt)
+{
+    action_t action = { AC_NONE };
+    if (!txt || !*txt) return action;
     #define ACVALUE(a, b, c) (#b),
     static const char *action_map[] = { ACTION_MAP };
     #undef ACVALUE
     UCHAR ac;
-    for (ac=0; ac < ARR_SZ(action_map); ac++) {
-        if(!strtotcharicmp(txt, action_map[ac]))
-            return (enum action)ac;
-    }
-    // ShrtX X = 0 to F.
+
+    // ShrtX X = 0 to Z (for backward compat...)
+    // It should be done with Shrt_XX.
     if (txt[0] == 'S' && txt[1] == 'h' && txt[2] == 'r' && txt[3] == 't'
-    && '0' <= txt[4] && txt[4] <= 'Z' && txt[5] == '\0' ) {
+    && '0' <= txt[4] && txt[4] <= 'Z'
+    && (txt[5] == '\0' || txt[5] == '=') ) {
         TCHAR c = txt[4];
         UCHAR num = c<='9' ? c - '0' : c-'A'+10;
-        num = min(num, AC_SHRTF-AC_SHRT0-1);
-        return (enum action)(AC_SHRT0 + num);
+        action.ac = AC_SHRT;
+        action.fl = min(num, 35); // Safety clamp
+        return action;
     }
-    return AC_NONE;
+
+    for (ac=0; ac < ARR_SZ(action_map); ac++) {
+        TCHAR *params;
+        if ((params = is_base_action(txt, action_map[ac]))) {
+            BYTE flagparam = 0;
+            action.ac = ac;
+            if (*params == TEXT('_') && *++params) {
+                // We got 1 parameter.
+                TCHAR cc = *params++;
+                switch(cc) {
+                // Direction flags
+                case 'L':           flagparam = 1; break; // LEFT
+                case 'U': case 'T': flagparam = 2; break; // UP/TOP
+                case 'R':           flagparam = 3; break; // Right
+                case 'D': case 'B': flagparam = 4; break; // DOWN/BOTTM
+                default: // Parse an int
+                    for (; cc != '=' && cc != '_' && cc; cc = *params) {
+                        flagparam = flagparam * 10 + (cc - TEXT('0'));
+                        ++params;
+                    }
+                }
+                action.fl = flagparam;
+
+                if (*params == ('_') && *++params) {
+                    // We got 2 parameters.
+                    action.wp = strtoi(params); // strtoi stops on any non digit
+                }
+                //LOG("Read action %s_%d_%d",  action_map[ac], (int)action.fl, (int)action.wp);
+            }
+            // We got the action!
+            return action;
+        }
+    }
+    return action;
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+void assertions(void)
+{
+    //static_assert(sizeof(action_t) == 4, "sizeof(action_t) should be 4!");
+    static_assert(AC_ORICLICK <= 127, "Maximal action number should be 127 or less!");
 }
 
 #endif /* ALTDRAG_RPC_H */

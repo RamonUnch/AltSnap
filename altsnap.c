@@ -514,8 +514,8 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
             // Ask old HotKey window to perform an action.
             const TCHAR *actionstr = lstrstr(params, TEXT("-a"));
             if (actionstr && actionstr[2] && actionstr[3] && actionstr[4]) {
-                enum action action = MapActionW(&actionstr[3]);
-                PostMessage(previnst, WM_HOTKEY, (actionstr[2] == 'p')*0x1000+action, 0);
+                action_t action = MapActionW(&actionstr[3]);
+                PostMessage(previnst, WM_HOTKEY, (actionstr[2] == 'p')*0x1000+action.ac, PACK_ACTION(action));
                 return 0;
             }
             // Change layout if asked...

@@ -4761,15 +4761,17 @@ static HWND FindTiledWindow(HWND hwnd, unsigned char direction)
     }
     return NULL;
 }
+
 /////////////////////////////////////////////////////////////////////////////
 // Single click commands
 static void SClickActions(HWND hwnd, action_t action)
 {
-    const struct resizeXY RXY_LEFT_CENTER =   {RZ_LEFT, RZ_YCENTER};
-    const struct resizeXY RXY_RIGHT_CENTER =  {RZ_RIGHT, RZ_YCENTER};
-    const struct resizeXY RXY_CENTER_TOP =    {RZ_XCENTER, RZ_TOP};
-    const struct resizeXY RXY_CENTER_BOTTOM = {RZ_XCENTER, RZ_BOTTOM};
-
+    const struct resizeXY rxy_map[] = {
+        { RZ_LEFT, RZ_YCENTER   },
+        { RZ_XCENTER, RZ_TOP    },
+        { RZ_RIGHT, RZ_YCENTER  },
+        { RZ_XCENTER, RZ_BOTTOM },
+    };
     state.sactiondone = action;
     LOG("Going to perform action (%d)_%d_%d", (int)action.ac, (int)action.fl, (int)action.wp);
     switch (action.ac) {
@@ -4794,8 +4796,14 @@ static void SClickActions(HWND hwnd, action_t action)
     case AC_MUTE:        Send_KEY(VK_VOLUME_MUTE); break;
     case AC_SIDESNAP:    SnapToCorner(hwnd, AUTORESIZE, !!state.shift); break;
     case AC_EXTENDSNAP:  SnapToCorner(hwnd, AUTORESIZE, !state.shift); break;
-    case AC_EXTENDTNEDGE:SnapToCorner(hwnd, AUTORESIZE, state.shift?SNTO_MOVETO|SNTO_NEXTBD:SNTO_EXTEND|SNTO_NEXTBD); break;
-    case AC_MOVETNEDGE:  SnapToCorner(hwnd, AUTORESIZE, state.shift?SNTO_EXTEND|SNTO_NEXTBD:SNTO_MOVETO|SNTO_NEXTBD); break;
+    case AC_EXTENDTNEDGE:
+        if (!action.fl) SnapToCorner(hwnd, AUTORESIZE, state.shift?SNTO_MOVETO|SNTO_NEXTBD:SNTO_EXTEND|SNTO_NEXTBD);
+        else            SnapToCorner(hwnd, rxy_map[min(action.fl-1, 3)], SNTO_EXTEND|SNTO_NEXTBD);
+        break;
+    case AC_MOVETNEDGE:
+        if(!action.fl) SnapToCorner(hwnd, AUTORESIZE, state.shift?SNTO_EXTEND|SNTO_NEXTBD:SNTO_MOVETO|SNTO_NEXTBD);
+        else           SnapToCorner(hwnd, rxy_map[min(action.fl-1, 3)], SNTO_MOVETO|SNTO_NEXTBD);
+        break;
     case AC_MENU:        ActionMenu(hwnd); break;
     case AC_NSTACKED:    ActionAltTab(state.prevpt, +120,  state.shift, EnumStackedWindowsProc); break;
     case AC_NSTACKED2:   ActionAltTab(state.prevpt, +120, !state.shift, EnumStackedWindowsProc); break;
@@ -4809,22 +4817,9 @@ static void SClickActions(HWND hwnd, action_t action)
     case AC_ALTTABFULLLIST:
         PostMessage(g_mainhwnd, WM_STACKLIST, TRK_MOVETOMONITOR | TRK_LASERMODE,
             state.shift?(LPARAM)EnumAltTabWindows:(LPARAM)EnumAllAltTabWindows); break;
-    case AC_MLZONE:      MoveWindowToTouchingZone(hwnd, 0, 0); break; // mLeft
-    case AC_MTZONE:      MoveWindowToTouchingZone(hwnd, 1, 0); break; // mTop
-    case AC_MRZONE:      MoveWindowToTouchingZone(hwnd, 2, 0); break; // mRight
-    case AC_MBZONE:      MoveWindowToTouchingZone(hwnd, 3, 0); break; // mBottom
-    case AC_XLZONE:      MoveWindowToTouchingZone(hwnd, 0, 1); break; // xLeft
-    case AC_XTZONE:      MoveWindowToTouchingZone(hwnd, 1, 1); break; // xTop
-    case AC_XRZONE:      MoveWindowToTouchingZone(hwnd, 2, 1); break; // xRight
-    case AC_XBZONE:      MoveWindowToTouchingZone(hwnd, 3, 1); break; // xBottom
-    case AC_XTNLEDGE:    SnapToCorner(hwnd, RXY_LEFT_CENTER,   SNTO_EXTEND|SNTO_NEXTBD); break;
-    case AC_XTNTEDGE:    SnapToCorner(hwnd, RXY_CENTER_TOP,    SNTO_EXTEND|SNTO_NEXTBD); break;
-    case AC_XTNREDGE:    SnapToCorner(hwnd, RXY_RIGHT_CENTER,  SNTO_EXTEND|SNTO_NEXTBD); break;
-    case AC_XTNBEDGE:    SnapToCorner(hwnd, RXY_CENTER_BOTTOM, SNTO_EXTEND|SNTO_NEXTBD); break;
-    case AC_MTNLEDGE:    SnapToCorner(hwnd, RXY_LEFT_CENTER,   SNTO_MOVETO|SNTO_NEXTBD); break;
-    case AC_MTNTEDGE:    SnapToCorner(hwnd, RXY_CENTER_TOP,    SNTO_MOVETO|SNTO_NEXTBD); break;
-    case AC_MTNREDGE:    SnapToCorner(hwnd, RXY_RIGHT_CENTER,  SNTO_MOVETO|SNTO_NEXTBD); break;
-    case AC_MTNBEDGE:    SnapToCorner(hwnd, RXY_CENTER_BOTTOM, SNTO_MOVETO|SNTO_NEXTBD); break;
+
+    case AC_MZONE:       MoveWindowToTouchingZone(hwnd, action.fl-1, 0); break;
+    case AC_XZONE:       MoveWindowToTouchingZone(hwnd, action.fl-1, 1); break;
     case AC_STEP:        StepWindow(hwnd, action); break;
 
     case AC_NLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, CMD_SNAPLAYOUT+(conf.LayoutNumber + 1) % conf.MaxLayouts, 0); break;

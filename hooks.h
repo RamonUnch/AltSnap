@@ -277,13 +277,23 @@ static pure action_t MapActionW(const TCHAR *txt)
     for (ac=0; ac < ARR_SZ(action_map); ac++) {
         TCHAR *params;
         if ((params = is_base_action(txt, action_map[ac]))) {
+            BYTE flagparam = 0;
             action.ac = ac;
             if (*params == TEXT('_') && *++params) {
                 // We got 1 parameter.
-                BYTE flagparam = 0;
-                TCHAR cc = *params;
-                for (; cc != '=' && cc != '_' && cc; cc = *++params)
-                    flagparam = flagparam * 10 + (cc - TEXT('0'));
+                TCHAR cc = *params++;
+                switch(cc) {
+                // Direction flags
+                case 'L':           flagparam = 1; break; // LEFT
+                case 'U': case 'T': flagparam = 2; break; // UP/TOP
+                case 'R':           flagparam = 3; break; // Right
+                case 'D': case 'B': flagparam = 4; break; // DOWN/BOTTM
+                default: // Parse an int
+                    for (; cc != '=' && cc != '_' && cc; cc = *params) {
+                        flagparam = flagparam * 10 + (cc - TEXT('0'));
+                        ++params;
+                    }
+                }
                 action.fl = flagparam;
 
                 if (*params == ('_') && *++params) {

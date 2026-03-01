@@ -145,14 +145,7 @@
     ACVALUE(AC_MTNREDGE, MTNREdge, MV) \
     ACVALUE(AC_MTNBEDGE, MTNBEdge, MV) \
     \
-    ACVALUE(AC_STEPL,  StepL,  MR) \
-    ACVALUE(AC_STEPT,  StepT,  MR) \
-    ACVALUE(AC_STEPR,  StepR,  MR) \
-    ACVALUE(AC_STEPB,  StepB,  MR) \
-    ACVALUE(AC_SSTEPL, SStepL, MR) \
-    ACVALUE(AC_SSTEPT, SStepT, MR) \
-    ACVALUE(AC_SSTEPR, SStepR, MR) \
-    ACVALUE(AC_SSTEPB, SStepB, MR) \
+    ACVALUE(AC_STEP,  Step,  MR) \
     \
     ACVALUE(AC_NLAYOUT,  NLayout,  00) \
     ACVALUE(AC_PLAYOUT,  PLayout,  00) \

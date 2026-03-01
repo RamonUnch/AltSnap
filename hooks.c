@@ -217,8 +217,6 @@ static struct config {
     UCHAR AutoRemaximize;
     UCHAR SnapThreshold;
     UCHAR AeroThreshold;
-    UCHAR KBMoveStep;
-    UCHAR KBMoveSStep;
     UCHAR AeroTopMaximizes;
     UCHAR UseCursor;
     UCHAR MinAlpha;
@@ -328,8 +326,6 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "AutoRemaximize", 0 },
     { "SnapThreshold", 20 },
     { "AeroThreshold", 5 },
-    { "KBMoveStep", 100 },
-    { "KBMoveSStep", 10 },
     { "AeroTopMaximizes", 1 },
     { "UseCursor", 1 },
     { "MinAlpha", 32 },
@@ -4402,8 +4398,12 @@ static pure BOOL IsRectInMonitors(const RECT *rc)
 }
 // Move the window step by step to a direction.
 // signed step size and direction = 0 for X 1 for Y
-static void StepWindow(HWND hwnd, short step, UCHAR direction)
+static void StepWindow(HWND hwnd, action_t action)
 {
+    // action.fl = 1=>LEFT, 2=>TOP, 3=>RIGHT, 4=>BOTTOM
+    short step = action.fl <= 2 ? -action.wp : +action.wp;
+    UCHAR direction = !(action.fl & 1);
+
     RECT rc;
     if (IsZoomed(hwnd)) {
         //return;
@@ -4771,7 +4771,7 @@ static void SClickActions(HWND hwnd, action_t action)
     const struct resizeXY RXY_CENTER_BOTTOM = {RZ_XCENTER, RZ_BOTTOM};
 
     state.sactiondone = action;
-    LOG("Going to perform action %d", (int)action.ac);
+    LOG("Going to perform action (%d)_%d_%d", (int)action.ac, (int)action.fl, (int)action.wp);
     switch (action.ac) {
     case AC_MINIMIZE:    MinimizeWindow(hwnd); break;
     case AC_MAXIMIZE:    ActionMaximize(hwnd); break;
@@ -4825,14 +4825,7 @@ static void SClickActions(HWND hwnd, action_t action)
     case AC_MTNTEDGE:    SnapToCorner(hwnd, RXY_CENTER_TOP,    SNTO_MOVETO|SNTO_NEXTBD); break;
     case AC_MTNREDGE:    SnapToCorner(hwnd, RXY_RIGHT_CENTER,  SNTO_MOVETO|SNTO_NEXTBD); break;
     case AC_MTNBEDGE:    SnapToCorner(hwnd, RXY_CENTER_BOTTOM, SNTO_MOVETO|SNTO_NEXTBD); break;
-    case AC_STEPL:       StepWindow(hwnd, -conf.KBMoveStep, 0); break;
-    case AC_STEPT:       StepWindow(hwnd, -conf.KBMoveStep, 1); break;
-    case AC_STEPR:       StepWindow(hwnd, +conf.KBMoveStep, 0); break;
-    case AC_STEPB:       StepWindow(hwnd, +conf.KBMoveStep, 1); break;
-    case AC_SSTEPL:      StepWindow(hwnd, -conf.KBMoveSStep, 0); break;
-    case AC_SSTEPT:      StepWindow(hwnd, -conf.KBMoveSStep, 1); break;
-    case AC_SSTEPR:      StepWindow(hwnd, +conf.KBMoveSStep, 0); break;
-    case AC_SSTEPB:      StepWindow(hwnd, +conf.KBMoveSStep, 1); break;
+    case AC_STEP:        StepWindow(hwnd, action); break;
 
     case AC_NLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, CMD_SNAPLAYOUT+(conf.LayoutNumber + 1) % conf.MaxLayouts, 0); break;
     case AC_PLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, CMD_SNAPLAYOUT+(conf.LayoutNumber + conf.MaxLayouts - 1) % conf.MaxLayouts, 0); break;

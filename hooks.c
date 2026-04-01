@@ -809,7 +809,7 @@ BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
     if (ShouldSnapTo(hwnd)
     && !IsZoomed(hwnd)
     && GetWindowRectL(hwnd, &wnd)) {
-        unsigned restore;
+        unsigned flag;
 
         if (conf.SmartAero&2 || IsWindowSnapped(hwnd)) {
             // In SMARTER snapping mode or if the WINDOW IS SNAPPED
@@ -817,13 +817,16 @@ BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
             // to determine its snapping state
             MONITORINFO mi;
             GetMonitorInfoFromWin(hwnd, &mi);
-            snwnds.it[snwnds.num].flag = WhichSideRectInRect(&mi.rcWork, &wnd);
-        } else if ((restore = GetRestoreFlag(hwnd)) && restore&SNAPPED && restore&SNAPPEDSIDE) {
-            // The window was AltSnapped...
-            snwnds.it[snwnds.num].flag = restore;
+            flag = WhichSideRectInRect(&mi.rcWork, &wnd);
         } else {
-            // thiw window is not snapped.
-            return TRUE; // next hwnd
+            unsigned restore = GetRestoreFlag(hwnd);
+            if (restore && restore&SNAPPED && restore&SNAPPEDSIDE) {
+                // The window was AltSnapped...
+                flag = restore;
+            } else {
+                // thiw window is not snapped.
+                return TRUE; // next hwnd
+            }
         }
         // Add the window to the list
         struct snwdata *new_wnd = (struct snwdata *)ListAppend(&snwnds, NULL, sizeof(*snwnds.it));
@@ -831,6 +834,7 @@ BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
         OffsetRectMDI(&wnd);
         CopyRect(&new_wnd->rc, &wnd);
         new_wnd->hwnd = hwnd;
+        new_wnd->flag = flag;
     }
     return TRUE;
 }

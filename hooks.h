@@ -86,7 +86,7 @@
 #define WM_SETLAYOUTNUM   (WM_USER+16)
 #define WM_GETLAYOUTREZ   (WM_USER+17)
 #define WM_GETBESTLAYOUT  (WM_USER+18)
-#define WM_GETZONESLEN    (WM_USER+19)
+//#define WM_GETZONESLEN    (WM_USER+19)
 #define WM_GETZONES       (WM_USER+20)
 
 // List of possible actions
@@ -190,6 +190,15 @@ static xpure UCHAR ActionInfo(action_t action)
 #undef ZO
 #undef CL
 #undef MR
+
+enum {
+    ACPARAM_NONE = 0,
+    ACPARAM_DIRECTION = 1,
+    ACPARAM_NUMBER = 2,
+    //ACPARAM_DIRECTION_NUMBER = ACPARAM_DIRECTION | ACPARAM_NUMBER,
+    ACPARAM_UPDOWN = 4,
+    //ACPARAM_UPDOWN_NUMBER = ACPARAM_UPDOWN | ACPARAM_NUMBER,
+};
 
 #define MOUVEMENT(action) (action.ac <= AC_RESIZE)
 

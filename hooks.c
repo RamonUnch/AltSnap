@@ -802,32 +802,29 @@ static struct rgSnWnds {
 
 BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
 {
-    RECT wnd;
+    struct snwdata snw = { 0 };
     if (ShouldSnapTo(hwnd)
     && !IsZoomed(hwnd)
-    && GetWindowRectL(hwnd, &wnd)) {
+    && GetWindowRectL(hwnd, &snw.rc)) {
         unsigned restore;
-
         if (conf.SmartAero&2 || IsWindowSnapped(hwnd)) {
             // In SMARTER snapping mode or if the WINDOW IS SNAPPED
             // We only consider the position of the window
             // to determine its snapping state
             MONITORINFO mi;
             GetMonitorInfoFromWin(hwnd, &mi);
-            snwnds.it[snwnds.num].flag = WhichSideRectInRect(&mi.rcWork, &wnd);
+            snw.flag = WhichSideRectInRect(&mi.rcWork, &snw.rc);
         } else if ((restore = GetRestoreFlag(hwnd)) && restore&SNAPPED && restore&SNAPPEDSIDE) {
             // The window was AltSnapped...
-            snwnds.it[snwnds.num].flag = restore;
+            snw.flag = restore;
         } else {
             // thiw window is not snapped.
             return TRUE; // next hwnd
         }
         // Add the window to the list
-        struct snwdata *new_wnd = (struct snwdata *)ListAppend(&snwnds, NULL, sizeof(*snwnds.it));
-        if (!new_wnd) return FALSE;
-        OffsetRectMDI(&wnd);
-        CopyRect(&new_wnd->rc, &wnd);
-        new_wnd->hwnd = hwnd;
+        snw.hwnd = hwnd;
+        OffsetRectMDI(&snw.rc);
+        ListAppend(&snwnds, &snw, sizeof(*snwnds.it));
     }
     return TRUE;
 }
@@ -6098,14 +6095,11 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         return GetLayoutRez(wParam);
     } else if (msg == WM_GETBESTLAYOUT) {
         return GetBestLayoutFromMonitors();
-    } else if (msg == WM_GETZONESLEN) {
-        unsigned idx = (unsigned)wParam;
-        return nzones[idx];
     } else if (msg == WM_GETZONES) {
-        unsigned idx = (unsigned)wParam;
-        RECT *dZones = (RECT*)lParam;
-        CopyZones(dZones, idx);
-        return 0;
+        unsigned layout_idx = (unsigned)wParam;
+        RECT **dZones = (RECT**)lParam;
+        if (dZones) *dZones = Zones[layout_idx];
+        return nzones[layout_idx]; // Return number of zones on the layout
     }
 
     return DefWindowProc(hwnd, msg, wParam, lParam);

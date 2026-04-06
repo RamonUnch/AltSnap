@@ -315,6 +315,14 @@ static LRESULT CB_GetTextAndIdx(HWND hwnd, TCHAR *txt, size_t txtlen)
     }
     return idx;
 }
+
+static LRESULT CB_AddStringIfNotPresentAndGetIdx(HWND hwnd, const TCHAR *txt)
+{
+    LRESULT new_index = SendMessage(hwnd, CB_FINDSTRINGEXACT, (WPARAM)-1, (LPARAM)txt);
+    if (new_index < 0)
+        new_index = CB_AddString(hwnd, txt);
+    return new_index;
+}
 static void WriteOptionBoolW(HWND hwnd, WORD id, const TCHAR *section, const char *name_s)
 {
     TCHAR name[64];
@@ -830,24 +838,6 @@ static void WriteActionDropListS(HWND hwnd, int idc, TCHAR *inioption, const act
     TCHAR txt[128]; txt[0] = TEXT('\0');
     GetActionStringFromDropList(hwnd, idc, actions, txt, ARR_SZ(txt));
     WritePrivateProfileString(TEXT("Input"), inioption, txt, inipath);
-
-//    HWND control = GetDlgItem(hwnd, idc);
-//    int j = SendMessage(control, CB_GETCURSEL, 0, 0);
-//    if (j >= 0 && actions[j].action) { // Inside of known values
-//        WritePrivateProfileString(TEXT("Input"), inioption, actions[j].action, inipath);
-//        return; // DONE!
-//    }
-//
-//    // User directly Wrote the specified string?
-//    TCHAR txt[128]; txt[0] = TEXT('\0');
-//    if (0 < (int)(DWORD)SendMessage(control, WM_GETTEXT, ARR_SZ(txt), (LPARAM)txt) && *txt ) {
-//        // Action was direcly written!
-//        j = SendMessage(control, CB_FINDSTRINGEXACT, /*start index=*/-1, (LPARAM)txt);
-//        if (j>=0 && actions[j].action) // Found index.
-//            WritePrivateProfileString(TEXT("Input"), inioption, actions[j].action, inipath);
-//        else
-//            WritePrivateProfileString(TEXT("Input"), inioption, txt, inipath);
-//    }
 }
 /////////////////////////////////////////////////////////////////////////////
 static INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -1389,7 +1379,7 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
 
         // KEYBOARD SHORTCUTS HANDLING
         // READ Keyboard Shortcut
-        if (id == IDC_SHORTCUTS_AC && (event == CBN_SELCHANGE /*|| event == CBN_EDITCHANGE*/)) {
+        if (id == IDC_SHORTCUTS_AC && (event == CBN_SELCHANGE || event == CBN_EDITCHANGE)) {
             // Update the shortcut with the current one.
             TCHAR txt[64];
             int i = CB_GetTextAndIdx((HWND)lParam, txt, ARR_SZ(txt));
@@ -1421,6 +1411,7 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
             int astrlen = GetDlgItemText(hwnd, IDC_SHORTCUTS_AC, action_string_buf, ARR_SZ(action_string_buf));
             if (0 < astrlen && *action_string_buf) {
                 const TCHAR *intstr = shortcut ? Uint2lStr(txt, shortcut) : NULL; // NULL will remove the KEY
+                edit_shortcut_idx = CB_AddStringIfNotPresentAndGetIdx(GetDlgItem(hwnd, IDC_SHORTCUTS_AC), action_string_buf);
                 WritePrivateProfileString(TEXT("KBShortcuts"), action_string_buf, intstr, inipath);
             }
             EnableDlgItem(hwnd, IDC_SHORTCUTS_SET, 0);
@@ -1475,10 +1466,7 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
             int code = DialogBoxParam(g_hinst, MAKEINTRESOURCE(IDD_ACTIONPARAM), hwnd, AdvancedActionDlgProc, (LPARAM)&acp);
             if (code == IDOK && acp.outbuf[0]) {
                 HWND control = GetDlgItem(hwnd, IDC_SHORTCUTS_AC);
-                int new_index = SendMessage(control, CB_FINDSTRINGEXACT, /*start index=*/-1, (LPARAM)acp.outbuf);
-                if (new_index < 0)
-                    new_index = CB_AddString(control, acp.outbuf);
-
+                int new_index = CB_AddStringIfNotPresentAndGetIdx(control, acp.outbuf);
                 CB_SetCurSel(control, new_index);
                 edit_shortcut_idx = new_index;
                 SetFocus(control);

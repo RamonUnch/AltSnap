@@ -1305,10 +1305,10 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
         {TEXT("ExtendTNEdge"),L10NIDX(InputActionExtendTNEdge) },
         {TEXT("MoveTNEdge"),  L10NIDX(InputActionMoveTNEdge) },
 
-        {TEXT("MZone"),      L10NIDX(InputActionMLZone) },
-        {TEXT("XZone"),      L10NIDX(InputActionXLZone) },
+        {TEXT("MZone"),      L10NIDX(InputActionMZone) },
+        {TEXT("XZone"),      L10NIDX(InputActionXZone) },
 
-        {TEXT("Step"),       L10NIDX(InputActionStepL) },
+        {TEXT("Step"),       L10NIDX(InputActionStep) },
 
         {TEXT("Focus"),      L10NIDX(InputActionFocus) },
 

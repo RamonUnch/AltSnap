@@ -231,6 +231,12 @@ struct langinfoitem {
   LNGVALUE(MiscUnhookError,      TEXT("There was an error disabling AltDrag. This was most likely caused by Windows having already disabled AltDrag's hooks.\n\nIf this is the first time this has happened, you can safely ignore it and continue using AltDrag.\n\nIf this is happening repeatedly, you can read on the website how to prevent this from happening again (look for 'AltDrag mysteriously stops working' in the documentation)."), NULL) \
   LNGVALUE(MiscZoneConfirmation, TEXT("Erase old snap layout and save current Test Windows positions as the new snap layout?"), NULL) \
   LNGVALUE(MiscZoneTestWinHelp,  TEXT("To setup Snap layout:\n1) Open several of those Test Windows\n2) Dispose them as you please\n3) Hit the *&Save test windows as snap layout* option in the tray menu"), NULL) \
+  /* Basic Verbs */ \
+  LNGVALUE(WayLeft,       TEXT("Left"),       NULL) \
+  LNGVALUE(WayUp,         TEXT("Up"),         NULL) \
+  LNGVALUE(WayRight,      TEXT("Right"),      NULL) \
+  LNGVALUE(WayDown,       TEXT("Down"),       NULL) \
+  \
   /* Extended character list  for each virtual key */ \
   LNGVALUE(a, TEXT("àáâäæãåª%āăąǎǟǡǣǻǽȁȃȧ|Ȧḁ%ⱥ|Ⱥɐ|Ɐɑ|Ɑɒ|Ɒⲁ|Ⲁⓐ"), NULL) \
   LNGVALUE(b, TEXT("%ƀɓƃƅɃ%ɓḃḅḇⓑ"), NULL) \

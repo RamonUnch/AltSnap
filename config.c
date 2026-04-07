@@ -1164,11 +1164,21 @@ static INT_PTR CALLBACK AdvancedActionDlgProc(HWND hwnd, UINT msg, WPARAM wp, LP
 
         /* 1=>LEFT, 2=>TOP, 3=>RIGHT, 4=>BOTTOM */
         HWND ctrl = GetDlgItem(hwnd, IDC_ACTIONP1);
-        CB_AddString(ctrl, TEXT("---"));     // 0
-        CB_AddString(ctrl, TEXT("Left"));    // 1 / L
-        CB_AddString(ctrl, TEXT("Up"));      // 2 / U
-        CB_AddString(ctrl, TEXT("Right"));   // 3 / R
-        CB_AddString(ctrl, TEXT("Down"));    // 4 / D
+        CB_AddString(ctrl, TEXT("---"));      // 0
+        CB_AddString(ctrl, l10n->WayLeft);    // 1 / L
+        CB_AddString(ctrl, l10n->WayUp);      // 2 / U
+        CB_AddString(ctrl, l10n->WayRight);   // 3 / R
+        CB_AddString(ctrl, l10n->WayDown);    // 4 / D
+
+        // Copy localized OK, CANCEL button from parent
+        HWND parent = GetAncestor(hwnd, GA_ROOTOWNER);
+        if (parent) {
+            TCHAR txt[32];
+            if (GetDlgItemText(parent, IDOK, txt, ARR_SZ(txt)))
+                SetDlgItemText(hwnd,   IDOK, txt);
+            if (GetDlgItemText(parent, IDCANCEL, txt, ARR_SZ(txt)))
+                SetDlgItemText(hwnd,   IDCANCEL, txt);
+        }
 
         return TRUE; /* Autofocus first element in dialog */
     } break;

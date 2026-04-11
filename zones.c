@@ -247,7 +247,7 @@ static int pure IsResizable(HWND hwnd);
 
 static void ActionToggleSnapToZoneMode()
 {
-    if (conf.UseZones&1 && state.action == AC_MOVE) {
+    if (conf.UseZones&1 && state.action.ac == AC_MOVE) {
         state.usezones = !state.usezones;
         MouseMove(state.prevpt);
     }
@@ -346,14 +346,14 @@ static unsigned GetNearestZoneFromPointInDirection(const RECT *rc, RECT *out, UC
 //    MoveWindowAsync(hwnd, fr->left, fr->top, CLAMPW(fr->right-fr->left), CLAMPH(fr->bottom-fr->top));
 //}
 
-static void SetOriginFromRestoreData(HWND hnwd, enum action action);
+static void SetOriginFromRestoreData(HWND hnwd, action_t action);
 static HMONITOR GetMonitorInfoFromWin(HWND hwnd, MONITORINFO *mi);
 static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
 {
     if(!(conf.UseZones&1) || state.mdiclient || !state.resizable) // Zones disabled
         return;
 
-    SetOriginFromRestoreData(hwnd, AC_MOVE);
+    SetOriginFromRestoreData(hwnd, (action_t){ AC_MOVE });
     // 1st get current window position.
     RECT rc;
     GetWindowRectL(hwnd, &rc);

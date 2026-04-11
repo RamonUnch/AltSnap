@@ -266,7 +266,8 @@ static BOOL CALLBACK PropSheetProc(HWND hwnd, UINT msg, LPARAM lParam)
         UpdateStrings();
 
         // Set new icon specifically for the taskbar and Alt+Tab, without changing window icon
-        HICON taskbar_icon = (HICON)LoadImageA(g_hinst, "APP_ICON", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
+        //HICON taskbar_icon = (HICON)LoadImageA(g_hinst, MAKEINTRESOURCEA(APP_ICON), IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR);
+        HICON taskbar_icon = LoadIcon(g_hinst, MAKEINTRESOURCE(APP_ICON));
         SendMessage(g_cfgwnd, WM_SETICON, ICON_BIG, (LPARAM) taskbar_icon);
     }
     return TRUE;
@@ -301,6 +302,27 @@ static DWORD IsUACEnabled()
 static int CB_GetCurSelDlgItem(HWND hwnd, UINT id) { return (int)(DWORD)SendMessage(GetDlgItem(hwnd, id), CB_GETCURSEL, 0, 0); }
 #define CB_GetCurSelId(id) CB_GetCurSelDlgItem(hwnd, id)
 #define CB_GetText(id, txt, txtlen) (int)(DWORD)SendMessage(GetDlgItem(hwnd, id), WM_GETTEXT, (WPARAM)txtlen, (LPARAM)txt)
+
+static LRESULT CB_GetTextAndIdx(HWND hwnd, TCHAR *txt, size_t txtlen)
+{
+    LRESULT idx = SendMessage(hwnd, CB_GETCURSEL, 0, 0);
+    if (idx < 0) {
+        GetWindowText(hwnd, txt, txtlen); // Edit mode
+    } else {
+        size_t itemlen = SendMessage(hwnd, CB_GETLBTEXTLEN, idx, 0);
+        if (txtlen > itemlen) // We have enough space
+            SendMessage(hwnd, CB_GETLBTEXT, idx, (LPARAM)txt);
+    }
+    return idx;
+}
+
+static LRESULT CB_AddStringIfNotPresentAndGetIdx(HWND hwnd, const TCHAR *txt)
+{
+    LRESULT new_index = SendMessage(hwnd, CB_FINDSTRINGEXACT, (WPARAM)-1, (LPARAM)txt);
+    if (new_index < 0)
+        new_index = CB_AddString(hwnd, txt);
+    return new_index;
+}
 static void WriteOptionBoolW(HWND hwnd, WORD id, const TCHAR *section, const char *name_s)
 {
     TCHAR name[64];
@@ -420,15 +442,15 @@ static void UpdateDialogStrings(HWND hwnd, const struct dialogstring * const str
 }
 // Options to bead or written...
 enum opttype {T_BOL=0, T_BMK=1, T_STR=2};
-struct optlst {
+typedef struct optlst {
     short idc;
     UCHAR type;
     UCHAR bitN;
     TCHAR *section;
     char *name;
     void *def;
-};
-static void ReadDialogOptions(HWND hwnd,const struct optlst *ol, unsigned size)
+} optlst_t;
+static void ReadDialogOptions(HWND hwnd,const optlst_t *ol, unsigned size)
 {
     unsigned i;
     for (i=0; i < size; i++) {
@@ -440,7 +462,7 @@ static void ReadDialogOptions(HWND hwnd,const struct optlst *ol, unsigned size)
             ReadOptionStrW(hwnd, ol[i].idc, ol[i].section, ol[i].name, (TCHAR*)ol[i].def);
     }
 }
-static void WriteDialogOptions(HWND hwnd,const struct optlst *ol, unsigned size)
+static void WriteDialogOptions(HWND hwnd,const optlst_t *ol, unsigned size)
 {
     unsigned i;
     for (i=0; i < size; i++) {
@@ -491,7 +513,7 @@ static INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam
 {
     #define V (void *)
     // Options to bead or written...
-    static const struct optlst optlst[] = {
+    static const optlst_t optlst[] = {
        // dialog id, type, bit number, section name, option name, def val.
         { IDC_AUTOFOCUS,     T_BOL, 0,  TEXT("General"),  "AutoFocus", V 0 },
         { IDC_AERO,          T_BOL, 0,  TEXT("General"),  "Aero", V 1 },
@@ -757,13 +779,13 @@ static void CheckConfigHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const
 }
 
 
-struct actiondl {
+typedef struct tagActiondl {
     TCHAR *action;
     short l10nidx;
-//    const unsigned short flgs;
-//    const TCHAR *const l10n;
-};
-static void FillActionDropListS(HWND hwnd, int idc, TCHAR *inioption, const struct actiondl *actions)
+//    BYTE params1_type;
+//    BYTE params2_type;
+} actiondl_t;
+static void FillActionDropListS(HWND hwnd, int idc, TCHAR *inioption, const actiondl_t *actions)
 {
     HWND control = GetDlgItem(hwnd, idc);
     TCHAR txt[64];
@@ -782,32 +804,40 @@ static void FillActionDropListS(HWND hwnd, int idc, TCHAR *inioption, const stru
         }
     }
     if (sel < 0) {
-        // sel is negative if the string was not found in the struct actiondl:
+        // sel is negative if the string was not found in the actiondl_t:
         // UNKNOWN ACTION, so we add it manually at the end of the list
         CB_AddString(control, txt);
         sel = j; // And select this unknown action.
     }
     CB_SetCurSel(control, sel);
 }
-static void WriteActionDropListS(HWND hwnd, int idc, TCHAR *inioption, const struct actiondl *actions)
+
+static int GetActionStringFromDropList(HWND hwnd, int idc, const actiondl_t *actions, TCHAR *obuf, size_t obuflen)
 {
     HWND control = GetDlgItem(hwnd, idc);
     int j = SendMessage(control, CB_GETCURSEL, 0, 0);
     if (j >= 0 && actions[j].action) { // Inside of known values
-        WritePrivateProfileString(TEXT("Input"), inioption, actions[j].action, inipath);
-        return; // DONE!
+        lstrcpy_s(obuf, obuflen, actions[j].action); // DONE!
+        return 1;
     }
 
     // User directly Wrote the specified string?
-    TCHAR txt[128]; txt[0] = TEXT('\0');
-    if (0 < (int)(DWORD)SendMessage(control, WM_GETTEXT, ARR_SZ(txt), (LPARAM)txt) && *txt ) {
+    int len = (int)(DWORD)SendMessage(control, WM_GETTEXT, obuflen, (LPARAM)obuf);
+    if (0 < len && *obuf) {
         // Action was direcly written!
-        j = SendMessage(control, CB_FINDSTRINGEXACT, /*start index=*/-1, (LPARAM)txt);
+        j = SendMessage(control, CB_FINDSTRINGEXACT, /*start index=*/-1, (LPARAM)obuf);
         if (j>=0 && actions[j].action) // Found index.
-            WritePrivateProfileString(TEXT("Input"), inioption, actions[j].action, inipath);
-        else
-            WritePrivateProfileString(TEXT("Input"), inioption, txt, inipath);
+            lstrcpy_s(obuf, obuflen, actions[j].action); // DONE!
+
+        return 1;
     }
+    return 0;
+}
+static void WriteActionDropListS(HWND hwnd, int idc, TCHAR *inioption, const actiondl_t *actions)
+{
+    TCHAR txt[128]; txt[0] = TEXT('\0');
+    GetActionStringFromDropList(hwnd, idc, actions, txt, ARR_SZ(txt));
+    WritePrivateProfileString(TEXT("Input"), inioption, txt, inipath);
 }
 /////////////////////////////////////////////////////////////////////////////
 static INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -862,7 +892,7 @@ static INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, 
         {TEXT("Menu"),        L10NIDX(InputActionMenu) }, \
 
 
-    static const struct actiondl mouse_actions[] = {
+    static const actiondl_t mouse_actions[] = {
         // Specific to the Primary/Alternate/Titlebar
         // And not available for the MoveUp/ResizeUp
         {TEXT("Move"),        L10NIDX(InputActionMove) },
@@ -876,12 +906,12 @@ static INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, 
     };
 
     // Actions on MoveUp/ResizeUP
-    const struct actiondl *mouse_actionsUP = &mouse_actions[3];
+    const actiondl_t *mouse_actionsUP = &mouse_actions[3];
 
     // While moving/resizing
-    const struct actiondl *mouse_actionsWMR = &mouse_actions[3];
+    const actiondl_t *mouse_actionsWMR = &mouse_actions[3];
 
-//    static const struct actiondl mouse_actionsWMR[] = {
+//    static const actiondl_t mouse_actionsWMR[] = {
 //        // Spetial actions first
 //        {TEXT("ZoneSnapTogg"), L10NIDX(input_actions_zonesnaptog) },
 //        {TEXT("SnapTogg"),     L10NIDX(input_actions_snaptogg) },
@@ -901,7 +931,7 @@ static INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, 
         { IDC_HSCROLL, {TEXT("HScroll"), TEXT("HScrollB"), TEXT("HScrollT"), TEXT("HScrollM"), TEXT("HScrollR") } }
     };
 
-    static const struct actiondl scroll_actions[] = {
+    static const actiondl_t scroll_actions[] = {
         {TEXT("AltTab"),       L10NIDX(InputActionAltTab) },
         {TEXT("Volume"),       L10NIDX(InputActionVolume) },
         {TEXT("Transparency"), L10NIDX(InputActionTransparency) },
@@ -926,7 +956,7 @@ static INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, 
         { 0, 0 }
     };
 
-    static const struct optlst optlst[] = {
+    static const optlst_t optlst[] = {
         { IDC_TTBACTIONSNA,  T_BMK, 0, TEXT("Input"), "TTBActions", 0    },
         { IDC_TTBACTIONSWA,  T_BMK, 1, TEXT("Input"), "TTBActions", 0    },
         { IDC_LONGCLICKMOVE, T_BOL, 0, TEXT("Input"), "LongClickMove", 0 }
@@ -1102,9 +1132,9 @@ static LRESULT WINAPI PickShortcutWinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
         HWND phwnd = GetParent(hwnd);
         EnableDlgItem(phwnd, IDC_SHORTCUTS_PICK, 1);
         EnumChildWindows(phwnd, EnableAllControlsProc, 1);
-        NMHDR lpn;
-        lpn.hwndFrom = NULL; lpn.code = PSN_SETACTIVE;
-        SendMessage(phwnd, WM_NOTIFY, 0, (LPARAM)&lpn);
+//        NMHDR lpn;
+//        lpn.hwndFrom = NULL; lpn.code = PSN_SETACTIVE;
+//        SendMessage(phwnd, WM_NOTIFY, 0, (LPARAM)&lpn);
         HWND sethwnd = GetDlgItem(phwnd, IDC_SHORTCUTS_SET);
         EnableWindow(sethwnd, TRUE);
         SetFocus(sethwnd);
@@ -1115,6 +1145,114 @@ static LRESULT WINAPI PickShortcutWinProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
     }
     return 0;
 }
+
+// Dialog procedure for the Advanced Action construction from base action
+typedef struct tagAdvancedActionParam {
+    const actiondl_t *base_action_lst;
+    TCHAR outbuf[64];
+} advancedActionParam_t;
+static INT_PTR CALLBACK AdvancedActionDlgProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+{
+    switch (msg) {
+
+    case WM_INITDIALOG: {
+        advancedActionParam_t *acp = (advancedActionParam_t *)lp;
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)lp);
+
+        FillActionDropListS(hwnd, IDC_ACTIONP0, NULL, acp->base_action_lst);
+        SendDlgItemMessage(hwnd, IDC_ACTIONP0, CB_SETCURSEL, (WPARAM)-1, 0);
+
+        /* 1=>LEFT, 2=>TOP, 3=>RIGHT, 4=>BOTTOM */
+        HWND ctrl = GetDlgItem(hwnd, IDC_ACTIONP1);
+        CB_AddString(ctrl, TEXT("---"));      // 0
+        CB_AddString(ctrl, l10n->WayLeft);    // 1 / L
+        CB_AddString(ctrl, l10n->WayUp);      // 2 / U
+        CB_AddString(ctrl, l10n->WayRight);   // 3 / R
+        CB_AddString(ctrl, l10n->WayDown);    // 4 / D
+
+        // Copy localized OK, CANCEL button from parent
+        HWND parent = GetAncestor(hwnd, GA_ROOTOWNER);
+        if (parent) {
+            TCHAR txt[32];
+            if (GetDlgItemText(parent, IDOK, txt, ARR_SZ(txt)))
+                SetDlgItemText(hwnd,   IDOK, txt);
+            if (GetDlgItemText(parent, IDCANCEL, txt, ARR_SZ(txt)))
+                SetDlgItemText(hwnd,   IDCANCEL, txt);
+        }
+
+        return TRUE; /* Autofocus first element in dialog */
+    } break;
+
+    case WM_COMMAND: {
+        int id = LOWORD(wp);
+        if (id == IDOK) {
+            advancedActionParam_t *acp = (advancedActionParam_t *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+            if(!acp) return 0;
+            mem00(acp->outbuf, sizeof(acp->outbuf));
+            // Get the text from the action string display to return
+            GetDlgItemText(hwnd, IDC_ACTIONTSTRING, acp->outbuf, ARR_SZ(acp->outbuf) - 1);
+            EndDialog(hwnd, IDOK);
+            return TRUE;
+        } else if (id == IDCANCEL) {
+            EndDialog(hwnd, IDCANCEL);
+            return TRUE;
+        } else {
+            int ev = HIWORD(wp);
+            int update_action_string =
+                 (ev == CBN_SELCHANGE || ev == CBN_EDITCHANGE || ev == EN_UPDATE)
+               &&(id == IDC_ACTIONP0 || id == IDC_ACTIONP1 || IDC_ACTIONP2);
+
+            if (update_action_string) {
+                advancedActionParam_t *acp = (advancedActionParam_t *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+                TCHAR acstr[128], param1[16], param2[32]; acstr[0] = TEXT('\0');
+
+                // ACTION PARAM0: base action
+                GetActionStringFromDropList(hwnd, IDC_ACTIONP0, acp->base_action_lst, acstr, ARR_SZ(acstr)-8);
+
+                // ACTION PARAM1: direction flags
+                param1[0] = TEXT('0');  param1[1] = TEXT('\0');
+                int direction = SendDlgItemMessage(hwnd, IDC_ACTIONP1, CB_GETCURSEL, 0, 0);
+                if (direction < 0) {
+                    GetDlgItemText(hwnd, IDC_ACTIONP1, param1, ARR_SZ(param1));
+                } else if (direction <= 4) {
+                    static const TCHAR *directionchars = TEXT("0LURD");
+                    param1[0] = directionchars[direction];
+                    param1[1] = TEXT('\0');
+                }
+                // ACTION PARAM2 number...
+                int param2len = GetDlgItemText(hwnd, IDC_ACTIONP2, param2, ARR_SZ(param2));
+
+                // Add PARAM1 if needed
+                if ((*param1 && *param1 != TEXT('0')) || (param2len && *param2)) {
+                    lstrcat_s(acstr, ARR_SZ(acstr), TEXT("_"));
+                    lstrcat_s(acstr, ARR_SZ(acstr), param1);
+                    // Add PARAM2 if needed
+                    if (param2len && *param2) {
+                        lstrcat_s(acstr, ARR_SZ(acstr), TEXT("_"));
+                        lstrcat_s(acstr, ARR_SZ(acstr), param2);
+                    }
+                }
+
+                // show the whole string
+                SetDlgItemText(hwnd, IDC_ACTIONTSTRING, acstr);
+                return TRUE;
+            }
+        }
+    } break;
+
+    case WM_SYSCOMMAND:
+    {
+        if(wp == SC_CLOSE) {
+            EndDialog(hwnd, IDCANCEL);
+            return TRUE;
+        }
+    } break;
+
+    } /* end switch(msg) */
+
+    return FALSE; /* non processed */
+}
+
 /////////////////////////////////////////////////////////////////////////////
 static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -1130,7 +1268,7 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
         { IDC_RIGHTCTRL,   VK_RCONTROL },
         { 0, 0 }
     };
-    static const struct actiondl kb_actions[] = {
+    static const actiondl_t kb_actions[] = {
         {TEXT("Move"),        L10NIDX(InputActionMove) },
         {TEXT("Resize"),      L10NIDX(InputActionResize) },
         {TEXT("Close"),       L10NIDX(InputActionClose) },
@@ -1148,7 +1286,7 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
         {TEXT("Nothing"),     L10NIDX(InputActionNothing) },
         {NULL, 0}
     };
-    static const struct actiondl kbshortcut_actions[] = {
+    static const actiondl_t kbshortcut_actions[] = {
         {TEXT("Kill"),        L10NIDX(InputActionKill) },
         {TEXT("Pause"),       L10NIDX(InputActionPause) },
         {TEXT("Resume"),      L10NIDX(InputActionResume) },
@@ -1175,38 +1313,14 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
         {TEXT("AltTabFullList"),L10NIDX(InputActionAltTabFullList) },
 
         {TEXT("ExtendTNEdge"),L10NIDX(InputActionExtendTNEdge) },
-        {TEXT("XTNLEdge"),    L10NIDX(InputActionXTNLEdge) },
-        {TEXT("XTNTEdge"),    L10NIDX(InputActionXTNTEdge) },
-        {TEXT("XTNREdge"),    L10NIDX(InputActionXTNREdge) },
-        {TEXT("XTNBEdge"),    L10NIDX(InputActionXTNBEdge) },
         {TEXT("MoveTNEdge"),  L10NIDX(InputActionMoveTNEdge) },
-        {TEXT("MTNLEdge"),    L10NIDX(InputActionMTNLEdge) },
-        {TEXT("MTNTEdge"),    L10NIDX(InputActionMTNTEdge) },
-        {TEXT("MTNREdge"),    L10NIDX(InputActionMTNREdge) },
-        {TEXT("MTNBEdge"),    L10NIDX(InputActionMTNBEdge) },
 
-        {TEXT("MLZone"),      L10NIDX(InputActionMLZone) },
-        {TEXT("MTZone"),      L10NIDX(InputActionMTZone) },
-        {TEXT("MRZone"),      L10NIDX(InputActionMRZone) },
-        {TEXT("MBZone"),      L10NIDX(InputActionMBZone) },
-        {TEXT("XLZone"),      L10NIDX(InputActionXLZone) },
-        {TEXT("XTZone"),      L10NIDX(InputActionXTZone) },
-        {TEXT("XRZone"),      L10NIDX(InputActionXRZone) },
-        {TEXT("XBZone"),      L10NIDX(InputActionXBZone) },
+        {TEXT("MZone"),      L10NIDX(InputActionMZone) },
+        {TEXT("XZone"),      L10NIDX(InputActionXZone) },
 
-        {TEXT("StepL"),       L10NIDX(InputActionStepL) },
-        {TEXT("StepT"),       L10NIDX(InputActionStepT) },
-        {TEXT("StepR"),       L10NIDX(InputActionStepR) },
-        {TEXT("StepB"),       L10NIDX(InputActionStepB) },
-        {TEXT("SStepL"),      L10NIDX(InputActionSStepL) },
-        {TEXT("SStepT"),      L10NIDX(InputActionSStepT) },
-        {TEXT("SStepR"),      L10NIDX(InputActionSStepR) },
-        {TEXT("SStepB"),      L10NIDX(InputActionSStepB) },
+        {TEXT("Step"),       L10NIDX(InputActionStep) },
 
-        {TEXT("FocusL"),      L10NIDX(InputActionFocusL) },
-        {TEXT("FocusT"),      L10NIDX(InputActionFocusT) },
-        {TEXT("FocusR"),      L10NIDX(InputActionFocusR) },
-        {TEXT("FocusB"),      L10NIDX(InputActionFocusB) },
+        {TEXT("Focus"),      L10NIDX(InputActionFocus) },
 
         {TEXT("NLayout"),     L10NIDX(InputActionNLayout) },
         {TEXT("PLayout"),     L10NIDX(InputActionPLayout) },
@@ -1215,7 +1329,7 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
     };
 
     // Hotkeys
-    static const struct actiondl togglekeys[] = {
+    static const actiondl_t togglekeys[] = {
         {TEXT(""),      L10NIDX(InputActionNothing)},
         {TEXT("A4 A5"), L10NIDX(InputHotkeysAlt)},
         {TEXT("5B 5C"), L10NIDX(InputHotkeysWinkey)},
@@ -1231,7 +1345,7 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
         {TEXT("A1"),    L10NIDX(InputHotkeysRightShift)},
         {NULL, 0},
     };
-    static const struct optlst optlst[] = {
+    static const optlst_t optlst[] = {
         { IDC_SCROLLLOCKSTATE,  T_BMK, 0, TEXT("Input"), "ScrollLockState", 0},
         { IDC_UNIKEYHOLDMENU,   T_BOL, 0, TEXT("Input"), "UniKeyHoldMenu", 0},
         { IDC_KEYCOMBO,         T_BOL, 0, TEXT("Input"), "KeyCombo", 0 },
@@ -1275,14 +1389,15 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
 
         // KEYBOARD SHORTCUTS HANDLING
         // READ Keyboard Shortcut
-        if (id == IDC_SHORTCUTS_AC && event == CBN_SELCHANGE) {
+        if (id == IDC_SHORTCUTS_AC && (event == CBN_SELCHANGE || event == CBN_EDITCHANGE)) {
             // Update the shortcut with the current one.
-            int i = CB_GetCurSelId(IDC_SHORTCUTS_AC);
+            TCHAR txt[64];
+            int i = CB_GetTextAndIdx((HWND)lParam, txt, ARR_SZ(txt));
             edit_shortcut_idx = i;
-            WORD shortcut= GetPrivateProfileInt(TEXT("KBShortcuts"), kbshortcut_actions[i].action, 0, inipath);
+            //MessageBox(hwnd, txt, NULL, 0);
+            WORD shortcut = GetPrivateProfileInt(TEXT("KBShortcuts"), txt, 0, inipath);
             BYTE vKey = LOBYTE(shortcut);
             BYTE mod = HIBYTE(shortcut);
-            TCHAR txt[LPTR_HDIGITS+1];
             SetDlgItemText(hwnd, IDC_SHORTCUTS_VK, LPTR2Hex(txt, vKey));
 
             CheckDlgButton(hwnd, IDC_CONTROL,(mod&MOD_CONTROL)? BST_CHECKED: BST_UNCHECKED);
@@ -1291,9 +1406,9 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
             CheckDlgButton(hwnd, IDC_ALT,    (mod&MOD_ALT)? BST_CHECKED: BST_UNCHECKED);
             EnableDlgItem(hwnd, IDC_SHORTCUTS_SET, 0);
         }
-        // WRITE Current Keyboard Shortcut
+        // WRITE Current Keyboard Shortcut to ini file
         if (id == IDC_SHORTCUTS_SET) {
-            TCHAR txt[UINT_DIGITS+1];
+            TCHAR txt[UINT_DIGITS+1], action_string_buf[64];
             // MOD_ALT=1, MOD_CONTROL=2, MOD_SHIFT=4, MOD_WIN=8
             GetDlgItemText(hwnd, IDC_SHORTCUTS_VK, txt, 3);
             BYTE vKey = lstrhex2u(txt);
@@ -1302,9 +1417,13 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
                      | (IsChecked(IDC_SHIFT)<<2)
                      | (IsChecked(IDC_WINKEY)<<3);
             WORD shortcut = vKey | (mod << 8);
-            int i = CB_GetCurSelId(IDC_SHORTCUTS_AC);
-            if (kbshortcut_actions[i].action && kbshortcut_actions[i].action[0] != '\0')
-                WritePrivateProfileString(TEXT("KBShortcuts"), kbshortcut_actions[i].action, Uint2lStr(txt, shortcut), inipath);
+            action_string_buf[0] = TEXT('\0');
+            int astrlen = GetDlgItemText(hwnd, IDC_SHORTCUTS_AC, action_string_buf, ARR_SZ(action_string_buf));
+            if (0 < astrlen && *action_string_buf) {
+                const TCHAR *intstr = shortcut ? Uint2lStr(txt, shortcut) : NULL; // NULL will remove the KEY
+                edit_shortcut_idx = CB_AddStringIfNotPresentAndGetIdx(GetDlgItem(hwnd, IDC_SHORTCUTS_AC), action_string_buf);
+                WritePrivateProfileString(TEXT("KBShortcuts"), action_string_buf, intstr, inipath);
+            }
             EnableDlgItem(hwnd, IDC_SHORTCUTS_SET, 0);
             SetFocus(GetDlgItem(hwnd, IDC_SHORTCUTS_AC));
             goto APPLY_ALL;
@@ -1348,6 +1467,21 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
             SetDlgItemText(hwnd, IDC_SHORTCUTS_VK, TEXT(""));
             EnableDlgItem(hwnd, IDC_SHORTCUTS_SET, 1);
         }
+        if (id == IDC_ADVANCEDBT_AC) {
+            // We must show the advanced action modal dialog
+            // and fill the IDC_SHORTCUTS_AC combobox with it.
+            advancedActionParam_t acp;
+            acp.base_action_lst = kbshortcut_actions;
+            acp.outbuf[0] = TEXT('\0');
+            int code = DialogBoxParam(g_hinst, MAKEINTRESOURCE(IDD_ACTIONPARAM), hwnd, AdvancedActionDlgProc, (LPARAM)&acp);
+            if (code == IDOK && acp.outbuf[0]) {
+                HWND control = GetDlgItem(hwnd, IDC_SHORTCUTS_AC);
+                int new_index = CB_AddStringIfNotPresentAndGetIdx(control, acp.outbuf);
+                CB_SetCurSel(control, new_index);
+                edit_shortcut_idx = new_index;
+                SetFocus(control);
+            }
+        }
 
     } else if (msg == WM_NOTIFY) {
         if (pnmh->code == PSN_SETACTIVE) {
@@ -1360,10 +1494,28 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
 
             FillActionDropListS(hwnd, IDC_GRABWITHALT, TEXT("GrabWithAlt"), kb_actions);
             FillActionDropListS(hwnd, IDC_GRABWITHALTB, TEXT("GrabWithAltB"), kb_actions);
-            FillActionDropListS(hwnd, IDC_SHORTCUTS_AC, NULL, kbshortcut_actions);
+
+            //FillActionDropListS(hwnd, IDC_SHORTCUTS_AC, NULL, kbshortcut_actions);
+            { // Fill combobox with all the shortcuts that are currently configured
+                TCHAR kbsec[1600];
+                HWND control = GetDlgItem(hwnd, IDC_SHORTCUTS_AC);
+                CB_ResetContent(control);
+                GetPrivateProfileSection(TEXT("KBShortcuts"), kbsec, ARR_SZ(kbsec), inipath);
+                for (TCHAR *p=kbsec; *p != TEXT('\0'); p += lstrlen(p) + 1) {
+                    //MessageBox(hwnd, p, TEXT("KBShortcuts"), 0);
+                    TCHAR *pp = lstrchr(p, TEXT('='));
+                    if(!pp) continue; // No equal sign...
+                    *pp = TEXT('\0');
+                    if (!lstrcmpi(p, TEXT("UsePtWindow")))
+                        continue;
+                    CB_AddString(control, p);
+                    p = pp+1;
+                }
+            }
             CB_SetCurSel(GetDlgItem(hwnd, IDC_SHORTCUTS_AC), edit_shortcut_idx);
             EnableDlgItem(hwnd, IDC_SHORTCUTS_SET, 0);
-            if(pnmh->hwndFrom != NULL)PostMessage(hwnd, WM_COMMAND, IDC_SHORTCUTS_AC|CBN_SELCHANGE<<16, 0);
+            if (pnmh->hwndFrom != NULL)
+                PostMessage(hwnd, WM_COMMAND, IDC_SHORTCUTS_AC|CBN_SELCHANGE<<16, (LPARAM)GetDlgItem(hwnd, IDC_SHORTCUTS_AC));
 
             // ModKey init
             HWND control = GetDlgItem(hwnd, IDC_MODKEY);
@@ -1439,7 +1591,7 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
 static INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     #pragma GCC diagnostic ignored "-Wint-conversion"
-    static const struct optlst optlst[] = {
+    static const optlst_t optlst[] = {
         { IDC_PROCESSBLACKLIST, T_STR, 0, TEXT("Blacklist"), "Processes", TEXT("") },
         { IDC_BLACKLIST,        T_STR, 0, TEXT("Blacklist"), "Windows", TEXT("") },
         { IDC_SCROLLLIST,       T_STR, 0, TEXT("Blacklist"), "Scroll", TEXT("") },
@@ -2027,7 +2179,7 @@ static HWND NewTestWindowAt(int x, int y, int width, int height)
 static INT_PTR CALLBACK AdvancedPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     #define V (void *)
-    static const struct optlst optlst[] = {
+    static const optlst_t optlst[] = {
         { IDC_AUTOREMAXIMIZE,   T_BOL, 0, TEXT("Advanced"), "AutoRemaximize", V 0 },
         { IDC_AEROTOPMAXIMIZES, T_BMK, 0, TEXT("Advanced"), "AeroTopMaximizes", V 1 },// bit 0
         { IDC_AERODBCLICKSHIFT, T_BMK, 1, TEXT("Advanced"), "AeroTopMaximizes", V 1 },// bit 1

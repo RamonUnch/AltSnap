@@ -373,22 +373,18 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
             WriteCurrentLayoutNumber();
         } else if (wmId == CMD_EDITLAYOUT) {
             if (G_HotKeyProc) {
-                unsigned len = G_HotKeyProc(hwnd, WM_GETZONESLEN, LayoutNumber, 0);
-                if (!len) {
+                RECT *zones = NULL;
+                unsigned len = G_HotKeyProc(hwnd, WM_GETZONES, LayoutNumber, (LPARAM)&zones);
+                if (!len || !zones) {
                     // Empty layout, Let's open a new Test Window
                     return !NewTestWindow();
                 }
-                RECT *zones = (RECT*)malloc(len * sizeof(*zones));
-                if(!zones) return 0;
-
-                G_HotKeyProc(hwnd, WM_GETZONES, LayoutNumber, (LPARAM)zones);
                 // Open them from bottom to top to ensure
                 // the windows are in the correct order.
                 while (len--) {
                     const RECT *rc = &zones[len];
                     NewTestWindowAt(rc->left, rc->top, rc->right-rc->left, rc->bottom-rc->top);
                 }
-                free(zones);
             }
         }
     } else if (msg == WM_QUERYENDSESSION) {
@@ -514,8 +510,8 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
             // Ask old HotKey window to perform an action.
             const TCHAR *actionstr = lstrstr(params, TEXT("-a"));
             if (actionstr && actionstr[2] && actionstr[3] && actionstr[4]) {
-                enum action action = MapActionW(&actionstr[3]);
-                PostMessage(previnst, WM_HOTKEY, (actionstr[2] == 'p')*0x1000+action, 0);
+                action_t action = MapActionW(&actionstr[3]);
+                PostMessage(previnst, WM_HOTKEY, (actionstr[2] == 'p')*0x1000+action.ac, PACK_ACTION(action));
                 return 0;
             }
             // Change layout if asked...

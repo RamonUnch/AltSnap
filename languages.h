@@ -138,34 +138,9 @@ struct langinfoitem {
   LNGVALUE(InputActionStackList2,     TEXT("Laser stacked windows list"), NULL) \
   LNGVALUE(InputActionAltTabList,     TEXT("Windows list"), NULL) \
   LNGVALUE(InputActionAltTabFullList, TEXT("All windows list"), NULL) \
-  LNGVALUE(InputActionMLZone,   TEXT("Move to the left zone"), NULL) \
-  LNGVALUE(InputActionMTZone,   TEXT("Move to the top zone"), NULL) \
-  LNGVALUE(InputActionMRZone,   TEXT("Move to the right zone"), NULL) \
-  LNGVALUE(InputActionMBZone,   TEXT("Move to the bottom zone"), NULL) \
-  LNGVALUE(InputActionXLZone,   TEXT("Extend to the left zone"), NULL) \
-  LNGVALUE(InputActionXTZone,   TEXT("Extend to the top zone"), NULL) \
-  LNGVALUE(InputActionXRZone,   TEXT("Extend to the right zone"), NULL) \
-  LNGVALUE(InputActionXBZone,   TEXT("Extend to the bottom zone"), NULL) \
-  LNGVALUE(InputActionXTNLEdge, TEXT("Extend to the next left edge"), NULL) \
-  LNGVALUE(InputActionXTNTEdge, TEXT("Extend to the next top edge"), NULL) \
-  LNGVALUE(InputActionXTNREdge, TEXT("Extend to the next right edge"), NULL) \
-  LNGVALUE(InputActionXTNBEdge, TEXT("Extend to the next bottom edge"), NULL) \
-  LNGVALUE(InputActionMTNLEdge, TEXT("Move to the next left edge"), NULL) \
-  LNGVALUE(InputActionMTNTEdge, TEXT("Move to the next top edge"), NULL) \
-  LNGVALUE(InputActionMTNREdge, TEXT("Move to the next right edge"), NULL) \
-  LNGVALUE(InputActionMTNBEdge, TEXT("Move to the next bottom edge"), NULL) \
-  LNGVALUE(InputActionStepL,    TEXT("Step left"), NULL) \
-  LNGVALUE(InputActionStepT,    TEXT("Step up"), NULL) \
-  LNGVALUE(InputActionStepR,    TEXT("Step right"), NULL) \
-  LNGVALUE(InputActionStepB,    TEXT("Step down"), NULL) \
-  LNGVALUE(InputActionSStepL,   TEXT("Small step left"), NULL) \
-  LNGVALUE(InputActionSStepT,   TEXT("Small step up"), NULL) \
-  LNGVALUE(InputActionSStepR,   TEXT("Small step right"), NULL) \
-  LNGVALUE(InputActionSStepB,   TEXT("Small step down"), NULL) \
-  LNGVALUE(InputActionFocusL,   TEXT("Focus left window"), NULL) \
-  LNGVALUE(InputActionFocusT,   TEXT("Focus top window"), NULL) \
-  LNGVALUE(InputActionFocusR,   TEXT("Focus right window"), NULL) \
-  LNGVALUE(InputActionFocusB,   TEXT("Focus bottom window"), NULL) \
+  LNGVALUE(InputActionMZone,    TEXT("Move to zone"), NULL) \
+  LNGVALUE(InputActionXZone,    TEXT("Extend to the zone"), NULL) \
+  LNGVALUE(InputActionStep,     TEXT("Step"), NULL) \
   LNGVALUE(InputActionRoll,     TEXT("&Roll/Unroll window"), NULL) \
   LNGVALUE(InputActionAlwaysOnTop,  TEXT("Toggle always on &top"), NULL) \
   LNGVALUE(InputActionBorderless,   TEXT("Toggle &borderless"), NULL) \
@@ -256,6 +231,12 @@ struct langinfoitem {
   LNGVALUE(MiscUnhookError,      TEXT("There was an error disabling AltDrag. This was most likely caused by Windows having already disabled AltDrag's hooks.\n\nIf this is the first time this has happened, you can safely ignore it and continue using AltDrag.\n\nIf this is happening repeatedly, you can read on the website how to prevent this from happening again (look for 'AltDrag mysteriously stops working' in the documentation)."), NULL) \
   LNGVALUE(MiscZoneConfirmation, TEXT("Erase old snap layout and save current Test Windows positions as the new snap layout?"), NULL) \
   LNGVALUE(MiscZoneTestWinHelp,  TEXT("To setup Snap layout:\n1) Open several of those Test Windows\n2) Dispose them as you please\n3) Hit the *&Save test windows as snap layout* option in the tray menu"), NULL) \
+  /* Basic Verbs */ \
+  LNGVALUE(WayLeft,       TEXT("Left"),       NULL) \
+  LNGVALUE(WayUp,         TEXT("Up"),         NULL) \
+  LNGVALUE(WayRight,      TEXT("Right"),      NULL) \
+  LNGVALUE(WayDown,       TEXT("Down"),       NULL) \
+  \
   /* Extended character list  for each virtual key */ \
   LNGVALUE(a, TEXT("àáâäæãåª%āăąǎǟǡǣǻǽȁȃȧ|Ȧḁ%ⱥ|Ⱥɐ|Ɐɑ|Ɑɒ|Ɒⲁ|Ⲁⓐ"), NULL) \
   LNGVALUE(b, TEXT("%ƀɓƃƅɃ%ɓḃḅḇⓑ"), NULL) \

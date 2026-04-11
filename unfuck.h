@@ -243,7 +243,7 @@ static void LOGfunk( const char *fmt, ... )
         /* C11 cool _Static_assert */
         #define static_assert _Static_assert
     #else
-        #define static_assert(x, y) enum assert_static__ { assert_static___ = 1/(x) };
+        #define static_assert(x, y) do{ enum assert_static__ { assert_static___ = 1/(x) }; }while(0)
     #endif
 #endif /* static_assert */
 #endif /* [C89 - C23[ */

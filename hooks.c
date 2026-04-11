@@ -738,8 +738,8 @@ BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
 {
     // Only store window if it's visible, not minimized to taskbar,
     // not the window we are dragging and not blacklisted
-    RECT rc;
-    if (ShouldSnapTo(window) && GetWindowRectL(window, &rc)) {
+    struct snwdata sn;
+    if (ShouldSnapTo(window) && GetWindowRectL(window, &sn.rc)) {
 
         // Maximized?
         if (IsZoomed(window)) {
@@ -751,20 +751,18 @@ BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
             // Crop this window so that it does not exceed the size of the monitor
             // This is done because when maximized, windows have an extra invisible
             // border (a border that stretches onto other monitors)
-            CropRect(&rc, &mi.rcWork);
+            CropRect(&sn.rc, &mi.rcWork);
         }
-        OffsetRectMDI(&rc);
+        OffsetRectMDI(&sn.rc);
         // Return if this window is overlapped by another window
 
-        unsigned flags = 0;
-
-        RECT bdrcL = { rc.left,  rc.top,    rc.left,  rc.bottom };
-        RECT bdrcT = { rc.left,  rc.top,    rc.right, rc.top    };
-        RECT bdrcR = { rc.right, rc.top,    rc.right, rc.bottom };
-        RECT bdrcB = { rc.left,  rc.bottom, rc.right, rc.bottom };
+        RECT bdrcL = { sn.rc.left,  sn.rc.top,    sn.rc.left,  sn.rc.bottom };
+        RECT bdrcT = { sn.rc.left,  sn.rc.top,    sn.rc.right, sn.rc.top    };
+        RECT bdrcR = { sn.rc.right, sn.rc.top,    sn.rc.right, sn.rc.bottom };
+        RECT bdrcB = { sn.rc.left,  sn.rc.bottom, sn.rc.right, sn.rc.bottom };
 
         for (size_t i=0; i < wnds.num; i++) {
-            if (RectInRect(&wnds.it[i].rc, &rc)) {
+            if (RectInRect(&wnds.it[i].rc, &sn.rc)) {
                 return TRUE;
             }
             CropOutRectFromSeg(&bdrcL, &wnds.it[i].rc);
@@ -772,23 +770,18 @@ BOOL CALLBACK EnumWindowsProc(HWND window, LPARAM lParam)
             CropOutRectFromSeg(&bdrcR, &wnds.it[i].rc);
             CropOutRectFromSeg(&bdrcB, &wnds.it[i].rc);
         }
+        // flags is telling which border is visible
         // Check if there is any remaining visibility
         // for each border of the rectangle
-        flags  = ( (bdrcL.top >= bdrcL.bottom) << 0 )
-               | ( (bdrcT.left >= bdrcT.right) << 1 )
-               | ( (bdrcR.top >= bdrcR.bottom) << 2 )
-               | ( (bdrcB.left >= bdrcB.right) << 3 );
+        sn.flag  = ( (bdrcL.top >= bdrcL.bottom) << 0 )
+                 | ( (bdrcT.left >= bdrcT.right) << 1 )
+                 | ( (bdrcR.top >= bdrcR.bottom) << 2 )
+                 | ( (bdrcB.left >= bdrcB.right) << 3 );
 
+        sn.hwnd = window;
 
         // Add window to wnds db
-        struct snwdata *wnd_dst = (struct snwdata *)ListAppend(&wnds, NULL, sizeof(*wnds.it));
-        if ( !wnd_dst )
-            return FALSE; // Stop enum, we failed
-
-        CopyRect(&wnd_dst->rc, &rc);
-        wnd_dst->hwnd = window;
-        // Add flags telling which border is visible
-        wnd_dst->flag = flags;
+        ListAppend(&wnds, &sn, sizeof(*wnds.it));
     }
     return TRUE;
 }
@@ -845,32 +838,29 @@ static void EnumSnapped()
 // be used together Enum() vs EnumSnapped()
 BOOL CALLBACK EnumTouchingWindows(HWND hwnd, LPARAM lParam)
 {
-    RECT wnd;
+    struct snwdata sn;
     if (ShouldSnapTo(hwnd)
     && !IsZoomed(hwnd)
     && IsResizable(hwnd)
     && !blacklisted(hwnd, &BlkLst.Windows)
-    && GetWindowRectL(hwnd, &wnd)) {
+    && GetWindowRectL(hwnd, &sn.rc)) {
         // Only considers windows that are
         // touching the currently resized window
         RECT statewnd;
         GetWindowRectL(state.hwnd, &statewnd);
-        unsigned flag = AreRectsTouchingT(&statewnd, &wnd, conf.SnapThreshold/2);
-        if (flag) {
-            OffsetRectMDI(&wnd);
+        sn.flag = AreRectsTouchingT(&statewnd, &sn.rc, conf.SnapThreshold/2);
+        if (sn.flag) {
+            OffsetRectMDI(&sn.rc);
 
             // Return if this window is overlapped by another window
             for (size_t i=0; i < snwnds.num; i++) {
-                if (RectInRect(&snwnds.it[i].rc, &wnd)) {
+                if (RectInRect(&snwnds.it[i].rc, &sn.rc)) {
                     return TRUE;
                 }
             }
             // Add the window to the list
-            struct snwdata *new_wnd = (struct snwdata *)ListAppend(&snwnds, NULL, sizeof(*snwnds.it));
-            if (!new_wnd) return FALSE;
-            CopyRect(&new_wnd->rc, &wnd);
-            new_wnd->flag = flag;
-            new_wnd->hwnd = hwnd;
+            sn.hwnd = hwnd;
+            ListAppend(&snwnds, &sn, sizeof(*snwnds.it));
         }
     }
     return TRUE;
@@ -6606,7 +6596,7 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
 
     // Same order than in the conf struct
     static const struct hklst {
-        char *name; TCHAR *def; UCHAR *dst;
+        const char *name; const TCHAR *def; UCHAR *dst;
     } hklst[] = {
         { "Hotkeys",   TEXT("A4 A5"),  conf.Hotkeys}, // VK_LMENU VK_RMENU
         { "Shiftkeys", TEXT("A0 A1"), conf.Shiftkeys }, // VK_LSHIFT VK_RSHIFT

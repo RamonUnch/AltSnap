@@ -25,6 +25,7 @@
 #define nonnull2(x, y) __attribute__((nonnull (x, y)))
 #define ASSUME(x) do { if (!(x)) __builtin_unreachable(); } while (0)
 #define UNREACHABLE() __builtin_unreachable()
+#define printf_fmt __attribute__((format(printf, 1, 0)))
 #else
 #define flatten
 #define xpure
@@ -40,6 +41,7 @@
 #define inline
 #define ASSUME(x)
 #define UNREACHABLE()
+#define printf_fmt
 #endif
 /* return +/-1 if x is +/- and 0 if x == 0 */
 static xpure int sign(int x)
@@ -154,7 +156,7 @@ static nonnull1(1) pure char *strchrL(const char *__restrict__ str, const char c
 #define strchr strchrL
 
 
-static allnonnull pure int atoiL(const char *s)
+static allnonnull pure int strtoiA(const char *s)
 {
     long int v=0;
     int ssign=1;
@@ -170,9 +172,8 @@ static allnonnull pure int atoiL(const char *s)
     }
     return ssign*v;
 }
-#define atoi atoiL
 
-static pure allnonnull int wtoiL(const wchar_t *s)
+static pure allnonnull int strtoiW(const wchar_t *s)
 {
     long int v=0;
     int ssign=1;
@@ -188,7 +189,7 @@ static pure allnonnull int wtoiL(const wchar_t *s)
     }
     return ssign*v;
 }
-#define _wtoi wtoiL
+
 static nonnull1(1) void reverseW(wchar_t *str, int length)
 {
     int start = 0;
@@ -202,7 +203,7 @@ static nonnull1(1) void reverseW(wchar_t *str, int length)
         end--;
     }
 }
-static nonnull1(2) wchar_t *itowL(unsigned num, wchar_t *str, int base)
+static nonnull1(2) wchar_t *itostrW(unsigned num, wchar_t *str, int base)
 {
     int i = 0;
     int isNegative = 0;
@@ -241,7 +242,7 @@ static nonnull1(2) wchar_t *itowL(unsigned num, wchar_t *str, int base)
 
     return str;
 }
-#define _itow itowL
+
 static nonnull1(1) void reverseA(char *str, int length)
 {
     int start = 0;
@@ -255,7 +256,7 @@ static nonnull1(1) void reverseA(char *str, int length)
         end--;
     }
 }
-static nonnull1(2) char *itoaL(unsigned num, char *str, int base)
+static nonnull1(2) char *itostrA(unsigned num, char *str, int base)
 {
     int i = 0;
     int isNegative = 0;
@@ -294,7 +295,6 @@ static nonnull1(2) char *itoaL(unsigned num, char *str, int base)
 
     return str;
 }
-#define _itoa itoaL
 
 #define INT_DIGITS 11
 #define UINT_DIGITS 10
@@ -528,14 +528,14 @@ static allnonnull pure int strtotcharicmp(const TCHAR* s1, const char* s2)
     return x1 - x2;
 }
 
-allnonnull wchar_t *wcscatL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
+static allnonnull wchar_t *wcscatL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
 {
     wchar_t *orig=dest;
     for (; *dest; ++dest) ;    /* go to end of dest */
     for (; (*dest=*src); ++src,++dest) ;    /* then append from src */
     return orig;
 }
-allnonnull char *strcatL(char *__restrict__ dest, const char *__restrict__ src)
+static allnonnull char *strcatL(char *__restrict__ dest, const char *__restrict__ src)
 {
     char *orig=dest;
     for (; *dest; ++dest) ;    /* go to end of dest */
@@ -554,7 +554,7 @@ static nonnull2(1,3) char *strcat_sL(char *__restrict__ dest, const size_t N, co
 }
 #define strcat_s strcat_sL
 
-nonnull2(1,3) wchar_t *wcscat_sL(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__restrict__ src)
+static nonnull2(1,3) wchar_t *wcscat_sL(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__restrict__ src)
 {
     wchar_t *orig=dest;
     const wchar_t *dmax=dest+N-1; /* keep space for a terminating NULL */
@@ -565,10 +565,18 @@ nonnull2(1,3) wchar_t *wcscat_sL(wchar_t *__restrict__ dest, const size_t N, con
 }
 #define wcscat_s wcscat_sL
 
-static nonnull2(1,3) TCHAR *lstrcpy_s(TCHAR *__restrict__ dest, const size_t N, const TCHAR *__restrict__ src)
+static nonnull2(1,3) wchar_t *lstrcpy_sW(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__restrict__ src)
 {
-    TCHAR *orig=dest;
-    const TCHAR *dmax=dest+N-1; /* keep space for a terminating NULL */
+    wchar_t *orig=dest;
+    const wchar_t *dmax=dest+N-1; /* keep space for a terminating NULL */
+    for (; dest<dmax && (*dest=*src); ++src,++dest);  /* then append from src */
+    *dest='\0'; /* ensure result is NULL terminated */
+    return orig;
+}
+static nonnull2(1,3) char *lstrcpy_sA(char *__restrict__ dest, const size_t N, const char *__restrict__ src)
+{
+    char *orig=dest;
+    const char *dmax=dest+N-1; /* keep space for a terminating NULL */
     for (; dest<dmax && (*dest=*src); ++src,++dest);  /* then append from src */
     *dest='\0'; /* ensure result is NULL terminated */
     return orig;
@@ -603,10 +611,6 @@ static allnonnull const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t
     return NULL;
 }
 
-#define itostrA itoaL
-#define itostrW itowL
-#define strtoiA atoiL
-#define strtoiW wtoiL
 #define wcsstr lstrstrW
 #define strstr lstrstrA
 #define lstrcpyA strcpy
@@ -628,18 +632,18 @@ static allnonnull const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t
 #define lstrchr lstrchrW
 #define itostr itostrW
 #define strtoi strtoiW
+#define lstrcpy_s lstrcpy_sW
 #define lstrcat_s lstrcat_sW
 #define lstrdup lstrdupW
-#define _itot itowL
 #define Uint2lStr Uint2lStrW
 #else
 #define lstrstr lstrstrA
 #define lstrchr lstrchrA
 #define itostr itostrA
 #define strtoi strtoiA
+#define lstrcpy_s lstrcpy_sA
 #define lstrcat_s lstrcat_sA
 #define lstrdup lstrdupA
-#define _itot itoaL
 #define Uint2lStr Uint2lStrA
 #endif
 
@@ -818,5 +822,6 @@ static wchar_t *lstrdupW(const wchar_t *s)
     memcpy(dup, s, olen_byte);
     return dup;
 }
+static void lstrfree(void *s) { freeL(s); }
 
 #endif

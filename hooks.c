@@ -6172,9 +6172,10 @@ static void readblacklist(const TCHAR *section, struct blacklist *blacklist, con
     if (!txt || !*txt) {
         return;
     }
-    blacklist->data = (TCHAR *)malloc((lstrlen(txt)+1)*sizeof(TCHAR));
+    size_t datasz = (lstrlen(txt) + 1) * sizeof(*txt);
+    blacklist->data = (TCHAR *)malloc( datasz );
     if (!blacklist->data) return;
-    lstrcpy(blacklist->data, txt);
+    memcpy(blacklist->data, txt, datasz);
     TCHAR *pos = blacklist->data;
 
     while (pos) {
@@ -6315,7 +6316,7 @@ void readbuttonactions(const TCHAR *inputsection)
         action_t * const actionptr = &conf.Mouse[0]; // first action in list
 
         char key[32];
-        strcpy(key, buttons[i]);
+        lstrcpy_sA(key, ARR_SZ(key) - 8, buttons[i]);
         int len = lstrlenA(key);
         // Read primary action (no sufix)
         actionptr[NACPB*i+0] = readaction(inputsection, key);

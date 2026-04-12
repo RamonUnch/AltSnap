@@ -8,6 +8,7 @@ WARNINGS=-Wall -pedantic -Wno-unused-function
 
 CFLAGS=-Os -std=c99 \
 	-finput-charset=UTF-8 \
+	-DUNICODE -D_UNICODE \
 	-fshort-wchar \
 	-m32 -march=i386 -mtune=i686 \
 	-mpreferred-stack-boundary=2 \
@@ -50,7 +51,7 @@ AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages
 altsnapr.o : altsnap.rc window.rc resource.h AltSnap.exe.manifest media/find.cur media/find.ico media/icon.ico media/tray-disabled.ico media/tray-enabled.ico
 	$(WR) altsnap.rc altsnapr.o -Fpe-i386
 
-hooksr.o: hooks.rc
+hooksr.o: hooks.rc resource.h
 	$(WR) hooks.rc hooksr.o -Fpe-i386
 
 clean :

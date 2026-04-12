@@ -3,21 +3,28 @@ CC=gcc
 WARNINGS=-Wall -Wformat-security -Wstrict-overflow -Wsign-compare -Wclobbered \
     -Wempty-body -Wignored-qualifiers -Wuninitialized -Wtype-limits -Woverride-init \
     -Wlogical-op -Wno-multichar -Wno-attributes -Wduplicated-cond -Wduplicated-branches \
-    -Wnull-dereference -Wno-unused-function -Wshadow -Wstack-usage=4096
+    -Wnull-dereference -Wno-unused-function -Wshadow -Wstack-usage=4096 -Wimplicit-fallthrough
 
 # -Wunused-parameter
 # -Wtraditional-conversion
 #-fira-region=one/mixed
 # -Wstack-usage=2048
+# -fsanitize=undefined and -fsanitize-trap
+#
 
 ## DEBUG FLAGS
-#    -Wl,--print-memory-usage -fstack-usage -fcallgraph-info 
-CFLAGS= -nostdlib -Og -g -ggdb -DLOG_STUFF=1 -m32 -march=i686 -mtune=generic \
-	-fno-omit-frame-pointer -lgcc -ftrapv -fbounds-check \
+#    -Wl,--print-memory-usage -fstack-usage -fcallgraph-info
+CFLAGS= -municode -DUNICODE -D_UNICODE -Og -g -gdwarf-2 -DLOG_STUFF=1 -m32 -march=i686 -mtune=generic \
+	-fno-omit-frame-pointer -lgcc -ftrapv -fbounds-check -fstack-protector-all -fstack-protector-strong \
+    -fsanitize-trap -fsanitize=undefined -fharden-compares -fno-sanitize=alignment \
     -lmsvcrt -lkernel32 -luser32 -lgdi32 \
     -Wl,-dynamicbase,-nxcompat,--no-seh,--relax,--enable-auto-import,--disable-stdcall-fixup \
 	-D__USE_MINGW_ANSI_STDIO=0 -Wp,-D_FORTIFY_SOURCE=2 -fshort-enums\
-    $(INCLUDE) $(WARNINGS) -DDEBUG
+    $(INCLUDE) $(WARNINGS) -DDEBUG -DtWinMain=wWinMain
+
+#-DDEBUG_MALLOC
+
+#  -fanalyzer
 
 default: AltSnap.exe hooks.dll
 
@@ -31,7 +38,7 @@ AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages
 altsnapr.o : altsnap.rc window.rc resource.h AltSnap.exe.manifest media/find.cur media/find.ico media/icon.ico media/tray-disabled.ico media/tray-enabled.ico
 	windres altsnap.rc altsnapr.o -Fpe-i386
 
-hooksr.o: hooks.rc
+hooksr.o: hooks.rc resource.h
 	windres hooks.rc hooksr.o -Fpe-i386
 
 clean :

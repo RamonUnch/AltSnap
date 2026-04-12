@@ -19,7 +19,7 @@
 #define noreturn __attribute__((noreturn))
 #define fastcall __attribute__((fastcall))
 #define ainline __attribute__((always_inline))
-#define mallocatrib __attribute__( (malloc(freeL, 1) ))
+#define mallocatrib __attribute__((malloc))
 #define allnonnull __attribute__((nonnull))
 #define nonnull1(x) __attribute__((nonnull (x)))
 #define nonnull2(x, y) __attribute__((nonnull (x, y)))

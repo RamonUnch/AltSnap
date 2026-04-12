@@ -19,7 +19,7 @@
 #define noreturn __attribute__((noreturn))
 #define fastcall __attribute__((fastcall))
 #define ainline __attribute__((always_inline))
-#define mallocatrib __attribute__((malloc, freeL))
+#define mallocatrib __attribute__( (malloc(freeL, 1) ))
 #define allnonnull __attribute__((nonnull))
 #define nonnull1(x) __attribute__((nonnull (x)))
 #define nonnull2(x, y) __attribute__((nonnull (x, y)))
@@ -669,6 +669,13 @@ static allnonnull pure unsigned lstrhex2u(const TCHAR *s)
     return ret;
 }
 
+static BOOL freeL(void *mem)
+{
+    if(mem) return HeapFree(GetProcessHeap(), 0, mem);
+    return FALSE;
+}
+#define free(x) do { freeL(x); x = NULL; }while(0)
+
 static void *reallocL(void *mem, size_t sz)
 {
 /*    if (rand()%256 < 200) return NULL; */
@@ -691,12 +698,6 @@ static mallocatrib void *callocL(size_t n, size_t sz)
 }
 #define calloc callocL
 
-static BOOL freeL(void *mem)
-{
-    if(mem) return HeapFree(GetProcessHeap(), 0, mem);
-    return FALSE;
-}
-#define free(x) do { freeL(x); x = NULL; }while(0)
 #define CHECK_MEMORY_LEAK_DB()
 
 #ifdef DEBUG_MALLOC

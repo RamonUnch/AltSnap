@@ -14,7 +14,8 @@ WARNINGS=-Wall -Wformat-security -Wstrict-overflow -Wsign-compare -Wclobbered \
 CFLAGS=-Os -fno-stack-check -fno-stack-protector -fno-ident -fomit-frame-pointer -fmerge-all-constants \
     -momit-leaf-frame-pointer -march=armv8-a -mtune=generic \
     -D__USE_MINGW_ANSI_STDIO=0 -Wp,-D_FORTIFY_SOURCE=2 -fshort-enums\
-    $(WARNINGS) -fno-exceptions -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables
+    $(WARNINGS) -fno-exceptions -fno-dwarf2-cfi-asm -fno-asynchronous-unwind-tables \
+    -DUNICODE -D_UNICODE
 
 LDFLAGS=-lkernel32 -luser32 -lgdi32 -lwinmm
 

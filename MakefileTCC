@@ -2,9 +2,9 @@ CC=tcc
 # You still need a resource builder, gcc's windres works just fine.
 WR=windres
 
-CFLAGS=-w -m32 -Os -DNO_VISTA
+CFLAGS=-w -m32 -Os -DNO_VISTA -DNO_OLEAPI -DUNICODE -D_UNICODE
 
-DLLEXP=-DLOAD_PROC=\"_Load@4\" -DLOW_LEVEL_KB_PROC=\"_LowLevelKeyboardProc@12\" -DUNLOAD_PROC=\"_Unload@0\"
+DLLEXP=-DLOAD_PROC=\"_Load@8\" -DLOW_LEVEL_KB_PROC=\"_LowLevelKeyboardProc@12\" -DUNLOAD_PROC=\"_Unload@0\"
 
 LDFLAGS= \
 	-lmsvcrt \
@@ -29,7 +29,7 @@ AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages
 altsnapr.o : altsnap.rc window.rc resource.h AltSnap.exe.manifest media/find.cur media/find.ico media/icon.ico media/tray-disabled.ico media/tray-enabled.ico
 	$(WR) altsnap.rc altsnapr.o -Fpe-i386
 
-hooksr.o: hooks.rc
+hooksr.o: hooks.rc resource.h
 	$(WR) hooks.rc hooksr.o -Fpe-i386
 
 clean :

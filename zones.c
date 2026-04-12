@@ -352,8 +352,7 @@ static void MoveWindowToTouchingZone(HWND hwnd, UCHAR direction, UCHAR extend)
 {
     if(!(conf.UseZones&1) || state.mdiclient || !state.resizable) // Zones disabled
         return;
-
-    SetOriginFromRestoreData(hwnd, (action_t){ AC_MOVE });
+    SetOriginFromRestoreData(hwnd, k_action_move);
     // 1st get current window position.
     RECT rc;
     GetWindowRectL(hwnd, &rc);

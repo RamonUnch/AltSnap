@@ -1,12 +1,18 @@
 #ifndef ALTDRAG_RPC_H
 #define ALTDRAG_RPC_H
 
-#define UNICODE
-#define _UNICODE
+//#define UNICODE
+//#define _UNICODE
 #define _WIN32_WINNT 0x0600
 #define WINVER 0x0600
 #include <windows.h>
 #include "unfuck.h"
+
+#ifdef UNICODE
+#  define tWinMain wWinMain
+#else
+#  define tWinMain WinMain
+#endif
 
 #if defined(__MINGW32__) && ( !defined(__MINGW64_VERSION_MAJOR) || __MINGW64_VERSION_MAJOR < 2 )
 // Old version of MINGW64 header or MINGW32 only!
@@ -158,6 +164,8 @@ typedef struct rgTagAction {
     short wp;
 } action_t;
 
+static const action_t k_action_none = { AC_NONE, 0, 0 };
+static const action_t k_action_move = { AC_MOVE, 0, 0 };
 
 #define PACK_ACTION(x) ( (LPARAM)(x.ac << 24) | (LPARAM)(x.fl << 16) | (LPARAM)(x.wp << 0) )
 #define UNPACK_ACTION(dst, lp) do { dst.ac = (lp>>24) & 0xFF; dst.fl = (lp>>16) & 0xFF; dst.wp = lp&0xFFFF; } while(0)

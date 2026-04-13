@@ -88,15 +88,15 @@ static struct windowRR {
     //UCHAR resizing_now;
 } LastWin;
 
-struct resizeXY {
+typedef struct resizeXY {
     enum resizeX x;
     enum resizeY y;
-};
-struct rgMMI {
+} resizexy_t;
+typedef struct rgMMI {
     POINT Min;
     POINT Max;
-};
-static const struct resizeXY AUTORESIZE =   {RZ_XNONE, RZ_YNONE};
+} rgMMI_t;
+static const resizexy_t AUTORESIZE =   {RZ_XNONE, RZ_YNONE};
 
 struct snwdata {
     RECT rc;
@@ -106,7 +106,7 @@ struct snwdata {
 
 // State
 static struct {
-    struct rgMMI mmi;
+    rgMMI_t mmi;
     POINT clickpt;
     POINT prevpt;
     POINT ctrlpt;
@@ -159,7 +159,7 @@ static struct {
     UCHAR xxbutton;
     UCHAR ignorept;
     action_t action;
-    struct resizeXY resize;
+    resizexy_t resize;
     HWND cached_hwnd_blacklist;
     TCHAR exename[MAX_PATH];
     TCHAR title[256];
@@ -385,29 +385,29 @@ static const struct OptionListItem Zones_uchars[] = {
 };
 
 // Blacklist (dynamically allocated)
-struct blacklistitem {
+typedef struct blacklistitem {
     const TCHAR *title;
     const TCHAR *classname;
     const TCHAR *exename;
-};
-struct blacklist {
-    struct blacklistitem *items;
+} blacklistitem_t;
+typedef struct blacklist {
+    blacklistitem_t *items;
     size_t length;
     TCHAR *data;
-};
+} blacklist_t;
 static struct {
-    struct blacklist Processes;
-    struct blacklist Windows;
-    struct blacklist Snaplist;
-    struct blacklist MDIs;
-    struct blacklist Pause;
-    struct blacklist MMBLower;
-    struct blacklist Scroll;
-    struct blacklist IScroll;
-    struct blacklist AResize;
-    struct blacklist SSizeMove;
-    struct blacklist NCHittest;
-    struct blacklist Bottommost;
+    blacklist_t Processes;
+    blacklist_t Windows;
+    blacklist_t Snaplist;
+    blacklist_t MDIs;
+    blacklist_t Pause;
+    blacklist_t MMBLower;
+    blacklist_t Scroll;
+    blacklist_t IScroll;
+    blacklist_t AResize;
+    blacklist_t SSizeMove;
+    blacklist_t NCHittest;
+    blacklist_t Bottommost;
 } BlkLst;
 // MUST MATCH THE ABOVE!!!
 static const char *BlackListStrings[] = {
@@ -438,11 +438,11 @@ HHOOK mousehook = NULL;
 // To clamp width and height of windows
 static pure int CLAMPW(int width)  { return CLAMP(state.mmi.Min.x, width,  state.mmi.Max.x); }
 static pure int CLAMPH(int height) { return CLAMP(state.mmi.Min.y, height, state.mmi.Max.y); }
-static pure int CLAMPWL(int width, const struct rgMMI *mmi)  { return CLAMP(mmi->Min.x, width,  mmi->Max.x); }
-static pure int CLAMPHL(int height, const struct rgMMI *mmi) { return CLAMP(mmi->Min.y, height, mmi->Max.y); }
+static pure int CLAMPWL(int width, const rgMMI_t *mmi)  { return CLAMP(mmi->Min.x, width,  mmi->Max.x); }
+static pure int CLAMPHL(int height, const rgMMI_t *mmi) { return CLAMP(mmi->Min.y, height, mmi->Max.y); }
 
-static pure int ISCLAMPEDWL(int x, const struct rgMMI *mmi)  { return mmi->Min.x <= x && x <= mmi->Max.x; }
-static pure int ISCLAMPEDHL(int y, const struct rgMMI *mmi)  { return mmi->Min.y <= y && y <= mmi->Max.y; }
+static pure int ISCLAMPEDWL(int x, const rgMMI_t *mmi)  { return mmi->Min.x <= x && x <= mmi->Max.x; }
+static pure int ISCLAMPEDHL(int y, const rgMMI_t *mmi)  { return mmi->Min.y <= y && y <= mmi->Max.y; }
 
 /* If pt and ptt are it is the same points with 4px tolerence */
 static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
@@ -465,7 +465,7 @@ static xpure int IsPtDragOut(const POINT *pt, const POINT *ptt)
 
 /////////////////////////////////////////////////////////////////////////////
 // Wether a window is present or not in a blacklist
-static pure int blacklisted_from_names(const struct blacklist *list, const TCHAR *exename, const TCHAR *title, const TCHAR *classname)
+static pure int blacklisted_from_names(const blacklist_t *list, const TCHAR *exename, const TCHAR *title, const TCHAR *classname)
 {
     // If the first element is *:*|* (NULL:NULL|NULL)then we are in whitelist mode
     // mode = 1 => blacklist, mode = 0 => whitelist;
@@ -493,7 +493,7 @@ static void blacklist_cache_state()
     GetWindowText(state.hwnd, state.title, ARR_SZ(state.title));
     GetClassName(state.hwnd, state.classname, ARR_SZ(state.classname));
 }
-static pure int blacklisted(HWND hwnd, const struct blacklist *list)
+static pure int blacklisted(HWND hwnd, const blacklist_t *list)
 {
     // Null hwnd or empty list
     if (!hwnd || !list->length || !list->items)
@@ -1374,6 +1374,7 @@ static void MoveResizeWindowNow_(struct windowRR *lw, UINT flag)
 {
     HWND hwnd;
     hwnd = lw->hwnd;
+    //LOGA("lw->end=%d, start=%d, moveonly=%d, maximize=%d, snap=%d", (int)lw->end, (int)lw->start, (int)lw->moveonly, (int)lw->maximize, (int)lw->snap);
 
     if (lw->end && conf.FullWin) Sleep(8); // At the End of movement...
 
@@ -3550,7 +3551,7 @@ static int ActionZoom(HWND hwnd, short delta, short center)
         T = 1; // Or when no snapping has to occur.
     }
 
-    struct rgMMI mmi;
+    rgMMI_t mmi;
     GetMinMaxInfo(hwnd, &mmi.Min, &mmi.Max); // for CLAMPH/W functions
 
     if (state.resize.x == RZ_LEFT) {
@@ -3747,14 +3748,14 @@ static void NextBorders(RECT *pos, const RECT *cur, const RECT *def)
 #define SNTO_EXTEND 1
 #define SNTO_NEXTBD 2
 #define SNTO_MOVETO 4
-static void SnapToCorner(HWND hwnd, struct resizeXY resize, UCHAR flags)
+static void SnapToCorner(HWND hwnd, resizexy_t resize, UCHAR flags)
 {
     // When trying to Snap or extend a non-resizeable window
     if (!(flags&SNTO_MOVETO) && !IsResizable(hwnd))
         flags = SNTO_MOVETO | SNTO_NEXTBD; // Move to next bd instead
 
     SetOriginFromRestoreData(hwnd, k_action_move);
-    struct rgMMI mmi;
+    rgMMI_t mmi;
     GetMinMaxInfo(hwnd, &mmi.Min, &mmi.Max); // for CLAMPH/W functions
 
     // Get and set new position
@@ -4753,7 +4754,7 @@ static HWND FindTiledWindow(HWND hwnd, unsigned char direction)
 // Single click commands
 static void SClickActions(HWND hwnd, action_t action)
 {
-    const struct resizeXY rxy_map[] = {
+    static const resizexy_t rxy_map[] = {
         { RZ_LEFT, RZ_YCENTER   },
         { RZ_XCENTER, RZ_TOP    },
         { RZ_RIGHT, RZ_YCENTER  },
@@ -6101,8 +6102,8 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 static void freeblacklists()
 {
-    struct blacklist *list = (struct blacklist *)&BlkLst;
-    for (size_t i=0; i < sizeof(BlkLst)/sizeof(struct blacklist); i++) {
+    blacklist_t *list = (blacklist_t *)&BlkLst;
+    for (size_t i=0; i < sizeof(BlkLst)/sizeof(blacklist_t); i++) {
         free(list->data);
         free(list->items);
         list++;
@@ -6154,11 +6155,11 @@ __declspec(dllexport) void WINAPI Unload()
 
     freeallinputSequences();
 
-    free(monitors.it); monitors.num = 0; monitors.cap = 0;
-    free(hwnds.it); hwnds.num = 0; hwnds.cap = 0;
-    free(wnds.it); wnds.num = 0; wnds.cap = 0;
-    free(snwnds.it); snwnds.num = 0; snwnds.cap = 0;
-    free(minhwnds.it); minhwnds.num = 0; minhwnds.cap = 0;
+    ListFree(&monitors);
+    ListFree(&hwnds);
+    ListFree(&wnds);
+    ListFree(&snwnds);
+    ListFree(&minhwnds);
     freezones();
 
     // Wait for worker thread to have a clean closing...
@@ -6170,7 +6171,7 @@ __declspec(dllexport) void WINAPI Unload()
 /////////////////////////////////////////////////////////////////////////////
 // blacklist is coma separated and title and class are | separated.
 // valid items are: exename.exe:title|class, title|class, exename:title, title
-static void readblacklist(const TCHAR *section, struct blacklist *blacklist, const char *bl_str)
+static void readblacklist(const TCHAR *section, blacklist_t *blacklist, const char *bl_str)
 {
     LPCTSTR txt = GetSectionOptionCStr(section, bl_str, NULL);
     if (!txt || !*txt) {
@@ -6239,8 +6240,8 @@ static void readblacklist(const TCHAR *section, struct blacklist *blacklist, con
             exenm = NULL; // exename is a single *
         }
         // Allocate space
-        struct blacklistitem *olditem = blacklist->items;
-        blacklist->items = (struct blacklistitem *)realloc(blacklist->items, (blacklist->length+1)*sizeof(struct blacklistitem));
+        blacklistitem_t *olditem = blacklist->items;
+        blacklist->items = (blacklistitem_t *)realloc(blacklist->items, (blacklist->length+1)*sizeof(*blacklist->items));
         if (!blacklist->items) {
             // restore old item if realloc failed
             // It will jst be a shorter blacklist
@@ -6267,8 +6268,8 @@ void readallblacklists(const TCHAR *inipath)
     if (!section) return;
     GetPrivateProfileSection(TEXT("Blacklist"), section, blacklist_section_length, inipath);
 
-    struct blacklist *list = &BlkLst.Processes;
-    for (size_t i=0; i < sizeof(BlkLst)/sizeof(struct blacklist); i++) {
+    blacklist_t *list = &BlkLst.Processes;
+    for (size_t i=0; i < sizeof(BlkLst)/sizeof(blacklist_t); i++) {
         readblacklist(section, list+i, BlackListStrings[i]);
     }
     free(section);
@@ -6623,11 +6624,11 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
     int nb = readhotkeys(inisection, "MenuAccelMap", NULL, conf.MenuAccelMap, ARR_SZ(conf.MenuAccelMap) - 1);
 
     // Fill the rest with usual accelerators
-    for (size_t i=nb; i < ARR_SZ(conf.MenuAccelMap); i++) {
+    for (size_t j = nb; j < ARR_SZ(conf.MenuAccelMap); j++) {
         if (conf.NumberMenuItems)
-            conf.MenuAccelMap[i] = i<10? TEXT('0')+i: TEXT('A')+i-10;
+            conf.MenuAccelMap[j] = j<10? TEXT('0')+j: TEXT('A')+j-10;
         else
-            conf.MenuAccelMap[i] = i<26? TEXT('A')+i: TEXT('0')+i-26;
+            conf.MenuAccelMap[j] = j<26? TEXT('A')+j: TEXT('0')+j-26;
     }
     conf.MenuAccelMap[ARR_SZ(conf.MenuAccelMap) - 1] = 0;
 

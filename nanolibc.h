@@ -674,7 +674,6 @@ static BOOL freeL(void *mem)
     if(mem) return HeapFree(GetProcessHeap(), 0, mem);
     return FALSE;
 }
-#define free(x) do { freeL(x); x = NULL; }while(0)
 
 static void *reallocL(void *mem, size_t sz)
 {
@@ -683,19 +682,21 @@ static void *reallocL(void *mem, size_t sz)
     if(!mem) return HeapAlloc(GetProcessHeap(), 0, sz);
     return HeapReAlloc(GetProcessHeap(), 0, mem, sz);
 }
-#define realloc reallocL
 
 static mallocatrib void *mallocL(size_t sz)
 {
 /*    if (rand()%256 < 200) return NULL; */
     return HeapAlloc(GetProcessHeap(), 0, sz);
 }
-#define malloc mallocL
 
 static mallocatrib void *callocL(size_t n, size_t sz)
 {
     return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, n*sz);
 }
+
+#define free(x) do { freeL(x); x = NULL; }while(0)
+#define realloc reallocL
+#define malloc mallocL
 #define calloc callocL
 
 #define CHECK_MEMORY_LEAK_DB()

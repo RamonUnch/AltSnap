@@ -782,8 +782,8 @@ static void CheckConfigHotKeys(const struct hk_struct *hotkeys, HWND hwnd, const
 typedef struct tagActiondl {
     TCHAR *action;
     short l10nidx;
-//    BYTE params1_type;
-//    BYTE params2_type;
+    BYTE param1_type;
+    BYTE param2_type;
 } actiondl_t;
 static void FillActionDropListS(HWND hwnd, int idc, TCHAR *inioption, const actiondl_t *actions)
 {
@@ -818,7 +818,7 @@ static int GetActionStringFromDropList(HWND hwnd, int idc, const actiondl_t *act
     int j = SendMessage(control, CB_GETCURSEL, 0, 0);
     if (j >= 0 && actions[j].action) { // Inside of known values
         lstrcpy_s(obuf, obuflen, actions[j].action); // DONE!
-        return 1;
+        return j;
     }
 
     // User directly Wrote the specified string?
@@ -829,9 +829,9 @@ static int GetActionStringFromDropList(HWND hwnd, int idc, const actiondl_t *act
         if (j>=0 && actions[j].action) // Found index.
             lstrcpy_s(obuf, obuflen, actions[j].action); // DONE!
 
-        return 1;
+        return j;
     }
-    return 0;
+    return -1;
 }
 static void WriteActionDropListS(HWND hwnd, int idc, TCHAR *inioption, const actiondl_t *actions)
 {
@@ -1207,7 +1207,13 @@ static INT_PTR CALLBACK AdvancedActionDlgProc(HWND hwnd, UINT msg, WPARAM wp, LP
                 TCHAR acstr[128], param1[16], param2[32]; acstr[0] = TEXT('\0');
 
                 // ACTION PARAM0: base action
-                GetActionStringFromDropList(hwnd, IDC_ACTIONP0, acp->base_action_lst, acstr, ARR_SZ(acstr)-8);
+                int p0idx = GetActionStringFromDropList(hwnd, IDC_ACTIONP0, acp->base_action_lst, acstr, ARR_SZ(acstr)-8);
+
+                if (id == IDC_ACTIONP0 /*|| id == IDC_ACTIONP1*/) {
+                    // Adjust visibility/settings of param 1 and param 2.
+                    EnableDlgItem(hwnd, IDC_ACTIONP1, p0idx >= 0 && acp->base_action_lst[p0idx].param1_type != 0);
+                    EnableDlgItem(hwnd, IDC_ACTIONP2, p0idx >= 0 && acp->base_action_lst[p0idx].param2_type != 0);
+                }
 
                 // ACTION PARAM1: direction flags
                 param1[0] = TEXT('0');  param1[1] = TEXT('\0');
@@ -1312,15 +1318,15 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
         {TEXT("AltTabList"),  L10NIDX(InputActionAltTabList) },
         {TEXT("AltTabFullList"),L10NIDX(InputActionAltTabFullList) },
 
-        {TEXT("ExtendTNEdge"),L10NIDX(InputActionExtendTNEdge) },
-        {TEXT("MoveTNEdge"),  L10NIDX(InputActionMoveTNEdge) },
+        {TEXT("ExtendTNEdge"),L10NIDX(InputActionExtendTNEdge), ACPARAM_DIRECTION, 0 },
+        {TEXT("MoveTNEdge"),  L10NIDX(InputActionMoveTNEdge), ACPARAM_DIRECTION, 0 },
 
-        {TEXT("MZone"),      L10NIDX(InputActionMZone) },
-        {TEXT("XZone"),      L10NIDX(InputActionXZone) },
+        {TEXT("MZone"),      L10NIDX(InputActionMZone), ACPARAM_DIRECTION, 0 },
+        {TEXT("XZone"),      L10NIDX(InputActionXZone), ACPARAM_DIRECTION, 0 },
 
-        {TEXT("Step"),       L10NIDX(InputActionStep) },
+        {TEXT("Step"),       L10NIDX(InputActionStep), ACPARAM_DIRECTION, ACPARAM_NUMBER },
 
-        {TEXT("Focus"),      L10NIDX(InputActionFocus) },
+        {TEXT("Focus"),      L10NIDX(InputActionFocus), ACPARAM_DIRECTION, 0},
 
         {TEXT("NLayout"),     L10NIDX(InputActionNLayout) },
         {TEXT("PLayout"),     L10NIDX(InputActionPLayout) },
@@ -1478,6 +1484,7 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
                 HWND control = GetDlgItem(hwnd, IDC_SHORTCUTS_AC);
                 int new_index = CB_AddStringIfNotPresentAndGetIdx(control, acp.outbuf);
                 CB_SetCurSel(control, new_index);
+                PostMessage(hwnd, WM_COMMAND, IDC_SHORTCUTS_AC|CBN_SELCHANGE<<16, (LPARAM)GetDlgItem(hwnd, IDC_SHORTCUTS_AC));
                 edit_shortcut_idx = new_index;
                 SetFocus(control);
             }

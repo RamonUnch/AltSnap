@@ -1432,8 +1432,6 @@ static void MoveResizeWindowNow_(struct windowRR *lw, UINT flag)
         NotifySizeMoveStaEnd(hwnd, 0);
 
     lw->hwnd = NULL;
-    lw->end = 0;
-    lw->start = 0;
 }
 
 /* MOVEASYNC |SWP_DEFERERASE ??*/
@@ -2166,6 +2164,9 @@ static void MouseMoveNow(POINT pt)
     if (!state.moving && !GetWindowRect(state.hwnd, &wnd)) return;
     int posx=0, posy=0, wndwidth=0, wndheight=0;
 
+    // Resets the LastWin struct
+    mem00(&LastWin, sizeof(LastWin));
+
     // Restore Aero snapped window when movement starts
     UCHAR was_snapped = 0;
     if (!state.moving) {
@@ -2186,8 +2187,6 @@ static void MouseMoveNow(POINT pt)
     RestrictCursorToMon(); // When CTRL is pressed.
 
     // Get new position for window
-    LastWin.end = 0;
-    LastWin.moveonly = 0;
     if (state.action.ac == AC_MOVE) {
         // SWP_NOSIZE to SetWindowPos
         LastWin.moveonly = state.moving;
@@ -6527,11 +6526,9 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
 #if defined(_MSC_VER) && _MSC_VER > 1300
 #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
 #endif
-    // Load settings
-    state.action = k_action_none;
-    state.shift = 0;
-    state.moving = 0;
-    LastWin.hwnd = NULL;
+    // Reset stuff...
+    mem00(&state, sizeof(state));
+    mem00(&LastWin, sizeof(LastWin));
 
     // GET SYSTEM SETTINGS
     DWORD dragthreshold=0;

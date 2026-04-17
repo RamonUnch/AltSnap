@@ -191,6 +191,7 @@ void ListAllTranslations()
     }
 }
 
+#ifdef UNICODE
 /////////////////////////////////////////////////////////////////////////////
 // Helper function to get
 static int GetCUserLanguage_xx_XX(wchar_t txt[AT_LEAST 16])
@@ -198,7 +199,7 @@ static int GetCUserLanguage_xx_XX(wchar_t txt[AT_LEAST 16])
     txt[0] = L'\0';
     return LCIDToLocaleNameL(GetUserDefaultLCID(), txt, 16, 0);
 }
-
+#endif
 /////////////////////////////////////////////////////////////////////////////
 void UpdateLanguage()
 {
@@ -231,10 +232,10 @@ void FreeAllLangRelated()
 {
     if (langinfo) {
         for (int i=1; i < nlanguages; i++) {
-            free(langinfo[i].lang_english);
-            free(langinfo[i].lang);
-            free(langinfo[i].author);
-            free(langinfo[i].fn);
+            lstrfree(langinfo[i].lang_english);
+            lstrfree(langinfo[i].lang);
+            lstrfree(langinfo[i].author);
+            lstrfree(langinfo[i].fn);
         }
         free(langinfo);
         langinfo = NULL;

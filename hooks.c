@@ -900,8 +900,7 @@ static int ResizeTouchingWindows(LPVOID lwptr)
     if (conf.FullWin) {
         hwndSS = BeginDeferWindowPos(snwnds.num+1);
     }
-    size_t i;
-    for (i=0; i < snwnds.num; i++) {
+    for (size_t i=0; i < snwnds.num; i++) {
         RECT *nwnd = &snwnds.it[i].rc;
         unsigned flag = snwnds.it[i].flag;
         HWND hwnd = snwnds.it[i].hwnd;
@@ -1836,8 +1835,7 @@ static UCHAR TotNumberOfKeysDown()
     GetKeyState(0); // You need that for GetKeyboardState()
     GetKeyboardState(kb_state);
     UCHAR numkeys=0;
-    BYTE i;
-    for (i=0x13; i < 0xFF; i++) {
+    for (BYTE i=0x13; i < 0xFF; i++) {
         // vK codes go from 0 to 254 and we must skip a few
         if((0x3A <= i && i<=0x40) // Undefineds
         ||  i == 0x5E             // Reserved
@@ -2029,8 +2027,7 @@ static void ShowTransWin(int nCmdShow)
     if(conf.TransWinOpacity) {
         if(g_transhwnd[0]) ShowWindow(g_transhwnd[0], nCmdShow);
     } else {
-        int i;
-        for (i=0; i<4; i++ )if(g_transhwnd[i]) ShowWindow(g_transhwnd[i], nCmdShow);
+        for (size_t i=0; i<4; i++ )if(g_transhwnd[i]) ShowWindow(g_transhwnd[i], nCmdShow);
     }
 }
 #define HideTransWin() ShowTransWin(SW_HIDE)
@@ -2635,8 +2632,7 @@ static void LogState(const char *Title)
 }
 static pure int XXButtonIndex(UCHAR vkey)
 {
-    WORD i;
-    for (i=0; i < MAXKEYS && conf.XXButtons[i]; i++) {
+    for (WORD i=0; i < MAXKEYS && conf.XXButtons[i]; i++) {
         if(conf.XXButtons[i] == vkey)
             return i+3;
     }
@@ -2946,8 +2942,7 @@ static int ScrollPointedWindow(POINT pt, int delta, WPARAM wParam)
         VK_XBUTTON1,// MK_XBUTTON1 }, 32
         VK_XBUTTON2,// MK_XBUTTON2 }  64
     };
-    size_t i;
-    for (i=0; i < ARR_SZ(toOr); i++) // Should we use GetKeyState?
+    for (size_t i=0; i < ARR_SZ(toOr); i++) // Should we use GetKeyState?
         if (GetAsyncKeyState(toOr[i]) &0x8000) wp |= (1<<i);
 
     // Forward scroll message
@@ -4403,7 +4398,7 @@ static void MinimizeAllOtherWindows(HWND hwnd, int CurrentMonOnly)
 
 static pure BOOL IsRectInMonitors(const RECT *rc)
 {
-    for(size_t i=0; i < monitors.num; i++) {
+    for (size_t i=0; i < monitors.num; i++) {
         int inx = monitors.it[i].left < rc->right-8 && rc->left+8 < monitors.it[i].right;
         int iny = monitors.it[i].top < rc->bottom-8 && rc->top+8 < monitors.it[i].bottom;
         if (inx && iny) // Windows is inside one of the monitors.
@@ -6153,8 +6148,7 @@ __declspec(dllexport) void WINAPI Unload()
         DestroyWindow(g_transhwnd[0]);
         g_transhwnd[0] = NULL;
     } else {
-        int i;
-        for (i=0; i<4; i++) {
+        for (size_t i=0; i<4; i++) {
             DestroyWindow(g_transhwnd[i]);
             g_transhwnd[i] = NULL;
         }
@@ -6425,8 +6419,7 @@ static void CreateTransWin(const TCHAR *inisection)
             SetLayeredWindowAttributes(g_transhwnd[0], 0, conf.TransWinOpacity, LWA_ALPHA);
     }
     if (!g_transhwnd[0]) {
-        int i;
-        for (i=0; i<4; i++) { // the transparent window is made with 4 thin windows
+        for (size_t i=0; i<4; i++) { // the transparent window is made with 4 thin windows
             g_transhwnd[i] = CreateWindowEx(WS_EX_TOPMOST|WS_EX_TOOLWINDOW
                              , wnd.lpszClassName, NULL, WS_POPUP
                              , 0, 0, 0, 0, g_mainhwnd, NULL, hinstDLL, NULL);
@@ -6511,8 +6504,7 @@ void readallinputSequences(const TCHAR *inisection)
 }
 static void freeallinputSequences(void)
 {
-    size_t i;
-    for (i=0; i< ARR_SZ(conf.inputSequences); i++)
+    for (size_t i=0; i< ARR_SZ(conf.inputSequences); i++)
         free(conf.inputSequences[i]);
 }
 

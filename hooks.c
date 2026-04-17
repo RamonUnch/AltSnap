@@ -70,7 +70,6 @@ enum buttonstate {STATE_NONE, STATE_DOWN, STATE_UP};
 
 static int init_movement_and_actions(POINT pt, HWND hwnd, action_t action, int button);
 static void FinishMovementAsync();
-static void MoveTransWin(int x, int y, int w, int h);
 static void MouseMoveNow(POINT pt);
 
 static struct windowRR {
@@ -1404,7 +1403,6 @@ static void MoveResizeWindowNow_(struct windowRR *lw, UINT flag)
 
     if (lw->end && !lw->start) Sleep(8); // At the End of movement...
 
-
     // Send WM_ENTERSIZEMOVE and EVENT_SYSTEM_MOVESIZESTART
     if (lw->start)
         NotifySizeMoveStaEnd(hwnd, 1); // Once darg actually starts.
@@ -2048,12 +2046,19 @@ static void MoveTransWinRaw(int x, int y, int w, int h)
     #undef f
 //      if(hwndSS) EndDeferWindowPos(hwndSS);
 }
-static void MoveTransWin(int x, int y, int w, int h)
+static void MoveTransWin(struct windowRR *lw)
 {
+    RECT bd;
+    FixDWMRectLL(lw->hwnd, &bd, 0);
+    int x = lw->x + state.mdipt.x + bd.left;
+    int y = lw->y + state.mdipt.y + bd.top;
+    int w = lw->width - bd.left - bd.right;
+    int h = lw->height - bd.top - bd.bottom;
+
     if (state.origin.dpi) {
         POINT pt = { x + w/2, y + h/2 };
         HMONITOR hmon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-        if (hmon != state.origin.monitor && !GetRestoreFlag(state.hwnd)) {
+        if (hmon != state.origin.monitor && !GetRestoreFlag(lw->hwnd)) {
             UINT ptdpi=0, dpiy_ignore=0;
             if ( S_OK == GetDpiForMonitorL(hmon, MDT_DEFAULT, &ptdpi, &dpiy_ignore) && ptdpi ) {
                 w = MulDiv(w, ptdpi, state.origin.dpi);
@@ -2157,24 +2162,28 @@ static void MouseMoveNow(POINT pt)
         return; // Movement was blocked...
     }
 
-    static RECT wnd; // wnd will be updated and is initialized once.
-    if (!state.moving && !GetWindowRect(state.hwnd, &wnd)) return;
-    int posx=0, posy=0, wndwidth=0, wndheight=0;
-
-    // Resets the LastWin struct
-    mem00(&LastWin, sizeof(LastWin));
-
-    // Restore Aero snapped window when movement starts
+    RECT wnd;
     UCHAR was_snapped = 0;
     if (!state.moving) {
+        // First initialize wnd with the actual Window rect
+        if (!GetWindowRect(state.hwnd, &wnd)) return;
+
+        // Restore Aero snapped window when MOVE starts
         LastWin.odpi = state.origin.dpi;
         SetOriginFromRestoreData(state.hwnd, state.action);
         if (state.action.ac == AC_MOVE) {
             was_snapped = IsWindowSnapped(state.hwnd);
             RestoreOldWin(pt, was_snapped, &wnd);
         }
+    } else {
+        // Get data from LastWin (that was resized)
+        // when we are in the middle of a resize
+        wnd.left   = LastWin.x + state.mdipt.x;
+        wnd.top    = LastWin.y + state.mdipt.y;
+        wnd.right  = LastWin.x + state.mdipt.x + LastWin.width;
+        wnd.bottom = LastWin.y + state.mdipt.y + LastWin.height;
     }
-
+    int posx=0, posy=0, wndwidth=0, wndheight=0;
 
     // Convert pt in MDI coordinates.
     // state.mdipt is global!
@@ -2286,23 +2295,11 @@ static void MouseMoveNow(POINT pt)
     LastWin.width  = wndwidth;
     LastWin.height = wndheight;
 
-    // Update the static wnd with new dimentions.
-    wnd.left   = posx + state.mdipt.x;
-    wnd.top    = posy + state.mdipt.y;
-    wnd.right  = posx + state.mdipt.x + wndwidth;
-    wnd.bottom = posy + state.mdipt.y + wndheight;
-
     // Save hwnd After we are sure movement will occur.
     LastWin.hwnd = state.hwnd;
 
     if (!conf.FullWin) {
-        static RECT bd;
-        if(!state.moving) FixDWMRectLL(state.hwnd, &bd, 0);
-        int tx      = posx + state.mdipt.x + bd.left;
-        int ty      = posy + state.mdipt.y + bd.top;
-        int twidth  = wndwidth - bd.left - bd.right;
-        int theight = wndheight - bd.top - bd.bottom;
-        MoveTransWin(tx, ty, twidth, theight);
+        MoveTransWin(&LastWin);
         if (!IsTransWinVisible())
             ShowTransWin(SW_SHOWNA);
         state.moving=1;

@@ -1314,24 +1314,18 @@ static void MaximizeRestore_atpt(HWND hwnd, UINT sw_cmd, int origin)
     }
 }
 
-static void MoveWindowAsync1(HWND hwnd, int x, int y, int w, int h)
-{
-    UINT flags = SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOZORDER|SWP_ASYNCWINDOWPOS;
-    if (conf.IgnoreMinMaxInfo) flags |= SWP_NOSENDCHANGING;
-    SetWindowPos(hwnd, NULL, x, y, w, h, flags);
-}
-static void RestoreWindowToRect(HWND hwnd, const RECT *rc, UINT flags)
+static void RestoreWindowToRect(HWND hwnd, const RECT *rc)
 {
     RECT zbd, bd;
     FixDWMRect(hwnd, &zbd); // Zoomed invisible borders (that were applied)
     WINDOWPLACEMENT wndpl; wndpl.length = sizeof(wndpl);
     GetWindowPlacement(hwnd, &wndpl);
     wndpl.showCmd = SW_RESTORE;
-    wndpl.flags |= flags;
+    //wndpl.flags |= flags;
     CopyRect(&wndpl.rcNormalPosition, rc);
     if (LOBYTE(GetVersion()) >= 10) {
         // On Windows 10+ we got invisible borders...
-        wndpl.flags &= ~WPF_ASYNCWINDOWPLACEMENT;
+        //wndpl.flags &= ~WPF_ASYNCWINDOWPLACEMENT;
         // Synchronus restore because we have to check for Invisible
         // borders again that are different when Zoomed/restored.
         SetWindowPlacement(hwnd, &wndpl);
@@ -1342,7 +1336,12 @@ static void RestoreWindowToRect(HWND hwnd, const RECT *rc, UINT flags)
             #define r wndpl.rcNormalPosition
             DeflateRectBorder(&r, &zbd);
             InflateRectBorder(&r, &bd);
-            MoveWindowAsync1(hwnd, r.left, r.top, r.right-r.left, r.bottom-r.top);
+
+            // Move again window to its proper rect
+            UINT swpFlgs = SWP_NOACTIVATE|SWP_NOOWNERZORDER|SWP_NOZORDER/*|SWP_ASYNCWINDOWPOS*/;
+            if (conf.IgnoreMinMaxInfo) swpFlgs |= SWP_NOSENDCHANGING;
+            SetWindowPos(hwnd, NULL, r.left, r.top, r.right-r.left, r.bottom-r.top, swpFlgs);
+
             #undef r
         }
     } else {
@@ -1352,21 +1351,49 @@ static void RestoreWindowToRect(HWND hwnd, const RECT *rc, UINT flags)
 static void RestoreWindowTo(HWND hwnd, int x, int y, int w, int h)
 {
     RECT rc = {x, y, x+w, y+h };
-    RestoreWindowToRect(hwnd, &rc, 0);
+    RestoreWindowToRect(hwnd, &rc);
 }
+
+static DWORD WINAPI MoveWindowNow(struct windowRR *lw);
+/* Helper function to Move the window in the worker thread
+ * Also restores the window if needed. */
+static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h)
+{
+    static struct windowRR winrr_buf[8];
+    static size_t winrr_idx = 0;
+
+    // Next item in list
+    winrr_idx = winrr_idx & (ARR_SZ(winrr_buf) - 1);
+
+    if (!winrr_buf[winrr_idx].hwnd) {
+        // The entry is free
+        winrr_buf[winrr_idx].hwnd = hwnd;
+        winrr_buf[winrr_idx].x = x;
+        winrr_buf[winrr_idx].y = y;
+        winrr_buf[winrr_idx].width = w;
+        winrr_buf[winrr_idx].height = h;
+        winrr_buf[winrr_idx].end = 1;
+        winrr_buf[winrr_idx].start = 1;
+
+        PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)MoveWindowNow, (LPARAM)&winrr_buf[winrr_idx]);
+    } else {
+        LOG("MoveWindowAsync: NOT MOVING %X, NO MORE ROOM IN RING BUFFER!", (UINT)hwnd);
+    }
+}
+
 /* Helper function to call SetWindowPos with the SWP_ASYNCWINDOWPOS flag
  * Also restores the window if needed.
  * Note that WPF_ASYNCWINDOWPLACEMENT was introduced with Windows 2000
  * but it seems not to be a problem for NT4, so it can be kept here. */
-static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h)
-{
-    if (IsZoomed(hwnd) || IsWindowSnapped(hwnd)) {
-        RECT rc = {x, y, x+w, y+h };
-        RestoreWindowToRect(hwnd, &rc, WPF_ASYNCWINDOWPLACEMENT);
-    } else {
-        MoveWindowAsync1(hwnd, x, y, w, h);
-    }
-}
+//static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h)
+//{
+//    if (IsZoomed(hwnd) || IsWindowSnapped(hwnd)) {
+//        RECT rc = {x, y, x+w, y+h };
+//        RestoreWindowToRect(hwnd, &rc, WPF_ASYNCWINDOWPLACEMENT);
+//    } else {
+//        MoveWindowAsync1(hwnd, x, y, w, h);
+//    }
+//}
 
 /////////////////////////////////////////////////////////////////////////////
 // Move the windows in a thread in case it is very slow to resize
@@ -1376,7 +1403,7 @@ static void MoveResizeWindowNow_(struct windowRR *lw, UINT flag)
     hwnd = lw->hwnd;
     //LOGA("lw->end=%d, start=%d, moveonly=%d, maximize=%d, snap=%d", (int)lw->end, (int)lw->start, (int)lw->moveonly, (int)lw->maximize, (int)lw->snap);
 
-    if (lw->end && conf.FullWin) Sleep(8); // At the End of movement...
+    if (lw->end && !lw->start) Sleep(8); // At the End of movement...
 
 
     // Send WM_ENTERSIZEMOVE and EVENT_SYSTEM_MOVESIZESTART
@@ -1401,19 +1428,17 @@ static void MoveResizeWindowNow_(struct windowRR *lw, UINT flag)
         if (conf.RefreshRate) ASleep(conf.RefreshRate); // Accurate!!!
     }
 
-    if (lw->end && !conf.FullWin)
+    if (lw->end /*&& !conf.FullWin*/)
         NotifySizeMoveStaEnd(hwnd, 0);
 
     lw->hwnd = NULL;
-    lw->end = 0;
-    lw->start = 0;
 }
 
 /* MOVEASYNC |SWP_DEFERERASE ??*/
 #define RESIZEFLAG        SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE
 #define MOVETHICKBORDERS  SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE
 #define MOVEASYNC         SWP_NOZORDER|SWP_NOOWNERZORDER|SWP_NOACTIVATE|SWP_NOSIZE|SWP_ASYNCWINDOWPOS
-static void MoveWindowNow(struct windowRR *lw)
+static DWORD WINAPI MoveWindowNow(struct windowRR *lw)
 {
     //lw->resizing_now = 1;
 //    RECT rc;
@@ -1467,6 +1492,7 @@ static void MoveWindowNow(struct windowRR *lw)
         MoveResizeWindowNow_(lw, flag);
 
     //lw->resizing_now = 0;
+    return 0;
 }
 #undef RESIZEFLAG
 #undef MOVETHICKBORDERS
@@ -2138,6 +2164,9 @@ static void MouseMoveNow(POINT pt)
     if (!state.moving && !GetWindowRect(state.hwnd, &wnd)) return;
     int posx=0, posy=0, wndwidth=0, wndheight=0;
 
+    // Resets the LastWin struct
+    mem00(&LastWin, sizeof(LastWin));
+
     // Restore Aero snapped window when movement starts
     UCHAR was_snapped = 0;
     if (!state.moving) {
@@ -2158,8 +2187,6 @@ static void MouseMoveNow(POINT pt)
     RestrictCursorToMon(); // When CTRL is pressed.
 
     // Get new position for window
-    LastWin.end = 0;
-    LastWin.moveonly = 0;
     if (state.action.ac == AC_MOVE) {
         // SWP_NOSIZE to SetWindowPos
         LastWin.moveonly = state.moving;
@@ -5026,8 +5053,6 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, action_t action, int b
         UpdateCursor(pt);
         SetWindowTrans(state.hwnd);
 
-        // Send WM_ENTERSIZEMOVE and EVENT_SYSTEM_MOVESIZESTART
-        //NotifySizeMoveStaEnd(statse.hwnd, 1);
         LastWin.start = 1;
     } else if (BT_WHEELD <= button  && button <= BT_HWHEELU) {
         // Wheel actions, directly return here
@@ -5167,10 +5192,6 @@ static DWORD WINAPI FinishMovementNow(LPVOID pp)
     }
 
     HideTransWin();
-
-    // Send WM_EXITSIZEMOVE and EVENT_SYSTEM_MOVESIZEEND
-    if(conf.FullWin && state.moving == 1)
-        NotifySizeMoveStaEnd(state.hwnd, 0);
 
     state.action = k_action_none;
     state.moving = 0;
@@ -6505,11 +6526,9 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
 #if defined(_MSC_VER) && _MSC_VER > 1300
 #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
 #endif
-    // Load settings
-    state.action = k_action_none;
-    state.shift = 0;
-    state.moving = 0;
-    LastWin.hwnd = NULL;
+    // Reset stuff...
+    mem00(&state, sizeof(state));
+    mem00(&LastWin, sizeof(LastWin));
 
     // GET SYSTEM SETTINGS
     DWORD dragthreshold=0;

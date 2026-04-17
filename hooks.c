@@ -1379,19 +1379,6 @@ static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h)
     }
 }
 
-/* Helper function to call SetWindowPos with the SWP_ASYNCWINDOWPOS flag
- * Also restores the window if needed.
- * Note that WPF_ASYNCWINDOWPLACEMENT was introduced with Windows 2000
- * but it seems not to be a problem for NT4, so it can be kept here. */
-//static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h)
-//{
-//    if (IsZoomed(hwnd) || IsWindowSnapped(hwnd)) {
-//        RECT rc = {x, y, x+w, y+h };
-//        RestoreWindowToRect(hwnd, &rc, WPF_ASYNCWINDOWPLACEMENT);
-//    } else {
-//        MoveWindowAsync1(hwnd, x, y, w, h);
-//    }
-//}
 
 /////////////////////////////////////////////////////////////////////////////
 // Move the windows in a thread in case it is very slow to resize

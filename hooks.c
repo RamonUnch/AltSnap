@@ -1408,7 +1408,10 @@ static void MoveResizeWindowNow_(struct windowRR *lw, UINT flag)
 
         // Send WM_SYNCPAINT in case to wait for the end of movement
         // And to avoid windows to "slide through" the whole WM_MOVE queue
-        if(flag&SWP_ASYNCWINDOWPOS) SendMessage(hwnd, WM_SYNCPAINT, 0, 0);
+        if (flag&SWP_ASYNCWINDOWPOS) { //SendMessage(hwnd, WM_SYNCPAINT, 0, 0);
+            DorQWORD dummy = 0;
+            SendMessageTimeout(hwnd, WM_SYNCPAINT, 0, 0, SMTO_NORMAL, 120, &dummy);
+        }
         if (conf.RefreshRate) ASleep(conf.RefreshRate); // Accurate!!!
     }
 
@@ -2151,7 +2154,6 @@ static void MouseMoveNow(POINT pt)
         if (!GetWindowRect(state.hwnd, &wnd)) return;
 
         // Restore Aero snapped window when MOVE starts
-        LastWin.odpi = state.origin.dpi;
         SetOriginFromRestoreData(state.hwnd, state.action);
         if (state.action.ac == AC_MOVE) {
             was_snapped = IsWindowSnapped(state.hwnd);
@@ -2166,6 +2168,9 @@ static void MouseMoveNow(POINT pt)
         wnd.bottom = LastWin.y + state.mdipt.y + LastWin.height;
     }
     int posx=0, posy=0, wndwidth=0, wndheight=0;
+
+    mem00(&LastWin, sizeof(LastWin));
+    LastWin.odpi = state.origin.dpi;
 
     // Convert pt in MDI coordinates.
     // state.mdipt is global!
@@ -4811,8 +4816,8 @@ static void SClickActions(HWND hwnd, action_t action)
     case AC_XZONE:       MoveWindowToTouchingZone(hwnd, action.fl-1, 1); break;
     case AC_STEP:        StepWindow(hwnd, action); break;
 
-    case AC_NLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, CMD_SNAPLAYOUT+(conf.LayoutNumber + 1) % conf.MaxLayouts, 0); break;
-    case AC_PLAYOUT:     SendMessage(g_mainhwnd, WM_COMMAND, CMD_SNAPLAYOUT+(conf.LayoutNumber + conf.MaxLayouts - 1) % conf.MaxLayouts, 0); break;
+    case AC_NLAYOUT:     PostMessage(g_mainhwnd, WM_COMMAND, CMD_SNAPLAYOUT+(conf.LayoutNumber + 1) % conf.MaxLayouts, 0); break;
+    case AC_PLAYOUT:     PostMessage(g_mainhwnd, WM_COMMAND, CMD_SNAPLAYOUT+(conf.LayoutNumber + conf.MaxLayouts - 1) % conf.MaxLayouts, 0); break;
 
     case AC_ASONOFF:     ActionASOnOff(); break;
     case AC_MOVEONOFF:   ActionMoveOnOff(hwnd); break;

@@ -1375,7 +1375,7 @@ static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h)
 
         PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)MoveWindowNow, (LPARAM)&winrr_buf[winrr_idx]);
     } else {
-        LOG("MoveWindowAsync: NOT MOVING %X, NO MORE ROOM IN RING BUFFER!", (UINT)hwnd);
+        LOG("MoveWindowAsync: NOT MOVING %X, NO MORE ROOM IN RING BUFFER!", (UINT)(LPARAM)hwnd);
     }
 }
 
@@ -1922,11 +1922,6 @@ static void RestoreOldWin(const POINT pt, unsigned was_snapped, RECT *ownd)
 
     if (restore) {
         LastWin.moveonly = 0;
-//        SetWindowPos(state.hwnd, NULL
-//                , pt.x - state.offset.x - state.mdipt.x
-//                , pt.y - state.offset.y - state.mdipt.y
-//                , state.origin.width, state.origin.height
-//                , SWP_NOZORDER);
         ownd->left = pt.x - state.offset.x - state.mdipt.x;
         ownd->top =  pt.y - state.offset.y - state.mdipt.y;
         ownd->right = ownd->left + state.origin.width;

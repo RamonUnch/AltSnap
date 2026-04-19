@@ -547,6 +547,21 @@ static BOOL SetLayeredWindowAttributesL(HWND hwnd, COLORREF crKey, BYTE bAlpha, 
     return FALSE;
 }
 
+/* Helper to set alpha and automatically add/remove WS_EX_LAYERED attrib */
+static void SetWindowAlpha(HWND hwnd, BYTE alpha)
+{
+    /*LOGA("Setting ALPHA to %d", (int)alpha);*/
+    LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    if (alpha == 255) {
+        if ( exstyle&WS_EX_LAYERED ) /* Remove layered attribute if opacity is 100% */
+            SetWindowLongPtr(hwnd, GWL_EXSTYLE, exstyle & ~WS_EX_LAYERED);
+    } else {
+        if ( !(exstyle&WS_EX_LAYERED) ) /* Add Layered attribute if needed */
+            SetWindowLongPtr(hwnd, GWL_EXSTYLE, exstyle|WS_EX_LAYERED);
+        SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
+    }
+}
+
 static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
 {
     typedef BOOL (WINAPI *funk_t)(HMONITOR hMonitor, LPMONITORINFO lpmi);

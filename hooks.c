@@ -628,7 +628,7 @@ static void SetWindowTrans(HWND hwnd)
     static HWND oldhwnd;
     if (conf.MoveTrans == 0 || conf.MoveTrans == 255) return;
     if (oldhwnd == hwnd) return; // Nothing to do
-    if ((DorQWORD)hwnd == (DorQWORD)(-1)) {
+    if (hwnd == (HWND)(-1)) {
         oldhwnd = NULL;
         oldtrans = 0;
         return;
@@ -3238,21 +3238,13 @@ static void ActionVolume(int delta)
 // Windows 2000+ Only
 static int ActionTransparency(HWND hwnd, short delta)
 {
-    static int alpha=255;
-
     if (blacklisted(hwnd, &BlkLst.Windows)) return 0; // Spetial
-    if (MOUVEMENT(state.action)) SetWindowTrans((HWND)-1);
+    if (state.action.ac && MOUVEMENT(state.action)) SetWindowTrans((HWND)-1);
 
+    static int alpha=255;
     short pre_delta = (state.shift)? conf.AlphaDeltaShift: conf.AlphaDelta;
     int alpha_delta = ScaleDeltaAndAccum(delta, pre_delta);
     if (!alpha_delta) return 1;
-
-    LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
-    if (alpha_delta < 0 && !(exstyle&WS_EX_LAYERED)) {
-        // Add layered attribute to be able to change alpha
-        SetWindowLongPtr(hwnd, GWL_EXSTYLE, exstyle|WS_EX_LAYERED);
-        SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
-    }
 
     BYTE old_alpha;
     if (GetLayeredWindowAttributes(hwnd, NULL, &old_alpha, NULL)) {
@@ -3261,13 +3253,10 @@ static int ActionTransparency(HWND hwnd, short delta)
 
     alpha = CLAMP(conf.MinAlpha, alpha+alpha_delta, 255); // Limit alpha
 
-    if (alpha >= 255) // Remove layered attribute if opacity is 100%
-        SetWindowLongPtr(hwnd, GWL_EXSTYLE, exstyle & ~WS_EX_LAYERED);
-    else
-        SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
-
+    SetWindowAlpha(hwnd, alpha);
     return 1;
 }
+
 static void SetBottomMost(HWND hwnd)
 {
     HWND lowhwnd = HWND_BOTTOM; // Lowest hwnd to consider.

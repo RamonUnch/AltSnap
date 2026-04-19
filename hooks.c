@@ -72,6 +72,11 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, action_t action, int b
 static void FinishMovementAsync();
 static void MouseMoveNow(POINT pt);
 
+typedef struct resizeXY {
+    enum resizeX x;
+    enum resizeY y;
+} resizexy_t;
+
 static struct windowRR {
     HWND hwnd;
     int x;
@@ -79,6 +84,7 @@ static struct windowRR {
     int width;
     int height;
     UINT odpi;
+    resizexy_t resize;
     UCHAR end;
     UCHAR start;
     UCHAR moveonly;
@@ -87,10 +93,6 @@ static struct windowRR {
     //UCHAR resizing_now;
 } LastWin;
 
-typedef struct resizeXY {
-    enum resizeX x;
-    enum resizeY y;
-} resizexy_t;
 typedef struct rgMMI {
     POINT Min;
     POINT Max;
@@ -1365,6 +1367,7 @@ static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h)
 
     if (!winrr_buf[winrr_idx].hwnd) {
         // The entry is free
+        mem00(&winrr_buf[winrr_idx], sizeof(winrr_buf[winrr_idx]));
         winrr_buf[winrr_idx].hwnd = hwnd;
         winrr_buf[winrr_idx].x = x;
         winrr_buf[winrr_idx].y = y;
@@ -1373,12 +1376,15 @@ static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h)
         winrr_buf[winrr_idx].end = 1;
         winrr_buf[winrr_idx].start = 1;
 
+        // TODO!!!! determine the correct resizexy_t structure
+        // depending on the wish rect and the current rect
+        //winrr_buf[winrr_idx].resize = { 0 };
+
         PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)MoveWindowNow, (LPARAM)&winrr_buf[winrr_idx]);
     } else {
         LOG("MoveWindowAsync: NOT MOVING %X, NO MORE ROOM IN RING BUFFER!", (UINT)(LPARAM)hwnd);
     }
 }
-
 
 /////////////////////////////////////////////////////////////////////////////
 // Move the windows in a thread in case it is very slow to resize
@@ -1386,15 +1392,16 @@ static void MoveResizeWindowNow_(struct windowRR *lw, UINT flag)
 {
     HWND hwnd;
     hwnd = lw->hwnd;
-    //LOGA("lw->end=%d, start=%d, moveonly=%d, maximize=%d, snap=%d", (int)lw->end, (int)lw->start, (int)lw->moveonly, (int)lw->maximize, (int)lw->snap);
 
-    if (lw->end && !lw->start) Sleep(8); // At the End of movement...
+    // At the End of movement unless it is complete in one go
+    // ie: FullWin=0 or MoveWindowAsync
+    if (lw->end && !lw->start) Sleep(8);
 
     // Send WM_ENTERSIZEMOVE and EVENT_SYSTEM_MOVESIZESTART
     if (lw->start)
         NotifySizeMoveStaEnd(hwnd, 1); // Once darg actually starts.
 
-
+    LOG("MoveResizeWindowNow_:lw->end=%d, start=%d, moveonly=%d, maximize=%d, snap=%d, resize{%d,%d}", (int)lw->end, (int)lw->start, (int)lw->moveonly, (int)lw->maximize, (int)lw->snap, (int)lw->resize.x,(int)lw->resize.y);
     if (lw->end && !lw->maximize && (IsZoomed(hwnd) || IsWindowSnapped(hwnd))) {
         // Use Restore
         RestoreWindowTo(hwnd, lw->x, lw->y, lw->width, lw->height);
@@ -1415,9 +1422,12 @@ static void MoveResizeWindowNow_(struct windowRR *lw, UINT flag)
         if (conf.RefreshRate) ASleep(conf.RefreshRate); // Accurate!!!
     }
 
+    // In case of FullWin=0 or MoveWindowAsync
     if (lw->end /*&& !conf.FullWin*/)
         NotifySizeMoveStaEnd(hwnd, 0);
 
+    lw->start = 0;
+    lw->end = 0;
     lw->hwnd = NULL;
 }
 
@@ -2031,6 +2041,7 @@ static void MoveTransWinRaw(int x, int y, int w, int h)
     #undef f
 //      if(hwndSS) EndDeferWindowPos(hwndSS);
 }
+
 static void MoveTransWin(struct windowRR *lw)
 {
     RECT bd;
@@ -2169,8 +2180,10 @@ static void MouseMoveNow(POINT pt)
     }
     int posx=0, posy=0, wndwidth=0, wndheight=0;
 
-    mem00(&LastWin, sizeof(LastWin));
+    //mem00(&LastWin, sizeof(LastWin));
     LastWin.odpi = state.origin.dpi;
+    LastWin.moveonly = 0;
+
 
     // Convert pt in MDI coordinates.
     // state.mdipt is global!
@@ -2281,6 +2294,7 @@ static void MouseMoveNow(POINT pt)
     LastWin.y      = posy;
     LastWin.width  = wndwidth;
     LastWin.height = wndheight;
+    LastWin.resize = state.resize;
 
     // Save hwnd After we are sure movement will occur.
     LastWin.hwnd = state.hwnd;
@@ -5160,6 +5174,10 @@ static DWORD WINAPI FinishMovementNow(LPVOID pp)
     }
 
     HideTransWin();
+
+    // Send WM_EXITSIZEMOVE and EVENT_SYSTEM_MOVESIZEEND
+    if(conf.FullWin && state.moving == 1)
+        NotifySizeMoveStaEnd(state.hwnd, 0);
 
     state.action = k_action_none;
     state.moving = 0;

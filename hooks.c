@@ -192,8 +192,6 @@ static struct rghWnds {
 #define MAXKEYS 15
 static struct config {
     // System settings
-    short dragXth;
-    short dragYth;
     short dbclickX;
     short dbclickY;
     // [General]
@@ -236,6 +234,7 @@ static struct config {
     UCHAR RCCloseMItem;
     UCHAR MaxKeysNum;
     UCHAR DragThreshold;
+    UCHAR DragOutThresholdPx; // SPI_GETMOUSEDRAGOUTTHRESHOLD but it is buggy on Win11...
     UCHAR AblockHotclick;
     UCHAR MenuShowOffscreenWin;
     UCHAR MenuShowEmptyLabelWin;
@@ -345,6 +344,7 @@ static const struct OptionListItem Advanced_uchars[] = {
     { "RCCloseMItem", 1 },
     { "MaxKeysNum", 0 },
     { "DragThreshold", 1 },
+    { "DragOutThresholdPx", 20 },
     { "AblockHotclick", 0 },
     { "MenuShowOffscreenWin", 0 },
     { "MenuShowEmptyLabelWin", 0 },
@@ -455,8 +455,8 @@ static xpure int IsSamePTT(const POINT *pt, const POINT *ptt)
 
 static xpure int IsPtDragOut(const POINT *pt, const POINT *ptt)
 {
-    const short Tx = conf.dragXth;
-    const short Ty = conf.dragYth;
+    const long Tx = conf.DragOutThresholdPx;
+    const long Ty = Tx;
     return !( pt->x > ptt->x+Tx || pt->y > ptt->y+Ty || pt->x < ptt->x-Tx || pt->y < ptt->y-Ty );
 }
 
@@ -6514,16 +6514,18 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
     mem00(&LastWin, sizeof(LastWin));
 
     // GET SYSTEM SETTINGS
-    DWORD dragthreshold=0;
-    if (SystemParametersInfo(/*SPI_GETMOUSEDRAGOUTTHRESHOLD*/0x0084, 0, &dragthreshold, 0)) {
-        conf.dragXth = conf.dragYth = dragthreshold;
-        LOG("SPI_GETMOUSEDRAGOUTTHRESHOLD=%lu", dragthreshold);
-    } else {
-        // Unable to retreave the new drag-out Threshold
-        // Default to twice the usual drag threshold.
-        conf.dragXth  = GetSystemMetrics(SM_CXDRAG)<<1;
-        conf.dragYth  = GetSystemMetrics(SM_CYDRAG)<<1;
-    }
+    // I am unable to get consistent SPI_GETMOUSEDRAGOUTTHRESHOLD results
+    // value should be at 20 by default, but I cannot have a decent value
+//    DWORD dragthreshold=0;
+//    if (SystemParametersInfo(/*SPI_GETMOUSEDRAGOUTTHRESHOLD*/0x0084, 0, &dragthreshold, 0)) {
+//        conf.dragXth = conf.dragYth = dragthreshold;
+//        LOG("SPI_GETMOUSEDRAGOUTTHRESHOLD=%lu", dragthreshold);
+//    } else {
+//        // Unable to retreave the new drag-out Threshold
+//        // Default to twice the usual drag threshold.
+//        conf.dragXth  = GetSystemMetrics(SM_CXDRAG)<<1;
+//        conf.dragYth  = GetSystemMetrics(SM_CYDRAG)<<1;
+//    }
 
     conf.dbclickX = GetSystemMetrics(SM_CXDOUBLECLK);
     conf.dbclickY = GetSystemMetrics(SM_CYDOUBLECLK);

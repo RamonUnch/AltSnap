@@ -645,7 +645,7 @@ static void SetWindowTrans(HWND hwnd)
             SetWindowLongPtr(hwnd, GWL_EXSTYLE, exstyle|WS_EX_LAYERED);
             oldtrans = 255;
         }
-        SetLayeredWindowAttributes(oldhwnd, 0, conf.MoveTrans, LWA_ALPHA);
+        SetLayeredWindowAttributes(hwnd, 0, conf.MoveTrans, LWA_ALPHA);
     } else if (!hwnd && oldhwnd) { // restore old trans;
         LONG_PTR exstyle = GetWindowLongPtr(oldhwnd, GWL_EXSTYLE);
         if (!oldtrans || oldtrans == 255) {

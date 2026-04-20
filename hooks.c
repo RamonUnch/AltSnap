@@ -799,26 +799,33 @@ BOOL CALLBACK EnumSnappedWindows(HWND hwnd, LPARAM lParam)
     struct snwdata snw = { 0 };
     if (ShouldSnapTo(hwnd)
     && !IsZoomed(hwnd)
-    && GetWindowRectL(hwnd, &snw.rc)) {
-        unsigned restore;
+    && GetWindowRectL(hwnd, &wnd)) {
+        unsigned flag;
+
         if (conf.SmartAero&2 || IsWindowSnapped(hwnd)) {
             // In SMARTER snapping mode or if the WINDOW IS SNAPPED
             // We only consider the position of the window
             // to determine its snapping state
             MONITORINFO mi;
             GetMonitorInfoFromWin(hwnd, &mi);
-            snw.flag = WhichSideRectInRect(&mi.rcWork, &snw.rc);
-        } else if ((restore = GetRestoreFlag(hwnd)) && restore&SNAPPED && restore&SNAPPEDSIDE) {
-            // The window was AltSnapped...
-            snw.flag = restore;
+            flag = WhichSideRectInRect(&mi.rcWork, &wnd);
         } else {
-            // thiw window is not snapped.
-            return TRUE; // next hwnd
+            unsigned restore = GetRestoreFlag(hwnd);
+            if (restore && restore&SNAPPED && restore&SNAPPEDSIDE) {
+                // The window was AltSnapped...
+                flag = restore;
+            } else {
+                // thiw window is not snapped.
+                return TRUE; // next hwnd
+            }
         }
         // Add the window to the list
-        snw.hwnd = hwnd;
-        OffsetRectMDI(&snw.rc);
-        ListAppend(&snwnds, &snw, sizeof(*snwnds.it));
+        struct snwdata *new_wnd = (struct snwdata *)ListAppend(&snwnds, NULL, sizeof(*snwnds.it));
+        if (!new_wnd) return FALSE;
+        OffsetRectMDI(&wnd);
+        CopyRect(&new_wnd->rc, &wnd);
+        new_wnd->hwnd = hwnd;
+        new_wnd->flag = flag;
     }
     return TRUE;
 }
@@ -1387,6 +1394,20 @@ static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h)
 }
 
 /////////////////////////////////////////////////////////////////////////////
+/* Map AltSnap resize direction to INGING wParam edge constant.
+ * Used to send WM_SIZING before SetWindowPos so that apps like terminal
+ * emulators can snap to their character-cell grid. */
+static WPARAM ResizeToWMSZ(struct resizeXY rz)
+{
+    static const WPARAM map[4][4] = {
+    //             XNONE            LEFT              RIGHT             XCENTER
+    /* YNONE */  { WMSZ_BOTTOMRIGHT, WMSZ_LEFT,        WMSZ_RIGHT,       WMSZ_BOTTOMRIGHT },
+    /* TOP */    { WMSZ_TOP,         WMSZ_TOPLEFT,     WMSZ_TOPRIGHT,    WMSZ_TOP         },
+    /* BOTTOM */ { WMSZ_BOTTOM,      WMSZ_BOTTOMLEFT,  WMSZ_BOTTOMRIGHT, WMSZ_BOTTOM      },
+    /* CENTER */ { WMSZ_BOTTOMRIGHT, WMSZ_LEFT,        WMSZ_RIGHT,       WMSZ_BOTTOMRIGHT },
+    };
+    return map[rz.y][rz.x];
+}
 // Move the windows in a thread in case it is very slow to resize
 static void MoveResizeWindowNow_(struct windowRR *lw, UINT flag)
 {
@@ -1406,11 +1427,17 @@ static void MoveResizeWindowNow_(struct windowRR *lw, UINT flag)
         // Use Restore
         RestoreWindowTo(hwnd, lw->x, lw->y, lw->width, lw->height);
     } else {
-//        PostMessage(hwnd, WM_MOUSEMOVE, MK_LBUTTON, MAKELPARAM(state.prevpt.x, state.prevpt.y));
-//        if(!(flag&SWP_NOSIZE)) {
-//            RECT rc = { lw->x, lw->y, lw->x + lw->width, lw->y + lw->height };
-//            SendMessage(hwnd, WM_SIZING, WMSZ_BOTTOMRIGHT, (LPARAM)&rc);
-//        }
+        // Send WM_SIZING so apps can adjust to their grid (eg terminals)
+        if (!(flag & SWP_NOSIZE) && !blacklisted(hwnd, &BlkLst.SSizeMove)) {
+            RECT rc = { lw->x, lw->y, lw->x + lw->width, lw->y + lw->height };
+            if (SendMessageTimeout(hwnd, WM_SIZING, ResizeToWMSZ(state.resize)
+                    , (LPARAM)&rc, SMTO_ABORTIFHUNG, 32, NULL)) {
+                lw->x = rc.left;
+                lw->y = rc.top;
+                lw->width = rc.right - rc.left;
+                lw->height = rc.bottom - rc.top;
+            }
+        }
         SetWindowPos(hwnd, NULL, lw->x, lw->y, lw->width, lw->height, flag);
 
         // Send WM_SYNCPAINT in case to wait for the end of movement

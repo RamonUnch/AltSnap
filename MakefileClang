@@ -2,8 +2,7 @@ CC=clang
 WR=llvm-rc
 
 # We need to include MINGW headers files (for i386 here)
-MINGW=-ID:\Straw\llvm-mingw\include \
-	-LD:\Straw\llvm-mingw\i686-w64-mingw32\lib
+MINGW=-ID:\Straw\llvm-mingw\include -LD:\Straw\llvm-mingw\i686-w64-mingw32\lib
 
 
 WARNINGS=-Wall \
@@ -71,16 +70,16 @@ EXELD = $(LDFLAGS) \
 
 default: AltSnap.exe hooks.dll
 
-hooks.dll : hooks.c hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c
+hooks.dll : hooks.c hooks.h hooks.res unfuck.h nanolibc.h zones.c snap.c
 	$(CC) -o hooks.dll hooks.c hooks.res $(CFLAGS) $(LDFLAGS) -shared -e_DllMain@12 -v -Wl,--kill-at
 
-AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages.c unfuck.h nanolibc.h
+AltSnap.exe : altsnap.res altsnap.c hooks.h tray.c config.c languages.h languages.c unfuck.h nanolibc.h
 	$(CC) -o AltSnap.exe altsnap.c altsnap.res $(CFLAGS) $(EXELD) -mwindows -e_unfuckWinMain@0 -v
 
-altsnapr.o : altsnap.rc window.rc resource.h AltSnap.exe.manifest media/find.cur media/find.ico media/icon.ico media/tray-disabled.ico media/tray-enabled.ico
+altsnap.res : altsnap.rc window.rc resource.h AltSnap.exe.manifest media/find.cur media/find.ico media/icon.ico media/tray-disabled.ico media/tray-enabled.ico
 	$(WR) altsnap.rc
 
-hooksr.o: hooks.rc
+hooks.res: hooks.rc
 	$(WR) hooks.rc
 
 clean :

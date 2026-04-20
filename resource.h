@@ -5,8 +5,8 @@
 #define IDC_STATIC (-1)
 #endif
 
-#define VERSIONRC     1,6,7,0
-#define APP_VERSION  "1.67"
+#define VERSIONRC     1,6,8,0
+#define APP_VERSION  "1.68"
 
 #define APP_ICON                         101
 #define TRAY_OFF                         102
@@ -19,6 +19,7 @@
 #define IDD_BLACKLISTPAGE                204
 #define IDD_ADVANCEDPAGE                 205
 #define IDD_ABOUTPAGE                    206
+#define IDD_ACTIONPARAM                  207
 
 #define IDI_FIND                         301
 #define IDI_BIGICON                      302
@@ -91,6 +92,13 @@
 #define IDC_NEWPROGNAME                 1519
 #define IDC_HOTCLICKS_BOX               1520
 #define IDC_AUTHOR2                     1521
+
+#define IDC_ACTIONT                     1522
+#define IDC_ACTIONP0                    1523
+#define IDC_ACTIONP1                    1524
+#define IDC_ACTIONP2                    1525
+#define IDC_ACTIONTSTRING               1526
+#define IDC_ADVANCEDBT_AC               1527
 
 #define IDC_MBA1                        1601
 #define IDC_MBA2                        1602

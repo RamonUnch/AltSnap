@@ -243,7 +243,7 @@ static void LOGfunk( const char *fmt, ... )
         /* C11 cool _Static_assert */
         #define static_assert _Static_assert
     #else
-        #define static_assert(x, y) enum assert_static__ { assert_static___ = 1/(x) };
+        #define static_assert(x, y) do{ enum assert_static__ { assert_static___ = 1/(x) }; }while(0)
     #endif
 #endif /* static_assert */
 #endif /* [C89 - C23[ */
@@ -545,6 +545,21 @@ static BOOL SetLayeredWindowAttributesL(HWND hwnd, COLORREF crKey, BYTE bAlpha, 
         return funk(hwnd, crKey, bAlpha, dwFlags);
     }
     return FALSE;
+}
+
+/* Helper to set alpha and automatically add/remove WS_EX_LAYERED attrib */
+static void SetWindowAlpha(HWND hwnd, BYTE alpha)
+{
+    /*LOGA("Setting ALPHA to %d", (int)alpha);*/
+    LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    if (alpha == 255) {
+        if ( exstyle&WS_EX_LAYERED ) /* Remove layered attribute if opacity is 100% */
+            SetWindowLongPtr(hwnd, GWL_EXSTYLE, exstyle & ~WS_EX_LAYERED);
+    } else {
+        if ( !(exstyle&WS_EX_LAYERED) ) /* Add Layered attribute if needed */
+            SetWindowLongPtr(hwnd, GWL_EXSTYLE, exstyle|WS_EX_LAYERED);
+        SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
+    }
 }
 
 static BOOL GetMonitorInfoL(HMONITOR hMonitor, LPMONITORINFO lpmi)
@@ -1763,10 +1778,10 @@ static int GetSectionOptionInt(const TCHAR *section, const char * const oname, c
 }
 
 /* Simple function to append to a simple list */
+struct my_simple_list_ { void *buf; size_t count; size_t cap; };
 static void* ListAppend(void *list_p, void *elem, size_t elemsize)
 {
-    struct my_list { void *buf; size_t count; size_t cap; };
-    struct my_list *list = (struct my_list *)list_p;
+    struct my_simple_list_ *list = (struct my_simple_list_ *)list_p;
     void *dst = NULL;
     size_t cap = list->cap;
 
@@ -1774,6 +1789,7 @@ static void* ListAppend(void *list_p, void *elem, size_t elemsize)
         cap = max(cap * 2, 8);
         void *nptr = realloc(list->buf, cap * elemsize);
         if (!nptr) return NULL;
+        //LOGA("ListAppend Reallocated = %u elems / %u bytes", (unsigned)cap, (unsigned)(cap * elemsize));
 
         list->buf = nptr;
         list->cap = cap;  /* Realloc succeeded, increase count. */
@@ -1787,5 +1803,10 @@ static void* ListAppend(void *list_p, void *elem, size_t elemsize)
 
     return dst;
 }
-
+static void ListFree(void *list_p)
+{
+    struct my_simple_list_ *list = (struct my_simple_list_ *)list_p;
+    free(list->buf);
+    mem00(list, sizeof(*list));
+}
 #endif

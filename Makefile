@@ -11,6 +11,7 @@ WARNINGS=-Wall  \
 	-Wsuggest-attribute=pure \
 	-Wsuggest-attribute=const \
 	-Wsuggest-attribute=noreturn \
+	-Wimplicit-fallthrough \
 	-Wuninitialized \
 	-Wtype-limits \
 	-Woverride-init \
@@ -23,7 +24,7 @@ WARNINGS=-Wall  \
 	-Wstack-usage=4096 \
 	-Werror=vla \
 	-pedantic \
-	-Wc++-compat
+	-Wc++-compat \
 	-Wstringop-overflow=4 \
 	-Wduplicated-cond \
 	-Wduplicated-branches \
@@ -37,13 +38,18 @@ WARNINGS=-Wall  \
 # -Wc++-compat
 # -fmerge-all-constants
 
+# -fanalyzer
+# -mshstk
+
 CFLAGS=-Os -std=c99 \
 	-finput-charset=UTF-8 \
+	-municode -DUNICODE -D_UNICODE \
+	-fvisibility=hidden \
 	-fshort-wchar \
 	-m32 -march=i386 -mtune=i686 \
-	-mno-stack-arg-probe \
 	-mpreferred-stack-boundary=2 \
 	-momit-leaf-frame-pointer \
+	-mno-stack-arg-probe \
 	-fno-stack-check \
 	-fno-stack-protector \
 	-fno-ident \
@@ -56,6 +62,8 @@ CFLAGS=-Os -std=c99 \
 	-fno-semantic-interposition \
 	-fgcse-sm \
 	-fgcse-las \
+	-fipa-pta \
+	-DSTRICT \
 	-D__USE_MINGW_ANSI_STDIO=0 \
 	-Wp,-D_FORTIFY_SOURCE=2 \
 	$(WARNINGS) \
@@ -66,6 +74,7 @@ LDFLAGS=-nostdlib \
 	-lkernel32 \
 	-luser32 \
 	-lgdi32 \
+	-ladvapi32 \
 	-s \
 	-Wl,-s,-dynamicbase \
 	-Wl,-nxcompat \
@@ -74,6 +83,8 @@ LDFLAGS=-nostdlib \
 	-Wl,--disable-runtime-pseudo-reloc \
 	-Wl,--enable-auto-import \
 	-Wl,--disable-stdcall-fixup \
+
+#	-Wl,--stack=1048576
 
 EXELD = $(LDFLAGS) \
 	-Wl,--tsaware \
@@ -85,7 +96,7 @@ EXELD = $(LDFLAGS) \
 default: AltSnap.exe hooks.dll
 
 hooks.dll : hooks.c hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c
-	$(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) $(LDFLAGS) -mdll -e_DllMain@12 -Wl,--kill-at
+	$(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) $(LDFLAGS) -mdll -fpic -e_DllMain@12 -Wl,--kill-at
 
 AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages.c unfuck.h nanolibc.h
 	$(CC) -o AltSnap.exe altsnap.c altsnapr.o $(CFLAGS) $(EXELD) -mwindows -e_unfuckWinMain@0
@@ -93,7 +104,7 @@ AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages
 altsnapr.o : altsnap.rc window.rc resource.h AltSnap.exe.manifest media/find.cur media/find.ico media/icon.ico media/tray-disabled.ico media/tray-enabled.ico
 	$(WR) altsnap.rc altsnapr.o -Fpe-i386
 
-hooksr.o: hooks.rc
+hooksr.o: hooks.rc resource.h
 	$(WR) hooks.rc hooksr.o -Fpe-i386
 
 clean :

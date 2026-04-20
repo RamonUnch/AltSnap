@@ -2158,7 +2158,7 @@ static void MouseMoveNow(POINT pt)
         return; // Movement was blocked...
     }
 
-    RECT wnd;
+    static RECT wnd; // Targect movement rect.
     UCHAR was_snapped = 0;
     if (!state.moving) {
         // First initialize wnd with the actual Window rect
@@ -2170,13 +2170,6 @@ static void MouseMoveNow(POINT pt)
             was_snapped = IsWindowSnapped(state.hwnd);
             RestoreOldWin(pt, was_snapped, &wnd);
         }
-    } else {
-        // Get data from LastWin (that was resized)
-        // when we are in the middle of a resize
-        wnd.left   = LastWin.x + state.mdipt.x;
-        wnd.top    = LastWin.y + state.mdipt.y;
-        wnd.right  = LastWin.x + state.mdipt.x + LastWin.width;
-        wnd.bottom = LastWin.y + state.mdipt.y + LastWin.height;
     }
     int posx=0, posy=0, wndwidth=0, wndheight=0;
 
@@ -2295,6 +2288,12 @@ static void MouseMoveNow(POINT pt)
     LastWin.width  = wndwidth;
     LastWin.height = wndheight;
     LastWin.resize = state.resize;
+
+    // Update the static wnd with new dimentions.
+    wnd.left   = posx + state.mdipt.x;
+    wnd.top    = posy + state.mdipt.y;
+    wnd.right  = posx + state.mdipt.x + wndwidth;
+    wnd.bottom = posy + state.mdipt.y + wndheight;
 
     // Save hwnd After we are sure movement will occur.
     LastWin.hwnd = state.hwnd;

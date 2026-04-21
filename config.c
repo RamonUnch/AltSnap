@@ -1479,7 +1479,7 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
             advancedActionParam_t acp;
             acp.base_action_lst = kbshortcut_actions;
             acp.outbuf[0] = TEXT('\0');
-            int code = DialogBoxParam(g_hinst, MAKEINTRESOURCE(IDD_ACTIONPARAM), hwnd, AdvancedActionDlgProc, (LPARAM)&acp);
+            int code = DialogBoxParam(g_hinst, MAKEINTRESOURCE(IDD_ACTIONPARAM), hwnd, (DLGPROC)AdvancedActionDlgProc, (LPARAM)&acp);
             if (code == IDOK && acp.outbuf[0]) {
                 HWND control = GetDlgItem(hwnd, IDC_SHORTCUTS_AC);
                 int new_index = CB_AddStringIfNotPresentAndGetIdx(control, acp.outbuf);

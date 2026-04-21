@@ -1980,11 +1980,6 @@ static LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         const HBRUSH bgbrush =    uDarkMode? CreateSolidBrush(RGB(32, 32, 32)): (HBRUSH)(COLOR_BTNFACE+1);
         const HPEN pen = (HPEN) CreatePen(PS_SOLID, penwidth, txtcolor);
 
-        const struct lastkeyss *lks = (struct lastkeyss *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-        if (!lks) break;
-        int idx = lks->idx;
-        const TCHAR (*lastkey)[MAXLL] = lks->lastkey;
-
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
 
@@ -2086,7 +2081,7 @@ static LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             DeleteObject(SelectObject(hdc, prevpen));
         }
 
-        // Draw textual info....
+        // Draw textual info...
         LOGFONT lfont;
         GetObject(GetStockObject(DEFAULT_GUI_FONT), sizeof(lfont), &lfont);
         lfont.lfHeight = -MulDiv(11, ReallyGetDpiForWindow(hwnd), 72);
@@ -2097,18 +2092,25 @@ static LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
         RECT crc;
         GetClientRect(hwnd, &crc);
-        UCHAR i;
         long splitheight = crc.bottom - lineheight*MAXLINES;
-        for (i=0; i < MAXLINES; i++) {
-            UCHAR didx = (idx+i)%MAXLINES;
-            RECT trc = {lineheight/2, crc.bottom-lineheight*(MAXLINES-i), crc.right, crc.bottom};
-            DrawText(hdc, lastkey[didx], lstrlen(lastkey[didx]), &trc, DT_NOCLIP|DT_TABSTOP);
+
+        // Draw Key Historic
+        const struct lastkeyss *lks = (struct lastkeyss *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+        if (lks) {
+            int idx = lks->idx;
+            const TCHAR (*lastkey)[MAXLL] = lks->lastkey;
+            for (size_t i=0; i < MAXLINES; i++) {
+                UCHAR didx = (idx+i)%MAXLINES;
+                RECT trc = {lineheight/2, crc.bottom-lineheight*(MAXLINES-i), crc.right, crc.bottom};
+                DrawText(hdc, lastkey[didx], lstrlen(lastkey[didx]), &trc, DT_NOCLIP|DT_TABSTOP);
+            }
         }
         TCHAR *str = l10n->MiscZoneTestWinHelp;
         if (UseZones&1) {
             RECT trc2 = { lineheight/2, lineheight/2, crc.right, splitheight };
             DrawText(hdc, str, lstrlen(str), &trc2, DT_NOCLIP|DT_TABSTOP);
         }
+
         SelectObject(hdc, oripen);
         DeleteObject(SelectObject(hdc, oldfont));
 

@@ -73,8 +73,8 @@ static void FinishMovementAsync();
 static void MouseMoveNow(POINT pt);
 
 typedef struct resizeXY {
-    enum resizeX x;
-    enum resizeY y;
+    BYTE x;
+    BYTE y;
 } resizexy_t;
 
 static struct windowRR {
@@ -1362,6 +1362,20 @@ static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h)
     static struct windowRR winrr_buf[8];
     static size_t winrr_idx = 0;
 
+    RECT rc; UCHAR moveonly = 0;
+    resizexy_t resize = { RZ_XCENTER, RZ_YCENTER };
+    if (!GetWindowRect(hwnd, &rc)) return;
+    moveonly = w == rc.right - rc.left && h == rc.bottom - rc.top;
+    if (!moveonly) {
+        // Determine the correct resizexy_t structure
+        // depending on the wished position and the current onr
+        static_assert( RZ_XCENTER == (RZ_LEFT|RZ_RIGHT), "!!" );
+        if (rc.left == x)       resize.x &= ~RZ_LEFT;
+        if (rc.right == x + w)  resize.x &= ~RZ_RIGHT;
+        if (rc.top == y)        resize.y &= ~RZ_TOP;
+        if (rc.bottom == y + h) resize.y &= ~RZ_BOTTOM;
+    }
+
     // Next item in list
     winrr_idx = winrr_idx & (ARR_SZ(winrr_buf) - 1);
 
@@ -1376,9 +1390,8 @@ static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h)
         winrr_buf[winrr_idx].end = 1;
         winrr_buf[winrr_idx].start = 1;
 
-        // TODO!!!! determine the correct resizexy_t structure
-        // depending on the wish rect and the current rect
-        //winrr_buf[winrr_idx].resize = { 0 };
+        winrr_buf[winrr_idx].resize = resize;
+        winrr_buf[winrr_idx].moveonly = moveonly;
 
         PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)MoveWindowNow, (LPARAM)&winrr_buf[winrr_idx]);
     } else {
@@ -2215,11 +2228,6 @@ static void MouseMoveNow(POINT pt)
             was_snapped = IsWindowSnapped(state.hwnd);
             RestoreOldWin(pt, was_snapped, &wnd);
         }
-    } else {
-//    wnd.left   = LastWin.x + state.mdipt.x;
-//    wnd.top    = LastWin.y + state.mdipt.y;
-//    wnd.right  = LastWin.x + state.mdipt.x + LastWin.width;
-//    wnd.bottom = LastWin.y + state.mdipt.y + LastWin.height;
     }
     int posx=0, posy=0, wndwidth=0, wndheight=0;
 

@@ -11,9 +11,9 @@ static void ShowSnapLayoutPreview(unsigned char yep);
 enum { MAX_ZONES=2048, MAX_LAYOUTS=10 };
 #define INVALID_ZONE_IDX 0xffffffffU
 
-RECT *Zones[MAX_LAYOUTS];
-unsigned nzones[MAX_LAYOUTS];
-DWORD Grids[MAX_LAYOUTS];
+static RECT *Zones[MAX_LAYOUTS];
+static unsigned nzones[MAX_LAYOUTS];
+static DWORD Grids[MAX_LAYOUTS];
 
 enum { ZONES_PREV_HIDE=0, ZONES_PREV_SHOW=1 };
 
@@ -43,8 +43,7 @@ static int ReadRectFromini(RECT *zone, unsigned laynum, unsigned idx, const TCHA
     lstrcpy_s(zaschii, ARR_SZ(zaschii), txt);
     TCHAR *oldptr, *newptr;
     oldptr = &zaschii[0];
-    UCHAR i;
-    for (i=0; i < 4; i++) {
+    for (size_t i=0; i < 4; i++) {
         newptr = lstrchr(oldptr, ',');
         if (!newptr) return 0;
         *newptr = '\0';
@@ -70,19 +69,18 @@ static void ReadZonesFromLayout(const TCHAR *inisection, unsigned laynum)
 // Load all zones from ini file
 static void ReadZones(const TCHAR *inisection)
 {
-    UCHAR i;
-    for(i=0; i<ARR_SZ(Zones); i++)
+    for (size_t i=0; i<ARR_SZ(Zones); i++)
         ReadZonesFromLayout(inisection, i);
 }
-static unsigned CopyZones(RECT *dZones, unsigned idx)
-{
-    unsigned i;
-    RECT * const lZones = Zones[idx];
-    for (i=0; i < nzones[idx]; ++i) {
-        CopyRect(&dZones[i], &lZones[i]);
-    }
-    return i;
-}
+//static unsigned CopyZones(RECT *dZones, unsigned idx)
+//{
+//    RECT * const lZones = Zones[idx];
+//    unsigned i;
+//    for (i=0; i < nzones[idx]; ++i) {
+//        CopyRect(&dZones[i], &lZones[i]);
+//    }
+//    return i;
+//}
 // Generate a grid if asked
 static void GenerateGridZones(unsigned layout, unsigned short Nx, unsigned short Ny)
 {
@@ -95,13 +93,10 @@ static void GenerateGridZones(unsigned layout, unsigned short Nx, unsigned short
     Zones[layout] = tmp;
 
     // Loop on all monitors
-    unsigned m;
-    for (m=0; m < monitors.num; m++) {
+    for (size_t m=0; m < monitors.num; m++) {
         const RECT *mon = &monitors.it[m];
-        unsigned i;
-        for(i=0; i<Nx; i++) { // Horizontal
-            unsigned j;
-            for(j=0; j<Ny; j++) { //Vertical
+        for (size_t i=0; i<Nx; i++) { // Horizontal
+            for (size_t j=0; j<Ny; j++) { //Vertical
                 Zones[layout][nz].left  = mon->left+(( i ) * (mon->right - mon->left))/Nx;
                 Zones[layout][nz].top   = mon->top +(( j ) * (mon->bottom - mon->top))/Ny;
                 Zones[layout][nz].right = mon->left+((i+1) * (mon->right - mon->left))/Nx;
@@ -114,14 +109,13 @@ static void GenerateGridZones(unsigned layout, unsigned short Nx, unsigned short
 }
 static void ReadGrids(const TCHAR *inisection)
 {
-    UCHAR i;
     char gnamex[8];
     char gnamey[8];
     strcpy(gnamex, "GridNx");
     strcpy(gnamey, "GridNy");
     gnamex[7] = '\0';
     gnamey[7] = '\0';
-    for (i=0; i < ARR_SZ(Grids); i++) {
+    for (size_t i=0; i < ARR_SZ(Grids); i++) {
         Grids[i] = 0;
         unsigned short GridNx = GetSectionOptionInt(inisection, gnamex, 0);
         unsigned short GridNy = GetSectionOptionInt(inisection, gnamey, 0);
@@ -138,8 +132,7 @@ static void ReadGrids(const TCHAR *inisection)
 // Needed in case resolution changes.
 static void RecalculateZonesFromGrids()
 {
-    UCHAR i;
-    for (i=0; i<ARR_SZ(Grids); i++) {
+    for (size_t i=0; i<ARR_SZ(Grids); i++) {
         unsigned short GridNx = LOWORD(Grids[i]);
         unsigned short GridNy = HIWORD(Grids[i]);
         if(GridNx && GridNy)
@@ -316,7 +309,7 @@ static unsigned GetNearestZoneFromPointInDirection(const RECT *rc, RECT *out, UC
     POINT opt = { (rc->left+rc->right)/2, (rc->top+rc->bottom)/2 };
 
     unsigned long dist = 0xffffffff;
-    for(unsigned i=0; i < nZones; i++) {
+    for (size_t i=0; i < nZones; i++) {
         const RECT *zrc = &lZones[i];
         const POINT pt = { (zrc->left+zrc->right)/2, (zrc->top+zrc->bottom)/2 };
         unsigned long dst = PtDist2(pt, opt);
@@ -481,8 +474,7 @@ static int GetBestLayoutFromMonitors()
         return -1; // Current layout is good!
     }
 
-    UCHAR i;
-    for (i=0; i<ARR_SZ(Zones); i++) {
+    for (size_t i=0; i<ARR_SZ(Zones); i++) {
         DWORD rez = GetLayoutRez(i);
         if( rez == monRZ )
             return i;
@@ -576,7 +568,7 @@ static void ZonesPrevResetRegion()
     ScreenToClient(g_zphwnd, &opt);
     HRGN hregion = CreateRectRgn(0,0,0,0);
     if (Zones[conf.LayoutNumber]) {
-        for (unsigned i=0; i < nzones[conf.LayoutNumber]; i++) {
+        for (size_t i=0; i < nzones[conf.LayoutNumber]; i++) {
             RECT rc;
             CopyRect(&rc, &Zones[conf.LayoutNumber][i]);
             OffsetRect(&rc, opt.x, opt.y);

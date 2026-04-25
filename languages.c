@@ -13,7 +13,7 @@ static const struct strings *l10n = &en_US;
 
 /////////////////////////////////////////////////////////////////////////////
 // Copies and remove the accelerators & sign. and txt between ( ).
-static size_t lstrcpy_noaccel(TCHAR *__restrict__ dest, const TCHAR *__restrict__ source, size_t destlen)
+static size_t lstrcpy_noaccel(TCHAR *__restrict__ dest, size_t destlen, const TCHAR *__restrict__ source)
 {
     size_t i=0, j=0;
     while(i < destlen && source[i]) {

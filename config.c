@@ -797,7 +797,7 @@ static void FillActionDropListS(HWND hwnd, int idc, TCHAR *inioption, const acti
     }
     for (j = 0; actions[j].action; j++) {
         TCHAR action_name[256];
-        lstrcpy_noaccel(action_name, L10NSTR(actions[j].l10nidx), ARR_SZ(action_name));
+        lstrcpy_noaccel(action_name, ARR_SZ(action_name), L10NSTR(actions[j].l10nidx));
         CB_AddString(control, action_name);
         if (inioption && !lstrcmpi(txt, actions[j].action)) {
             sel = j;
@@ -1530,7 +1530,7 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
             unsigned j, sel = 0;
             for (j = 0; j < ARR_SZ(togglekeys)-1; j++) {
                 TCHAR key_name[256];
-                lstrcpy_noaccel(key_name, L10NSTR(togglekeys[j].l10nidx), ARR_SZ(key_name));
+                lstrcpy_noaccel(key_name, ARR_SZ(key_name), L10NSTR(togglekeys[j].l10nidx));
                 CB_AddString(control, key_name);
                 if (!lstrcmpi(txt, togglekeys[j].action)) {
                     sel = j;
@@ -1958,7 +1958,7 @@ static LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         TCHAR title[256+INT_DIGITS*4+4];
         RECT rc;
         GetWindowRectL(hwnd, &rc);
-        lstrcpy_noaccel(title, l10n->AdvancedTestWindow, ARR_SZ(title));
+        lstrcpy_noaccel(title, ARR_SZ(title), l10n->AdvancedTestWindow);
         lstrcat_s(title, ARR_SZ(title), TEXT(": "));
         lstrcat_s(title, ARR_SZ(title), RectToStr(&rc, num));
 
@@ -2162,7 +2162,7 @@ static HWND NewTestWindow()
         RegisterClass(&wndd);
     }
     TCHAR wintitle[256];
-    lstrcpy_noaccel(wintitle, l10n->AdvancedTestWindow, ARR_SZ(wintitle));
+    lstrcpy_noaccel(wintitle, ARR_SZ(wintitle), l10n->AdvancedTestWindow);
     testwnd = CreateWindowEx(0
          , TEXT(APP_NAMEA)TEXT("-Test"), wintitle
          , WS_OVERLAPPEDWINDOW

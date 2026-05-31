@@ -31,6 +31,9 @@ WHAT'S NEW
 
 Many new features can be seen in the option dialog box, however some of them are only available through editing the AltSnap.ini file (middle click on tyhe tray icon for this).
 
+## Desktop Peek (inspired by [PeekDesktop](https://github.com/shanselman/PeekDesktop))
+Click on an empty area of your desktop wallpaper (or an empty taskbar area) to reveal your desktop — just like macOS Sonoma. All visible windows minimize with a single click; click again or switch to any application to restore them. You can enable this feature under the General tab in the Settings dialog.
+
 # VirusTotal false positive
 You will see with the latest builds that there are some alerts, usually from SecureAge APEX and sometimes from other vendors. Those are false positives, and I stopped contacting the APEX team for every release because it is a waste of time I would rather spend on improving the program.
 I already reduced the number of false positives significantly, simply by changing build flags and by switching to an older version of the NSIS installer system. This is an indication of the impertinence of some modern antivirus solutions. Chocolatey considers that up to five positives on VirusTotal is not even suspicious.

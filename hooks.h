@@ -152,7 +152,8 @@
     ACVALUE(AC_ZOOM,         Zoom,         MR) \
     ACVALUE(AC_ZOOM2,        Zoom2,        MR) \
     ACVALUE(AC_NPSTACKED,    NPStacked,    ZO) \
-    ACVALUE(AC_NPSTACKED2,   NPStacked2,   ZO)
+    ACVALUE(AC_NPSTACKED2,   NPStacked2,   ZO) \
+    ACVALUE(AC_PEEKDESKTOP,  PeekDesktop,  00)
 
 #define ACVALUE(a, b, c) a,
 enum action { ACTION_MAP AC_MAXVALUE, AC_ORICLICK };

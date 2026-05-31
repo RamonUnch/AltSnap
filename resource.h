@@ -211,4 +211,13 @@
 #define IDC_USEPTWINDOW                 2106
 #define IDC_SIDESFRACTION               2107
 
+#define IDC_PEEK_BOX                    2108
+#define IDC_PEEK_ENABLED                2109
+#define IDC_PEEK_DBLCLICK               2110
+#define IDC_PEEK_TASKBAR                2111
+#define IDC_PEEK_GAMINGSUPPRESS         2112
+#define IDC_PEEK_RESTOREONAPP           2113
+#define IDC_PEEK_MODE_H                 2114
+#define IDC_PEEK_MODE                   2115
+
 #endif // AS_RESOURCE_H

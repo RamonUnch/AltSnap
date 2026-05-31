@@ -519,6 +519,12 @@ static INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam
         { IDC_RESIZEALL,     T_BOL, 0,  TEXT("Advanced"), "ResizeAll", V 1 },
         { IDC_USEZONES,      T_BMK, 0,  TEXT("Zones"),    "UseZones", V 0 },
         { IDC_PIERCINGCLICK, T_BOL, 0,  TEXT("Advanced"), "PiercingClick", V 0 },
+        // [Peek]
+        { IDC_PEEK_ENABLED,       T_BOL, 0, TEXT("Peek"), "PeekDesktop",  V 0 },
+        { IDC_PEEK_DBLCLICK,      T_BMK, 0, TEXT("Peek"), "PeekFlags",    V 0 },
+        { IDC_PEEK_TASKBAR,       T_BMK, 1, TEXT("Peek"), "PeekFlags",    V 0 },
+        { IDC_PEEK_GAMINGSUPPRESS,T_BMK, 2, TEXT("Peek"), "PeekFlags",    V 0 },
+        { IDC_PEEK_RESTOREONAPP,  T_BMK, 3, TEXT("Peek"), "PeekFlags",    V 0 },
     };
     #undef V
 
@@ -544,7 +550,15 @@ static INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam
         { IDC_AUTOSTART_BOX,    L10NIDX(GeneralAutostartBox) },
         { IDC_AUTOSTART,        L10NIDX(GeneralAutostart) },
         { IDC_AUTOSTART_HIDE,   L10NIDX(GeneralAutostartHide) },
-        { IDC_AUTOSTART_ELEVATE,L10NIDX(GeneralAutostartElevate) }
+        { IDC_AUTOSTART_ELEVATE,L10NIDX(GeneralAutostartElevate) },
+
+        { IDC_PEEK_BOX,             L10NIDX(PeekBox ) },
+        { IDC_PEEK_ENABLED,         L10NIDX(PeekEnabled ) },
+        { IDC_PEEK_DBLCLICK,        L10NIDX(PeekDblClick ) },
+        { IDC_PEEK_TASKBAR,         L10NIDX(PeekTaskbar ) },
+        { IDC_PEEK_GAMINGSUPPRESS,  L10NIDX(PeekGamingSuppress ) },
+        { IDC_PEEK_RESTOREONAPP,    L10NIDX(PeekRestoreOnApp ) },
+        { IDC_PEEK_MODE_H,          L10NIDX(PeekModeH ) },
     };
 
     int updatestrings = 0;
@@ -581,6 +595,15 @@ static INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam
             EnableDlgItem(hwnd, IDC_SMARTERAERO, IsChecked(IDC_SMARTAERO));
         }
 
+        if (id == IDC_PEEK_ENABLED) {
+            EnableDlgItem(hwnd, IDC_PEEK_DBLCLICK, val);
+            EnableDlgItem(hwnd, IDC_PEEK_TASKBAR, val);
+            EnableDlgItem(hwnd, IDC_PEEK_GAMINGSUPPRESS, val);
+            EnableDlgItem(hwnd, IDC_PEEK_RESTOREONAPP, val);
+            EnableDlgItem(hwnd, IDC_PEEK_MODE_H, val);
+            EnableDlgItem(hwnd, IDC_PEEK_MODE, val);
+        }
+
         if (id != IDC_ELEVATE && (event == 0 ||  event == CBN_SELCHANGE)) {
             PropSheet_Changed(g_cfgwnd, hwnd);
             have_to_apply = 1;
@@ -614,6 +637,15 @@ static INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam
             CheckDlgButton(hwnd, IDC_AUTOSTART_ELEVATE, eelevated ? BST_CHECKED : BST_UNCHECKED);
             EnableDlgItem(hwnd, IDC_AUTOSTART_HIDE, autostart);
             EnableDlgItem(hwnd, IDC_AUTOSTART_ELEVATE, autostart && VISTA);
+
+            // Peek: enable/disable sub-controls based on PeekEnabled
+            EnableDlgItem(hwnd, IDC_PEEK_DBLCLICK,       IsChecked(IDC_PEEK_ENABLED));
+            EnableDlgItem(hwnd, IDC_PEEK_TASKBAR,        IsChecked(IDC_PEEK_ENABLED));
+            EnableDlgItem(hwnd, IDC_PEEK_GAMINGSUPPRESS, IsChecked(IDC_PEEK_ENABLED));
+            EnableDlgItem(hwnd, IDC_PEEK_RESTOREONAPP,   IsChecked(IDC_PEEK_ENABLED));
+            EnableDlgItem(hwnd, IDC_PEEK_MODE_H,         IsChecked(IDC_PEEK_ENABLED));
+            EnableDlgItem(hwnd, IDC_PEEK_MODE,           IsChecked(IDC_PEEK_ENABLED));
+
             if(WIN10) EnableDlgItem(hwnd, IDC_INACTIVESCROLL, IsChecked(IDC_INACTIVESCROLL));
         } else if (pnmh->code == PSN_APPLY && have_to_apply) {
             // all bool options (checkboxes).
@@ -625,6 +657,9 @@ static INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam
 
             val = IsChecked(IDC_RZCENTER_NORM)? 1: IsChecked(IDC_RZCENTER_MOVE)? 2:IsChecked(IDC_RZCENTER_CLOSE)? 3: 0;
             WritePrivateProfileString(TEXT("General"),    TEXT("ResizeCenter"), Uint2lStr(txt, val), inipath);
+
+            val = CB_GetCurSelId(IDC_PEEK_MODE);
+            WritePrivateProfileString(TEXT("Peek"), TEXT("PeekMode"), Uint2lStr(txt, val), inipath);
 
             // Load selected Language
             int i = CB_GetCurSelId(IDC_LANGUAGE);
@@ -675,6 +710,14 @@ static INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam
         // Language
         control = GetDlgItem(hwnd, IDC_LANGUAGE);
         CB_DeleteString(control, langinfo.num);
+
+        // PeekMode
+        control = GetDlgItem(hwnd, IDC_PEEK_MODE);
+        CB_ResetContent(control);
+        CB_AddString(control, l10n->PeekMode0);
+        CB_AddString(control, l10n->PeekMode1);
+        GetPrivateProfileString(TEXT("Peek"), TEXT("PeekMode"), TEXT("0"), txt, ARR_SZ(txt), inipath);
+        CB_SetCurSel(control, strtoi(txt));
     }
     return FALSE;
 }
@@ -1767,6 +1810,7 @@ static INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, 
             TCHAR txt[1024]; txt[0] = TEXT('\0');
             if (langinfo.it) {
                 for (size_t i = 0; i < langinfo.num; i++) {
+                    if (!langinfo.it[i].lang_english || !langinfo.it[i].author) continue;
                     lstrcat_s(txt, ARR_SZ(txt), langinfo.it[i].lang_english);
                     lstrcat_s(txt, ARR_SZ(txt), TEXT(": "));
                     lstrcat_s(txt, ARR_SZ(txt), langinfo.it[i].author);

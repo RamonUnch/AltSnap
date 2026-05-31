@@ -1,0 +1,8 @@
+# Claude Code
+.claude/
+
+# Build output
+build/
+
+# Test files
+tests/

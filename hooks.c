@@ -269,6 +269,10 @@ static struct config {
   #endif
     // [KBShortcuts]
     UCHAR UsePtWindow;
+    // [Peek]
+    UCHAR PeekDesktop;       // 0=off, 1=enabled
+    UCHAR PeekFlags;         // bit0=DblClick, bit1=Taskbar, bit2=GamingSuppress, bit3=RestoreOnApp
+    UCHAR PeekMode;          // 0=minimize, 1=flyaway
     // -- -- -- -- -- -- --
     UCHAR keepMousehook;
     UCHAR EndSendKey; // Used to be VK_CONTROL
@@ -463,6 +467,7 @@ static xpure int IsPtDragOut(const POINT *pt, const POINT *ptt)
 // Specific includes
 #include "snap.c"
 #include "zones.c"
+#include "peek.c"
 
 /////////////////////////////////////////////////////////////////////////////
 // Wether a window is present or not in a blacklist
@@ -4859,6 +4864,10 @@ static void SClickActions(HWND hwnd, action_t action)
         else           SnapToCorner(hwnd, rxy_map[min(action.fl-1, 3)], SNTO_MOVETO|SNTO_NEXTBD);
         break;
     case AC_MENU:        ActionMenu(hwnd); break;
+    case AC_PEEKDESKTOP:
+        if (peek.is_peeking) PeekRestoreAll();
+        else PeekCaptureAndHide();
+        break;
     case AC_NSTACKED:    ActionAltTab(state.prevpt, +120,  state.shift, EnumStackedWindowsProc); break;
     case AC_NSTACKED2:   ActionAltTab(state.prevpt, +120, !state.shift, EnumStackedWindowsProc); break;
     case AC_PSTACKED:    ActionAltTab(state.prevpt, -120,  state.shift, EnumStackedWindowsProc); break;
@@ -5388,6 +5397,10 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 //            , (int)state.blockmouseup, (int)state.ignoreclick);
     if (nCode != HC_ACTION || state.ignoreclick || ScrollLockState())
         return CallNextHookEx(NULL, nCode, wParam, lParam);
+
+    // Peek Desktop: detect clicks on desktop wallpaper (no Alt key needed)
+    if (PeekHandleMouseEvent(wParam, msg))
+        return 1;
 
     // Mouse move, only if it is not exactly the same point than before
     if (wParam == WM_MOUSEMOVE) {
@@ -6110,7 +6123,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         if (action.ac > AC_RESIZE) { // Exclude resize action in case...
             POINT pt;
             GetMsgPT(&pt);
-            static const enum action noinitactions[] = { AC_KILL, AC_PAUSE, AC_RESUME, AC_ASONOFF, AC_NONE };
+            static const enum action noinitactions[] = { AC_KILL, AC_PAUSE, AC_RESUME, AC_ASONOFF, AC_PEEKDESKTOP, AC_NONE };
             if (IsActionInList((enum action)action.ac, noinitactions)) {
                 // Some actions pass directly through the default blacklists...
                 HWND targethwnd = ptwindow? WindowFromPoint(pt): GetForegroundWindow();
@@ -6224,6 +6237,7 @@ __declspec(dllexport) void WINAPI Unload()
     ListFree(&snwnds);
     ListFree(&minhwnds);
     freezones();
+    PeekCleanup();
 
     // Wait for worker thread to have a clean closing...
     WaitForSingleObject(g_WorkerThreadHANDLE, 5000);
@@ -6714,13 +6728,25 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
         SnapLayoutPreviewCreateDestroy(inisection /*CREATE*/);
     }
 
+    // [Peek]
+    {
+        static const struct OptionListItem Peek_uchars[] = {
+            { "PeekDesktop", 0 },
+            { "PeekFlags",  14 }, // bit1=Taskbar+bit2=GamingSuppress+bit3=RestoreOnApp = 0b1110
+            { "PeekMode",    0 },
+        };
+        GetPrivateProfileSection(TEXT("Peek"), inisection, inisectionlen, inipath);
+        readalluchars(&conf.PeekDesktop, inisection, Peek_uchars, ARR_SZ(Peek_uchars));
+    }
+
     if (inisection != stk_inisection)
         free(inisection);
 
     conf.keepMousehook = ((conf.TTBActions&1) // titlebar action w/o Alt
                        || conf.InactiveScroll // Inactive scrolling
                        || conf.Hotclick[0] // Hotclick
-                       || conf.LongClickMove); // Move with long click
+                       || conf.LongClickMove // Move with long click
+                       || conf.PeekDesktop); // Peek Desktop
     // Capture main hwnd from caller. This is also the cursor wnd
     g_mainhwnd = mainhwnd;
 

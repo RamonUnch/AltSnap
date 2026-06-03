@@ -79,7 +79,7 @@ struct langinfoitem {
   LNGVALUE(GeneralResizeCenterMove, TEXT("Mo&ve"), NULL) \
   LNGVALUE(GeneralResizeCenterClose,TEXT("Clos&est side"), NULL) \
   LNGVALUE(GeneralAutostartBox,         TEXT("Autostart"), NULL) \
-  LNGVALUE(GeneralAutostart,            TEXT("S&tart ") APP_NAME TEXT(" when logging on"), NULL) \
+  LNGVALUE(GeneralAutostart,            TEXT("S&tart ") APP_NAME TEXT(" when logging on"), TEXT("KHCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run")) \
   LNGVALUE(GeneralAutostartHide,        TEXT("&Hide tray"), NULL) \
   LNGVALUE(GeneralAutostartElevate,     TEXT("&Elevate to administrator privileges"), NULL) \
   LNGVALUE(GeneralAutostartElevateTip,  TEXT("Note that a UAC prompt will appear every time you log in, unless you disable UAC completely or use the Task Scheduler.\nTo setup a Scheduled task for this purpose, you can use the sch_On.bat batch files in Altsnap's folder."), NULL) \

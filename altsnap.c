@@ -122,7 +122,7 @@ static int UnhookSystem()
         // Zero out the message hwnd from DLL.
         G_HotKeyProc = NULL;
     }
-    FreeHooksDLL();
+    //FreeHooksDLL();
 
     // Success
     UpdateTray();

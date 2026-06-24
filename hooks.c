@@ -5928,11 +5928,18 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     static HWND fhwndori = NULL;
     switch (msg) {
     case WM_CREATE: {
-        // dpi will be 0 on non per-monitor v2 dpi aware.
-        // Below Windows 10, version 1607
-        // In this case the ForDpi() metrics are not available as well and
-        // Everything will be manually scaled.
-        dpi = GetDpiForWindow10L(hwnd) * conf.MenuZoom / 100;
+        // per-monitor dpi awareness since Windows 8.1
+        POINT pt;
+        UINT dpiX = 0, dpiY = 0;
+        GetCursorPos(&pt);
+        HMONITOR hmon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+        dpi = 0;
+        if (hmon && 0 == GetDpiForMonitorL(hmon, MDT_DEFAULT, &dpiX, &dpiY))
+            dpi = dpiY; // OK
+
+        dpi = dpi * conf.MenuZoom / 100;
+        //dpi = GetDpiForWindow10L(hwnd) * conf.MenuZoom / 100;
+
         // Save the original foreground window.
         fhwndori = GetForegroundWindow();
         mfont = NULL;

@@ -648,24 +648,6 @@ static BOOL GetGUIThreadInfoL(DWORD pid, GUITHREADINFO *lpgui)
     return FALSE;
 }
 
-static int GetSystemMetricsForDpiL(int  nIndex, UINT dpi)
-{
-    typedef int (WINAPI *funk_t)(int  nIndex, UINT dpi);
-    static funk_t funk=(funk_t)IPTR;
-
-    if (dpi) {
-        if (funk == (funk_t)IPTR) { /* First time */
-            funk = (funk_t)LoadDLLProc("USER32.DLL", "GetSystemMetricsForDpi");
-        }
-        if (funk) { /* We know we have the function */
-            return funk(nIndex, dpi);
-        }
-    }
-    /* Use non dpi stuff if dpi == 0 or if it does not exist. */
-    return GetSystemMetrics(nIndex);
-}
-#define GetSystemMetricsForDpi GetSystemMetricsForDpiL
-
 static HRESULT GetDpiForMonitorL(HMONITOR hmonitor, int dpiType, UINT *dpiX, UINT *dpiY)
 {
     typedef HRESULT (WINAPI *funk_t)(HMONITOR hmonitor, int dpiType, UINT *dpiX, UINT *dpiY);
@@ -679,6 +661,34 @@ static HRESULT GetDpiForMonitorL(HMONITOR hmonitor, int dpiType, UINT *dpiX, UIN
     }
     return 666; /* Fail with 666 error */
 }
+
+static int GetSystemMetricsForDpiL(int  nIndex, UINT dpi)
+{
+    typedef int (WINAPI *funk_t)(int  nIndex, UINT dpi);
+    static funk_t funk=(funk_t)IPTR;
+
+    if (dpi) {
+        if (funk == (funk_t)IPTR) { /* First time */
+            funk = (funk_t)LoadDLLProc("USER32.DLL", "GetSystemMetricsForDpi");
+        }
+        if (funk) { /* We know we have the function */
+            return funk(nIndex, dpi);
+        }
+
+        /* Fallback for Windows < 10 build 1607 and >= 8.1
+         * Get Default display hmonitor to get system DPI
+         * so that we can sacle the metric properly.
+         */
+        HMONITOR hmon = MonitorFromWindow(NULL, MONITOR_DEFAULTTOPRIMARY);
+        UINT dpiX = 0, systemDpi = 0;
+        if (hmon && 0 == GetDpiForMonitorL(hmon, MDT_DEFAULT, &dpiX, &systemDpi) && systemDpi > 0) {
+            return MulDiv(GetSystemMetrics(nIndex), dpi, systemDpi);
+        }
+    }
+    /* Use non dpi stuff if dpi == 0 or if it does not exist. */
+    return GetSystemMetrics(nIndex);
+}
+#define GetSystemMetricsForDpi GetSystemMetricsForDpiL
 
 /* Supported wince Windows 10, version 1607 [desktop apps only] */
 static UINT GetDpiForWindow10L(const HWND hwnd)

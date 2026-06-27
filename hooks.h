@@ -306,6 +306,7 @@ static pure action_t MapActionW(const TCHAR *txt)
                 case 'R':           flagparam = 3; break; // Right
                 case 'D': case 'B': flagparam = 4; break; // DOWN/BOTTM
                 default: // Parse an int
+                    --params;
                     for (; cc != '=' && cc != '_' && cc; cc = *params) {
                         flagparam = flagparam * 10 + (cc - TEXT('0'));
                         ++params;
@@ -317,7 +318,7 @@ static pure action_t MapActionW(const TCHAR *txt)
                     // We got 2 parameters.
                     action.wp = strtoi(params); // strtoi stops on any non digit
                 }
-                //LOG("Read action %s_%d_%d",  action_map[ac], (int)action.fl, (int)action.wp);
+                //LOGA("Read action %s_%d_%d",  action_map[ac], (int)action.fl, (int)action.wp);
             }
             // We got the action!
             return action;

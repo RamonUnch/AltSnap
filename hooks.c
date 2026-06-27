@@ -3339,9 +3339,9 @@ static void ActionTransparency2(HWND hwnd, action_t action)
     else if (GetLayeredWindowAttributes(hwnd, NULL, &old_alpha, NULL))
         alpha = old_alpha;
 
-    if (action.fl == 2) // 2=>TOP
+    if (action.fl == ACFL_UP) // 2=>TOP/UP
         alpha += action.wp;
-    else if (action.fl == 4) // 4=>BOTTOM
+    else if (action.fl == ACFL_DOWN) // 4=>BOTTOM/Down
         alpha -= action.wp;
 
     alpha = CLAMP(conf.MinAlpha, alpha, 255); // Limit alpha

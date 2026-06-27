@@ -177,35 +177,37 @@ enum {
     ACINFO_ZORDER =  4,
     ACINFO_CLOSE  =  8,
 };
-#define MV ACINFO_MOVE
-#define RZ ACINFO_RESIZE
-#define ZO ACINFO_ZORDER
-#define CL ACINFO_CLOSE
-
-#define MR (ACINFO_MOVE|ACINFO_RESIZE)
 
 // Helper function to get extra action info
 static xpure UCHAR ActionInfo(action_t action)
 {
+    enum {
+        MV = ACINFO_MOVE,
+        RZ = ACINFO_RESIZE,
+        ZO = ACINFO_ZORDER,
+        CL = ACINFO_CLOSE,
+        MR = ACINFO_MOVE|ACINFO_RESIZE,
+    };
     #define ACVALUE(a, b, c) (c),
     static const UCHAR action_info[] = { ACTION_MAP };
 
     #undef ACVALUE
     return action_info[action.ac];
 }
-#undef MV
-#undef RZ
-#undef ZO
-#undef CL
-#undef MR
 
 enum {
     ACPARAM_NONE = 0,
     ACPARAM_DIRECTION = 1,
     ACPARAM_NUMBER = 2,
-    //ACPARAM_DIRECTION_NUMBER = ACPARAM_DIRECTION | ACPARAM_NUMBER,
     ACPARAM_UPDOWN = 4,
-    //ACPARAM_UPDOWN_NUMBER = ACPARAM_UPDOWN | ACPARAM_NUMBER,
+};
+
+enum {
+    ACFL_ZERO  = 0,
+    ACFL_LEFT  = 1,
+    ACFL_UP    = 2,
+    ACFL_RIGHT = 3,
+    ACFL_DOWN  = 4,
 };
 
 #define MOUVEMENT(action) (action.ac <= AC_RESIZE)

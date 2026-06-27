@@ -1294,6 +1294,7 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
         {TEXT("Maximize"),    L10NIDX(InputActionMaximize) },
         {TEXT("Lower"),       L10NIDX(InputActionLower) },
         {TEXT("Roll"),        L10NIDX(InputActionRoll) },
+        {TEXT("Transparency"),L10NIDX(InputActionTransparency), ACPARAM_DIRECTION, ACPARAM_NUMBER },
         {TEXT("AlwaysOnTop"), L10NIDX(InputActionAlwaysOnTop) },
         {TEXT("Borderless"),  L10NIDX(InputActionBorderless) },
         {TEXT("Center"),      L10NIDX(InputActionCenter) },

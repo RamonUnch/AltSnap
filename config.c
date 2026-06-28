@@ -1149,13 +1149,15 @@ enum {
     ACPARAM_DIRECTION,
     ACPARAM_NUMBER,
     ACPARAM_UPDOWN,
+    ACPARAM_UPDOWNSETTOGGLE,
     ACPARAM_LAST,
 };
 static const char* action_fl_param_maps[ACPARAM_LAST] = {
-/* ACPARAM_NONE      */ NULL,    // Nothing...
-/* ACPARAM_DIRECTION */ "0LURD", // 0 Left Up Right Down
-/* ACPARAM_NUMBER    */ NULL,    // Nothing
-/* ACPARAM_UPDOWN    */ "0UD",   // 0 Up and Down
+/* ACPARAM_NONE            */ NULL,    // Nothing...
+/* ACPARAM_DIRECTION       */ "0LURD", // 0 Left, Up, Right, Down
+/* ACPARAM_NUMBER          */ NULL,    // Nothing
+/* ACPARAM_UPDOWN          */ "0UD",   // 0 Up, Down
+/* ACPARAM_UPDOWNSETTOGGLE */ "0UDST", // 0 Up, Down, Set to, Toggle
 };
 static const short action_fl_strings_direction[] = {
     0,
@@ -1164,16 +1166,19 @@ static const short action_fl_strings_direction[] = {
     L10NIDX(WayRight),
     L10NIDX(WayDown),
 };
-static const short action_fl_strings_updown[] = {
+static const short action_fl_strings_updown_set_toggle[] = {
     0,
     L10NIDX(WayUp),
     L10NIDX(WayDown),
+    L10NIDX(KwdSetTo),
+    L10NIDX(KwdToggle),
 };
 static const struct { size_t num; const short *l10nIdx; } action_fl_l10n_maps[ACPARAM_LAST] = {
-/* ACPARAM_NONE      */ { 0, NULL },
-/* ACPARAM_DIRECTION */ { ARR_SZ(action_fl_strings_direction), action_fl_strings_direction },
-/* ACPARAM_NUMBER    */ { 0, NULL },
-/* ACPARAM_UPDOWN    */ { ARR_SZ(action_fl_strings_updown), action_fl_strings_updown },
+/* ACPARAM_NONE           */ { 0, NULL },
+/* ACPARAM_DIRECTION      */ { ARR_SZ(action_fl_strings_direction), action_fl_strings_direction },
+/* ACPARAM_NUMBER         */ { 0, NULL },
+/* ACPARAM_UPDOWN         */ { 3, action_fl_strings_updown_set_toggle },
+/* ACPARAM_UPDOWNSETTOGGLE*/ { ARR_SZ(action_fl_strings_updown_set_toggle), action_fl_strings_updown_set_toggle },
 };
 
 static INT_PTR CALLBACK AdvancedActionDlgProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
@@ -1331,7 +1336,7 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
         {TEXT("Maximize"),    L10NIDX(InputActionMaximize) },
         {TEXT("Lower"),       L10NIDX(InputActionLower) },
         {TEXT("Roll"),        L10NIDX(InputActionRoll), ACPARAM_UPDOWN },
-        {TEXT("Transparency"),L10NIDX(InputActionTransparency), ACPARAM_UPDOWN, ACPARAM_NUMBER },
+        {TEXT("Transparency"),L10NIDX(InputActionTransparency), ACPARAM_UPDOWNSETTOGGLE, ACPARAM_NUMBER },
         {TEXT("AlwaysOnTop"), L10NIDX(InputActionAlwaysOnTop) },
         {TEXT("Borderless"),  L10NIDX(InputActionBorderless) },
         {TEXT("Center"),      L10NIDX(InputActionCenter) },

@@ -236,6 +236,8 @@ struct langinfoitem {
   LNGVALUE(WayUp,         TEXT("Up"),         NULL) \
   LNGVALUE(WayRight,      TEXT("Right"),      NULL) \
   LNGVALUE(WayDown,       TEXT("Down"),       NULL) \
+  LNGVALUE(KwdSetTo,      TEXT("Set to"),     NULL) \
+  LNGVALUE(KwdToggle,     TEXT("Toggle"),     NULL) \
   \
   /* Extended character list  for each virtual key */ \
   LNGVALUE(a, TEXT("àáâäæãåª%āăąǎǟǡǣǻǽȁȃȧ|Ȧḁ%ⱥ|Ⱥɐ|Ɐɑ|Ɑɒ|Ɒⲁ|Ⲁⓐ"), NULL) \

@@ -201,6 +201,8 @@ enum {
     ACFL_UP    = 2,
     ACFL_RIGHT = 3,
     ACFL_DOWN  = 4,
+    ACFL_SET   = 5,
+    ACFL_TOGGLE= 6,
 };
 
 #define MOUVEMENT(action) (action.ac <= AC_RESIZE)
@@ -296,10 +298,12 @@ static pure action_t MapActionW(const TCHAR *txt)
                 TCHAR cc = *params++;
                 switch(cc) {
                 // Direction flags
-                case 'L':           flagparam = 1; break; // LEFT
-                case 'U': case 'T': flagparam = 2; break; // UP/TOP
-                case 'R':           flagparam = 3; break; // Right
-                case 'D': case 'B': flagparam = 4; break; // DOWN/BOTTM
+                case 'L': flagparam = ACFL_LEFT;   break;
+                case 'U': flagparam = ACFL_UP;     break;
+                case 'R': flagparam = ACFL_RIGHT;  break;
+                case 'D': flagparam = ACFL_DOWN;   break;
+                case 'S': flagparam = ACFL_SET;    break;
+                case 'T': flagparam = ACFL_TOGGLE; break;
                 default: // Parse an int
                     --params;
                     for (; cc != '=' && cc != '_' && cc; cc = *params) {

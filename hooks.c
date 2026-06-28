@@ -3334,7 +3334,7 @@ static void ActionTransparency2(HWND hwnd, action_t action)
     int alpha = 255;
     BYTE old_alpha = 255;
 
-    if (action.fl == 0)
+    if (action.fl == ACFL_SET)
         alpha = action.wp;
     else if (GetLayeredWindowAttributes(hwnd, NULL, &old_alpha, NULL))
         alpha = old_alpha;
@@ -3343,6 +3343,8 @@ static void ActionTransparency2(HWND hwnd, action_t action)
         alpha += action.wp;
     else if (action.fl == ACFL_DOWN) // 4=>BOTTOM/Down
         alpha -= action.wp;
+    else if (action.fl == ACFL_TOGGLE)
+        alpha = old_alpha == 255 ? action.wp : 255;
 
     alpha = CLAMP(conf.MinAlpha, alpha, 255); // Limit alpha
 

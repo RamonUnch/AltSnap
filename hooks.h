@@ -196,13 +196,6 @@ static xpure UCHAR ActionInfo(action_t action)
 }
 
 enum {
-    ACPARAM_NONE = 0,
-    ACPARAM_DIRECTION = 1,
-    ACPARAM_NUMBER = 2,
-    ACPARAM_UPDOWN = 4,
-};
-
-enum {
     ACFL_ZERO  = 0,
     ACFL_LEFT  = 1,
     ACFL_UP    = 2,

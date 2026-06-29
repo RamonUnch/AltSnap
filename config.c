@@ -1143,6 +1143,44 @@ typedef struct tagAdvancedActionParam {
     const actiondl_t *base_action_lst;
     TCHAR outbuf[64];
 } advancedActionParam_t;
+
+enum {
+    ACPARAM_NONE = 0,
+    ACPARAM_DIRECTION,
+    ACPARAM_NUMBER,
+    ACPARAM_UPDOWN,
+    ACPARAM_UPDOWNSETTOGGLE,
+    ACPARAM_LAST,
+};
+static const char* action_fl_param_maps[ACPARAM_LAST] = {
+/* ACPARAM_NONE            */ NULL,    // Nothing...
+/* ACPARAM_DIRECTION       */ "0LURD", // 0 Left, Up, Right, Down
+/* ACPARAM_NUMBER          */ NULL,    // Nothing
+/* ACPARAM_UPDOWN          */ "0UD",   // 0 Up, Down
+/* ACPARAM_UPDOWNSETTOGGLE */ "0UDST", // 0 Up, Down, Set to, Toggle
+};
+static const short action_fl_strings_direction[] = {
+    0,
+    L10NIDX(WayLeft),
+    L10NIDX(WayUp),
+    L10NIDX(WayRight),
+    L10NIDX(WayDown),
+};
+static const short action_fl_strings_updown_set_toggle[] = {
+    0,
+    L10NIDX(WayUp),
+    L10NIDX(WayDown),
+    L10NIDX(KwdSetTo),
+    L10NIDX(KwdToggle),
+};
+static const struct { size_t num; const short *l10nIdx; } action_fl_l10n_maps[ACPARAM_LAST] = {
+/* ACPARAM_NONE           */ { 0, NULL },
+/* ACPARAM_DIRECTION      */ { ARR_SZ(action_fl_strings_direction), action_fl_strings_direction },
+/* ACPARAM_NUMBER         */ { 0, NULL },
+/* ACPARAM_UPDOWN         */ { 3, action_fl_strings_updown_set_toggle },
+/* ACPARAM_UPDOWNSETTOGGLE*/ { ARR_SZ(action_fl_strings_updown_set_toggle), action_fl_strings_updown_set_toggle },
+};
+
 static INT_PTR CALLBACK AdvancedActionDlgProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
     switch (msg) {
@@ -1153,14 +1191,6 @@ static INT_PTR CALLBACK AdvancedActionDlgProc(HWND hwnd, UINT msg, WPARAM wp, LP
 
         FillActionDropListS(hwnd, IDC_ACTIONP0, NULL, acp->base_action_lst);
         SendDlgItemMessage(hwnd, IDC_ACTIONP0, CB_SETCURSEL, (WPARAM)-1, 0);
-
-        /* 1=>LEFT, 2=>TOP, 3=>RIGHT, 4=>BOTTOM */
-        HWND ctrl = GetDlgItem(hwnd, IDC_ACTIONP1);
-        CB_AddString(ctrl, TEXT("---"));      // 0
-        CB_AddString(ctrl, l10n->WayLeft);    // 1 / L
-        CB_AddString(ctrl, l10n->WayUp);      // 2 / U
-        CB_AddString(ctrl, l10n->WayRight);   // 3 / R
-        CB_AddString(ctrl, l10n->WayDown);    // 4 / D
 
         // Copy localized OK, CANCEL button from parent
         HWND parent = GetAncestor(hwnd, GA_ROOTOWNER);
@@ -1200,11 +1230,22 @@ static INT_PTR CALLBACK AdvancedActionDlgProc(HWND hwnd, UINT msg, WPARAM wp, LP
 
                 // ACTION PARAM0: base action
                 int p0idx = GetActionStringFromDropList(hwnd, IDC_ACTIONP0, acp->base_action_lst, acstr, ARR_SZ(acstr)-8);
+                BYTE param1_type = acp->base_action_lst[p0idx].param1_type;
+                BYTE param2_type = acp->base_action_lst[p0idx].param2_type;
 
                 if (id == IDC_ACTIONP0 /*|| id == IDC_ACTIONP1*/) {
                     // Adjust visibility/settings of param 1 and param 2.
-                    EnableDlgItem(hwnd, IDC_ACTIONP1, p0idx >= 0 && acp->base_action_lst[p0idx].param1_type != 0);
-                    EnableDlgItem(hwnd, IDC_ACTIONP2, p0idx >= 0 && acp->base_action_lst[p0idx].param2_type != 0);
+                    EnableDlgItem(hwnd, IDC_ACTIONP1, p0idx >= 0 && param1_type != 0);
+                    EnableDlgItem(hwnd, IDC_ACTIONP2, p0idx >= 0 && param2_type != 0);
+
+                    // Fill Drop List according to PARAM0 of the action.
+                    HWND ctrl = GetDlgItem(hwnd, IDC_ACTIONP1);
+                    CB_ResetContent(ctrl);
+                    for (size_t i = 0; i < action_fl_l10n_maps[param1_type].num; i++) {
+                        short l10nIdx = action_fl_l10n_maps[param1_type].l10nIdx[i];
+                        const TCHAR *str = l10nIdx == 0 ? TEXT("---") : L10NSTR(l10nIdx);
+                        CB_AddString(ctrl, str);
+                    }
                 }
 
                 // ACTION PARAM1: direction flags
@@ -1212,9 +1253,10 @@ static INT_PTR CALLBACK AdvancedActionDlgProc(HWND hwnd, UINT msg, WPARAM wp, LP
                 int direction = SendDlgItemMessage(hwnd, IDC_ACTIONP1, CB_GETCURSEL, 0, 0);
                 if (direction < 0) {
                     GetDlgItemText(hwnd, IDC_ACTIONP1, param1, ARR_SZ(param1));
-                } else if (direction <= 4) {
-                    static const TCHAR *directionchars = TEXT("0LURD");
-                    param1[0] = directionchars[direction];
+                } else if (direction < (int)lstrlenA(action_fl_param_maps[param1_type])) {
+                    // Put the correct character in the action string.
+                    // We use a single character for each kind of param
+                    param1[0] = action_fl_param_maps[param1_type][direction];
                     param1[1] = TEXT('\0');
                 }
                 // ACTION PARAM2 number...
@@ -1293,7 +1335,8 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
         {TEXT("Minimize"),    L10NIDX(InputActionMinimize) },
         {TEXT("Maximize"),    L10NIDX(InputActionMaximize) },
         {TEXT("Lower"),       L10NIDX(InputActionLower) },
-        {TEXT("Roll"),        L10NIDX(InputActionRoll) },
+        {TEXT("Roll"),        L10NIDX(InputActionRoll), ACPARAM_UPDOWN },
+        {TEXT("Transparency"),L10NIDX(InputActionTransparency), ACPARAM_UPDOWNSETTOGGLE, ACPARAM_NUMBER },
         {TEXT("AlwaysOnTop"), L10NIDX(InputActionAlwaysOnTop) },
         {TEXT("Borderless"),  L10NIDX(InputActionBorderless) },
         {TEXT("Center"),      L10NIDX(InputActionCenter) },

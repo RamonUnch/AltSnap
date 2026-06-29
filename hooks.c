@@ -3328,6 +3328,29 @@ static int ActionTransparency(HWND hwnd, short delta)
     return 1;
 }
 
+static void ActionTransparency2(HWND hwnd, action_t action)
+{
+    //LOGA("Transparency_%d_%d", (int)action.fl, (int)action.wp);
+    int alpha = 255;
+    BYTE old_alpha = 255;
+
+    if (action.fl == ACFL_SET)
+        alpha = action.wp;
+    else if (GetLayeredWindowAttributes(hwnd, NULL, &old_alpha, NULL))
+        alpha = old_alpha;
+
+    if (action.fl == ACFL_UP) // 2=>TOP/UP
+        alpha += action.wp;
+    else if (action.fl == ACFL_DOWN) // 4=>BOTTOM/Down
+        alpha -= action.wp;
+    else if (action.fl == ACFL_TOGGLE)
+        alpha = old_alpha == 255 ? action.wp : 255;
+
+    alpha = CLAMP(conf.MinAlpha, alpha, 255); // Limit alpha
+
+    SetWindowAlpha(hwnd, (BYTE)alpha);
+}
+
 static void SetBottomMost(HWND hwnd)
 {
     HWND lowhwnd = HWND_BOTTOM; // Lowest hwnd to consider.
@@ -4835,6 +4858,7 @@ static void SClickActions(HWND hwnd, action_t action)
     case AC_CENTER2:     CenterWindow(hwnd, !state.shift, /*full*/ 1); break;
     case AC_ALWAYSONTOP: TogglesAlwaysOnTop(hwnd); break;
     case AC_CLOSE:       PostMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0); break;
+    case AC_TRANSPARENCY:ActionTransparency2(hwnd, action); break;
     case AC_LOWER:       ActionLower(hwnd, 0, state.shift, IsCtrlDown()); break;
     case AC_FOCUS:
         if      (action.fl == 0) { ActionLower(hwnd, +120, state.shift, 1); }
@@ -4844,7 +4868,7 @@ static void SClickActions(HWND hwnd, action_t action)
     case AC_KILL:        ActionKill(hwnd); break;
     case AC_PAUSE:       ActionPause(hwnd, 1); break;
     case AC_RESUME:      ActionPause(hwnd, 0); break;
-    case AC_ROLL:        RollWindow(hwnd, 0); break;
+    case AC_ROLL:        RollWindow(hwnd, action.fl == ACFL_UP ? +120 : action.fl == ACFL_DOWN ? -120 : 0); break;
     case AC_MAXHV:       MaximizeHV(hwnd, state.shift); break;
     case AC_MINALL:      MinimizeAllOtherWindows(hwnd, state.shift); break;
     case AC_MUTE:        Send_KEY(VK_VOLUME_MUTE); break;

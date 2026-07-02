@@ -220,6 +220,16 @@ struct langinfoitem {
   LNGVALUE(AdvancedFancyZone,        TEXT("Restore Fancy&Zones snapped windows"), NULL) \
   LNGVALUE(AdvancedNoRestore,        TEXT("Never restore AltSna&pped windows"), NULL) \
   LNGVALUE(AdvancedTopmostIndicator, TEXT("Show an i&ndicator on always on top windows"), NULL) \
+  /* Peek Settings */ \
+  LNGVALUE(PeekBox,               TEXT("Desktop Peek"), NULL) \
+  LNGVALUE(PeekEnabled,           TEXT("Enable Des&ktop Peek"), NULL) \
+  LNGVALUE(PeekDblClick,          TEXT("Require &double-click"), NULL) \
+  LNGVALUE(PeekTaskbar,           TEXT("Peek on empty &taskbar"), NULL) \
+  LNGVALUE(PeekGamingSuppress,    TEXT("Pause while &gaming"), NULL) \
+  LNGVALUE(PeekRestoreOnApp,      TEXT("&Restore on app switch"), NULL) \
+  LNGVALUE(PeekModeH,             TEXT("Peek &mode:"), NULL) \
+  LNGVALUE(PeekMode0,             TEXT("Minimize"), NULL) \
+  LNGVALUE(PeekMode1,             TEXT("FlyAway"), NULL) \
   /* About Tab */ \
   LNGVALUE(AboutBox,     TEXT("About ") APP_NAME , NULL) \
   LNGVALUE(AboutVersion, TEXT("Version ") TEXT( APP_VERSION ), NULL) \

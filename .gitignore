@@ -1,0 +1,12 @@
+# Claude Code
+.claude/
+CLAUDE.md
+
+# Build output
+build/
+
+# Release output
+release/
+
+# Test files
+tests/

@@ -90,8 +90,7 @@ static void LoadTranslationOrTT(const TCHAR *__restrict__ ini, const TCHAR * __r
          ret = GetPrivateProfileSection(section_name, tsection, tsectionlen, ini);
     } while (ret == tsectionlen-2);
 
-    if (!ret || !*tsection)
-        return;
+    if (!ret || !*tsection) { free(tsection); return; }
 
     if(!l10n_ini) { l10n_ini = (struct strings *)calloc(1, sizeof(struct strings)); }
     if(!l10n_ini) return; // Unable to allocate mem

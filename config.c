@@ -1192,6 +1192,9 @@ static INT_PTR CALLBACK AdvancedActionDlgProc(HWND hwnd, UINT msg, WPARAM wp, LP
         FillActionDropListS(hwnd, IDC_ACTIONP0, NULL, acp->base_action_lst);
         SendDlgItemMessage(hwnd, IDC_ACTIONP0, CB_SETCURSEL, (WPARAM)-1, 0);
 
+        SetWindowText(hwnd, l10n->TtlAdvancedAction);
+        SetDlgItemText(hwnd, IDC_ACTIONT, l10n->TtlAction);
+
         // Copy localized OK, CANCEL button from parent
         HWND parent = GetAncestor(hwnd, GA_ROOTOWNER);
         if (parent) {

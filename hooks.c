@@ -6570,12 +6570,12 @@ void readallinputSequences(const TCHAR *inisection)
 
     for (size_t i=0; i < ARR_SZ(conf.inputSequences); i++) {
         shrtN[4] = i<10? '0' + i: 'A'-10 + i;
-        unsigned len = readhotkeys(inisection, shrtN, TEXT(""), buf+1, 508) / 2;
-        buf[0] = len;
+        unsigned len = readhotkeys(inisection, shrtN, TEXT("\0"), buf+1, ARR_SZ(buf)-4) / 2;
+        buf[0] = len; // We store the amounf of input, not characters, the input includes up or down
         if (len) {
-            UCHAR *seq = (UCHAR *)malloc(len*2+1*sizeof(UCHAR));
+            UCHAR *seq = (UCHAR *)malloc((len*2+1)*sizeof(UCHAR));
             if (seq) {
-                memcpy(seq, buf, len*2+1*sizeof(UCHAR));
+                memcpy(seq, buf, (len*2+1)*sizeof(UCHAR));
                 conf.inputSequences[i] = seq;
             }
         }

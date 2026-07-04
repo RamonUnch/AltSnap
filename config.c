@@ -1152,7 +1152,7 @@ enum {
     ACPARAM_UPDOWNSETTOGGLE,
     ACPARAM_LAST,
 };
-static const char* action_fl_param_maps[ACPARAM_LAST] = {
+static const char* action_fl_param1_maps[ACPARAM_LAST] = {
 /* ACPARAM_NONE            */ NULL,    // Nothing...
 /* ACPARAM_DIRECTION       */ "0LURD", // 0 Left, Up, Right, Down
 /* ACPARAM_NUMBER          */ NULL,    // Nothing
@@ -1240,6 +1240,7 @@ static INT_PTR CALLBACK AdvancedActionDlgProc(HWND hwnd, UINT msg, WPARAM wp, LP
                     // Adjust visibility/settings of param 1 and param 2.
                     EnableDlgItem(hwnd, IDC_ACTIONP1, p0idx >= 0 && param1_type != 0);
                     EnableDlgItem(hwnd, IDC_ACTIONP2, p0idx >= 0 && param2_type != 0);
+                    SetDlgItemText(hwnd, IDC_ACTIONP2, TEXT("")); // Clear number content
 
                     // Fill Drop List according to PARAM0 of the action.
                     HWND ctrl = GetDlgItem(hwnd, IDC_ACTIONP1);
@@ -1253,14 +1254,17 @@ static INT_PTR CALLBACK AdvancedActionDlgProc(HWND hwnd, UINT msg, WPARAM wp, LP
 
                 // ACTION PARAM1: direction flags
                 param1[0] = TEXT('0');  param1[1] = TEXT('\0');
-                int direction = SendDlgItemMessage(hwnd, IDC_ACTIONP1, CB_GETCURSEL, 0, 0);
-                if (direction < 0) {
-                    GetDlgItemText(hwnd, IDC_ACTIONP1, param1, ARR_SZ(param1));
-                } else if (direction < (int)lstrlenA(action_fl_param_maps[param1_type])) {
-                    // Put the correct character in the action string.
-                    // We use a single character for each kind of param
-                    param1[0] = action_fl_param_maps[param1_type][direction];
-                    param1[1] = TEXT('\0');
+                if (action_fl_param1_maps[param1_type]) {
+                    // This action type can have parameter1. 
+                    int direction = SendDlgItemMessage(hwnd, IDC_ACTIONP1, CB_GETCURSEL, 0, 0);
+                    if (direction < 0) {
+                        GetDlgItemText(hwnd, IDC_ACTIONP1, param1, ARR_SZ(param1));
+                    } else if (direction < (int)lstrlenA(action_fl_param1_maps[param1_type])) {
+                        // Put the correct character in the action string.
+                        // We use a single character for each kind of param
+                        param1[0] = action_fl_param1_maps[param1_type][direction];
+                        param1[1] = TEXT('\0');
+                    }
                 }
                 // ACTION PARAM2 number...
                 int param2len = GetDlgItemText(hwnd, IDC_ACTIONP2, param2, ARR_SZ(param2));

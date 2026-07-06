@@ -934,7 +934,7 @@ static char *db_lstrdupA(const char *s, const char *file, int ln)
     return dup;
 }
 
-#define free(x) do { int sz = db_free(x, __FILE__, __LINE__); LOGA("free - %d bytes in "__FILE__":%d", (int)sz, __LINE__); } while(0)
+#define free(x) do { int sz = db_free(x, __FILE__, __LINE__); if(sz)LOGA("free - %d bytes in "__FILE__":%d", (int)sz, __LINE__); } while(0)
 #define malloc(sz) db_malloc(sz, __FILE__, __LINE__); LOGA("malloc + %u bytes in "__FILE__":%d", (UINT)sz, __LINE__);
 #define calloc(n, sz) db_calloc(n, sz, __FILE__, __LINE__); LOGA("calloc + %u bytes in "__FILE__":%d", (UINT)(sz*n), __LINE__);
 #define realloc(x, sz) db_realloc(x, sz, __FILE__, __LINE__)

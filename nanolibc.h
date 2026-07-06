@@ -592,7 +592,7 @@ static allnonnull pure int strcmpL(const char *X, const char *Y)
 }
 #define strcmp strcmpL
 
-static allnonnull const char *lstrstrA(const char *haystack, const char *needle)
+static allnonnull pure const char *lstrstrA(const char *haystack, const char *needle)
 {
     size_t i,j;
     for (i=0; haystack[i]; ++i) {
@@ -601,7 +601,7 @@ static allnonnull const char *lstrstrA(const char *haystack, const char *needle)
     }
     return NULL;
 }
-static allnonnull const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t *needle)
+static allnonnull pure const wchar_t *lstrstrW(const wchar_t *haystack, const wchar_t *needle)
 {
     size_t i,j;
     for (i=0; haystack[i]; ++i) {
@@ -694,119 +694,6 @@ static mallocatrib void *callocL(size_t n, size_t sz)
     return HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, n*sz);
 }
 
-#define free(x) do { freeL(x); x = NULL; }while(0)
-#define realloc reallocL
-#define malloc mallocL
-#define calloc callocL
-
-#define CHECK_MEMORY_LEAK_DB()
-
-#ifdef DEBUG_MALLOC
-
-#undef CHECK_MEMORY_LEAK_DB
-#define CHECK_MEMORY_LEAK_DB() \
-    if (db_tot_mem_allocated != 0) { \
-        char buf[128]; \
-        wsprintfA(buf, "Leaked %d bytes", (int)db_tot_mem_allocated); \
-        MessageBoxA( NULL, buf, "AltSnap Error", MB_OK); }
-
-#undef malloc
-#undef calloc
-#undef free
-#undef realloc
-#ifdef _WIN64
-#define ALLOC_MAGIK_VALUE ((INT_PTR)0xA6B7C8D9A2C3D4E5)
-#else
-#define ALLOC_MAGIK_VALUE ((INT_PTR)0xA6B7C8D9)
-#endif
-#define DB_ATOMIC_ADD(addend, increment) InterlockedExchangeAdd(addend, increment)
-static long db_tot_mem_allocated = 0;
-#define ALLOC_SPADDING ( sizeof(INT_PTR) * 4 )
-#define ALLOC_EPADDING ( sizeof(INT_PTR) )
-#define ALLOC_EXTRA_BYTES (ALLOC_SPADDING + ALLOC_EPADDING)
-
-/* Allocated block layout below */
-/* ALLOC_SIZE, FILE_NAME, LINE_NO, MAGIK, XXXXXXXXXXXXXXXXXXXXXXXXXX, MAGIK */
-
-static INT_PTR db_free(void *x, const char *file, int ln)
-{
-    if(!x) return 0;
-
-    x -= ALLOC_SPADDING; /* start of real allocation. */
-
-    INT_PTR alloc_size  = *(INT_PTR*)( x + 0 * sizeof(INT_PTR) );
-    INT_PTR alloc_file  = *(INT_PTR*)( x + 1 * sizeof(INT_PTR) );
-    INT_PTR alloc_line  = *(INT_PTR*)( x + 2 * sizeof(INT_PTR) );
-    INT_PTR start_magik = *(INT_PTR*)( x + 3 * sizeof(INT_PTR) );
-
-    if (ALLOC_MAGIK_VALUE != start_magik) {
-        char buf[256];
-        wsprintfA(buf, "Magic value overwritten at the begining of %X block %s:%d\nAllocated at %s:%d", (UINT)x, file, ln, (const char *)alloc_file, alloc_line);
-        MessageBoxA(NULL, buf, "db_free()", MB_OK);
-    }
-
-    INT_PTR end_magik = *(INT_PTR*)(x + alloc_size + ALLOC_SPADDING);
-    if (ALLOC_MAGIK_VALUE != end_magik) {
-        char buf[256];
-        wsprintfA(buf, "Magic value overwritten at the end of %X block %s:%d\nAllocated at %s:%d", (UINT)x, file, ln, (const char *)alloc_file, alloc_line);
-        MessageBoxA(NULL, buf, "db_free()", MB_OK);
-    }
-
-    memset(x, 0xCD, alloc_size);
-
-    DB_ATOMIC_ADD(&db_tot_mem_allocated, -alloc_size);
-    freeL(x);
-    return alloc_size;
-}
-
-static void *db_malloc(size_t sz, const char *file, int ln)
-{
-    if(sz == 0) return NULL;
-    void *x = mallocL(sz + ALLOC_EXTRA_BYTES);
-    if(!x) return NULL;
-
-    *(INT_PTR*)( x + 0 * sizeof(INT_PTR) ) = sz; /* Save size before */
-    *(INT_PTR*)( x + 1 * sizeof(INT_PTR) ) = (INT_PTR)file;      /* Save filename (must be real const) */
-    *(INT_PTR*)( x + 2 * sizeof(INT_PTR) ) = ln;                 /* Save line number */
-    *(INT_PTR*)( x + 3 * sizeof(INT_PTR) ) = ALLOC_MAGIK_VALUE;  /* Tag the begining of alloc */
-    x += ALLOC_SPADDING; /* Good pos */
-    memset(x, 0xCA, sz);
-    *(INT_PTR*)(x+sz) = ALLOC_MAGIK_VALUE; /* Tag the end of alloc */
-
-    DB_ATOMIC_ADD(&db_tot_mem_allocated, sz);
-    return x;
-}
-static void *db_calloc(size_t n, size_t sz, const char *file, int ln)
-{
-    void *x = db_malloc(n*sz, file, ln);
-    if(!x) return 0;
-    mem00(x, n*sz);
-    return x;
-}
-
-static void *db_realloc(void *x, size_t sz, const char *file, int ln)
-{
-    if(!sz) { db_free(x, file, ln); return NULL; };
-
-    void *y = db_malloc(sz, file, ln);
-    if(y && x) {
-        INT_PTR old_size = *(INT_PTR*)(x-ALLOC_SPADDING);
-        memmove( y, x, min(old_size, sz) );
-        db_free( x, file, ln );
-    }
-    return y;
-}
-
-#define free(x) do { int sz = db_free(x, __FILE__, __LINE__); x = NULL; LOGA("free - %d bytes in "__FILE__":%d", (int)sz, __LINE__); } while(0)
-#define malloc(sz) db_malloc(sz, __FILE__, __LINE__); LOGA("malloc + %u bytes in "__FILE__":%d", (UINT)sz, __LINE__);
-#define calloc(n, sz) db_calloc(n, sz, __FILE__, __LINE__); LOGA("calloc + %u bytes in "__FILE__":%d", (UINT)(sz*n), __LINE__);
-#define realloc(x, sz) db_realloc(x, sz, __FILE__, __LINE__)
-
-/*; LOGA("realloc + %u bytes in "__FILE__":%d", (UINT)sz, __LINE__);*/
-
-#endif /* DEBUG_MALLOC */
-
-
 static char *lstrdupA(const char *s)
 {
     size_t olen_byte = (strlenL(s) + 1) * sizeof(char);
@@ -824,6 +711,254 @@ static wchar_t *lstrdupW(const wchar_t *s)
     memcpy(dup, s, olen_byte);
     return dup;
 }
-static void lstrfree(void *s) { freeL(s); }
+#define lstrfree freeL
+
+
+#define free(x) do { freeL(x); x = NULL; }while(0)
+#define realloc reallocL
+#define malloc mallocL
+#define calloc callocL
+
+#define CHECK_MEMORY_LEAK_DB()
+
+#ifdef DEBUG_MALLOC
+
+#undef CHECK_MEMORY_LEAK_DB
+
+#undef malloc
+#undef calloc
+#undef free
+#undef realloc
+#ifdef _WIN64
+#define ALLOC_MAGIK_VALUE ((INT_PTR)0xA6B7C8D9A2C3D4E5)
+#else
+#define ALLOC_MAGIK_VALUE ((INT_PTR)0xA6B7C8D9)
+#endif
+#define DB_ATOMIC_ADD(addend, increment) InterlockedExchangeAdd(addend, increment)
+#define DB_ATOMIC_INC(addend) InterlockedIncrement(addend)
+typedef struct rgtag_alloc_extra_data {
+    INT_PTR size;
+    size_t alloc_num;
+    const char *file;
+    const char *ffile;
+    int line;
+    int fline;
+    INT_PTR magik;
+} db_alloc_extra_data_t;
+#define ALLOC_SPADDING ( sizeof(db_alloc_extra_data_t) )
+#define ALLOC_EPADDING ( sizeof(INT_PTR) )
+#define ALLOC_EXTRA_BYTES (ALLOC_SPADDING + ALLOC_EPADDING)
+#define ALLOC_HISTORIC_SIZE 1024
+static long db_tot_mem_allocated = 0;
+static long db_allocation_count = 0;
+static long db_deallocation_count = 0;
+static void *db_allocation_list[ALLOC_HISTORIC_SIZE] = { 0 };
+static void *db_deallocation_list[ALLOC_HISTORIC_SIZE] = { 0 };
+/* Allocated block layout below */
+/* db_alloc_extra_data_endingwith_MAGIK, XXXXXXXXXXXXXXXXXXXXXXXXXX, MAGIK */
+static void *db_malloc(size_t sz, const char *file, int ln)
+{
+    if(sz == 0) return NULL;
+    unsigned char *x = (unsigned char *)mallocL(sz + ALLOC_EXTRA_BYTES);
+    if(!x) return NULL;
+    db_alloc_extra_data_t alloc_info = { 0 };
+    alloc_info.size     = sz;
+    alloc_info.alloc_num= db_allocation_count++;
+    alloc_info.file     = file;
+    alloc_info.ffile    = NULL;
+    alloc_info.line     = ln;
+    alloc_info.fline    = 0;
+    alloc_info.magik    = ALLOC_MAGIK_VALUE;
+    memcpy(x, &alloc_info, sizeof(alloc_info));
+
+    /* Add to the alloc list we may override old allocations */
+    db_allocation_list[alloc_info.alloc_num % ALLOC_HISTORIC_SIZE] = x;
+
+    x += ALLOC_SPADDING; /* Good pos */
+    memset(x, 0xCA, sz);
+
+    /* Tag the end of alloc */
+    INT_PTR magik = ALLOC_MAGIK_VALUE;
+    memcpy(x + sz, &magik, sizeof(magik));
+
+    DB_ATOMIC_ADD(&db_tot_mem_allocated, sz);
+    return x;
+}
+static void *db_calloc(size_t n, size_t sz, const char *file, int ln)
+{
+    void *x = db_malloc(n*sz, file, ln);
+    if(!x) return 0;
+    mem00(x, n*sz);
+    return x;
+}
+
+static void db_check_alloc_magik_validity(const void *base_alloc, const char *file, int ln)
+{
+    char buf[256];
+    const db_alloc_extra_data_t *info = (const db_alloc_extra_data_t *)base_alloc;
+    const unsigned char *x = (const unsigned char *)base_alloc;
+    x += ALLOC_SPADDING;
+    if (ALLOC_MAGIK_VALUE != info->magik) {
+        wsprintfA(buf, "Magic value overwritten at the begining of %X block %s:%d\nAllocated at %s:%d"
+            , (UINT)x, file, ln, info->file, info->line);
+        MessageBoxA(NULL, buf, "db_free()", MB_OK);
+    }
+
+    INT_PTR end_magik; /* Retrive magik value at the end of the allocation */
+    memcpy(&end_magik, x + info->size, sizeof(end_magik));
+
+    if (ALLOC_MAGIK_VALUE != end_magik) {
+        wsprintfA(buf, "Magic value overwritten at the end of %X block %s:%d\nAllocated at %s:%d"
+            , (UINT)x, file, ln, info->file, info->line);
+        MessageBoxA(NULL, buf, "db_free()", MB_OK);
+    }
+}
+
+static INT_PTR db_free(void *xx, const char *file, int ln)
+{
+    if(!xx) return 0;
+    unsigned char * const x = (unsigned char *)xx;
+    void * const base_alloc = x - ALLOC_SPADDING;
+
+    db_alloc_extra_data_t *info = (db_alloc_extra_data_t *)base_alloc;
+
+    if (info->fline > 0) {
+        char buf[256];
+        wsprintfA(buf, "Double free of %X block %s:%d\nAllocated at %s:%d\nPreviously freed at %s:%d"
+            , (UINT)x, file, ln, info->file, info->line, info->ffile, info->fline);
+        MessageBoxA(NULL, buf, "db_free()", MB_OK);
+        return 0;
+    }
+
+    db_check_alloc_magik_validity(base_alloc, file, ln);
+
+    /* Tag allocation with FREE info, file:line */
+    info->ffile = file;
+    info->fline = ln;
+
+    memset(x, 0xCD, info->size);
+
+    size_t free_count = db_deallocation_count++;
+    db_deallocation_list[free_count % ALLOC_HISTORIC_SIZE] = base_alloc;
+
+    free_count++;
+    db_alloc_extra_data_t *next_slot = (db_alloc_extra_data_t *)db_deallocation_list[free_count % ALLOC_HISTORIC_SIZE];
+    db_deallocation_list[free_count % ALLOC_HISTORIC_SIZE] = NULL; /* Zero out so we dont make stupid mistakes later */
+    if (next_slot) {
+        /* Try to remove the reference to the same slot in the allocation_list */
+        if (db_allocation_list[next_slot->alloc_num % ALLOC_HISTORIC_SIZE] == next_slot)
+            db_allocation_list[next_slot->alloc_num % ALLOC_HISTORIC_SIZE] = NULL;
+
+        freeL(next_slot);
+    }
+
+    DB_ATOMIC_ADD(&db_tot_mem_allocated, -info->size);
+
+    return info->size;
+}
+
+static void *db_realloc(void *xx, size_t sz, const char *file, int ln)
+{
+    unsigned char *x = (unsigned char *)xx;
+    if(!sz) { db_free(x, file, ln); return NULL; };
+
+    void *y = db_malloc(sz, file, ln);
+    if(y && x) {
+        INT_PTR old_size = *(INT_PTR*)(x-ALLOC_SPADDING);
+        memcpy( y, x, min(old_size, sz) );
+        db_free( x, file, ln );
+    }
+    return y;
+}
+#define CHECK_MEMORY_LEAK_DB() check_memory_leak_db(__FILE__);
+static void check_memory_leak_db(const char *module_name)
+{
+    for (size_t i = 0; i < ALLOC_HISTORIC_SIZE; i++) {
+        void *base_alloc = db_allocation_list[i];
+        if(!base_alloc) continue;
+        db_alloc_extra_data_t *info = (db_alloc_extra_data_t *)base_alloc;
+        const unsigned char *x = (const unsigned char *)base_alloc;
+        x += ALLOC_SPADDING;
+        if (!info->fline) {
+            TCHAR buf[256];
+            db_check_alloc_magik_validity(base_alloc, NULL, 0);
+            wsprintf(buf, TEXT("Memory leak %u bytes at 0x%X: %.128s\nAllocated at %hs:%d and never freed")
+                , (unsigned)info->size, (UINT)x, (TCHAR*)x
+                , info->file, info->line);
+            MessageBox(NULL, buf, TEXT("check_memory_leak_db()"), MB_OK);
+        } else {
+            for (size_t n = 0; n < (size_t)info->size; n++) {
+                if (x[n] != 0xCD) {
+                    MessageBox(NULL, TEXT("USE AFTER FREE..."), NULL, 0);
+                    break;
+                }
+            }
+        }
+    }
+
+    /* Free all remaining data... */
+    for (size_t j = 0; j < ALLOC_HISTORIC_SIZE; j++) {
+        freeL(db_deallocation_list[j]);
+    }
+    /* Clear buffers for later re-use
+     * Leaked allocations will still be leaked (safe bet) */
+    mem00(db_allocation_list, sizeof(db_allocation_list));
+    mem00(db_deallocation_list, sizeof(db_deallocation_list));
+
+    if (db_tot_mem_allocated == 0)
+        return;
+
+    char buf[128];
+    wsprintfA(buf, "Leaked %d bytes in %s with %d allocations and %d deallocations"
+        , (int)db_tot_mem_allocated, module_name, (int)db_allocation_count, (int)db_deallocation_count
+    );
+
+    MessageBoxA( NULL, buf, "AltSnap Error", MB_OK);
+}
+
+static wchar_t *db_lstrdupW(const wchar_t *s, const char *file, int ln)
+{
+    size_t olen_byte = (wcslenL(s) + 1) * sizeof(wchar_t);
+    wchar_t *dup = (wchar_t *)db_malloc(olen_byte, file, ln);
+    if(!dup) return NULL;
+    memcpy(dup, s, olen_byte);
+    return dup;
+}
+
+static char *db_lstrdupA(const char *s, const char *file, int ln)
+{
+    size_t olen_byte = (strlenL(s) + 1) * sizeof(char);
+    char *dup = (char *)db_malloc(olen_byte, file, ln);
+    if(!dup) return NULL;
+    memcpy(dup, s, olen_byte);
+    return dup;
+}
+
+#define free(x) do { int sz = db_free(x, __FILE__, __LINE__); if(sz)LOGA("free - %d bytes in "__FILE__":%d", (int)sz, __LINE__); } while(0)
+#define malloc(sz) db_malloc(sz, __FILE__, __LINE__); LOGA("malloc + %u bytes in "__FILE__":%d", (UINT)sz, __LINE__);
+#define calloc(n, sz) db_calloc(n, sz, __FILE__, __LINE__); LOGA("calloc + %u bytes in "__FILE__":%d", (UINT)(sz*n), __LINE__);
+#define realloc(x, sz) db_realloc(x, sz, __FILE__, __LINE__)
+
+#undef lstrdup
+#undef lstrfree
+#define lstrdupA(x) db_lstrdupA(x, __FILE__, __LINE__)
+#define lstrdupW(x) db_lstrdupW(x, __FILE__, __LINE__)
+#define lstrfree(x) db_free(x, __FILE__, __LINE__)
+#ifdef UNICODE
+#define lstrdup(x) db_lstrdupW(x, __FILE__, __LINE__)
+#else
+#define lstrdup(x) db_lstrdupA(x, __FILE__, __LINE__)
+#endif
+/*; LOGA("realloc + %u bytes in "__FILE__":%d", (UINT)sz, __LINE__);*/
+
+#undef ALLOC_MAGIK_VALUE
+#undef DB_ATOMIC_ADD
+#undef DB_ATOMIC_INC
+#undef ALLOC_SPADDING
+#undef ALLOC_EPADDING
+#undef ALLOC_EXTRA_BYTES
+#undef ALLOC_HISTORIC_SIZE
+
+#endif /* DEBUG_MALLOC */
 
 #endif

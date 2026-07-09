@@ -6334,13 +6334,8 @@ static void readblacklist(const TCHAR *section, blacklist_t *blacklist, const ch
             exenm = NULL; // exename is a single *
         }
         // Allocate space
-        blacklistitem_t *olditem = blacklist->items;
-        blacklist->items = (blacklistitem_t *)realloc(blacklist->items, (blacklist->length+1)*sizeof(*blacklist->items));
-        if (!blacklist->items) {
-            // restore old item if realloc failed
-            // It will jst be a shorter blacklist
-            // May be NULL as well...
-            blacklist->items=olditem;
+        blacklistitem_t *newitem = (blacklistitem_t *)realloc(blacklist->items, (blacklist->length+1)*sizeof(*blacklist->items));
+        if (!newitem) {
             break; // Stop the loop
         }
 

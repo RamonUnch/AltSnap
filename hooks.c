@@ -6338,6 +6338,7 @@ static void readblacklist(const TCHAR *section, blacklist_t *blacklist, const ch
         if (!newitem) {
             break; // Stop the loop
         }
+        blacklist->items = newitem;
 
         // Store item
         LOG( "%ls:%ls|%ls", exenm, title, klass);

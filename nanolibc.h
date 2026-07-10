@@ -725,17 +725,12 @@ static wchar_t *lstrdupW(const wchar_t *s)
 
 #undef CHECK_MEMORY_LEAK_DB
 
-#undef malloc
-#undef calloc
-#undef free
-#undef realloc
 #ifdef _WIN64
 #define ALLOC_MAGIK_VALUE ((INT_PTR)0xA6B7C8D9A2C3D4E5)
 #else
 #define ALLOC_MAGIK_VALUE ((INT_PTR)0xA6B7C8D9)
 #endif
-#define DB_ATOMIC_ADD(addend, increment) InterlockedExchangeAdd(addend, increment)
-#define DB_ATOMIC_INC(addend) InterlockedIncrement(addend)
+
 typedef struct rgtag_alloc_extra_data {
     INT_PTR size;
     size_t alloc_num;
@@ -781,7 +776,7 @@ static void *db_malloc(size_t sz, const char *file, int ln)
     INT_PTR magik = ALLOC_MAGIK_VALUE;
     memcpy(x + sz, &magik, sizeof(magik));
 
-    DB_ATOMIC_ADD(&db_tot_mem_allocated, sz);
+    db_tot_mem_allocated += (long)sz;
     return x;
 }
 static void *db_calloc(size_t n, size_t sz, const char *file, int ln)
@@ -796,8 +791,8 @@ static void db_check_alloc_magik_validity(const void *base_alloc, const char *fi
 {
     char buf[256];
     const db_alloc_extra_data_t *info = (const db_alloc_extra_data_t *)base_alloc;
-    const unsigned char *x = (const unsigned char *)base_alloc;
-    x += ALLOC_SPADDING;
+    const unsigned char *const x = (const unsigned char *)base_alloc + ALLOC_SPADDING;
+
     if (ALLOC_MAGIK_VALUE != info->magik) {
         wsprintfA(buf, "Magic value overwritten at the begining of %X block %s:%d\nAllocated at %s:%d"
             , (UINT)x, file, ln, info->file, info->line);
@@ -852,7 +847,7 @@ static INT_PTR db_free(void *xx, const char *file, int ln)
         freeL(next_slot);
     }
 
-    DB_ATOMIC_ADD(&db_tot_mem_allocated, -info->size);
+    db_tot_mem_allocated -= (long)info->size;
 
     return info->size;
 }
@@ -877,8 +872,7 @@ static void check_memory_leak_db(const char *module_name)
         void *base_alloc = db_allocation_list[i];
         if(!base_alloc) continue;
         db_alloc_extra_data_t *info = (db_alloc_extra_data_t *)base_alloc;
-        const unsigned char *x = (const unsigned char *)base_alloc;
-        x += ALLOC_SPADDING;
+        const unsigned char *const x = (const unsigned char *)base_alloc + ALLOC_SPADDING;
         if (!info->fline) {
             TCHAR buf[256];
             db_check_alloc_magik_validity(base_alloc, NULL, 0);
@@ -909,8 +903,8 @@ static void check_memory_leak_db(const char *module_name)
         return;
 
     char buf[128];
-    wsprintfA(buf, "Leaked %d bytes in %s with %d allocations and %d deallocations"
-        , (int)db_tot_mem_allocated, module_name, (int)db_allocation_count, (int)db_deallocation_count
+    wsprintfA(buf, "Leaked %ld bytes in %s with %ld allocations and %ld deallocations"
+        , db_tot_mem_allocated, module_name, db_allocation_count, db_deallocation_count
     );
 
     MessageBoxA( NULL, buf, "AltSnap Error", MB_OK);
@@ -933,11 +927,17 @@ static char *db_lstrdupA(const char *s, const char *file, int ln)
     memcpy(dup, s, olen_byte);
     return dup;
 }
+#undef malloc
+#undef calloc
+#undef free
+#undef realloc
 
-#define free(x) do { int sz = db_free(x, __FILE__, __LINE__); if(sz)LOGA("free - %d bytes in "__FILE__":%d", (int)sz, __LINE__); } while(0)
-#define malloc(sz) db_malloc(sz, __FILE__, __LINE__); LOGA("malloc + %u bytes in "__FILE__":%d", (UINT)sz, __LINE__);
-#define calloc(n, sz) db_calloc(n, sz, __FILE__, __LINE__); LOGA("calloc + %u bytes in "__FILE__":%d", (UINT)(sz*n), __LINE__);
-#define realloc(x, sz) db_realloc(x, sz, __FILE__, __LINE__)
+#define free(x) do { int sz = db_free(x, __FILE__, __LINE__); if(sz)LOG("free - %d bytes in "__FILE__":%d", (int)sz, __LINE__); } while(0)
+#define malloc(sz) db_malloc(sz, __FILE__, __LINE__); LOG("malloc + %u bytes in "__FILE__":%d", (UINT)sz, __LINE__);
+#define calloc(n, sz) db_calloc(n, sz, __FILE__, __LINE__); LOG("calloc + %u bytes in "__FILE__":%d", (UINT)(sz*n), __LINE__);
+#define realloc(x, sz) db_realloc(x, sz, __FILE__, __LINE__); \
+        do { db_alloc_extra_data_t *info=(db_alloc_extra_data_t *)x; \
+             LOG("reallocated %u bytes -> %u bytes in %s:%d", info ? (unsigned)(info-1)->size : 0u, (unsigned)sz, __FILE__, __LINE__); } while(0)
 
 #undef lstrdup
 #undef lstrfree
@@ -949,11 +949,8 @@ static char *db_lstrdupA(const char *s, const char *file, int ln)
 #else
 #define lstrdup(x) db_lstrdupA(x, __FILE__, __LINE__)
 #endif
-/*; LOGA("realloc + %u bytes in "__FILE__":%d", (UINT)sz, __LINE__);*/
 
 #undef ALLOC_MAGIK_VALUE
-#undef DB_ATOMIC_ADD
-#undef DB_ATOMIC_INC
 #undef ALLOC_SPADDING
 #undef ALLOC_EPADDING
 #undef ALLOC_EXTRA_BYTES

@@ -828,7 +828,7 @@ static BOOL EnableNonClientDpiScalingL(HWND hwnd)
     return FALSE;
 }
 /* Only applies to Windows NT for build number */
-static xpure BOOL OredredWinVer()
+static xpure BOOL OredredWinVer(void)
 {
     DWORD oVer;
     DWORD ver = GetVersion();
@@ -862,7 +862,7 @@ static BOOL IsDarkModeEnabled(void)
    }
    return value;
 }
-static BOOL IsHighContrastEnabled()
+static BOOL IsHighContrastEnabled(void)
 {
     HIGHCONTRAST hc = { sizeof(hc) };
     if (SystemParametersInfo(SPI_GETHIGHCONTRAST, sizeof(hc), &hc, FALSE))
@@ -1054,7 +1054,7 @@ static HRESULT DwmGetColorizationColorL(DWORD *a, BOOL *b)
     return 666; /* Here we FAIL with 666 error    */
 }
 
-static COLORREF GetSysColorizationColor()
+static COLORREF GetSysColorizationColor(void)
 {
     DWORD color=0;
     BOOL b=FALSE;
@@ -1270,7 +1270,7 @@ static HRESULT DwmIsCompositionEnabledL(BOOL *pfEnabled)
     return ret;
 }
 
-static BOOL HaveDWM()
+static BOOL HaveDWM(void)
 {
     static int first=1;
     static BOOL have_dwm = FALSE;

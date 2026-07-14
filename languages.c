@@ -143,7 +143,7 @@ struct langinfoitemList {
     size_t cap;
 } langinfo = { NULL, 0, 0 };
 /////////////////////////////////////////////////////////////////////////////
-void ListAllTranslations()
+void ListAllTranslations(void)
 {
     if (langinfo.it) return;
 
@@ -204,7 +204,7 @@ void ListAllTranslations()
     }
 }
 
-static void Generate_en_US_base_txt()
+static void Generate_en_US_base_txt(void)
 {
     HANDLE h = CreateFileA( "en_US.txt", GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if( h == INVALID_HANDLE_VALUE )
@@ -243,7 +243,7 @@ static int GetCUserLanguage_xx_XX(wchar_t txt[AT_LEAST 16])
 }
 #endif
 /////////////////////////////////////////////////////////////////////////////
-void UpdateLanguage()
+void UpdateLanguage(void)
 {
     TCHAR txt[16];
     GetPrivateProfileString(TEXT("General"), TEXT("Language"), TEXT("Auto"), txt, ARR_SZ(txt), inipath);
@@ -269,7 +269,7 @@ void UpdateLanguage()
     }
 }
 
-void FreeAllLangRelated()
+void FreeAllLangRelated(void)
 {
     if (langinfo.it) {
         for (size_t i=1; i < langinfo.num; i++) {

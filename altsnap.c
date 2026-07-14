@@ -38,7 +38,7 @@ static void UpdateSettings();
 #include "tray.c"
 #include "config.c"
 
-static HINSTANCE LoadHooksDLL()
+static HINSTANCE LoadHooksDLL(void)
 {
     // Load library
     TCHAR path[MAX_PATH];
@@ -49,7 +49,7 @@ static HINSTANCE LoadHooksDLL()
     lstrcat_s(path, ARR_SZ(path), TEXT("\\hooks.dll"));
     return LoadLibrary(path);
 }
-static void FreeHooksDLL()
+static void FreeHooksDLL(void)
 {
     if (hinstDLL) {
         BOOL ret = FreeLibrary(hinstDLL);
@@ -58,7 +58,7 @@ static void FreeHooksDLL()
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-static int HookSystem()
+static int HookSystem(void)
 {
     if (keyhook) return 1; // System already hooked
     LOG("Going to Hook the system...");
@@ -104,7 +104,7 @@ static int HookSystem()
 }
 /////////////////////////////////////////////////////////////////////////////
 static int showerror = 1;
-static int UnhookSystem()
+static int UnhookSystem(void)
 {
     LOG("Going to UnHook the system...");
     if (!keyhook) { // System not hooked
@@ -129,7 +129,7 @@ static int UnhookSystem()
     return 0;
 }
 /////////////////////////////////////////////////////////////////////////////
-void ToggleState()
+void ToggleState(void)
 {
     if (ENABLED()) {
         UnhookSystem();
@@ -139,7 +139,7 @@ void ToggleState()
     }
 }
 /////////////////////////////////////////////////////////////////////////////
-static void UpdateSettings()
+static void UpdateSettings(void)
 {
     //PostMessage(g_hwnd, WM_UPDATESETTINGS, 0, 0);
     if (ENABLED()) {

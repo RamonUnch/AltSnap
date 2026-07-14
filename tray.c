@@ -266,7 +266,7 @@ static void ShowContextMenu(HWND hwnd)
 
     AppendMenu(menu, MF_STRING, CMD_TOGGLE, (ENABLED()?l10n->MenuDisable:l10n->MenuEnable));
     AppendMenu(menu, MF_STRING, CMD_HIDE, l10n->MenuHideTray);
-    if(WinVer >= 6) // Vista+
+    if(WinVer >= VISTA) // Vista+
         InsertMenu(menu, -1, elevated?MF_BYPOSITION|MF_GRAYED:MF_BYPOSITION
                  , CMD_ELEVATE, (elevated? l10n->GeneralElevated: l10n->GeneralElevate));
 

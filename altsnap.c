@@ -25,9 +25,9 @@ static char ScrollLockState = 0;
 static char SnapGap = 0;
 static BYTE WinVer = 0;
 
-#define WIN2K (WinVer >= 5)
-#define VISTA (WinVer >= 6)
-#define WIN10 (WinVer >= 10)
+#define WIN2K 5
+#define VISTA 6
+#define WIN10 10
 
 #define ENABLED() (!!keyhook)
 #define GetWindowRectL(hwnd, rect) GetWindowRectLL(hwnd, rect, SnapGap)
@@ -207,14 +207,14 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
 }
 // To get the caret position in screen coordinate.
 // We first try to get the carret rect
-#include <oleacc.h>
+//#include <oleacc.h>
 //static const GUID  my_IID_IAccessible = { 0x618736e0, 0x3c3d, 0x11cf, {0x81, 0x0c, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71} };
 static void GetKaretPos(POINT *pt)
 {
     GUITHREADINFO gui;
     gui.cbSize = sizeof(gui);
     gui.hwndCaret = NULL;
-    if (GetGUIThreadInfo(0, &gui)) {
+    if (GetGUIThreadInfoL(0, &gui)) {
         pt->x = (gui.rcCaret.right + gui.rcCaret.left)>>1;
         pt->y = (gui.rcCaret.top + gui.rcCaret.bottom)>>1;
         if (gui.hwndCaret) {
@@ -486,7 +486,7 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
     WinVer = LOBYTE(LOWORD(GetVersion()));
     LOG("Running with Windows version %lX", GetVersion());
     #ifndef NO_VISTA
-    if (WinVer >= 6) { // Vista +
+    if (WinVer >= VISTA) {
         HANDLE token=NULL;
         TOKEN_ELEVATION elevation={0};
         DWORD len=0;

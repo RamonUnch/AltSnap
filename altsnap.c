@@ -20,8 +20,8 @@ static WNDPROC G_HotKeyProc = NULL;
 HINSTANCE hinstDLL = NULL;
 HHOOK keyhook = NULL;
 static DWORD ACMenuItems=-1;
-static char elevated = 0;
-static char ScrollLockState = 0;
+static unsigned char elevated = 0;
+static unsigned char ScrollLockState = 0;
 static char SnapGap = 0;
 static BYTE WinVer = 0;
 
@@ -616,7 +616,7 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
 
     CHECK_MEMORY_LEAK_DB();
 
-    return msg.wParam;
+    return (int)msg.wParam;
 }
 static pure const TCHAR *ParamsFromCmdline(const TCHAR *cmdl)
 {
@@ -650,5 +650,5 @@ void noreturn WINAPI unfuckWinMain(void)
     hInst = GetModuleHandle(NULL);
     szCmdLine = ParamsFromCmdline(GetCommandLine());
 
-    ExitProcess(tWinMain(hInst, hPrevInstance, (TCHAR *)szCmdLine, iCmdShow));
+    ExitProcess((UINT)tWinMain(hInst, hPrevInstance, (TCHAR *)szCmdLine, iCmdShow));
 }

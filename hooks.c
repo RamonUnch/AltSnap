@@ -5937,10 +5937,10 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi, H
 
     return TRUE;
 }
-static void SendSYSCOMMANDToMenuItem(HWND hwnd, int id, HMENU hmenu, WPARAM sc_command )
+static void SendSYSCOMMANDToMenuItem(HWND hwnd, UINT id, HMENU hmenu, WPARAM sc_command )
 {
     if (conf.RCCloseMItem
-    && 0 <= id && (UINT)id < hwnds.num
+    && id < hwnds.num
     && GetWindowLongPtr(hwnd, GWLP_USERDATA) == 3
     && IsWindow(hwnds.it[id]) ) {
         if (sc_command == SC_CLOSE // remove topmost flag for close command
@@ -5980,7 +5980,7 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         mfont = NULL;
         } break;
     case WM_DPICHANGED: {
-        dpi = LOWORD(wParam) * conf.MenuZoom / 100; // Update dpi value if changed...
+        dpi = (UINT)LOWORD(wParam) * conf.MenuZoom / 100; // Update dpi value if changed...
         if (mfont) {
             DeleteObject(mfont); // Delete menufont if needed.
             mfont = NULL;
@@ -6032,7 +6032,7 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_MBUTTONUP: {
         // The user released the right button.
         // We must close the corresponding Window in the windows list
-        int id = wParam; // Zero-based menu id.
+        UINT id = wParam; // Zero-based menu id.
         WPARAM sc_command = SC_MINIMIZE;
         HMENU hmenu = (HMENU)lParam;
         if (msg == WM_MBUTTONUP) {
@@ -6042,7 +6042,7 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             pt.x = GET_X_LPARAM(msgpos);
             pt.y = GET_Y_LPARAM(msgpos);
             hmenu = state.unikeymenu;
-            id = MenuItemFromPoint(hwnd, hmenu, pt);
+            id = (UINT)MenuItemFromPoint(hwnd, hmenu, pt);
             sc_command = SC_CLOSE;
         }
         SendSYSCOMMANDToMenuItem(hwnd, id, hmenu, sc_command);
@@ -6187,20 +6187,20 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             return 0;
         }
     } else if (msg == WM_STACKLIST) {
-        TrackMenuOfWindows((WNDENUMPROC)lParam, wParam);
+        TrackMenuOfWindows((WNDENUMPROC)lParam, (int)wParam);
         return 0;
     } else if (msg == WM_SETLAYOUTNUM) {
         SetLayoutNumber(wParam);
         return 0;
     } else if (msg == WM_GETLAYOUTREZ) {
-        return GetLayoutRez(wParam);
+        return (LPARAM)GetLayoutRez((int)wParam);
     } else if (msg == WM_GETBESTLAYOUT) {
         return GetBestLayoutFromMonitors();
     } else if (msg == WM_GETZONES) {
         unsigned layout_idx = (unsigned)wParam;
         RECT **dZones = (RECT**)lParam;
         if (dZones) *dZones = Zones[layout_idx].it;
-        return Zones[layout_idx].num; // Return number of zones on the layout
+        return (LRESULT)Zones[layout_idx].num; // Return number of zones on the layout
     }
 
     return DefWindowProc(hwnd, msg, wParam, lParam);
@@ -6244,7 +6244,7 @@ __declspec(dllexport) void WINAPI Unload(void)
         }
     }
 
-    for (size_t idx = 0; idx < ARR_SZ(conf.KBShortcutsList); idx++)
+    for (int idx = 0; idx < (int)ARR_SZ(conf.KBShortcutsList); idx++)
         UnregisterHotKey(g_mainhwnd, 0xC001 + idx);
 
     EnumThreadWindows(GetCurrentThreadId(), PostPinWindowsProcMessage, WM_CLOSE);
@@ -6378,7 +6378,7 @@ void readallblacklists(const TCHAR *inipath)
 
 ///////////////////////////////////////////////////////////////////////////
 // Used to read Hotkeys and Hotclicks
-static unsigned readhotkeys(const TCHAR *inisection, const char *name, const TCHAR *def, UCHAR *keys, unsigned MaxKeys)
+static size_t readhotkeys(const TCHAR *inisection, const char *name, const TCHAR *def, UCHAR *keys, unsigned MaxKeys)
 {
     LPCTSTR txt = GetSectionOptionCStr(inisection, name, def);
     size_t i=0;
@@ -6423,7 +6423,7 @@ void readbuttonactions(const TCHAR *inputsection)
 
         char key[32];
         lstrcpy_sA(key, ARR_SZ(key) - 8, buttons[i]);
-        int len = lstrlenA(key);
+        size_t len = lstrlenA(key);
         // Read primary action (no sufix)
         actionptr[NACPB*i+0] = readaction(inputsection, key);
         key[len] = 'B'; key[len+1] = '\0'; // Secondary B sufixe
@@ -6482,7 +6482,7 @@ static HWND KreateMsgWin(WNDPROC proc, const TCHAR *name, LONG_PTR userdata)
 ///////////////////////////////////////////////////////////////////////////
 static void CreateTransWin(const TCHAR *inisection)
 {
-    int color[2];
+    unsigned long color[2];
     // Read the color for the TransWin from ini file
     readhotkeys(inisection, "FrameColor",  TEXT("80 00 80"), (UCHAR *)&color[0], 3);
     WNDCLASS wnd;
@@ -6495,7 +6495,7 @@ static void CreateTransWin(const TCHAR *inisection)
     RegisterClass(&wnd);
     g_transhwnd[0] = NULL;
     if (conf.TransWinOpacity) {
-        int xflags = conf.TransWinOpacity==255
+        DWORD xflags = conf.TransWinOpacity==255
                    ? WS_EX_TOPMOST|WS_EX_TOOLWINDOW
                    : WS_EX_TOPMOST|WS_EX_TOOLWINDOW|WS_EX_LAYERED;
         g_transhwnd[0] = CreateWindowEx(xflags
@@ -6530,8 +6530,8 @@ void registerAllHotkeys(const TCHAR* inipath)
     static const char *action_names[] = { ACTION_MAP };
     #undef ACVALUE
 
-    size_t idx = 0;
-    for (const TCHAR *p = inisection; *p && idx < ARR_SZ(conf.KBShortcutsList); p += lstrlen(p)+1) {
+    int idx = 0;
+    for (const TCHAR *p = inisection; *p && idx < (int)ARR_SZ(conf.KBShortcutsList); p += lstrlen(p)+1) {
         if(*p == ';') continue;
 
         action_t action = MapActionW(p);
@@ -6577,8 +6577,8 @@ void readallinputSequences(const TCHAR *inisection)
 
     for (size_t i=0; i < ARR_SZ(conf.inputSequences); i++) {
         shrtN[4] = i<10? '0' + i: 'A'-10 + i;
-        unsigned len = readhotkeys(inisection, shrtN, TEXT("\0"), buf+1, ARR_SZ(buf)-4) / 2;
-        buf[0] = len; // We store the amounf of input, not characters, the input includes up or down
+        size_t len = readhotkeys(inisection, shrtN, TEXT("\0"), buf+1, ARR_SZ(buf)-4) / 2;
+        buf[0] = (UCHAR)len; // We store the amounf of input, not characters, the input includes up or down
         if (len) {
             UCHAR *seq = (UCHAR *)malloc((len*2+1)*sizeof(UCHAR));
             if (seq) {
@@ -6652,8 +6652,8 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
 
     conf.ZoomFrac      = max(2, conf.ZoomFrac);
     conf.ZoomFracShift = max(2, conf.ZoomFracShift);
-    conf.BLCapButtons  = GetSectionOptionInt(inisection, "BLCapButtons", 3);
-    conf.BLUpperBorder = GetSectionOptionInt(inisection, "BLUpperBorder", 3);
+    conf.BLCapButtons  = (DWORD)GetSectionOptionInt(inisection, "BLCapButtons", 3);
+    conf.BLUpperBorder = (DWORD)GetSectionOptionInt(inisection, "BLUpperBorder", 3);
     conf.AeroMaxSpeed  = GetSectionOptionInt(inisection, "AeroMaxSpeed", MAX_SNAP_SPEED);
     conf.LongClickMoveDelay = GetSectionOptionInt(inisection, "LongClickMoveDelay", 0);
     if (conf.LongClickMoveDelay == 0)
@@ -6720,7 +6720,7 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
     conf.EndSendKey = eHKs[0];
 
     // Window List accelerator map
-    int nb = readhotkeys(inisection, "MenuAccelMap", NULL, conf.MenuAccelMap, ARR_SZ(conf.MenuAccelMap) - 1);
+    size_t nb = readhotkeys(inisection, "MenuAccelMap", NULL, conf.MenuAccelMap, ARR_SZ(conf.MenuAccelMap) - 1);
 
     // Fill the rest with usual accelerators
     for (size_t j = nb; j < ARR_SZ(conf.MenuAccelMap); j++) {

@@ -3426,6 +3426,7 @@ static void ActionMaxRestMin(HWND hwnd, int delta)
 static void ActionBrightness(const POINT pt, const short delta)
 {
 // Works oly for Desktop monitors.
+#define NO_BRIGHTNESS
 #ifndef NO_BRIGHTNESS
     typedef struct _PHYSICAL_MONITOR {
         HANDLE hPhysicalMonitor;
@@ -4287,6 +4288,8 @@ static LRESULT CALLBACK PinWindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 static HWND CreatePinWindow(const HWND owner)
 {
     WNDCLASS wnd;
+    DWORD ex_flags;
+    HWND ret;
     if(!GetClassInfo(hinstDLL, TEXT(APP_NAMEA)TEXT("-Pin"), &wnd)) {
         // Register the class if no already created.
         mem00(&wnd, sizeof(wnd));
@@ -4304,11 +4307,19 @@ static HWND CreatePinWindow(const HWND owner)
         wnd.lpszClassName =  TEXT(APP_NAMEA)TEXT("-Pin");
         RegisterClass(&wnd);
     }
-    HWND ret = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TOPMOST
+
+    ex_flags = WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_NOACTIVATE;
+    TryAGAIN:
+    ret = CreateWindowEx(ex_flags
                    , TEXT(APP_NAMEA)TEXT("-Pin"), NULL
                    , WS_POPUP|WS_BORDER /* Start invisible */
                    , 0, 0, 0, 0
                    , owner, NULL, hinstDLL, NULL);
+    if (!ret && ex_flags&WS_EX_NOACTIVATE) {
+        // Some Windows versions cannot handle the WS_EX_NOACTIVATE flag...
+        ex_flags &= ~WS_EX_NOACTIVATE;
+        goto TryAGAIN;
+    }
     // Show pin window without activating it to avoid focus loss.
     ShowWindow(ret, SW_SHOWNA);
     return ret;

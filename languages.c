@@ -100,7 +100,7 @@ static void LoadTranslationOrTT(const TCHAR *__restrict__ ini, const TCHAR * __r
 
     for (size_t i=0; i < ARR_SZ(l10n_inimapping); i++) {
         // Get pointer to default English string to be used if ini entry doesn't exist
-        const TCHAR *const def_val = ((TCHAR **)&en_US)[i*2+offset];
+        const TCHAR *const def_val = ((const TCHAR *const*)&en_US)[i*2+offset];
         const TCHAR *txt = ini_map[i] ? ini_map[i] : def_val;
         if (!txt)
             continue; // default value may be NULL...
@@ -127,7 +127,7 @@ static void LoadTranslationOrTT(const TCHAR *__restrict__ ini, const TCHAR * __r
 static void LoadTranslation(const TCHAR *__restrict__ ini)
 {
     if (!ini) {
-        l10n = (struct strings *)&en_US;
+        l10n = (struct strings const *)&en_US;
         return;
     } else if( INVALID_FILE_ATTRIBUTES == GetFileAttributes(ini) ) {
         return;
@@ -212,7 +212,7 @@ static void Generate_en_US_base_txt(void)
 
     DWORD dummy = 0;
     TCHAR key[100], val[1000];
-    const TCHAR **const def_strings = ((const TCHAR **)&en_US);
+    TCHAR const * const * const def_strings = ((TCHAR const * const *)&en_US);
     WriteFile(h, "\xFF\xFE", 2, &dummy, NULL); // UTF-16 LE BOM
     WriteFile(h, TEXT("; Base AltSnap Translation\r\n[Translation]\r\n"), 43 * sizeof(TCHAR), &dummy, NULL);
 

@@ -23,7 +23,7 @@ static DWORD Grids[MAX_LAYOUTS] = { 0 };
 enum { ZONES_PREV_HIDE=0, ZONES_PREV_SHOW=1 };
 
 
-static void freezones()
+static void freezones(void)
 {
     for (size_t i = 0; i < ARR_SZ(Zones); i++)
         ListFree(&Zones[i]);
@@ -120,7 +120,7 @@ static void ReadGrids(const TCHAR *inisection)
 }
 // Recalculate the zones from the Grid info.
 // Needed in case resolution changes.
-static void RecalculateZonesFromGrids()
+static void RecalculateZonesFromGrids(void)
 {
     for (size_t i=0; i<ARR_SZ(Grids); i++) {
         unsigned short GridNx = LOWORD(Grids[i]);
@@ -230,7 +230,7 @@ static unsigned GetZoneFromPoint(POINT pt, RECT *urc, int extend)
 }
 static int pure IsResizable(HWND hwnd);
 
-static void ActionToggleSnapToZoneMode()
+static void ActionToggleSnapToZoneMode(void)
 {
     if (conf.UseZones&1 && state.action.ac == AC_MOVE) {
         state.usezones = !state.usezones;
@@ -415,7 +415,7 @@ static pure DWORD GetLayoutRez(int laynum)
 }
 // Calculate the dimentions of union rectangle that contains all
 // the work area of every monitors.
-static DWORD GetFullMonitorsRez()
+static DWORD GetFullMonitorsRez(void)
 {
     // Enumerate monitors
     EnumDisplayMonitors(NULL, NULL, EnumMonitorsProc, 0);
@@ -430,7 +430,7 @@ static DWORD GetFullMonitorsRez()
 
 // Return a layout number if its dimentions exactly fit
 // the display monitor.
-static int GetBestLayoutFromMonitors()
+static int GetBestLayoutFromMonitors(void)
 {
     if (!(conf.UseZones&1))
         return -1;
@@ -550,7 +550,7 @@ static void ShowSnapLayoutPreview(unsigned char yep)
     }
 }
 
-static void ZonesPrevResetRegion()
+static void ZonesPrevResetRegion(void)
 {
     if (conf.ZonesPrevwOpacity != 0)
         return;

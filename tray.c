@@ -39,7 +39,7 @@ static const TCHAR *tray_tooltipstr[] = {
 };
 static HICON g_icons[ICONS_COUNT];
 
-static void LoadAllIcons()
+static void LoadAllIcons(void)
 {
     TCHAR theme[MAX_PATH]; // Get theme name
     int ret = GetPrivateProfileString(TEXT("General"), TEXT("Theme"), TEXT(""), theme, ARR_SZ(theme), inipath);
@@ -71,11 +71,11 @@ static void LoadAllIcons()
 }
 
 /////////////////////////////////////////////////////////////////////////////
-static int InitTray()
+static int InitTray(void)
 {
     ScrollLockState = GetPrivateProfileInt(TEXT("Input"), TEXT("ScrollLockState"), 0, inipath);
-    LayoutNumber    = GetPrivateProfileInt(TEXT("Zones"), TEXT("LayoutNumber"), 0, inipath);
-    MaxLayouts      = GetPrivateProfileInt(TEXT("Zones"), TEXT("MaxLayouts"), 0, inipath);
+    LayoutNumber    = (int)GetPrivateProfileInt(TEXT("Zones"), TEXT("LayoutNumber"), 0, inipath);
+    MaxLayouts      = (int)GetPrivateProfileInt(TEXT("Zones"), TEXT("MaxLayouts"), 0, inipath);
     MaxLayouts = CLAMP(0, MaxLayouts, 10);
     LayoutNumber = CLAMP(0, LayoutNumber, max(0,MaxLayouts-1));
 
@@ -95,7 +95,7 @@ static int InitTray()
     return 0;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int UpdateTray()
+static int UpdateTray(void)
 {
     int Index = !!ENABLED();
     if (Index) {
@@ -138,7 +138,7 @@ static int UpdateTray()
     return 0;
 }
 /////////////////////////////////////////////////////////////////////////////
-static int RemoveTray()
+static int RemoveTray(void)
 {
     if (!tray_added)
         return 1;
@@ -153,7 +153,7 @@ static int RemoveTray()
 
 /////////////////////////////////////////////////////////////////////////////
 // Zones functions
-static void WriteCurrentLayoutNumber()
+static void WriteCurrentLayoutNumber(void)
 {
     if (MaxLayouts) {
         TCHAR txt[UINT_DIGITS+1];
@@ -178,7 +178,7 @@ static void SaveZone(const RECT *rc, unsigned num)
     TCHAR txt[64], name[32];
     WritePrivateProfileString(TEXT("Zones"), ZidxToZonestr(LayoutNumber, num, name), RectToStr(rc, txt), inipath);
 }
-static void ClearAllZones()
+static void ClearAllZones(void)
 {
     int i;
     TCHAR txt[128], name[32];
@@ -210,7 +210,7 @@ BOOL CALLBACK SaveTestWindow(HWND hwnd, LPARAM lParam)
     return TRUE;
 }
 
-static void SaveCurrentLayout()
+static void SaveCurrentLayout(void)
 {
     ClearAllZones();
     SaveTestWindow(NULL, 1);
@@ -227,7 +227,7 @@ BOOL CALLBACK CloseTestWindowCB(HWND hwnd, LPARAM lParam)
     return TRUE;
 }
 
-static void CloseAllTestWindows()
+static void CloseAllTestWindows(void)
 {
     EnumThreadWindows(GetCurrentThreadId(), CloseTestWindowCB, 0);
 }

@@ -160,7 +160,7 @@ static void OpenConfig(int startpage)
     PropertySheet(&psh);
 }
 /////////////////////////////////////////////////////////////////////////////
-static void CloseConfig()
+static void CloseConfig(void)
 {
     PostMessage(g_cfgwnd, WM_CLOSE, 0, 0);
 }
@@ -175,7 +175,7 @@ static void MoveButtonUporDown(WORD id, WINDOWPLACEMENT *wndpl, int diffrows)
     SetWindowPlacement(button, wndpl);
 }
 /////////////////////////////////////////////////////////////////////////////
-static void UpdateStrings()
+static void UpdateStrings(void)
 {
     // Update window title
     PropSheet_SetTitle(g_cfgwnd, 0, l10n->ConfigTitle);
@@ -271,7 +271,7 @@ static BOOL CALLBACK PropSheetProc(HWND hwnd, UINT msg, LPARAM lParam)
     return TRUE;
 }
 /////////////////////////////////////////////////////////////////////////////
-static DWORD IsUACEnabled()
+static DWORD IsUACEnabled(void)
 {
     DWORD uac_enabled = 0;
     if (elevated) {
@@ -2181,7 +2181,7 @@ static LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 }
 #undef MAXLINES
 
-static HWND NewTestWindow()
+static HWND NewTestWindow(void)
 {
     HWND testwnd;
     WNDCLASS wnd;

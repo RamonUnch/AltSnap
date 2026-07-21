@@ -5937,10 +5937,10 @@ static LRESULT DrawMenuItem(HWND hwnd, WPARAM wParam, LPARAM lParam, UINT dpi, H
 
     return TRUE;
 }
-static void SendSYSCOMMANDToMenuItem(HWND hwnd, UINT id, HMENU hmenu, WPARAM sc_command )
+static void SendSYSCOMMANDToMenuItem(HWND hwnd, int id, HMENU hmenu, WPARAM sc_command )
 {
     if (conf.RCCloseMItem
-    && id < hwnds.num
+    && 0 <= id && id < (int)hwnds.num
     && GetWindowLongPtr(hwnd, GWLP_USERDATA) == 3
     && IsWindow(hwnds.it[id]) ) {
         if (sc_command == SC_CLOSE // remove topmost flag for close command
@@ -6032,7 +6032,7 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_MBUTTONUP: {
         // The user released the right button.
         // We must close the corresponding Window in the windows list
-        UINT id = wParam; // Zero-based menu id.
+        int id = (int)wParam; // Zero-based menu id.
         WPARAM sc_command = SC_MINIMIZE;
         HMENU hmenu = (HMENU)lParam;
         if (msg == WM_MBUTTONUP) {
@@ -6042,7 +6042,7 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             pt.x = GET_X_LPARAM(msgpos);
             pt.y = GET_Y_LPARAM(msgpos);
             hmenu = state.unikeymenu;
-            id = (UINT)MenuItemFromPoint(hwnd, hmenu, pt);
+            id = (int)MenuItemFromPoint(hwnd, hmenu, pt);
             sc_command = SC_CLOSE;
         }
         SendSYSCOMMANDToMenuItem(hwnd, id, hmenu, sc_command);

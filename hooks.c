@@ -8,6 +8,7 @@
 
 #include "hooks.h"
 
+static void SClickActions(HWND hwnd, action_t action);
 static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h);
 static BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
 static LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -3712,13 +3713,21 @@ static int ActionMove(POINT pt, int button)
     if (IsDoubleClick(button)) {
         SetOriginFromRestoreData(state.hwnd, k_action_move);
         LastWin.hwnd = NULL;
-        if (state.shift) {
-            RollWindow(state.hwnd, 0); // Roll/Unroll Window...
-        } else if (IsCtrlDown()) {
-            MinimizeWindow(state.hwnd);
-        } else if (state.resizable) {
-            // Toggle Maximize window
-            ToggleMaxRestore(state.hwnd);
+
+        action_t acdbclick = GetActionMR(button);
+        if (acdbclick.ac > AC_RESIZE) {
+            // Use the Mouve button + While Moving action as doubleclick action.
+            SClickActions(state.hwnd, acdbclick);
+        } else {
+            // Defult action for double move click
+            if (state.shift) {
+                RollWindow(state.hwnd, 0); // Roll/Unroll Window...
+            } else if (IsCtrlDown()) {
+                MinimizeWindow(state.hwnd);
+            } else if (state.resizable) {
+                // Toggle Maximize window
+                ToggleMaxRestore(state.hwnd);
+            }
         }
         state.action = k_action_none; // Stop move action
         state.clicktime = 0; // Reset double-click time
@@ -3969,8 +3978,15 @@ static int ActionResize(POINT pt, const RECT *wnd, int button)
     }
     // Aero-move this window if this is a double-click
     if (IsDoubleClick(button)) {
+        action_t acdbclick = GetActionMR(button);
+        if (acdbclick.ac > AC_RESIZE) {
+            // Use the Mouve button + While Moving action as doubleclick action.
+            SClickActions(state.hwnd, acdbclick);
+        } else {
+            // Use SnapToCorner by default (legacy)
+            SnapToCorner(state.hwnd, AUTORESIZE, !state.shift ^ !(conf.AeroTopMaximizes&2));
+        }
         state.action = k_action_none;; // Stop resize action
-        SnapToCorner(state.hwnd, AUTORESIZE, !state.shift ^ !(conf.AeroTopMaximizes&2));
         state.blockmouseup = 1; // Block mouse up (context menu would pop)
         state.clicktime = 0;    // Reset double-click time
         // Prevent mousedown from propagating

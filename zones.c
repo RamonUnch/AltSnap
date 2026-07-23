@@ -579,7 +579,7 @@ static void ZonesPrevResetRegion(void)
     SetWindowRgn(g_zphwnd, hregion, FALSE);
 }
 
-static unsigned readhotkeys(const TCHAR *inisection, const char *name, const TCHAR *def, UCHAR *keys, unsigned MaxKeys);
+static size_t readhotkeys(const TCHAR *inisection, const char *name, const TCHAR *def, UCHAR *keys, unsigned MaxKeys);
 static void SnapLayoutPreviewCreateDestroy(const TCHAR *inisection)
 {
     if(!conf.ShowZonesPrevw)

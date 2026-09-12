@@ -346,11 +346,21 @@ static int WriteOptionBoolBW(HWND hwnd, WORD id, const TCHAR *section, const cha
 
 static void WriteOptionStrW(HWND hwnd, WORD id, const TCHAR *section, const char *name_s)
 {
-    TCHAR txt[1024];
     TCHAR name[64];
+    HWND item = GetDlgItem(hwnd, id);
+    int len = GetWindowTextLength(item);
     str2tchar(name, name_s);
-    GetDlgItemText(hwnd, id, txt, ARR_SZ(txt));
-    WritePrivateProfileString(section, name, txt, inipath);
+    if (len < 1024) {
+        TCHAR txt[1024];
+        *txt = TEXT('\0');
+        GetWindowText(item, txt, ARR_SZ(txt));
+        WritePrivateProfileString(section, name, txt, inipath);
+    } else {
+        TCHAR *buf = (TCHAR *)calloc( (len + 1), sizeof(*buf) );
+        GetWindowText(item, buf, len + 1);
+        WritePrivateProfileString(section, name, buf, inipath);
+        free(buf);
+    }
 }
 #define WriteOptionStr(id, section, name)  WriteOptionStrW(hwnd, id, section, name)
 
@@ -359,8 +369,24 @@ static void ReadOptionStrW(HWND hwnd, WORD id, const TCHAR *section, const char 
     TCHAR txt[1024];
     TCHAR name[64];
     str2tchar(name, name_s);
-    GetPrivateProfileString(section, name, def, txt, ARR_SZ(txt), inipath);
-    SetDlgItemText(hwnd, id, txt);
+    DWORD redlen = GetPrivateProfileString(section, name, def, txt, ARR_SZ(txt), inipath);
+    if (redlen < ARR_SZ(txt) - 1) {
+        SetDlgItemText(hwnd, id, txt);
+        return; // DONE!
+    }
+
+    // Fallback to larger heap buffer.
+    TCHAR *buf = NULL;
+    DWORD buflen = 2048;
+    do {
+         buflen *=2;
+         TCHAR *tmp = (TCHAR *)realloc(buf, buflen*sizeof(TCHAR));
+         if(!tmp) { free(buf); return; }
+         buf = tmp;
+         redlen = GetPrivateProfileString(section, name, def, buf, buflen, inipath);
+    } while (redlen == buflen-1);
+    SetDlgItemText(hwnd, id, buf);
+    free(buf);
 }
 #define ReadOptionStr(id, section, name, def) ReadOptionStrW(hwnd, id, section, name, def)
 
@@ -1639,7 +1665,6 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
 /////////////////////////////////////////////////////////////////////////////
 static INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    #pragma GCC diagnostic ignored "-Wint-conversion"
     static const optlst_t optlst[] = {
         { IDC_PROCESSBLACKLIST, T_STR, 0, TEXT("Blacklist"), "Processes", TEXT("") },
         { IDC_BLACKLIST,        T_STR, 0, TEXT("Blacklist"), "Windows", TEXT("") },
@@ -1647,7 +1672,6 @@ static INT_PTR CALLBACK BlacklistPageDialogProc(HWND hwnd, UINT msg, WPARAM wPar
         { IDC_MDIS,             T_STR, 0, TEXT("Blacklist"), "MDIs", TEXT("") },
         { IDC_PAUSEBL,          T_STR, 0, TEXT("Blacklist"), "Pause", TEXT("") },
     };
-    #pragma GCC diagnostic pop
 
     static int have_to_apply = 0;
 

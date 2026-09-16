@@ -97,6 +97,7 @@
 #define WM_GETBESTLAYOUT  (WM_USER+18)
 //#define WM_GETZONESLEN    (WM_USER+19)
 #define WM_GETZONES       (WM_USER+20)
+#define WM_REHOOKKB       (WM_USER+21)
 
 // List of possible actions
 // ACVALUE(AC_ENUM, IniString, Info)

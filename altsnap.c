@@ -58,6 +58,28 @@ static void FreeHooksDLL(void)
     }
 }
 /////////////////////////////////////////////////////////////////////////////
+// Install the low level keyboard hook from HOOKS.DLL, NULL on failure.
+static HHOOK SetKeyboardHook(void)
+{
+    // Get address to keyboard hook (beware name mangling)
+    HOOKPROC procaddr = (HOOKPROC) GetProcAddress(hinstDLL, LOW_LEVEL_KB_PROC);
+    if (procaddr == NULL) {
+        LOG("Could not find " LOW_LEVEL_KB_PROC " entry point in HOOKS.DLL");
+        return NULL;
+    }
+    return SetWindowsHookEx(WH_KEYBOARD_LL, procaddr, hinstDLL, 0);
+}
+// Tell dll file that we are unloading
+static void CallUnload(void)
+{
+    void (WINAPI *Unload)() = (void (WINAPI *)()) GetProcAddress(hinstDLL, UNLOAD_PROC);
+    if (Unload) {
+        Unload();
+        // Zero out the message hwnd from DLL.
+        G_HotKeyProc = NULL;
+    }
+}
+/////////////////////////////////////////////////////////////////////////////
 static int HookSystem(void)
 {
     if (keyhook) return 1; // System already hooked
@@ -78,16 +100,8 @@ static int HookSystem(void)
     LOG("HOOKS.DLL Loaded");
 
     // Load keyboard hook
-    HOOKPROC procaddr;
     if (!keyhook) {
-        // Get address to keyboard hook (beware name mangling)
-        procaddr = (HOOKPROC) GetProcAddress(hinstDLL, LOW_LEVEL_KB_PROC);
-        if (procaddr == NULL) {
-            LOG("Could not find " LOW_LEVEL_KB_PROC " entry point in HOOKS.DLL");
-            return 1;
-        }
-        // Set up the keyboard hook
-        keyhook = SetWindowsHookEx(WH_KEYBOARD_LL, procaddr, hinstDLL, 0);
+        keyhook = SetKeyboardHook();
         if (keyhook == NULL) {
             LOG("Keyboard HOOK could not be set");
             return 1;
@@ -115,18 +129,28 @@ static int UnhookSystem(void)
     }
     keyhook = NULL;
 
-    // Tell dll file that we are unloading
-    void (WINAPI *Unload)() = (void (WINAPI *)()) GetProcAddress(hinstDLL, UNLOAD_PROC);
-    if (Unload) {
-        Unload();
-        // Zero out the message hwnd from DLL.
-        G_HotKeyProc = NULL;
-    }
+    CallUnload();
     //FreeHooksDLL();
 
     // Success
     UpdateTray();
     return 0;
+}
+/////////////////////////////////////////////////////////////////////////////
+// Windows (>= Win7) silently removes a low level hook that took longer than
+// LowLevelHooksTimeout to respond, typically after sleep or lock. We are not
+// notified, so HOOKS.DLL watches for missed input and sends WM_REHOOKKB.
+static void RehookKeyboard(void)
+{
+    if (!keyhook) return; // Disabled, nothing to do.
+    LOG("Re-installing the keyboard HOOK");
+    UnhookWindowsHookEx(keyhook); // Fails if Windows already removed it.
+    keyhook = SetKeyboardHook();
+    if (keyhook == NULL) {
+        LOG("Keyboard HOOK could not be re-set");
+        CallUnload(); // Behave as if the user disabled AltSnap.
+        UpdateTray();
+    }
 }
 /////////////////////////////////////////////////////////////////////////////
 void ToggleState(void)
@@ -315,6 +339,8 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
     } else if (msg == WM_UPDATESETTINGS) {
         // Reload hooks
         UpdateSettings();
+    } else if (msg == WM_REHOOKKB) {
+        RehookKeyboard();
     } else if (msg == WM_ADDTRAY) {
         tray_hidden = 0;
         UpdateTray();

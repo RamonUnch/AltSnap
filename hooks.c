@@ -23,6 +23,7 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 //#define ALTUP_TIMER     (5)
 #define HIDELAYOUT_TIMER  (6)
 #define POOL_TIMER        (7)
+#define KBCHECK_TIMER     (8)
 
 #define WM_DOWORK        (WM_APP+6)
 #define WM_DOMOUSEMOVE   (WM_APP+7)
@@ -2729,9 +2730,25 @@ static void TogglesAlwaysOnTop(HWND hwnd);
 static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_);
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
-// Time stamp of the last keyboard event we received, used by REHOOK_TIMER
-// to detect that Windows silently removed our keyboard hook.
-static DWORD g_kbLastTick, g_kbPrevCheck;
+// Windows (>= Win7) silently removes a low level hook that exceeded
+// LowLevelHooksTimeout, typically after sleep or lock, without telling us.
+// To notice it we also register for keyboard raw input (WM_INPUT), which
+// is delivered independently of the hook chain and has no such timeout.
+// Any keyboard event raw input reports must be seen by the hook too.
+static DWORD g_kbLastTick;      // Time of the last event the keyboard hook got.
+static DWORD g_rawKbTick;       // Time of the last keyboard WM_INPUT we got.
+static UCHAR g_kbCheckPending;  // KBCHECK_TIMER is armed.
+static void RegisterKeyboardRawInput(HWND hwnd)
+{
+    RAWINPUTDEVICE_L rid;
+    rid.usUsagePage = 0x01; // HID_USAGE_PAGE_GENERIC
+    rid.usUsage = 0x06;     // HID_USAGE_GENERIC_KEYBOARD
+    rid.dwFlags = hwnd? RIDEV_INPUTSINK_L: RIDEV_REMOVE_L; // Also when not in foreground
+    rid.hwndTarget = hwnd;
+    if (!RegisterRawInputDevicesL(&rid, 1, sizeof(rid))) {
+        LOG("RegisterRawInputDevices failed");
+    }
+}
 #ifdef __cplusplus
 extern "C"
 #endif
@@ -2741,14 +2758,16 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
 #endif
 
-    if (nCode != HC_ACTION || state.ignorekey) return CallNextHookEx(NULL, nCode, wParam, lParam);
+    if (nCode != HC_ACTION) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     PKBDLLHOOKSTRUCT kbh = ((PKBDLLHOOKSTRUCT)lParam);
+    g_kbLastTick = kbh->time; // We are alive (also for the keys we inject).
+    if (state.ignorekey) return CallNextHookEx(NULL, nCode, wParam, lParam);
+
     unsigned char vkey = kbh->vkCode;
 //    DWORD scode = kbh->scanCode;
     int xxbtidx;
     HWND fhwnd = NULL;
-    g_kbLastTick = kbh->time; // We are alive.
 //    if (vkey!=VK_F5) { // show key codes
 //        LOGA("wp=%u, vKey=%lx, sCode=%lx, flgs=%lx, ex=%lx"
 //        , wParam, kbh->vkCode, kbh->scanCode, kbh->flags, kbh->dwExtraInfo);
@@ -5717,34 +5736,30 @@ static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT_PTR idEvent, DWOR
 
     //LOG("TimerWindowProc(%x, %u, %u, %lu)", (UINT)(UINT_PTR)hwnd, msg, idEvent, dwTime);
     switch (idEvent) {
+    #ifndef NO_HOOK_LL
     case REHOOK_TIMER: {
         // Silently rehook hooks if they have been stopped (>= Win7 and LowLevelHooksTimeout)
         // This can often happen if locking or sleeping the computer a lot
-        LASTINPUTINFO lii;
-        DWORD now;
-        #ifndef NO_HOOK_LL
-        if (conf.keepMousehook && mousehook) {
-            POINT pt;
-            GetCursorPos(&pt); // I donot know if we should really use the ASYN version.
-            if (!SamePt(state.prevpt, pt)) {
-                UnhookWindowsHookEx(mousehook);
-                mousehook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, hinstDLL, 0);
-            }
+        POINT pt;
+        GetCursorPos(&pt); // I donot know if we should really use the ASYN version.
+        if (mousehook && !SamePt(state.prevpt, pt)) {
+            UnhookWindowsHookEx(mousehook);
+            mousehook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, hinstDLL, 0);
         }
-        #endif
-        // The keyboard hook (owned by the exe) is always on and can be lost
-        // the same way. Windows does not tell us, so we infer it: if the
-        // user produced input since our last check but the keyboard hook
-        // saw nothing since then, ask the exe to re-install it.
+        } break;
+    #endif
+    case KBCHECK_TIMER: {
+        // One shot armed by WM_INPUT: raw input reported a keyboard event,
+        // by now the input thread has also called our keyboard hook for it,
+        // unless Windows silently removed the hook. In that case ask the
+        // exe (which owns the hook) to re-install it.
         // Ages are compared with unsigned arithmetic, so wraparound is fine.
-        lii.cbSize = sizeof(lii);
-        if (GetLastInputInfo(&lii)) {
-            now = GetTickCount();
-            if (now - lii.dwTime < now - g_kbPrevCheck   // Input since last check
-            &&  now - lii.dwTime < now - g_kbLastTick) { // that the hook missed
-                PostMessage(g_mainhwnd, WM_REHOOKKB, 0, 0);
-            }
-            g_kbPrevCheck = now;
+        DWORD now = GetTickCount();
+        KillTimer(g_mainhwnd, KBCHECK_TIMER);
+        g_kbCheckPending = 0;
+        if (now - g_kbLastTick > now - g_rawKbTick + 200) {
+            // The hook stamp is older than the raw input event: hook is gone.
+            PostMessage(g_mainhwnd, WM_REHOOKKB, 0, 0);
         }
         } break;
     case SPEED_TIMER: {
@@ -5833,6 +5848,8 @@ static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT_PTR idEvent, DWOR
 static void KillAllTimers(void)
 {
     KillTimer(g_mainhwnd, REHOOK_TIMER);
+    KillTimer(g_mainhwnd, KBCHECK_TIMER);
+    g_kbCheckPending = 0;
     KillTimer(g_mainhwnd, SPEED_TIMER);
     KillTimer(g_mainhwnd, GRAB_TIMER);
     #ifdef NO_HOOK_LL
@@ -6165,7 +6182,16 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    if (msg == WM_HOTKEY) {
+    if (msg == WM_INPUT) {
+        // Keyboard raw input (we only registered keyboards). Check a bit
+        // later that the keyboard hook saw it too, see KBCHECK_TIMER.
+        g_rawKbTick = GetMessageTime();
+        if (!g_kbCheckPending) {
+            g_kbCheckPending = 1;
+            SetTimer(g_mainhwnd, KBCHECK_TIMER, 500, (TIMERPROC)TimerWindowProc);
+        }
+        return DefWindowProc(hwnd, msg, wParam, lParam); // Required for WM_INPUT
+    } else if (msg == WM_HOTKEY) {
         int ptwindow = 0;
         action_t action = k_action_none;
         if (wParam > 0xC000) { // HOTKEY
@@ -6271,6 +6297,7 @@ __declspec(dllexport) void WINAPI Unload(void)
     conf.keepMousehook = 0;
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
     KillAllTimers();
+    RegisterKeyboardRawInput(NULL);
     KillAltSnapMenu();
     if (conf.TransWinOpacity) {
         DestroyWindow(g_transhwnd[0]);
@@ -6806,10 +6833,12 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
     // Hook mouse if a permanent hook is needed
     if (conf.keepMousehook) {
         HookMouse();
+        SetTimer(g_mainhwnd, REHOOK_TIMER, 5000, (TIMERPROC)TimerWindowProc); // Start rehook timer
     }
-    // Start rehook timer, the keyboard hook is installed by the exe right after Load.
-    g_kbLastTick = g_kbPrevCheck = GetTickCount();
-    SetTimer(g_mainhwnd, REHOOK_TIMER, 5000, (TIMERPROC)TimerWindowProc);
+
+    // Watch the keyboard hook (installed by the exe right after Load) via raw input.
+    g_kbLastTick = g_rawKbTick = GetTickCount();
+    RegisterKeyboardRawInput(g_mainhwnd);
 
     // Create worker thread.
     g_WorkerThreadHANDLE = CreateThread(NULL, STACK, WorkerThread, NULL, STACK_SIZE_PARAM_IS_A_RESERVATION, &g_WorkerThreadID);

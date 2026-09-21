@@ -139,7 +139,8 @@ static int UnhookSystem(void)
 /////////////////////////////////////////////////////////////////////////////
 // Windows (>= Win7) silently removes a low level hook that took longer than
 // LowLevelHooksTimeout to respond, typically after sleep or lock. We are not
-// notified, so HOOKS.DLL watches for missed input and sends WM_REHOOKKB.
+// notified, so HOOKS.DLL compares keyboard raw input (WM_INPUT) against what
+// the hook received and sends WM_REHOOKKB when the hook missed a key event.
 static void RehookKeyboard(void)
 {
     if (!keyhook) return; // Disabled, nothing to do.
@@ -225,6 +226,11 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
         if ( (ACMenuItems>>i)&1 && mnlst[i].action != 0xFF) // Put the action in the HIWORD of wParam
             AppendMenu(menu, mnlst[i].mf, mnlst[i].action<<16, mnlst[i].str);
     }
+    // Drop key messages already queued to us (typically an Alt autorepeat
+    // that got through before the hook started blocking them), otherwise
+    // TrackPopupMenu takes them and pops the menu down immediately.
+    MSG msg;
+    while (PeekMessage(&msg, NULL, WM_KEYFIRST, WM_KEYLAST, PM_REMOVE));
     TrackPopupMenu(menu, GetSystemMetrics(SM_MENUDROPALIGNMENT), pt.x, pt.y, 0, hwnd, NULL);
     DestroyMenu(menu);
     PostMessage(hwnd, WM_CLOSE, 0, 0);
@@ -435,7 +441,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
                 G_HotKeyProc(hwnd, WM_SETLAYOUTNUM, LayoutNumber, 0);
             }
         }
-    } else if (msg == WM_HOTKEY || msg == WM_STACKLIST) {
+    } else if (msg == WM_HOTKEY || msg == WM_STACKLIST || msg == WM_INPUT) {
         if (G_HotKeyProc)
             return G_HotKeyProc(hwnd, msg, wParam, lParam);
     }

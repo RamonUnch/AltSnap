@@ -1909,4 +1909,32 @@ static void ListFree(void *list_p)
     free(list->buf);
     mem00(list, sizeof(*list));
 }
+/* Raw input, Windows XP+. Loaded dynamically so that we still run on NT4/2000.
+ * We use our own type and flag names so that we depend in no way on what
+ * the SDK headers define (the struct layout is fixed by the ABI). */
+#ifndef WM_INPUT
+#define WM_INPUT 0x00FF
+#endif
+#define RIDEV_REMOVE_L    0x00000001
+#define RIDEV_INPUTSINK_L 0x00000100
+typedef struct RAWINPUTDEVICE_L {
+    USHORT usUsagePage;
+    USHORT usUsage;
+    DWORD dwFlags;
+    HWND hwndTarget;
+} RAWINPUTDEVICE_L;
+static BOOL RegisterRawInputDevicesL(const RAWINPUTDEVICE_L *pRawInputDevices, UINT uiNumDevices, UINT cbSize)
+{
+    typedef BOOL (WINAPI *funk_t)(const RAWINPUTDEVICE_L *, UINT, UINT);
+    static funk_t funk=(funk_t)IPTR;
+
+    if (funk == (funk_t)IPTR) { /* First time */
+        funk = (funk_t)LoadDLLProc("USER32.DLL", "RegisterRawInputDevices");
+    }
+    if (funk) { /* We know we have the function */
+        return funk(pRawInputDevices, uiNumDevices, cbSize);
+    }
+    return FALSE; /* Not handled */
+}
+
 #endif

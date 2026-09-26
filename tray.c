@@ -140,6 +140,7 @@ static int UpdateTray(void)
 /////////////////////////////////////////////////////////////////////////////
 static int RemoveTray(void)
 {
+    LOG("RemoveTray() tray_added=%d", (int)tray_added);
     if (!tray_added)
         return 1;
 

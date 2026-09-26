@@ -427,11 +427,12 @@ static const char *BlackListStrings[] = {
     "Bottommost"
 };
 // Cursor data
-HWND g_mainhwnd = NULL;
+static HWND g_mainhwnd = NULL;
 
 // Hook data
-HINSTANCE hinstDLL = NULL;
-HHOOK mousehook = NULL;
+static HINSTANCE hinstDLL = NULL;
+static HHOOK mousehook = NULL;
+static HHOOK g_keyhook = NULL;
 
 #define FixDWMRect(hwnd, rect) FixDWMRectLL(hwnd, rect, conf.SnapGap)
 #undef GetWindowRectL
@@ -2729,15 +2730,8 @@ static void TogglesAlwaysOnTop(HWND hwnd);
 static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_);
 ///////////////////////////////////////////////////////////////////////////
 // Keep this one minimalist, it is always on.
-#ifdef __cplusplus
-extern "C"
-#endif
-__declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-#if defined(_MSC_VER) && _MSC_VER > 1300
-#pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
-#endif
-
     if (nCode != HC_ACTION || state.ignorekey) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     PKBDLLHOOKSTRUCT kbh = ((PKBDLLHOOKSTRUCT)lParam);
@@ -6243,6 +6237,15 @@ __declspec(dllexport) void WINAPI Unload(void)
 #if defined(_MSC_VER) && _MSC_VER > 1300
 #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
 #endif
+
+    // UnKook keyboard.
+    if (g_keyhook) {
+        BOOL ret = UnhookWindowsHookEx(g_keyhook);
+        LOG("UnhookWindowsHookEx(%x) -> %d", (unsigned)g_keyhook, (int)ret);
+    }
+    g_keyhook = NULL;
+
+
     // Quit Worker Thread...
     PostThreadMessage(g_WorkerThreadID, WM_DOWORK, 0, 0);
 
@@ -6620,6 +6623,8 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
 #if defined(_MSC_VER) && _MSC_VER > 1300
 #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
 #endif
+    assert(g_keyhook == NULL); // We cannot Load twice again...
+
     // Reset stuff...
     mem00(&state, sizeof(state));
     mem00(&LastWin, sizeof(LastWin));
@@ -6785,6 +6790,12 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
     if (conf.keepMousehook) {
         HookMouse();
         SetTimer(g_mainhwnd, REHOOK_TIMER, 5000, (TIMERPROC)TimerWindowProc); // Start rehook timer
+    }
+
+    // Set up the keyboard hook
+    g_keyhook = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, hinstDLL, 0);
+    if (g_keyhook == NULL) {
+        LOG("ERROR: Keyboard HOOK could not be set");
     }
 
     // Create worker thread.

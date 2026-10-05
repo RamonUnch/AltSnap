@@ -1406,6 +1406,10 @@ static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h)
  * emulators can snap to their character-cell grid.  */
 static BOOL LetWindowKickBack(HWND hwnd, struct windowRR *lw)
 {
+    /* Apply the blacklist (also applies to WM_*SIZEMOVE) */
+    if (blacklisted(hwnd, &BlkLst.SSizeMove))
+        return FALSE;
+
     static const unsigned char map[3][3] = {
     //             LEFT              RIGHT             XCENTER
     /* TOP */    { WMSZ_TOPLEFT,     WMSZ_TOPRIGHT,    WMSZ_TOP         },

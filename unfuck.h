@@ -290,7 +290,7 @@ static void LOGfunk( const char *fmt, ... )
     va_end( arglist );
 
     lstrcat_sA(str, ARR_SZ(str), " (");
-    lstrcat_sA(str, ARR_SZ(str), itostrA(lerr, lerrorstr, 10));
+    lstrcat_sA(str, ARR_SZ(str), Uint2lStrA(lerrorstr, lerr));
     lstrcat_sA(str, ARR_SZ(str), ")\n");
     LOGSimple(str, lstrlenA(str));
 
@@ -1013,6 +1013,33 @@ static HWND HungWindowFromGhostWindowL(HWND gost)
     return NULL;
 }
 
+/* Needed on Windows 8+ to recive the WM_POWERBROADCAST mesage */
+static HPOWERNOTIFY WINAPI RegisterSuspendResumeNotificationL(HANDLE hRecipient, DWORD flag)
+{
+        typedef HPOWERNOTIFY (WINAPI *funk_t)(HANDLE hRecipient, DWORD flag);
+        static funk_t funk = (funk_t)1;
+        if (funk == (funk_t)1)
+                funk = (funk_t)LoadDLLProc("USER32.DLL", "RegisterSuspendResumeNotification");
+
+        if (funk)
+                return funk(hRecipient, flag);
+
+        /* Fallback */
+        return NULL;
+}
+static BOOL WINAPI UnregisterSuspendResumeNotificationL(HPOWERNOTIFY handle)
+{
+        typedef BOOL (WINAPI *funk_t)(HPOWERNOTIFY handle);
+        static funk_t funk = (funk_t)1;
+        if (funk == (funk_t)1)
+                funk = (funk_t)LoadDLLProc("USER32.DLL", "UnregisterSuspendResumeNotification");
+
+        if (funk)
+                return funk(handle);
+
+        /* Fallback */
+        return FALSE;
+}
 
 static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 {

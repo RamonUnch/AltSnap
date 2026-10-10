@@ -1772,24 +1772,26 @@ static LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             GetWindowText(window, title, ARR_SZ(title));
             GetClassName(window, classname, ARR_SZ(classname));
 
-            TCHAR txt[512];
-            txt[0] = '\0';
-            lstrcat_s(txt, ARR_SZ(txt), title);
-            lstrcat_s(txt, ARR_SZ(txt), TEXT("|"));
-            lstrcat_s(txt, ARR_SZ(txt), classname);
-            SetDlgItemText(page, IDC_NEWRULE, txt);
+            TCHAR txt_buf[512]; txt_buf[0] = '\0';
+            sb_t sb = { txt_buf, 0, ARR_SZ(txt_buf) };
+            SbAppendStr(&sb, title);
+            SbAppendStr(&sb, TEXT("|"));
+            SbAppendStr(&sb, classname);
+            SetDlgItemText(page, IDC_NEWRULE, sb.it);
 
-            if (GetWindowProgName(window, txt, ARR_SZ(txt))) {
-                SetDlgItemText(page, IDC_NEWPROGNAME, txt);
+            if (GetWindowProgName(window, txt_buf, ARR_SZ(txt_buf))) {
+                SetDlgItemText(page, IDC_NEWPROGNAME, txt_buf);
             }
-            SetDlgItemText(page, IDC_GWLSTYLE, LPTR2Hex(txt, GetWindowLongPtr(window, GWL_STYLE)));
-            SetDlgItemText(page, IDC_GWLEXSTYLE, LPTR2Hex(txt, GetWindowLongPtr(window, GWL_EXSTYLE)));
+            SetDlgItemText(page, IDC_GWLSTYLE, LPTR2Hex(txt_buf, GetWindowLongPtr(window, GWL_STYLE)));
+            SetDlgItemText(page, IDC_GWLEXSTYLE, LPTR2Hex(txt_buf, GetWindowLongPtr(window, GWL_EXSTYLE)));
+
             // WM_NCHITTEST messages info at current pt
-            TCHAR tt[32];
-            lstrcpy_s(txt, ARR_SZ(txt), Int2lStr(tt, HitTestTimeout(nwindow, pt.x, pt.y)) );
-            lstrcat_s(txt, ARR_SZ(txt), TEXT("/"));
-            lstrcat_s(txt, ARR_SZ(txt), Int2lStr(tt, HitTestTimeout(window, pt.x, pt.y)) );
-            SetDlgItemText(page, IDC_NCHITTEST, txt);
+            sb.len = 0;
+            SbAppendInt(&sb, HitTestTimeout(nwindow, pt.x, pt.y));
+            SbAppendStr(&sb, TEXT("/"));
+            SbAppendInt(&sb, HitTestTimeout(window, pt.x, pt.y) );
+            SetDlgItemText(page, IDC_NCHITTEST, sb.it);
+
             // IDC_DWMCAPBUTTON
             RECT rc;
             SetDlgItemText(page, IDC_DWMCAPBUTTON
@@ -1797,16 +1799,17 @@ static LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
             // Window rectangle info
             if (GetWindowRectL(window, &rc)) {
-                SetDlgItemText(page, IDC_RECT, RectToStr(&rc, txt));
+                SetDlgItemText(page, IDC_RECT, RectToStr(&rc, sb.it));
             }
             // IDC_WINHANDLES
-            lstrcpy_s( txt, ARR_SZ(txt), TEXT("Hwnd: ") );
-            lstrcat_s( txt, ARR_SZ(txt), LPTR2Hex(tt, (ULONG_PTR)nwindow) );
-            lstrcat_s( txt, ARR_SZ(txt), TEXT(", Root: ") );
-            lstrcat_s( txt, ARR_SZ(txt), LPTR2Hex(tt, (ULONG_PTR)window) );
-            lstrcat_s( txt, ARR_SZ(txt), TEXT(", Owner: ") );
-            lstrcat_s( txt, ARR_SZ(txt), LPTR2Hex(tt, (ULONG_PTR)GetWindow(window, GW_OWNER)) );
-            SetDlgItemText(page, IDC_WINHANDLES, txt);
+            sb.len = 0;
+            SbAppendStr(&sb, TEXT("Hwnd: ") );
+            SbAppendHex(&sb, (ULONG_PTR)nwindow );
+            SbAppendStr(&sb, TEXT(", Root: ") );
+            SbAppendHex(&sb, (ULONG_PTR)window );
+            SbAppendStr(&sb, TEXT(", Owner: ") );
+            SbAppendHex(&sb, (ULONG_PTR)GetWindow(window, GW_OWNER) );
+            SetDlgItemText(page, IDC_WINHANDLES, sb.it);
         }
         // Show icon again
         ShowWindowAsync(findHwnd, SW_SHOW);
@@ -1838,18 +1841,19 @@ static INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, 
             SetDlgItemText(hwnd, IDC_LICENSE,          l10n->AboutLicense);
             SetDlgItemText(hwnd, IDC_TRANSLATIONS_BOX, l10n->AboutTranslationCredit);
 
-            TCHAR txt[1024]; txt[0] = TEXT('\0');
+            TCHAR txt_buf[1024]; txt_buf[0] = TEXT('\0');
+            sb_t sb = { txt_buf, 0, ARR_SZ(txt_buf) };
             if (langinfo.it) {
                 for (size_t i = 0; i < langinfo.num; i++) {
-                    lstrcat_s(txt, ARR_SZ(txt), langinfo.it[i].lang_english);
-                    lstrcat_s(txt, ARR_SZ(txt), TEXT(": "));
-                    lstrcat_s(txt, ARR_SZ(txt), langinfo.it[i].author);
+                    SbAppendStr(&sb, langinfo.it[i].lang_english);
+                    SbAppendStr(&sb, TEXT(": "));
+                    SbAppendStr(&sb, langinfo.it[i].author);
                     if (i + 1 != langinfo.num) {
-                        lstrcat_s(txt, ARR_SZ(txt), TEXT("\r\n"));
+                        SbAppendStr(&sb, TEXT("\r\n"));
                     }
                 }
             }
-            SetDlgItemText(hwnd, IDC_TRANSLATIONS, txt);
+            SetDlgItemText(hwnd, IDC_TRANSLATIONS, sb.it);
         }
     }
 
@@ -1945,12 +1949,12 @@ static LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     case WM_SYSKEYDOWN:
     PRINTT: {
         enum { invalidate_all, invalidate_lastline, invalidate_nothing };
-        TCHAR txt[32];
         struct lastkeyss *lks = (struct lastkeyss *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
         if (!lks) break;
         int idx = lks->idx;
         TCHAR (*lastkey)[MAXLL] = lks->lastkey;
         char zone_to_invalidate = invalidate_all;
+        sb_t sb = { lastkey[idx], 0, MAXLL }; // Current key info buf
 
         if (!buttonstr) {
             // Key
@@ -1965,38 +1969,41 @@ static LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
                 }
 
             } else {
-                lstrcpy_s(lastkey[idx], MAXLL, TEXT("vK="));
-                lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, (BYTE)wParam));
-                lstrcat_s(lastkey[idx], MAXLL, lParam&(1u<<31)? TEXT(" U"): lParam&(1u<<30)? TEXT(" R") :TEXT(" D"));
-                lstrcat_s(lastkey[idx], MAXLL, TEXT(" sC="));
-                lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, HIWORD(lParam)&0x00FF));
-                lstrcat_s(lastkey[idx], MAXLL, TEXT(", LP=") );
-                lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, lParam));
+                sb.len = 0;
+                SbAppendStr(&sb, TEXT("vK="));
+                SbAppendHex(&sb, (BYTE)wParam );
+                SbAppendStr(&sb, lParam&(1u<<31)? TEXT(" U"): lParam&(1u<<30)? TEXT(" R") :TEXT(" D"));
+                SbAppendStr(&sb, TEXT(" sC="));
+                SbAppendHex(&sb, HIWORD(lParam)&0x00FF);
+                SbAppendStr(&sb, TEXT(", LP=") );
+                SbAppendHex(&sb, lParam);
+                TCHAR txt[32];
                 txt[0] = L','; txt[1] = L' '; txt[2] = L'\0';
                 if (GetKeyNameText(lParam, txt+2, ARR_SZ(txt)-2))
-                    lstrcat_s(lastkey[idx], MAXLL, txt);
+                    SbAppendStr(&sb, txt);
             }
         } else {
             // Mouse Button
             short x = LOWORD(lParam);
             short y = HIWORD(lParam);
-            lstrcpy_s(lastkey[idx], MAXLL, buttonstr);
+            sb.len = 0;
+            SbAppendStr(&sb, buttonstr);
             if (msg == WM_MOUSEWHEEL || msg == WM_MOUSEHWHEEL) {
                 short delta = HIWORD(wParam);
                 if (delta >= 0) {
-                    lstrcat_s(lastkey[idx], MAXLL, TEXT(" +"));
+                    SbAppendStr(&sb, TEXT(" +"));
                 } else {
                     delta = -delta;
-                    lstrcat_s(lastkey[idx], MAXLL, TEXT(" -"));
+                    SbAppendStr(&sb, TEXT(" -"));
                 }
-                lstrcat_s(lastkey[idx], MAXLL, Int2lStr(txt, delta));
+                SbAppendInt(&sb, delta);
             }
-            lstrcat_s(lastkey[idx], MAXLL, TEXT(" ("));
-            lstrcat_s(lastkey[idx], MAXLL, Int2lStr(txt, x));
-            lstrcat_s(lastkey[idx], MAXLL, TEXT(", "));
-            lstrcat_s(lastkey[idx], MAXLL, Int2lStr(txt, y));
-            lstrcat_s(lastkey[idx], MAXLL, TEXT("), WP="));
-            lstrcat_s(lastkey[idx], MAXLL, LPTR2Hex(txt, wParam));
+            SbAppendStr(&sb, TEXT(" ("));
+            SbAppendInt(&sb, x);
+            SbAppendStr(&sb, TEXT(", "));
+            SbAppendInt(&sb, y);
+            SbAppendStr(&sb, TEXT("), WP="));
+            SbAppendHex(&sb, wParam);
         }
 
         if (zone_to_invalidate != invalidate_nothing) {
@@ -2023,16 +2030,17 @@ static LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         TCHAR title[256+INT_DIGITS*4+4];
         RECT rc;
         GetWindowRectL(hwnd, &rc);
-        lstrcpy_noaccel(title, ARR_SZ(title), l10n->AdvancedTestWindow);
-        lstrcat_s(title, ARR_SZ(title), TEXT(": "));
-        lstrcat_s(title, ARR_SZ(title), RectToStr(&rc, num));
+        size_t ttlen = lstrcpy_noaccel(title, ARR_SZ(title), l10n->AdvancedTestWindow);
+        sb_t sb = { title, ttlen, ARR_SZ(title) };
+        SbAppendStr(&sb, TEXT(": "));
+        SbAppendStr(&sb, RectToStr(&rc, num));
 
-        lstrcat_s(title, ARR_SZ(title), TEXT(" ("));
-        lstrcat_s(title, ARR_SZ(title), Int2lStr(num, rc.right-rc.left));
-        lstrcat_s(title, ARR_SZ(title), TEXT("x"));
-        lstrcat_s(title, ARR_SZ(title), Int2lStr(num, rc.bottom-rc.top));
-        lstrcat_s(title, ARR_SZ(title), TEXT(")"));
-        SetWindowText(hwnd, title);
+        SbAppendStr(&sb, TEXT(" ("));
+        SbAppendInt(&sb, rc.right - rc.left);
+        SbAppendStr(&sb, TEXT("x"));
+        SbAppendInt(&sb, rc.bottom - rc.top);
+        SbAppendStr(&sb, TEXT(")"));
+        SetWindowText(hwnd, sb.it);
 
     }break;
     case WM_PAINT: {

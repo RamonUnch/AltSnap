@@ -1799,7 +1799,7 @@ static LRESULT CALLBACK FindWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
             // Window rectangle info
             if (GetWindowRectL(window, &rc)) {
-                SetDlgItemText(page, IDC_RECT, RectToStr(&rc, sb.it));
+                SetDlgItemText(page, IDC_RECT, RectToStr(&rc, txt_buf));
             }
             // IDC_WINHANDLES
             sb.len = 0;
@@ -2026,14 +2026,14 @@ static LRESULT CALLBACK TestWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
     case  WM_MOVE:
     case  WM_SIZE: {
-        TCHAR num[INT_DIGITS*4+4+1];
+        TCHAR txt_buf[INT_DIGITS*4+4+1];
         TCHAR title[256+INT_DIGITS*4+4];
         RECT rc;
         GetWindowRectL(hwnd, &rc);
         size_t ttlen = lstrcpy_noaccel(title, ARR_SZ(title), l10n->AdvancedTestWindow);
         sb_t sb = { title, ttlen, ARR_SZ(title) };
         SbAppendStr(&sb, TEXT(": "));
-        SbAppendStr(&sb, RectToStr(&rc, num));
+        SbAppendStr(&sb, RectToStr(&rc, txt_buf));
 
         SbAppendStr(&sb, TEXT(" ("));
         SbAppendInt(&sb, rc.right - rc.left);

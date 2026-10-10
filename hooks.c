@@ -50,7 +50,7 @@ static DWORD g_WorkerThreadID;
 static HANDLE g_WorkerThreadHANDLE;
 static UCHAR g_InFinishMovement;
 static UCHAR g_InMouseMove;
-static DWORD g_lastKeyboardTick;
+//static DWORD g_lastKeyboardTick;
 //static HPOWERNOTIFY g_suspendResumeNotificationHANDLE;
 
 static void UnhookMouse();
@@ -2737,7 +2737,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
     PKBDLLHOOKSTRUCT kbh = ((PKBDLLHOOKSTRUCT)lParam);
 
     if (nCode != HC_ACTION) return CallNextHookEx(NULL, nCode, wParam, lParam);
-    g_lastKeyboardTick = kbh->time;
+    //g_lastKeyboardTick = kbh->time;
     if (state.ignorekey) return CallNextHookEx(NULL, nCode, wParam, lParam);
 
     unsigned char vkey = kbh->vkCode;

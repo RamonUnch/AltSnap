@@ -723,7 +723,7 @@ static sv_t SvFromSb(const sb_t *sb)
 }
 
 #endif
-void SbAppendHex(sb_t *sb, UINT_PTR num)
+static void SbAppendHex(sb_t *sb, UINT_PTR num)
 {
     TCHAR buf[LPTR_HDIGITS + 1];
     SbAppendStr(sb, LPTR2Hex(buf, num));

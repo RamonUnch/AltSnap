@@ -508,26 +508,6 @@ static allnonnull pure int wcsicmpL(const wchar_t* s1, const wchar_t* s2)
 }
 #define wcsicmp wcsicmpL
 
-static allnonnull pure int strtotcharicmp(const TCHAR* s1, const char* s2)
-{
-    unsigned x1, x2;
-
-    while (1) {
-        x2 = *s2 - 'A';
-        x2 |= (x2 < 26u) << 5; /* Add 32 if UPPERCASE. */
-
-        x1 = *s1 - 'A';
-        x1 |= (x1 < 26u) << 5;
-
-        s1++; s2++;
-        if (x2 != x1)
-            break;
-        if (x1 == (unsigned)-'A')
-            break;
-    }
-    return x1 - x2;
-}
-
 static allnonnull wchar_t *wcscatL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
 {
     wchar_t *orig=dest;
@@ -543,43 +523,41 @@ static allnonnull char *strcatL(char *__restrict__ dest, const char *__restrict_
     return orig;
 }
 
-static nonnull2(1,3) char *strcat_sL(char *__restrict__ dest, const size_t N, const char *__restrict__ src)
+static nonnull2(1,3) size_t lstrcat_sA(char *__restrict__ dest, const size_t N, const char *__restrict__ src)
 {
     char *orig=dest;
     const char *dmax=dest+N-1; /* keep space for a terminating NULL */
     for (; dest<dmax &&  *dest ; ++dest);             /* go to end of dest */
     for (; dest<dmax && (*dest=*src); ++src,++dest);  /* then append from src */
     *dest='\0'; /* ensure result is NULL terminated */
-    return orig;
+    return dest - orig;
 }
-#define strcat_s strcat_sL
 
-static nonnull2(1,3) wchar_t *wcscat_sL(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__restrict__ src)
+static nonnull2(1,3) size_t lstrcat_sW(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__restrict__ src)
 {
     wchar_t *orig=dest;
     const wchar_t *dmax=dest+N-1; /* keep space for a terminating NULL */
     for (; dest<dmax &&  *dest ; ++dest);             /* go to end of dest */
     for (; dest<dmax && (*dest=*src); ++src,++dest);  /* then append from src */
     *dest='\0'; /* ensure result is NULL terminated */
-    return orig;
+    return dest - orig;
 }
-#define wcscat_s wcscat_sL
 
-static nonnull2(1,3) wchar_t *lstrcpy_sW(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__restrict__ src)
+static nonnull2(1,3) size_t lstrcpy_sW(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__restrict__ src)
 {
     wchar_t *orig=dest;
     const wchar_t *dmax=dest+N-1; /* keep space for a terminating NULL */
     for (; dest<dmax && (*dest=*src); ++src,++dest);  /* then append from src */
     *dest='\0'; /* ensure result is NULL terminated */
-    return orig;
+    return dest - orig;
 }
-static nonnull2(1,3) char *lstrcpy_sA(char *__restrict__ dest, const size_t N, const char *__restrict__ src)
+static nonnull2(1,3) size_t lstrcpy_sA(char *__restrict__ dest, const size_t N, const char *__restrict__ src)
 {
     char *orig=dest;
     const char *dmax=dest+N-1; /* keep space for a terminating NULL */
     for (; dest<dmax && (*dest=*src); ++src,++dest);  /* then append from src */
     *dest='\0'; /* ensure result is NULL terminated */
-    return orig;
+    return dest - orig;
 }
 
 static allnonnull pure int strcmpL(const char *X, const char *Y)
@@ -616,8 +594,6 @@ static allnonnull pure const wchar_t *lstrstrW(const wchar_t *haystack, const wc
 #define lstrcpyA strcpy
 #define lstrcpyW wcscpy
 #define lstrcatA strcat
-#define lstrcat_sA strcat_s
-#define lstrcat_sW wcscat_s
 #define lstrcatW wcscat
 #define lstrlenA strlenL
 #define lstrlenW wcslenL

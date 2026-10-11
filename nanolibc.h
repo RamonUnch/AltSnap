@@ -627,7 +627,7 @@ static allnonnull pure const wchar_t *lstrstrW(const wchar_t *haystack, const wc
 /* * * * * * * * * * * * * * * *
  * Simple String Builder START */
 typedef struct RGStringView {
-    TCHAR *it;
+    const TCHAR *it;
     size_t len;
 } sv_t;
 

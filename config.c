@@ -1832,9 +1832,14 @@ static INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, 
     } else if (msg == WM_NOTIFY) {
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
+            TCHAR buf[128];
             // Update text
             SetDlgItemText(hwnd, IDC_ABOUT_BOX,        l10n->AboutBox);
-            SetDlgItemText(hwnd, IDC_VERSION,          l10n->AboutVersion);
+            // Append version number to version....
+            lstrcpy_s(buf, ARR_SZ(buf), l10n->AboutVersion);
+            lstrcat_s(buf, ARR_SZ(buf), TEXT(" ") TEXT(APP_VERSION));
+            SetDlgItemText(hwnd, IDC_VERSION,          buf /*AboutVersion X.XX*/);
+
             SetDlgItemText(hwnd, IDC_URL,              TEXT("https://github.com/RamonUnch/AltSnap"));
             SetDlgItemText(hwnd, IDC_AUTHOR,           l10n->AboutAuthor);
             SetDlgItemText(hwnd, IDC_AUTHOR2,          l10n->AboutAuthor2);

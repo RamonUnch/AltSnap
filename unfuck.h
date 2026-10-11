@@ -1888,18 +1888,22 @@ static int GetSectionOptionInt(const TCHAR *section, const char * const oname, c
 
 /* MAP Ini file section to a table of strings
  * TODO: use hash map instead of linear search */
-static void RGIniMapSection(const TCHAR *section, /*OUT*/ TCHAR const **map, char const * const * const ini_mapping, size_t maplen)
+static void RGIniMapSection(const TCHAR *section, /*OUT*/ sv_t *map, char const * const * const ini_mapping, size_t maplen)
 {
     char key[64];
+    size_t plen;
     mem00(map, sizeof(*map) * maplen); /* Always zero out */
-    for (const TCHAR *p = section; *p; p += lstrlen(p) + 1) {
+    for (const TCHAR *p = section; *p; p += plen + 1) {
         char *pk = key;
         while(*p && *p != TEXT('=') && pk < key + 63) *pk++ = *p++; /* Copy key to char, stop at '=' sign */
         *pk = '\0'; p++;
         /* GetIniMapping_Index(key, ini_mapping, maplen); */
+        plen = lstrlen(p);
         for (size_t i = 0; i < maplen; i++) {
-            if ( !lstrcmpiA(key, ini_mapping[i]) )
-                map[i] = p;
+            if ( !lstrcmpiA(key, ini_mapping[i]) ) {
+                map[i].it = p;
+                map[i].len = plen;
+            }
         }
     }
 }

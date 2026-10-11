@@ -588,12 +588,10 @@ static INT_PTR CALLBACK GeneralPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam
         CB_ResetContent(control);
         EnableWindow(control, TRUE);
 
-        if (langinfo.it) {
-            for (size_t i = 0; i < langinfo.num; i++) {
-                CB_AddString(control, langinfo.it[i].lang);
-                if ( !lstrcmpi(l10n->Code, langinfo.it[i].code) ) {
-                    CB_SetCurSel(control, i);
-                }
+        for (size_t i = 0; i < langinfo.num; i++) {
+            CB_AddString(control, langinfo.it[i].lang);
+            if ( !lstrcmpi(l10n->Code, langinfo.it[i].code) ) {
+                CB_SetCurSel(control, i);
             }
         }
         EnableDlgItem(hwnd, IDC_ELEVATE, WinVer >= VISTA && !elevated);
@@ -1848,14 +1846,12 @@ static INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, 
 
             TCHAR txt_buf[1024]; txt_buf[0] = TEXT('\0');
             sb_t sb = { txt_buf, 0, ARR_SZ(txt_buf) };
-            if (langinfo.it) {
-                for (size_t i = 0; i < langinfo.num; i++) {
-                    SbAppendStr(&sb, langinfo.it[i].lang_english);
-                    SbAppendStr(&sb, TEXT(": "));
-                    SbAppendStr(&sb, langinfo.it[i].author);
-                    if (i + 1 != langinfo.num) {
-                        SbAppendStr(&sb, TEXT("\r\n"));
-                    }
+            for (size_t i = 0; i < langinfo.num; i++) {
+                SbAppendStr(&sb, langinfo.it[i].lang_english);
+                SbAppendStr(&sb, TEXT(": "));
+                SbAppendStr(&sb, langinfo.it[i].author);
+                if (i + 1 != langinfo.num) {
+                    SbAppendStr(&sb, TEXT("\r\n"));
                 }
             }
             SetDlgItemText(hwnd, IDC_TRANSLATIONS, sb.it);

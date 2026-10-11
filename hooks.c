@@ -1078,11 +1078,11 @@ void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight, UCHAR pth)
         unsigned sflag = 0;
 
         // Get snapwnd
-        if (monitors.it && i < monitors.num) {
+        if (i < monitors.num) {
             snapwnd = monitors.it[i];
             snapinside = 1;
             i++;
-        } else if (wnds.it && j < wnds.num) {
+        } else if (j < wnds.num) {
             snapwnd = wnds.it[j].rc;
             sflag   = wnds.it[j].flag;
             snapinside = (state.snap != 2);
@@ -1181,11 +1181,11 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight, UCHA
         UCHAR snapinside;
 
         // Get snapwnd
-        if (monitors.it && i < monitors.num) {
+        if (i < monitors.num) {
             CopyRect(&snapwnd, &monitors.it[i]);
             snapinside = 1;
             i++;
-        } else if (wnds.it && j < wnds.num) {
+        } else if (j < wnds.num) {
             CopyRect(&snapwnd, &wnds.it[j].rc);
             snapinside = (state.snap != 2);
             j++;
@@ -6648,7 +6648,6 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
     // Reset stuff...
     mem00(&state, sizeof(state));
     mem00(&LastWin, sizeof(LastWin));
-
     // GET SYSTEM SETTINGS
     // I am unable to get consistent SPI_GETMOUSEDRAGOUTTHRESHOLD results
     // value should be at 20 by default, but I cannot have a decent value

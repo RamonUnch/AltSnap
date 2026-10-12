@@ -13,7 +13,7 @@ static void MoveWindowAsync(HWND hwnd, int x, int y, int w, int h);
 static BOOL CALLBACK EnumMonitorsProc(HMONITOR, HDC, LPRECT , LPARAM );
 static LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT_PTR idEvent, DWORD dwTime);
-LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK HooksWinPorc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // Timer messages
 #define PIN_TIMER         (1)
@@ -50,6 +50,8 @@ static DWORD g_WorkerThreadID;
 static HANDLE g_WorkerThreadHANDLE;
 static UCHAR g_InFinishMovement;
 static UCHAR g_InMouseMove;
+//static DWORD g_lastKeyboardTick;
+//static HPOWERNOTIFY g_suspendResumeNotificationHANDLE;
 
 static void UnhookMouse();
 static void HookMouse();
@@ -1076,11 +1078,11 @@ void MoveSnap(int *_posx, int *_posy, int wndwidth, int wndheight, UCHAR pth)
         unsigned sflag = 0;
 
         // Get snapwnd
-        if (monitors.it && i < monitors.num) {
+        if (i < monitors.num) {
             snapwnd = monitors.it[i];
             snapinside = 1;
             i++;
-        } else if (wnds.it && j < wnds.num) {
+        } else if (j < wnds.num) {
             snapwnd = wnds.it[j].rc;
             sflag   = wnds.it[j].flag;
             snapinside = (state.snap != 2);
@@ -1179,11 +1181,11 @@ static void ResizeSnap(int *posx, int *posy, int *wndwidth, int *wndheight, UCHA
         UCHAR snapinside;
 
         // Get snapwnd
-        if (monitors.it && i < monitors.num) {
+        if (i < monitors.num) {
             CopyRect(&snapwnd, &monitors.it[i]);
             snapinside = 1;
             i++;
-        } else if (wnds.it && j < wnds.num) {
+        } else if (j < wnds.num) {
             CopyRect(&snapwnd, &wnds.it[j].rc);
             snapinside = (state.snap != 2);
             j++;
@@ -2745,9 +2747,12 @@ static HWND MDIorNOT(HWND hwnd, HWND *mdiclient_);
 // Keep this one minimalist, it is always on.
 LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    if (nCode != HC_ACTION || state.ignorekey) return CallNextHookEx(NULL, nCode, wParam, lParam);
-
     PKBDLLHOOKSTRUCT kbh = ((PKBDLLHOOKSTRUCT)lParam);
+
+    if (nCode != HC_ACTION) return CallNextHookEx(NULL, nCode, wParam, lParam);
+    //g_lastKeyboardTick = kbh->time;
+    if (state.ignorekey) return CallNextHookEx(NULL, nCode, wParam, lParam);
+
     unsigned char vkey = kbh->vkCode;
 //    DWORD scode = kbh->scanCode;
     int xxbtidx;
@@ -6148,7 +6153,7 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
-LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK HooksWinPorc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     if (msg == WM_HOTKEY) {
         int ptwindow = 0;
@@ -6224,7 +6229,18 @@ LRESULT CALLBACK HotKeysWinProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         RECT **dZones = (RECT**)lParam;
         if (dZones) *dZones = Zones[layout_idx].it;
         return (LRESULT)Zones[layout_idx].num; // Return number of zones on the layout
-    }
+    } /*else if (msg == WM_POWERBROADCAST) {
+        if (wParam == PBT_APMRESUMEAUTOMATIC && g_keyhook) {
+            LOG("Waking up from sleep mode: msg=WM_POWERBROADCAST, wParam=PBT_APMRESUMEAUTOMATIC");
+            Send_KEY(0xFF);
+            DWORD deltaT = GetTickCount() - g_lastKeyboardTick;
+            if (deltaT > 500) {
+                LOG("Keyboard HOOK lost: GetTickCount() - g_lastKeyboardTick = %u, rehooking...", (unsigned)deltaT);
+                UnhookWindowsHookEx(g_keyhook);
+                g_keyhook = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, hinstDLL, 0);
+            }
+        }
+    }*/
 
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
@@ -6302,6 +6318,10 @@ __declspec(dllexport) void WINAPI Unload(void)
     // Wait for worker thread to have a clean closing...
     WaitForSingleObject(g_WorkerThreadHANDLE, 5000);
     CloseHandle(g_WorkerThreadHANDLE);
+
+    // Unregister from WM_POWERBROADCAST messages
+    //UnregisterSuspendResumeNotificationL(g_suspendResumeNotificationHANDLE);
+    //g_suspendResumeNotificationHANDLE = NULL;
 
     CHECK_MEMORY_LEAK_DB();
 }
@@ -6641,7 +6661,6 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
     // Reset stuff...
     mem00(&state, sizeof(state));
     mem00(&LastWin, sizeof(LastWin));
-
     // GET SYSTEM SETTINGS
     // I am unable to get consistent SPI_GETMOUSEDRAGOUTTHRESHOLD results
     // value should be at 20 by default, but I cannot have a decent value
@@ -6811,11 +6830,14 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
         LOG("ERROR: Keyboard HOOK could not be set");
     }
 
+    // In order to get WM_POWERBROADCAST messages.
+    //g_suspendResumeNotificationHANDLE = RegisterSuspendResumeNotificationL((HANDLE)mainhwnd, DEVICE_NOTIFY_WINDOW_HANDLE);
+
     // Create worker thread.
     g_WorkerThreadHANDLE = CreateThread(NULL, STACK, WorkerThread, NULL, STACK_SIZE_PARAM_IS_A_RESERVATION, &g_WorkerThreadID);
     //SetThreadPriority(g_WorkerThreadHANDLE, THREAD_PRIORITY_BELOW_NORMAL);
 
-    return HotKeysWinProc;
+    return HooksWinPorc;
 }
 /////////////////////////////////////////////////////////////////////////////
 // Do not forget the -e_DllMain@12 for gcc... -eDllMain for x86_64

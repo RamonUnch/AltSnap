@@ -363,8 +363,8 @@ static const TCHAR *LPTR2Hex(TCHAR str[AT_LEAST LPTR_HDIGITS+1], UINT_PTR n)
     for( i=LPTR_HDIGITS-1; ; --i )
     {
         TCHAR rem = n & 15; /* MD 16 */
-        str[i] = (rem > 9)? (rem-10) + 'A' : rem + '0';
-        /*str[i++] = rem + '0' + (rem > 9) * ('A' - '0' - 10); */ /* branchless version */
+        //str[i] = (rem > 9)? (rem-10) + 'A' : rem + '0';
+        str[i] = "0123456789ABCDEF"[rem];
 
         n >>=4 ; /* Divide by 16. */
         if (n==0)
@@ -508,26 +508,6 @@ static allnonnull pure int wcsicmpL(const wchar_t* s1, const wchar_t* s2)
 }
 #define wcsicmp wcsicmpL
 
-static allnonnull pure int strtotcharicmp(const TCHAR* s1, const char* s2)
-{
-    unsigned x1, x2;
-
-    while (1) {
-        x2 = *s2 - 'A';
-        x2 |= (x2 < 26u) << 5; /* Add 32 if UPPERCASE. */
-
-        x1 = *s1 - 'A';
-        x1 |= (x1 < 26u) << 5;
-
-        s1++; s2++;
-        if (x2 != x1)
-            break;
-        if (x1 == (unsigned)-'A')
-            break;
-    }
-    return x1 - x2;
-}
-
 static allnonnull wchar_t *wcscatL(wchar_t *__restrict__ dest, const wchar_t *__restrict__ src)
 {
     wchar_t *orig=dest;
@@ -543,43 +523,41 @@ static allnonnull char *strcatL(char *__restrict__ dest, const char *__restrict_
     return orig;
 }
 
-static nonnull2(1,3) char *strcat_sL(char *__restrict__ dest, const size_t N, const char *__restrict__ src)
+static nonnull2(1,3) size_t lstrcat_sA(char *__restrict__ dest, const size_t N, const char *__restrict__ src)
 {
     char *orig=dest;
     const char *dmax=dest+N-1; /* keep space for a terminating NULL */
     for (; dest<dmax &&  *dest ; ++dest);             /* go to end of dest */
     for (; dest<dmax && (*dest=*src); ++src,++dest);  /* then append from src */
     *dest='\0'; /* ensure result is NULL terminated */
-    return orig;
+    return dest - orig;
 }
-#define strcat_s strcat_sL
 
-static nonnull2(1,3) wchar_t *wcscat_sL(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__restrict__ src)
+static nonnull2(1,3) size_t lstrcat_sW(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__restrict__ src)
 {
     wchar_t *orig=dest;
     const wchar_t *dmax=dest+N-1; /* keep space for a terminating NULL */
     for (; dest<dmax &&  *dest ; ++dest);             /* go to end of dest */
     for (; dest<dmax && (*dest=*src); ++src,++dest);  /* then append from src */
     *dest='\0'; /* ensure result is NULL terminated */
-    return orig;
+    return dest - orig;
 }
-#define wcscat_s wcscat_sL
 
-static nonnull2(1,3) wchar_t *lstrcpy_sW(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__restrict__ src)
+static nonnull2(1,3) size_t lstrcpy_sW(wchar_t *__restrict__ dest, const size_t N, const wchar_t *__restrict__ src)
 {
     wchar_t *orig=dest;
     const wchar_t *dmax=dest+N-1; /* keep space for a terminating NULL */
     for (; dest<dmax && (*dest=*src); ++src,++dest);  /* then append from src */
     *dest='\0'; /* ensure result is NULL terminated */
-    return orig;
+    return dest - orig;
 }
-static nonnull2(1,3) char *lstrcpy_sA(char *__restrict__ dest, const size_t N, const char *__restrict__ src)
+static nonnull2(1,3) size_t lstrcpy_sA(char *__restrict__ dest, const size_t N, const char *__restrict__ src)
 {
     char *orig=dest;
     const char *dmax=dest+N-1; /* keep space for a terminating NULL */
     for (; dest<dmax && (*dest=*src); ++src,++dest);  /* then append from src */
     *dest='\0'; /* ensure result is NULL terminated */
-    return orig;
+    return dest - orig;
 }
 
 static allnonnull pure int strcmpL(const char *X, const char *Y)
@@ -616,8 +594,6 @@ static allnonnull pure const wchar_t *lstrstrW(const wchar_t *haystack, const wc
 #define lstrcpyA strcpy
 #define lstrcpyW wcscpy
 #define lstrcatA strcat
-#define lstrcat_sA strcat_s
-#define lstrcat_sW wcscat_s
 #define lstrcatW wcscat
 #define lstrlenA strlenL
 #define lstrlenW wcslenL
@@ -646,6 +622,118 @@ static allnonnull pure const wchar_t *lstrstrW(const wchar_t *haystack, const wc
 #define lstrdup lstrdupA
 #define Uint2lStr Uint2lStrA
 #endif
+
+
+/* * * * * * * * * * * * * * * *
+ * Simple String Builder START */
+typedef struct RGStringView {
+    const TCHAR *it;
+    size_t len;
+} sv_t;
+
+typedef struct RGStringBuilder {
+    TCHAR *it;
+    size_t len;
+    size_t cap;
+    /*unsigned char overflowed;*/ /* Wether too much data got appended to. */
+    /*unsigned char string_builder_type;*/ /* static or dynamic (malloced) */
+    /*unsigned short string_encoding;*/ /* utf8, utf16, UTF32 ANSI etc. */
+} sb_t;
+static void SbAppendStr(sb_t *sb, const TCHAR *str)
+{
+    size_t i;
+    if (!str) return;
+    for (i = sb->len; i < sb->cap-1; ++i) {
+        if (!(sb->it[i] = *str++)) {
+            sb->len = i;
+            return;
+        }
+    }
+    sb->len = i;
+    sb->it[i] = '\0';
+    /*sb->overflowed = 1;*/
+}
+#if 0
+static void SbAppendChars(sb_t *sb, const TCHAR *str, size_t num)
+{
+    size_t remaining = sb->cap - sb->len - 1;
+    if (!str || !num) return;
+    if (num > remaining) {
+        num = remaining;
+        /*sb->overflowed = 1;*/
+    }
+    memcpy(sb->it + sb->len, str, num * sizeof(*sb->it));
+    sb->len += num;
+    sb->it[sb->len] = '\0'; /* Ensure null */
+}
+
+static void SbAppendChar(sb_t *sb, TCHAR ch)
+{
+    size_t remaining = sb->cap - sb->len - 1;
+    if (remaining > 0) {
+        sb->it[sb->len++] = ch;
+        sb->it[sb->len] = 0;
+    } else {
+        /*sb->overflowed = 1;*/
+    }
+}
+
+static void SbAppendSb(sb_t *sb, const sb_t *sb2)
+{
+    SbAppendChars(sb, sb2->it, sb2->len);
+}
+static void SbAppendSv(sb_t *sb, sv_t sv)
+{
+    SbAppendChars(sb, sv.it, sv.len);
+}
+
+static sv_t SvFromStr(const TCHAR *str)
+{
+    sv_t sv; sv.it = str; sv.len = lstrlen(str);
+    return sv;
+}
+static sv_t SvFromSb(const sb_t *sb)
+{
+    sv_t sv; sv.it = sb->it; sv.len = sb->len;
+    return sv;
+}
+
+#endif
+static void SbAppendHex(sb_t *sb, UINT_PTR num)
+{
+    TCHAR buf[LPTR_HDIGITS + 1];
+    SbAppendStr(sb, LPTR2Hex(buf, num));
+}
+
+static void SbAppendInt(sb_t *sb, int num)
+{
+    TCHAR buf[INT_DIGITS+1];
+    SbAppendStr(sb, Int2lStr(buf, num));
+}
+
+static void SbAppendUint(sb_t *sb, unsigned num)
+{
+    TCHAR buf[UINT_DIGITS+1];
+    SbAppendStr(sb, Uint2lStr(buf, num));
+}
+
+/* Don't touch if no / or \ are found
+ * Otherwise strips '\filename.ext' from sb */
+static void SbPathRemoveFileSpec(sb_t *sb)
+{
+    size_t i = sb->len;
+    TCHAR *p = sb->it;
+    while (i--) {
+        if (p[i] == TEXT('\\') || p[i] == TEXT('/')) {
+            p[i] = TEXT('\0');
+            sb->len = i;
+            break;
+        }
+    }
+}
+
+/* Simple String Builder END *
+ * * * * * * * * * * * * * * */
 
 static unsigned h2u(const TCHAR c)
 {

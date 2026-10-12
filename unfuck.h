@@ -290,7 +290,7 @@ static void LOGfunk( const char *fmt, ... )
     va_end( arglist );
 
     lstrcat_sA(str, ARR_SZ(str), " (");
-    lstrcat_sA(str, ARR_SZ(str), itostrA(lerr, lerrorstr, 10));
+    lstrcat_sA(str, ARR_SZ(str), Uint2lStrA(lerrorstr, lerr));
     lstrcat_sA(str, ARR_SZ(str), ")\n");
     LOGSimple(str, lstrlenA(str));
 
@@ -1013,6 +1013,33 @@ static HWND HungWindowFromGhostWindowL(HWND gost)
     return NULL;
 }
 
+/* Needed on Windows 8+ to recive the WM_POWERBROADCAST mesage */
+static HPOWERNOTIFY WINAPI RegisterSuspendResumeNotificationL(HANDLE hRecipient, DWORD flag)
+{
+        typedef HPOWERNOTIFY (WINAPI *funk_t)(HANDLE hRecipient, DWORD flag);
+        static funk_t funk = (funk_t)1;
+        if (funk == (funk_t)1)
+                funk = (funk_t)LoadDLLProc("USER32.DLL", "RegisterSuspendResumeNotification");
+
+        if (funk)
+                return funk(hRecipient, flag);
+
+        /* Fallback */
+        return NULL;
+}
+static BOOL WINAPI UnregisterSuspendResumeNotificationL(HPOWERNOTIFY handle)
+{
+        typedef BOOL (WINAPI *funk_t)(HPOWERNOTIFY handle);
+        static funk_t funk = (funk_t)1;
+        if (funk == (funk_t)1)
+                funk = (funk_t)LoadDLLProc("USER32.DLL", "UnregisterSuspendResumeNotification");
+
+        if (funk)
+                return funk(handle);
+
+        /* Fallback */
+        return FALSE;
+}
 
 static HRESULT DwmGetWindowAttributeL(HWND hwnd, DWORD a, PVOID b, DWORD c)
 {
@@ -1861,18 +1888,22 @@ static int GetSectionOptionInt(const TCHAR *section, const char * const oname, c
 
 /* MAP Ini file section to a table of strings
  * TODO: use hash map instead of linear search */
-static void RGIniMapSection(const TCHAR *section, /*OUT*/ TCHAR const **map, char const * const * const ini_mapping, size_t maplen)
+static void RGIniMapSection(const TCHAR *section, /*OUT*/ sv_t *map, char const * const * const ini_mapping, size_t maplen)
 {
     char key[64];
+    size_t plen;
     mem00(map, sizeof(*map) * maplen); /* Always zero out */
-    for (const TCHAR *p = section; *p; p += lstrlen(p) + 1) {
+    for (const TCHAR *p = section; *p; p += plen + 1) {
         char *pk = key;
         while(*p && *p != TEXT('=') && pk < key + 63) *pk++ = *p++; /* Copy key to char, stop at '=' sign */
         *pk = '\0'; p++;
         /* GetIniMapping_Index(key, ini_mapping, maplen); */
+        plen = lstrlen(p);
         for (size_t i = 0; i < maplen; i++) {
-            if ( !lstrcmpiA(key, ini_mapping[i]) )
-                map[i] = p;
+            if ( !lstrcmpiA(key, ini_mapping[i]) ) {
+                map[i].it = p;
+                map[i].len = plen;
+            }
         }
     }
 }

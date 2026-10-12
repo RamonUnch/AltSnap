@@ -95,29 +95,23 @@ static void LoadTranslationOrTT(const TCHAR *__restrict__ ini, const TCHAR * __r
     if(!l10n_ini) { l10n_ini = (struct strings *)calloc(1, sizeof(struct strings)); }
     if(!l10n_ini) return; // Unable to allocate mem
 
-    TCHAR const *ini_map[ARR_SZ(l10n_inimapping)];
+    sv_t ini_map[ARR_SZ(l10n_inimapping)];
     RGIniMapSection(tsection, ini_map, l10n_inimapping, ARR_SZ(l10n_inimapping));
 
     for (size_t i=0; i < ARR_SZ(l10n_inimapping); i++) {
-        // Get pointer to default English string to be used if ini entry doesn't exist
-        const TCHAR *const def_val = ((const TCHAR *const*)&en_US)[i*2+offset];
-        const TCHAR *txt = ini_map[i] ? ini_map[i] : def_val;
-        if (!txt)
-            continue; // default value may be NULL...
-
-        TCHAR buf[128];
-        TCHAR **deststr = &((TCHAR **)l10n_ini)[i*2+offset];
-        if (deststr == (TCHAR**)&l10n_ini->AboutVersion) {
-            // Append version number to version....
-            lstrcpy_s(buf, ARR_SZ(buf), txt);
-            lstrcat_s(buf, ARR_SZ(buf), TEXT(" ") TEXT(APP_VERSION));
-            txt = (const TCHAR*)buf;
+        sv_t sv = ini_map[i];
+        if (!sv.len) {
+            // Get pointer to default English string to be used if ini entry doesn't exist
+            const TCHAR *const def_val = ((const TCHAR *const*)&en_US)[i*2+offset];
+            if (!def_val) continue;
+            sv.it = def_val, sv.len = def_val ? lstrlen(def_val) : 0;
         }
-        size_t destlen = lstrlen(txt) + 1;
+        TCHAR **deststr = &((TCHAR **)l10n_ini)[i*2+offset];
+        size_t destlen = sv.len + 1;
         TCHAR *t = (TCHAR *)realloc( *deststr, destlen * sizeof(TCHAR) );
         if (!t) continue;
         *deststr = t;
-        lstrcpy_resolve(*deststr, destlen, txt);
+        lstrcpy_resolve(*deststr, destlen, sv.it);
     }
     l10n = l10n_ini;
     free(tsection); // free the cached Translation section.

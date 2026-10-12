@@ -14,7 +14,7 @@ static HWND g_hwnd = NULL;
 static UINT WM_TASKBARCREATED = 0;
 static TCHAR inipath[MAX_PATH];
 
-static WNDPROC G_HotKeyProc = NULL;
+static WNDPROC G_HooksWinPorc = NULL;
 
 // Cool stuff
 HINSTANCE hinstDLL = NULL;
@@ -28,7 +28,7 @@ static BYTE WinVer = 0;
 #define VISTA 6
 #define WIN10 10
 
-#define ENABLED() (!!G_HotKeyProc)
+#define ENABLED() (!!G_HooksWinPorc)
 #define GetWindowRectL(hwnd, rect) GetWindowRectLL(hwnd, rect, SnapGap)
 static void UpdateSettings();
 
@@ -59,7 +59,7 @@ static void FreeHooksDLL(void)
 /////////////////////////////////////////////////////////////////////////////
 static int HookSystem(void)
 {
-    if (G_HotKeyProc) return 1; // System already hooked
+    if (G_HooksWinPorc) return 1; // System already hooked
     LOG("Going to Hook the system...");
 
     if (!hinstDLL) {
@@ -71,7 +71,7 @@ static int HookSystem(void)
     }
     WNDPROC (WINAPI *Load)(HWND, const TCHAR *) = (WNDPROC (WINAPI *)(HWND, const TCHAR*))GetProcAddress(hinstDLL, LOAD_PROC);
     if (Load) {
-        G_HotKeyProc = Load(g_hwnd, inipath);
+        G_HooksWinPorc = Load(g_hwnd, inipath);
     }
 
     LOG("HOOKS.DLL Loaded");
@@ -87,7 +87,7 @@ static int HookSystem(void)
 static int showerror = 1;
 static int UnhookSystem(void)
 {
-    if (G_HotKeyProc == NULL)
+    if (G_HooksWinPorc == NULL)
         return 0;
     LOG("Going to UnHook the system...");
     // Tell dll file that we are unloading
@@ -97,7 +97,7 @@ static int UnhookSystem(void)
     }
     //FreeHooksDLL();
     // Zero out the message hwnd from DLL.
-    G_HotKeyProc = NULL;
+    G_HooksWinPorc = NULL;
 
     // Success
     UpdateTray();
@@ -324,10 +324,11 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
         } else if (wmId == CMD_EXIT) {
             DestroyWindow(hwnd);
         } else if (wmId == CMD_SAVEZONES) {
-            TCHAR txt[256];
-            lstrcpy_s(txt, ARR_SZ(txt), l10n->MiscZoneConfirmation);
-            lstrcat_s(txt, ARR_SZ(txt), TEXT("\n\n"));
-            catFullLayoutName(txt, ARR_SZ(txt), LayoutNumber);
+            TCHAR txt[256]; txt[0] = TEXT('\0');
+            sb_t sb = { txt, 0, ARR_SZ(txt) };
+            SbAppendStr(&sb, l10n->MiscZoneConfirmation);
+            SbAppendStr(&sb, TEXT("\n\n"));
+            catFullLayoutName(&sb, LayoutNumber);
             int ret = MessageBox(NULL, txt, TEXT(APP_NAMEA), MB_OKCANCEL);
             if (ret == IDOK) {
                 UnhookSystem();
@@ -342,14 +343,14 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
         } else if (CMD_SNAPLAYOUT <= wmId && wmId <= CMD_SNAPLAYOUTEND) {
             // Inform hooks.dll that the snap layout changed
             LayoutNumber = wmId-CMD_SNAPLAYOUT;
-            if(G_HotKeyProc)
-                G_HotKeyProc(hwnd, WM_SETLAYOUTNUM, LayoutNumber, 0);
+            if(G_HooksWinPorc)
+                G_HooksWinPorc(hwnd, WM_SETLAYOUTNUM, LayoutNumber, 0);
             // Save new value in the .ini file
             WriteCurrentLayoutNumber();
         } else if (wmId == CMD_EDITLAYOUT) {
-            if (G_HotKeyProc) {
+            if (G_HooksWinPorc) {
                 RECT *zones = NULL;
-                unsigned len = G_HotKeyProc(hwnd, WM_GETZONES, LayoutNumber, (LPARAM)&zones);
+                unsigned len = G_HooksWinPorc(hwnd, WM_GETZONES, LayoutNumber, (LPARAM)&zones);
                 if (!len || !zones) {
                     // Empty layout, Let's open a new Test Window
                     return !NewTestWindow();
@@ -376,17 +377,17 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
         return 0;
     } else if (msg == WM_DISPLAYCHANGE || (msg == WM_SETTINGCHANGE && wParam  == SPI_SETWORKAREA)) {
         LOG("WM_DISPLAYCHANGE %d:%d, %dbpp in WindowProc", LOWORD(lParam), HIWORD(lParam), wParam );
-        if (G_HotKeyProc) {
-            int bestlayout = G_HotKeyProc(hwnd, WM_GETBESTLAYOUT, 0, 0);
+        if (G_HooksWinPorc) {
+            int bestlayout = G_HooksWinPorc(hwnd, WM_GETBESTLAYOUT, 0, 0);
             if( bestlayout != LayoutNumber
             &&  0 <= bestlayout && bestlayout < MaxLayouts ) {
                 LayoutNumber = bestlayout;
-                G_HotKeyProc(hwnd, WM_SETLAYOUTNUM, LayoutNumber, 0);
+                G_HooksWinPorc(hwnd, WM_SETLAYOUTNUM, LayoutNumber, 0);
             }
         }
-    } else if (msg == WM_HOTKEY || msg == WM_STACKLIST) {
-        if (G_HotKeyProc)
-            return G_HotKeyProc(hwnd, msg, wParam, lParam);
+    } else if (msg == WM_HOTKEY || msg == WM_STACKLIST /*|| msg == WM_POWERBROADCAST*/) {
+        if (G_HooksWinPorc)
+            return G_HooksWinPorc(hwnd, msg, wParam, lParam);
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
@@ -562,7 +563,7 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
     HookSystem();
 
     // Add tray if hook failed, even though -hide was supplied
-    if (tray_hidden && !G_HotKeyProc) {
+    if (tray_hidden && !G_HooksWinPorc) {
         tray_hidden = 0;
         UpdateTray();
     }

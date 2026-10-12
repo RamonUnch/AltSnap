@@ -48,18 +48,19 @@ static void LoadAllIcons(void)
         DWORD mod = GetModuleFileName(NULL, path, ARR_SZ(path));
         if (mod) {
             PathRemoveFileSpecL(path);
-            lstrcat_s(path, ARR_SZ(path), TEXT("\\Themes\\")); // Themes subfolder
-            lstrcat_s(path, ARR_SZ(path), theme); // Theme name
-            int len = lstrlen(path);
-            TCHAR *p = path+len;
-            *p++ = TEXT('\\');
-            if (len < MAX_PATH-13) { // strlen("TRAY_OFF.ICO")==12
-                UCHAR i;
-                for(i=0; i<3; i++) {
-                    lstrcpy_s(p, ARR_SZ(path)-len, tray_iconstr[i]);
-                    lstrcat_s(path, ARR_SZ(path), TEXT(".ico"));
+            sb_t sb = { path, lstrlen(path), ARR_SZ(path) };
+            SbAppendStr(&sb, TEXT("\\Themes\\")); // Themes subfolder
+            SbAppendStr(&sb, theme); // Theme name
+            SbAppendStr(&sb, TEXT("\\"));
+            size_t base_path_len = sb.len;
+            if (base_path_len < MAX_PATH-13) { // strlen("TRAY_OFF.ICO")==12
+                for(size_t i=0; i<3; i++) {
+                    sb.len = base_path_len;
+                    SbAppendStr(&sb, tray_iconstr[i]);
+                    SbAppendStr(&sb, TEXT(".ico"));
                     HICON tmp = (HICON)LoadImage(g_hinst, path, IMAGE_ICON,0,0, LR_LOADFROMFILE|LR_DEFAULTSIZE|LR_LOADTRANSPARENT);
                     g_icons[i] = tmp? tmp: LoadIcon(g_hinst, MAKEINTRESOURCE( TRAY_OFF+i ));
+                    //MessageBox(NULL, path, NULL, 0);
                 }
                 return;
             }
@@ -164,10 +165,9 @@ static void WriteCurrentLayoutNumber(void)
 static TCHAR *RectToStr(const RECT *rc, TCHAR rectstr[AT_LEAST INT_DIGITS*4+4+1])
 {
     TCHAR txt[INT_DIGITS+1];
-    int i;
     const long *RC = (const long *)rc;
     rectstr[0] = '\0';
-    for(i = 0; i < 4; i++) {
+    for (size_t i = 0; i < 4; i++) {
         lstrcat_s(rectstr, 64, Int2lStr(txt, (int)RC[i]));
         lstrcat_s(rectstr, 64, TEXT(","));
     }
@@ -233,28 +233,25 @@ static void CloseAllTestWindows(void)
     EnumThreadWindows(GetCurrentThreadId(), CloseTestWindowCB, 0);
 }
 
-static void catFullLayoutName(TCHAR *txt, size_t len, int laynum)
+static void catFullLayoutName(sb_t *sb, int laynum)
 {
-    TCHAR n1[UINT_DIGITS+1];
-    lstrcat_s(txt, len, l10n->MenuSnapLayout);
-    lstrcat_s(txt, len, Uint2lStr(n1, laynum+1));
-    if (G_HotKeyProc) {
+    SbAppendStr(sb, l10n->MenuSnapLayout);
+    SbAppendUint(sb, laynum + 1);
+    if (G_HooksWinPorc) {
         DWORD rez =0;
-        if ((rez = G_HotKeyProc(g_hwnd, WM_GETLAYOUTREZ, laynum, 0))) {
-            // TCHAR n2[UINT_DIGITS+1];
+        if ((rez = G_HooksWinPorc(g_hwnd, WM_GETLAYOUTREZ, laynum, 0))) {
             // Add (width:height) to label the layout.
-            // lstrcatM_s(txt, len ,TEXT("  ("), Uint2lStr(n1, LOWORD(rez)),TEXT(":"),Uint2lStr(n2, HIWORD(rez)), TEXT(")"), NULL);
-            lstrcat_s(txt, len, TEXT("  ("));
-            lstrcat_s(txt, len, Uint2lStr(n1, LOWORD(rez)));
-            lstrcat_s(txt, len, TEXT(":"));
-            lstrcat_s(txt, len, Uint2lStr(n1, HIWORD(rez)));
-            lstrcat_s(txt, len, TEXT(")"));
+            SbAppendStr(sb, TEXT("  ("));
+            SbAppendUint(sb, LOWORD(rez));
+            SbAppendStr(sb, TEXT(":"));
+            SbAppendUint(sb, HIWORD(rez));
+            SbAppendStr(sb, TEXT(")"));
         } else {
-            lstrcat_s(txt, len, TEXT("  "));
-            lstrcat_s(txt, len, l10n->MenuEmptyZone); // (empty)
+            SbAppendStr(sb, TEXT("  "));
+            SbAppendStr(sb, l10n->MenuEmptyZone); // (empty)
         }
     } else {
-        lstrcat_s(txt, len, TEXT("  (...)"));
+        SbAppendStr(sb, TEXT("  (...)"));
     }
 }
 
@@ -280,24 +277,25 @@ static void ShowContextMenu(HWND hwnd)
         if(MaxLayouts)
             AppendMenu(menu, MF_SEPARATOR, 0, NULL);
         int i;
-        TCHAR txt[128];
+        TCHAR txt_buf[128]; txt_buf[0] = TEXT('\0');
+        sb_t sb = { txt_buf, 0, ARR_SZ(txt_buf) };
         for (i=0; i < MaxLayouts; i++) {
-            txt[0] = '\0';
-            catFullLayoutName(txt, ARR_SZ(txt), i);
+            sb.len = 0;
+            catFullLayoutName(&sb, i);
             // Check the current layout We use a simple checkmark,
             // because a radio button is more complex to setup.
             UINT mfflags = i==LayoutNumber? MF_STRING|MF_CHECKED: MF_STRING|MF_UNCHECKED;
-            AppendMenu(menu, mfflags, CMD_SNAPLAYOUT+i, txt);
+            AppendMenu(menu, mfflags, CMD_SNAPLAYOUT+i, sb.it);
         }
 
         if (!(UseZones&2)) {
-            TCHAR numstr[INT_DIGITS+1];
-            lstrcpy_s(txt, ARR_SZ(txt), l10n->MenuEditLayout);
-            lstrcat_s(txt, ARR_SZ(txt), TEXT(" "));
-            lstrcat_s(txt, ARR_SZ(txt), Int2lStr(numstr, LayoutNumber+1));
+            sb.len = 0;
+            SbAppendStr(&sb, l10n->MenuEditLayout);
+            SbAppendStr(&sb, TEXT(" "));
+            SbAppendUint(&sb, LayoutNumber + 1);
             AppendMenu(menu, MF_SEPARATOR, 0, NULL);
             AppendMenu(menu, MF_STRING, CMD_TESTWIN,  l10n->AdvancedTestWindow);
-            AppendMenu(menu, MF_STRING, CMD_EDITLAYOUT, txt);
+            AppendMenu(menu, MF_STRING, CMD_EDITLAYOUT, sb.it);
             AppendMenu(menu, FindWindow(TEXT(APP_NAMEA)TEXT("-test"), NULL)? MF_STRING :MF_STRING|MF_GRAYED
                       , CMD_SAVEZONES, l10n->MenuSaveZones);
 

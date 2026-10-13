@@ -1811,52 +1811,20 @@ static int LCIDToLocaleNameL(LCID Locale, LPWSTR lpName, int cchName, DWORD dwFl
 }
 #endif /* UNICODE */
 
-#if 0
-/* Get the string inside the section returned by GetPrivateProfileSection */
-static void GetSectionOptionStr(const TCHAR *section, const char * const oname, const TCHAR *def, TCHAR * __restrict__ txt, size_t txtlen)
-{
-    if (section)
-    {
-        TCHAR name[128];
-        str2tchar_s(name, ARR_SZ(name)-1, oname);
-        lstrcat_s(name, ARR_SZ(name), TEXT("=")); /* Add equal at the end of name */
-        const TCHAR *p = section;
-        while (p[0] && p[1]) { /* Double NULL treminated string */
-            if(!lstrcmpi_samestart(p, name)) {
-                /* Copy the buffer */
-                lstrcpy_s(txt, txtlen, p+lstrlen(name));
-                return; /* DONE! */
-            } else {
-                /* Go to next string... */
-                p += lstrlen(p); /* p in on the '\0' */
-                p++; /* next string start. */
-                if (!*p) break;
-            }
-        }
-    }
-    /* Default to the provided def string */
-    if (def)
-        lstrcpy_s(txt, txtlen, def);
-    else if (txtlen)
-        txt[0] = TEXT('\0');  /* Empty string */
-}
-#endif
 static const TCHAR* GetSectionOptionCStr(const TCHAR *section, const char * const oname, const TCHAR *const def)
 {
     if (section) {
-        TCHAR name[128];
-        const TCHAR *p = section;
+        TCHAR name[64];
+        const TCHAR *p;
+        size_t plen;
         str2tchar_s(name, ARR_SZ(name)-1, oname);
         lstrcat_s(name, ARR_SZ(name), TEXT("=")); /* Add equal at the end of name */
-        while (p[0] && p[1]) { /* Double NULL treminated string */
-            if(!lstrcmpi_samestart(p, name)) {
-                return p+lstrlen(name); /* DONE! */
-            } else {
-                /* Go to next string... */
-               p += lstrlen(p); /* p in on the '\0' */
-                p++; /* next string start. */
-                if (!*p) break;
+
+        for (p = section ; *p ; p += plen + 1) { /* Double NULL treminated string */
+            if (!lstrcmpi_samestart(p, name)) {
+                return p + lstrlen(name); /* DONE! */
             }
+            plen = lstrlen(p);
         }
     }
     /* Default to the provided def string */
@@ -1865,23 +1833,10 @@ static const TCHAR* GetSectionOptionCStr(const TCHAR *section, const char * cons
 /* Get the int inside the section returned by GetPrivateProfileSection */
 static int GetSectionOptionInt(const TCHAR *section, const char * const oname, const int def)
 {
-    if (section) {
-        TCHAR name[128];
-        const TCHAR *p = section;
-        str2tchar_s(name, ARR_SZ(name)-1, oname);
-        lstrcat_s(name, ARR_SZ(name), TEXT("=")); /* Add equal at the end of name */
-        while (p[0] && p[1]) { /* Double NULL treminated string */
-            if(!lstrcmpi_samestart(p, name)) {
-                /* DONE !*/
-                return strtoi(p+lstrlen(name));
-            } else {
-                /* Go to next string... */
-                p += lstrlen(p); /* p in on the '\0' */
-                p++; /* next string start. */
-                if (!*p) break;
-            }
-        }
-    }
+    const TCHAR *val = GetSectionOptionCStr(section, oname, NULL);
+    if (val)
+        return strtoi(val);
+
     /* Default to the provided def value */
     return def;
 }

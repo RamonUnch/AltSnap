@@ -5096,6 +5096,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, action_t action, int b
     }
 
     //LOGA("Blacklists passed! in %d us", (int)RGTac(&tt));
+    //LOGA("Going to perform action %d on  %ls:%ls|%ls  maximized=%d", (int)action.ac, state.exename, state.title, state.classname, (int)state.origin.maximized);
 
     // If no action is to be done then we passed all balcklists
     if (probemode || action.ac == AC_NONE) return 1;

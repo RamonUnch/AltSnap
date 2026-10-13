@@ -101,8 +101,8 @@ static void ReadGrids(const TCHAR *inisection)
 {
     char gnamex[8];
     char gnamey[8];
-    strcpy(gnamex, "GridNx");
-    strcpy(gnamey, "GridNy");
+    lstrcpy_sA(gnamex, ARR_SZ(gnamex), "GridNx");
+    lstrcpy_sA(gnamey, ARR_SZ(gnamex), "GridNy");
     gnamex[7] = '\0';
     gnamey[7] = '\0';
     for (size_t i=0; i < ARR_SZ(Grids); i++) {

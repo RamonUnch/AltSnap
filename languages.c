@@ -158,14 +158,14 @@ void ListAllTranslations(void)
     GetModuleFileName(NULL, szDir, ARR_SZ(szDir));
     PathRemoveFileSpecL(szDir);
     lstrcat_s(szDir, ARR_SZ(szDir), TEXT("\\Lang\\*.ini"));
-    lstrcpy_s(fpath, ARR_SZ(fpath), szDir);
+    lstrcpy_s(fpath, MAX_PATH, szDir);
     TCHAR *end = fpath; // not the star!
     end += lstrlen(fpath)-5;
     hFind = FindFirstFile(szDir, &ffd);
 
     if (hFind != INVALID_HANDLE_VALUE) {
         do {
-            lstrcpy(end, ffd.cFileName); // add filenale at the end of the path
+            lstrcpy_s(end, MAX_PATH, ffd.cFileName); // add filenale at the end of the path
             lnfo = (struct langinfoitem *)ListAppend( &langinfo, NULL, sizeof(*lnfo) );
             if (!lnfo) break;
 

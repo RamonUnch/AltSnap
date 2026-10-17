@@ -1830,22 +1830,21 @@ static INT_PTR CALLBACK AboutPageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, 
     } else if (msg == WM_NOTIFY) {
         LPNMHDR pnmh = (LPNMHDR) lParam;
         if (pnmh->code == PSN_SETACTIVE) {
-            TCHAR buf[128];
+            TCHAR txt_buf[1024]; txt_buf[0] = TEXT('\0');
+            sb_t sb = { txt_buf, 0, ARR_SZ(txt_buf) };
             // Update text
             SetDlgItemText(hwnd, IDC_ABOUT_BOX,        l10n->AboutBox);
             // Append version number to version....
-            lstrcpy_s(buf, ARR_SZ(buf), l10n->AboutVersion);
-            lstrcat_s(buf, ARR_SZ(buf), TEXT(" ") TEXT(APP_VERSION));
-            SetDlgItemText(hwnd, IDC_VERSION,          buf /*AboutVersion X.XX*/);
+            SbAppendStr(&sb, l10n->AboutVersion);
+            SbAppendStr(&sb, TEXT(" ") TEXT(APP_VERSION));
+            SetDlgItemText(hwnd, IDC_VERSION,          sb.it /*AboutVersion X.XX*/);
 
             SetDlgItemText(hwnd, IDC_URL,              TEXT("https://github.com/RamonUnch/AltSnap"));
             SetDlgItemText(hwnd, IDC_AUTHOR,           l10n->AboutAuthor);
             SetDlgItemText(hwnd, IDC_AUTHOR2,          l10n->AboutAuthor2);
             SetDlgItemText(hwnd, IDC_LICENSE,          l10n->AboutLicense);
             SetDlgItemText(hwnd, IDC_TRANSLATIONS_BOX, l10n->AboutTranslationCredit);
-
-            TCHAR txt_buf[1024]; txt_buf[0] = TEXT('\0');
-            sb_t sb = { txt_buf, 0, ARR_SZ(txt_buf) };
+            sb.len = 0; *sb.it = TEXT('\0');
             for (size_t i = 0; i < langinfo.num; i++) {
                 SbAppendStr(&sb, langinfo.it[i].lang_english);
                 SbAppendStr(&sb, TEXT(": "));

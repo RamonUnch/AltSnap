@@ -145,36 +145,38 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
     #define CHK(LP_FLAG) (WORD)( MF_STRING | ((param&LP_FLAG) ? MF_CHECKED : MF_UNCHECKED) )
 
     const struct {
-        UCHAR action; WORD mf; const TCHAR *str;
+        UCHAR action; WORD mf; short l10nidx;
     } mnlst[] = {
        /* hide, action,      MF_FLAG/CHECKED,    menu string */
-        { AC_ALWAYSONTOP, CHK(LP_TOPMOST),    l10n->InputActionAlwaysOnTop },
-        { AC_BORDERLESS,  CHK(LP_BORDERLESS), l10n->InputActionBorderless },
-        { AC_CENTER,      MF_STRING,          l10n->InputActionCenter},
-        { AC_CENTER2,     MF_STRING,          l10n->InputActionCenter2},
-        { AC_ROLL,        CHK(LP_ROLLED),     l10n->InputActionRoll},
-        { AC_LOWER,       MF_STRING,          l10n->InputActionLower},
-        { AC_MAXHV,       MF_STRING,          l10n->InputActionMaximizeHV},
-        { AC_MINALL,      MF_STRING,          l10n->InputActionMinAllOther},
-        { AC_SIDESNAP,    MF_STRING,          l10n->InputActionSideSnap},
-        { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
-        { AC_MAXIMIZE,    CHK(LP_MAXIMIZED),  l10n->InputActionMaximize},
-        { AC_MINIMIZE,    MF_STRING,          l10n->InputActionMinimize},
-        { AC_CLOSE,       MF_STRING,          l10n->InputActionClose},
-        { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
-        { AC_KILL,        MF_STRING,          l10n->InputActionKill},
-        { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
-        { AC_MOVEONOFF,   CHK(LP_MOVEONOFF),  l10n->InputActionMoveOnOff},
-        { 0,              MF_SEPARATOR, NULL }, /* ------------------------ */
-        { show_oriclick,  MF_STRING,          l10n->InputActionOriClick},
-        { AC_NONE,        MF_STRING,          l10n->InputActionNothing},
+        { AC_ALWAYSONTOP, CHK(LP_TOPMOST),    L10NIDX(InputActionAlwaysOnTop) },
+        { AC_BORDERLESS,  CHK(LP_BORDERLESS), L10NIDX(InputActionBorderless) },
+        { AC_CENTER,      MF_STRING,          L10NIDX(InputActionCenter) },
+        { AC_CENTER2,     MF_STRING,          L10NIDX(InputActionCenter2) },
+        { AC_ROLL,        CHK(LP_ROLLED),     L10NIDX(InputActionRoll) },
+        { AC_LOWER,       MF_STRING,          L10NIDX(InputActionLower) },
+        { AC_MAXHV,       MF_STRING,          L10NIDX(InputActionMaximizeHV) },
+        { AC_MINALL,      MF_STRING,          L10NIDX(InputActionMinAllOther) },
+        { AC_SIDESNAP,    MF_STRING,          L10NIDX(InputActionSideSnap) },
+        { 0,              MF_SEPARATOR, -1 }, /* ------------------------ */
+        { AC_MAXIMIZE,    CHK(LP_MAXIMIZED),  L10NIDX(InputActionMaximize) },
+        { AC_MINIMIZE,    MF_STRING,          L10NIDX(InputActionMinimize) },
+        { AC_CLOSE,       MF_STRING,          L10NIDX(InputActionClose) },
+        { 0,              MF_SEPARATOR, -1 }, /* ------------------------ */
+        { AC_KILL,        MF_STRING,          L10NIDX(InputActionKill) },
+        { 0,              MF_SEPARATOR, -1 }, /* ------------------------ */
+        { AC_MOVEONOFF,   CHK(LP_MOVEONOFF),  L10NIDX(InputActionMoveOnOff) },
+        { 0,              MF_SEPARATOR, -1 }, /* ------------------------ */
+        { show_oriclick,  MF_STRING,          L10NIDX(InputActionOriClick) },
+        { AC_NONE,        MF_STRING,          L10NIDX(InputActionNothing) },
     };
     #undef CHK
     #undef K
-    unsigned i;
+    size_t i;
     for (i=0; i < ARR_SZ(mnlst); i++) {
-        if ( (ACMenuItems>>i)&1 && mnlst[i].action != 0xFF) // Put the action in the HIWORD of wParam
-            AppendMenu(menu, mnlst[i].mf, mnlst[i].action<<16, mnlst[i].str);
+        if ( (ACMenuItems>>i)&1 && mnlst[i].action != 0xFF) {// Put the action in the HIWORD of wParam
+            const TCHAR *str = mnlst[i].l10nidx >= 0 ? L10NSTR(mnlst[i].l10nidx) : NULL;
+            AppendMenu(menu, mnlst[i].mf, mnlst[i].action<<16, str);
+        }
     }
     TrackPopupMenu(menu, GetSystemMetrics(SM_MENUDROPALIGNMENT), pt.x, pt.y, 0, hwnd, NULL);
     DestroyMenu(menu);

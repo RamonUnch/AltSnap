@@ -1476,7 +1476,7 @@ static DWORD GetProgPathFromPid(DWORD pid, TCHAR *path, DWORD path_len)
     if (proc) CloseHandle(proc);
 
     if (!ret) ret = GetWindowProgNameFromPid(pid, path, path_len);
-    return ret;
+    return ret < path_len ? ret : 0;
 }
 
 /* Function to get the best possible small icon associated with a window

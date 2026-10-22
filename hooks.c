@@ -2627,17 +2627,18 @@ static DWORD WINAPI ActionRevealExeThread(LPVOID hwnd)
 
     // GetWindowProgName gives the pid of an UWP app, not of its frame host.
     // It fails with elevated programs, then we take the pid of the window.
+    DWORD n;
     DWORD pid = GetWindowProgName((HWND)hwnd, path, ARR_SZ(path));
     if (!pid) GetWindowThreadProcessId((HWND)hwnd, &pid);
 
     // Explorer cannot select a \Device\HarddiskVolumeX\... path (UNC is fine).
     if (!pid || !GetProgPathFromPid(pid, path, ARR_SZ(path))
     || (path[0] == '\\' && path[1] != '\\'))
-        return 0;
+        goto failed;
     // Not GetWindowsDirectory: it is per user on a terminal server without --tsaware.
-    DWORD n = ExpandEnvironmentStrings(TEXT("%SystemRoot%\\explorer.exe"), explorer, ARR_SZ(explorer));
+    n = ExpandEnvironmentStrings(TEXT("%SystemRoot%\\explorer.exe"), explorer, ARR_SZ(explorer));
     if (!n || n > ARR_SZ(explorer))
-        return 0;
+        goto failed;
 
     lstrcpy_s(cmd, ARR_SZ(cmd), TEXT("explorer.exe /select,\""));
     lstrcat_s(cmd, ARR_SZ(cmd), path);
@@ -2646,18 +2647,25 @@ static DWORD WINAPI ActionRevealExeThread(LPVOID hwnd)
     mem00(&si, sizeof(si));
     si.cb = sizeof(si);
     if (!CreateProcess(explorer, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
-        return 0;
+        goto failed;
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
     return 1;
+failed:
+    MessageBeep(MB_ICONWARNING);
+    return 0;
 }
 static void ActionRevealExe(HWND hwnd)
 {
     if (isClassName(hwnd, TEXT("Ghost"))) {
         hwnd = HungWindowFromGhostWindowL(hwnd);
-        if (!hwnd) return;
+        if (!hwnd) {
+            MessageBeep(MB_ICONWARNING);
+            return;
+        }
     }
-    PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)ActionRevealExeThread, (LPARAM)hwnd);
+    if (!PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)ActionRevealExeThread, (LPARAM)hwnd))
+        MessageBeep(MB_ICONWARNING);
 }
 // Try harder to actually set the window foreground.
 static void ReallySetForegroundWindow(HWND hwnd)

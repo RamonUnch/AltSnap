@@ -174,7 +174,9 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
     #undef K
     size_t i;
     for (i=0; i < ARR_SZ(mnlst); i++) {
-        if ( (ACMenuItems>>i)&1 && mnlst[i].action != 0xFF) {// Put the action in the HIWORD of wParam
+        // Keep existing menu bits; RevealExe uses the next unused bit.
+        size_t bit = i == 15 ? 20 : i > 15 ? i - 1 : i;
+        if ( (ACMenuItems>>bit)&1 && mnlst[i].action != 0xFF) {// Put the action in the HIWORD of wParam
             const TCHAR *str = mnlst[i].l10nidx >= 0 ? L10NSTR(mnlst[i].l10nidx) : NULL;
             AppendMenu(menu, mnlst[i].mf, mnlst[i].action<<16, str);
         }

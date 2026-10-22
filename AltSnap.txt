@@ -70,6 +70,17 @@ applies: a topmost target is above ordinary windows but can be covered by
 a higher topmost window. Input area, transparency and topmost state remain.
 Menus, owned popups and dragging keep it visible. Native menu, move/resize
 and mouse-capture operations reveal it immediately without a hover delay.
+
+IME candidate show/hide/change events protect the foreground target while
+its input control retains focus and the candidate UI remains visible.
+The observed WeType UI also accepts window SHOW/HIDE only for exact class
+wetype.flutter.setting, positive size, and all of WS_EX_NOACTIVATE,
+WS_EX_TOOLWINDOW, WS_EX_TOPMOST and WS_EX_LAYERED. Protection ends on focus
+change or candidate closure. Chinese mode alone does not exempt a window,
+no composition text is read, and ordinary overlapping windows retain the
+normal occlusion rules. Candidates must emit a matching event after
+tracking starts; already open candidates may need to be reopened.
+
 Choose the checked item again to turn it off; disabling or exiting AltSnap
 also restores the windows. The Stealth action can be bound in the mouse or
 keyboard settings. With a custom ACMenuItems mask, add 1048576 for this item.

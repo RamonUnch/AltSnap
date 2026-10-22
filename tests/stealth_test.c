@@ -17,10 +17,26 @@ static HWND test_pointed_window;
 static BOOL test_cursor_available = TRUE;
 static BOOL test_gui_available;
 static GUITHREADINFO test_gui;
+static HWND test_foreground_window;
+static GUITHREADINFO test_foreground_gui;
+static BOOL test_foreground_gui_available;
+static HWND test_reused_candidate;
+static BOOL test_candidate_identity_changed;
+static BOOL test_event_hook_available = TRUE;
+static BOOL test_generic_event_hook_available = TRUE;
+static unsigned test_event_hook_calls;
+static unsigned test_event_unhook_calls;
+static struct test_event_subscription {
+    HWINEVENTHOOK handle;
+    DWORD first;
+    DWORD last;
+    WINEVENTPROC callback;
+    BOOL active;
+} test_event_subscriptions[8];
 static DWORD test_clock = 1000;
 static unsigned checks;
 static unsigned failures;
-static HWND test_windows[32];
+static HWND test_windows[64];
 static size_t test_window_count;
 
 static BOOL TestGetCursorPos(LPPOINT point)
@@ -41,21 +57,78 @@ static HWND TestWindowFromPoint(POINT point)
 
 static BOOL TestGetGUIThreadInfoL(DWORD thread, LPGUITHREADINFO info)
 {
-    (void)thread;
-    *info = test_gui;
+    *info = thread ? test_gui : test_foreground_gui;
     info->cbSize = sizeof(*info);
-    return test_gui_available;
+    return thread ? test_gui_available : test_foreground_gui_available;
+}
+
+static HWND TestGetForegroundWindow(void)
+{
+    return test_foreground_window;
+}
+
+static DWORD TestGetWindowThreadProcessId(HWND window, LPDWORD process)
+{
+    DWORD thread = GetWindowThreadProcessId(window, process);
+    if (window == test_reused_candidate && test_candidate_identity_changed) {
+        if (process) ++*process;
+        ++thread;
+    }
+    return thread;
+}
+
+static HWINEVENTHOOK TestSetWinEventHookL(DWORD first, DWORD last, HMODULE module,
+    WINEVENTPROC callback, DWORD process, DWORD thread, DWORD flags)
+{
+    (void)module;
+    (void)process;
+    (void)thread;
+    (void)flags;
+    ++test_event_hook_calls;
+    if (!test_event_hook_available
+    || (!test_generic_event_hook_available && first == EVENT_OBJECT_SHOW)) return NULL;
+    for (size_t index = 0; index < sizeof(test_event_subscriptions) / sizeof(test_event_subscriptions[0]); ++index) {
+        struct test_event_subscription *subscription = &test_event_subscriptions[index];
+        if (!subscription->active) {
+            subscription->handle = (HWINEVENTHOOK)(UINT_PTR)(0x100 + test_event_hook_calls);
+            subscription->first = first;
+            subscription->last = last;
+            subscription->callback = callback;
+            subscription->active = TRUE;
+            return subscription->handle;
+        }
+    }
+    return NULL;
+}
+
+static BOOL TestUnhookWinEventL(HWINEVENTHOOK handle)
+{
+    ++test_event_unhook_calls;
+    for (size_t index = 0; index < sizeof(test_event_subscriptions) / sizeof(test_event_subscriptions[0]); ++index)
+        if (test_event_subscriptions[index].handle == handle) {
+            test_event_subscriptions[index].active = FALSE;
+            return TRUE;
+        }
+    return FALSE;
 }
 
 #define GetCursorPos TestGetCursorPos
 #define GetTickCount TestGetTickCount
 #define WindowFromPoint TestWindowFromPoint
 #define GetGUIThreadInfoL TestGetGUIThreadInfoL
+#define GetForegroundWindow TestGetForegroundWindow
+#define GetWindowThreadProcessId TestGetWindowThreadProcessId
+#define SetWinEventHookL TestSetWinEventHookL
+#define UnhookWinEventL TestUnhookWinEventL
 #include "../stealth.c"
 #undef GetCursorPos
 #undef GetTickCount
 #undef WindowFromPoint
 #undef GetGUIThreadInfoL
+#undef GetForegroundWindow
+#undef GetWindowThreadProcessId
+#undef SetWinEventHookL
+#undef UnhookWinEventL
 
 #define CHECK(condition, message) do { \
     ++checks; \
@@ -65,11 +138,12 @@ static BOOL TestGetGUIThreadInfoL(DWORD thread, LPGUITHREADINFO info)
     } \
 } while (0)
 
-static HWND NewWindow(DWORD extended_style)
+static HWND NewClassWindow(const char *classname, DWORD extended_style)
 {
     HWND window = CreateWindowExA(extended_style | WS_EX_NOACTIVATE,
-        "AltSnapStealthRegression", "AltSnap stealth test (offscreen)",
-        WS_POPUP, -20000 - (int)test_window_count * 500, -20000, 320, 240,
+        classname, "AltSnap stealth test (offscreen)", WS_POPUP,
+        -20000 - (int)(test_window_count % 16) * 500,
+        -20000 - (int)(test_window_count / 16) * 400, 320, 240,
         NULL, NULL, GetModuleHandle(NULL), NULL);
     CHECK(window != NULL, "create isolated test window");
     if (!window) {
@@ -79,6 +153,11 @@ static HWND NewWindow(DWORD extended_style)
     test_windows[test_window_count++] = window;
     ShowWindow(window, SW_SHOWNOACTIVATE);
     return window;
+}
+
+static HWND NewWindow(DWORD extended_style)
+{
+    return NewClassWindow("AltSnapStealthRegression", extended_style);
 }
 
 static void PointInside(HWND window)
@@ -627,6 +706,325 @@ static void TestOcclusionAndTopmostReveal(void)
     CHECK(StealthToggle(window), "disable occlusion test window");
 }
 
+static unsigned ActiveEventHooks(void)
+{
+    unsigned count = 0;
+    for (size_t index = 0; index < sizeof(test_event_subscriptions) / sizeof(test_event_subscriptions[0]); ++index)
+        count += !!test_event_subscriptions[index].active;
+    return count;
+}
+
+static void SetImeFocus(HWND foreground, HWND focus)
+{
+    test_foreground_window = foreground;
+    ZeroMemory(&test_foreground_gui, sizeof(test_foreground_gui));
+    test_foreground_gui.hwndActive = foreground;
+    test_foreground_gui.hwndFocus = focus;
+    test_foreground_gui_available = TRUE;
+}
+
+static void EmitIme(DWORD event, HWND candidate, LONG object, LONG child)
+{
+    unsigned delivered = 0;
+    for (size_t index = 0; index < sizeof(test_event_subscriptions) / sizeof(test_event_subscriptions[0]); ++index) {
+        struct test_event_subscription *subscription = &test_event_subscriptions[index];
+        if (subscription->active && subscription->first <= event && event <= subscription->last) {
+            /* The event source thread need not own the candidate window. */
+            subscription->callback(subscription->handle, event, candidate, object, child,
+                GetWindowThreadProcessId(candidate, NULL) + 17, test_clock);
+            ++delivered;
+        }
+    }
+    CHECK(delivered != 0, "simulated window event reaches the production subscription callback");
+}
+
+static void TestImeCandidateEvents(void)
+{
+    HWND window = NewWindow(WS_EX_LAYERED);
+    HWND other = NewWindow(0);
+    HWND candidate = NewWindow(WS_EX_TOOLWINDOW);
+    HWND replacement = NewWindow(WS_EX_TOOLWINDOW);
+    HWND edit = CreateWindowExA(0, "EDIT", "", WS_CHILD | WS_VISIBLE,
+        10, 10, 100, 30, window, NULL, GetModuleHandle(NULL), NULL);
+    HWND other_edit = CreateWindowExA(0, "EDIT", "", WS_CHILD | WS_VISIBLE,
+        10, 10, 100, 30, other, NULL, GetModuleHandle(NULL), NULL);
+    WINEVENTPROC old_callback = NULL;
+    HWINEVENTHOOK old_hook = NULL;
+    unsigned before_calls = test_event_hook_calls;
+    unsigned before_unhooks;
+    CHECK(edit != NULL && other_edit != NULL, "create real isolated edit controls for IME focus ownership");
+    CHECK(GetWindow(candidate, GW_OWNER) == NULL, "IME candidate fixture has no application owner");
+    CHECK(SetLayeredWindowAttributes(window, 0, 137, LWA_ALPHA), "set original IME test opacity");
+    PointInside(window);
+    CHECK(StealthToggle(window), "enable IME test window");
+    LeaveAndWait();
+    StealthImeInit();
+    CHECK(test_event_hook_calls > before_calls && ActiveEventHooks() != 0,
+        "IME initialization subscribes through the mock without installing system hooks");
+    before_calls = test_event_hook_calls;
+    StealthImeInit();
+    CHECK(test_event_hook_calls == before_calls, "IME initialization does not duplicate an active subscription");
+    SetImeFocus(window, edit);
+    EmitIme(EVENT_OBJECT_IME_SHOW, candidate, OBJID_CLIENT, CHILDID_SELF);
+    Tick();
+    CHECK(!StealthHidden(window) && ActualAlpha(window) == 137,
+        "foreground composition candidate immediately restores the focused stealth window");
+    test_clock += 1000;
+    Tick();
+    CHECK(!StealthHidden(window), "composition interaction keeps the window visible with the cursor away");
+    test_pointed_window = candidate;
+    test_clock += 1000;
+    Tick();
+    CHECK(!StealthHidden(window), "interaction with an external unowned candidate keeps its focused application visible");
+    test_pointed_window = NULL;
+    EmitIme(EVENT_OBJECT_IME_HIDE, candidate, OBJID_CLIENT, CHILDID_SELF);
+    Tick();
+    test_clock += 299;
+    Tick();
+    CHECK(!StealthHidden(window), "ending composition preserves the normal 300-millisecond leave delay");
+    test_clock += 1;
+    Tick();
+    CHECK(StealthHidden(window), "window hides normally after composition ends and the leave delay elapses");
+
+    EmitIme(EVENT_OBJECT_IME_SHOW, candidate, OBJID_CLIENT, CHILDID_SELF);
+    Tick();
+    SetImeFocus(other, edit); /* A background thread may retain stale edit focus. */
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "foreground changes revoke IME protection despite stale target edit focus");
+    SetImeFocus(window, other_edit);
+    EmitIme(EVENT_OBJECT_IME_CHANGE, candidate, OBJID_CLIENT, CHILDID_SELF);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "another application's focused control does not exempt the stealth target");
+    SetImeFocus(other, other_edit);
+    EmitIme(EVENT_OBJECT_IME_SHOW, candidate, OBJID_CLIENT, CHILDID_SELF);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "other foreground applications' IME events cannot reveal the target");
+    SetImeFocus(window, NULL);
+    EmitIme(EVENT_OBJECT_IME_SHOW, candidate, OBJID_CLIENT, CHILDID_SELF);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "IME events with no input focus are ignored");
+    SetImeFocus(window, edit);
+    test_foreground_gui_available = FALSE;
+    EmitIme(EVENT_OBJECT_IME_SHOW, candidate, OBJID_CLIENT, CHILDID_SELF);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "failed foreground GUI queries do not create an IME exemption");
+    SetImeFocus(window, edit);
+    EmitIme(EVENT_OBJECT_IME_CHANGE, candidate, OBJID_CLIENT, CHILDID_SELF);
+    Tick();
+    CHECK(!StealthHidden(window), "IME CHANGE can establish a focused candidate session without a prior SHOW");
+    EmitIme(EVENT_OBJECT_IME_SHOW, replacement, OBJID_CLIENT, CHILDID_SELF);
+    EmitIme(EVENT_OBJECT_IME_HIDE, candidate, OBJID_CLIENT, CHILDID_SELF);
+    test_clock += 350;
+    Tick();
+    CHECK(!StealthHidden(window), "hiding an old candidate does not end a newer candidate session");
+    EmitIme(EVENT_OBJECT_IME_HIDE, replacement, OBJID_CLIENT, CHILDID_SELF);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "hiding the final candidate ends IME protection");
+
+    EmitIme(EVENT_OBJECT_IME_SHOW, candidate, OBJID_CLIENT, 1);
+    EmitIme(EVENT_OBJECT_IME_SHOW, candidate, OBJID_CLIENT, 2);
+    EmitIme(EVENT_OBJECT_IME_HIDE, candidate, OBJID_CLIENT, 1);
+    Tick();
+    test_clock += 350;
+    Tick();
+    CHECK(!StealthHidden(window), "candidate object IDs on the same HWND remain independent");
+    EmitIme(EVENT_OBJECT_IME_HIDE, candidate, OBJID_CLIENT, 2);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "the final candidate object closes normally");
+
+    EmitIme(EVENT_OBJECT_IME_SHOW, candidate, OBJID_CLIENT, CHILDID_SELF);
+    Tick();
+    ShowWindow(candidate, SW_HIDE);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "a candidate hidden without an IME_HIDE event is pruned");
+    ShowWindow(candidate, SW_SHOWNOACTIVATE);
+    EmitIme(EVENT_OBJECT_IME_SHOW, candidate, OBJID_CLIENT, CHILDID_SELF);
+    Tick();
+    CHECK(DestroyWindow(candidate), "destroy isolated candidate without an IME_HIDE event");
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "destroyed candidate windows cannot keep the application visible");
+    EmitIme(EVENT_OBJECT_IME_SHOW, candidate, OBJID_CLIENT, CHILDID_SELF);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "stale candidate events with invalid HWNDs are ignored");
+
+    EmitIme(EVENT_OBJECT_IME_SHOW, replacement, OBJID_CLIENT, CHILDID_SELF);
+    Tick();
+    test_reused_candidate = replacement;
+    test_candidate_identity_changed = TRUE;
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "candidate HWND identity changes invalidate the old session");
+    test_candidate_identity_changed = FALSE;
+    test_reused_candidate = NULL;
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "a reused candidate handle cannot resurrect an already pruned session");
+    test_foreground_gui.flags = GUI_CARETBLINKING;
+    test_foreground_gui.hwndCaret = edit;
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "idle text focus and blinking caret alone do not hold the window visible");
+    PointInside(window);
+    test_pointed_window = replacement;
+    Tick();
+    test_clock += 1000;
+    Tick();
+    CHECK(StealthHidden(window), "an unrelated unowned popup still blocks reveal dwell without a valid IME session");
+    test_pointed_window = NULL;
+    PointAway();
+
+    for (size_t index = 0; index < sizeof(test_event_subscriptions) / sizeof(test_event_subscriptions[0]); ++index)
+        if (test_event_subscriptions[index].active) {
+            old_callback = test_event_subscriptions[index].callback;
+            old_hook = test_event_subscriptions[index].handle;
+            break;
+        }
+    before_unhooks = test_event_unhook_calls;
+    StealthImeShutdown();
+    CHECK(ActiveEventHooks() == 0 && test_event_unhook_calls > before_unhooks,
+        "IME shutdown removes its subscription");
+    if (old_callback)
+        old_callback(old_hook, EVENT_OBJECT_IME_SHOW, replacement, OBJID_CLIENT, CHILDID_SELF,
+            GetWindowThreadProcessId(replacement, NULL), test_clock);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "queued callbacks from a stopped subscription cannot create a new session");
+    test_event_hook_available = FALSE;
+    before_calls = test_event_hook_calls;
+    StealthImeInit();
+    CHECK(test_event_hook_calls > before_calls && ActiveEventHooks() == 0,
+        "an unavailable event hook fails without installing or retaining a subscription");
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "hook unavailability preserves the normal hiding and occlusion rules");
+    before_unhooks = test_event_unhook_calls;
+    StealthImeShutdown();
+    CHECK(test_event_unhook_calls == before_unhooks, "shutdown does not unhook a failed initialization handle");
+    test_event_hook_available = TRUE;
+    CHECK(StealthToggle(window), "disable IME test window");
+    test_foreground_window = NULL;
+    test_foreground_gui_available = FALSE;
+    ZeroMemory(&test_foreground_gui, sizeof(test_foreground_gui));
+}
+
+static void TestWeTypeCandidateFallback(void)
+{
+    const DWORD candidate_style = WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED;
+    const DWORD required_flags[] = { WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_LAYERED };
+    HWND window = NewWindow(WS_EX_LAYERED);
+    HWND other = NewWindow(0);
+    HWND candidate = NewClassWindow("wetype.flutter.setting", candidate_style);
+    HWND prefix = NewClassWindow("wetype.flutter.setting.extra", candidate_style);
+    HWND setting = NewClassWindow("wetype.flutter.setting", candidate_style);
+    HWND ordinary = NewWindow(candidate_style);
+    HWND edit = CreateWindowExA(0, "EDIT", "", WS_CHILD | WS_VISIBLE,
+        10, 10, 100, 30, window, NULL, GetModuleHandle(NULL), NULL);
+    HWND other_edit = CreateWindowExA(0, "EDIT", "", WS_CHILD | WS_VISIBLE,
+        10, 10, 100, 30, other, NULL, GetModuleHandle(NULL), NULL);
+    unsigned before_unhooks;
+    CHECK(edit != NULL && other_edit != NULL, "create isolated WeType focus controls");
+    CHECK(GetWindow(candidate, GW_OWNER) == NULL, "WeType fixture is an external unowned window");
+    SetWindowLongPtr(setting, GWL_EXSTYLE, candidate_style & ~WS_EX_NOACTIVATE);
+    SetLayeredWindowAttributes(window, 0, 119, LWA_ALPHA);
+    PointInside(window);
+    CHECK(StealthToggle(window), "enable WeType fallback test target");
+    LeaveAndWait();
+    SetImeFocus(window, edit);
+    StealthImeInit();
+    CHECK(ActiveEventHooks() == 2, "official IME and generic candidate hooks are both subscribed");
+
+    EmitIme(EVENT_OBJECT_SHOW, ordinary, OBJID_WINDOW, CHILDID_SELF);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "ordinary windows with candidate styles do not receive an IME exemption");
+    EmitIme(EVENT_OBJECT_SHOW, prefix, OBJID_WINDOW, CHILDID_SELF);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "similar WeType class prefixes do not receive an exemption");
+    EmitIme(EVENT_OBJECT_SHOW, setting, OBJID_WINDOW, CHILDID_SELF);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "activatable WeType settings windows are excluded");
+    for (size_t index = 0; index < sizeof(required_flags) / sizeof(required_flags[0]); ++index) {
+        SetWindowLongPtr(candidate, GWL_EXSTYLE, candidate_style & ~required_flags[index]);
+        if (required_flags[index] == WS_EX_TOPMOST)
+            SetWindowPos(candidate, HWND_NOTOPMOST, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        EmitIme(EVENT_OBJECT_SHOW, candidate, OBJID_WINDOW, CHILDID_SELF);
+        LeaveAndWait();
+        CHECK(StealthHidden(window), "every observed candidate style flag is required");
+        SetWindowPos(candidate, HWND_TOPMOST, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
+    SetWindowLongPtr(candidate, GWL_EXSTYLE, candidate_style);
+    SetWindowPos(candidate, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+    EmitIme(EVENT_OBJECT_SHOW, candidate, OBJID_WINDOW, CHILDID_SELF);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "zero-size WeType utility windows are excluded");
+    SetWindowPos(candidate, NULL, 0, 0, 320, 240, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+    EmitIme(EVENT_OBJECT_SHOW, candidate, OBJID_CLIENT, CHILDID_SELF);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "generic candidate matching requires OBJID_WINDOW");
+    EmitIme(EVENT_OBJECT_SHOW, candidate, OBJID_WINDOW, 1);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "generic candidate matching requires CHILDID_SELF");
+    SetImeFocus(other, other_edit);
+    EmitIme(EVENT_OBJECT_SHOW, candidate, OBJID_WINDOW, CHILDID_SELF);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "another foreground application's WeType candidate cannot protect this target");
+
+    SetImeFocus(window, edit);
+    EmitIme(EVENT_OBJECT_SHOW, candidate, OBJID_WINDOW, CHILDID_SELF);
+    Tick();
+    CHECK(!StealthHidden(window) && ActualAlpha(window) == 119,
+        "real exact-class unowned WeType candidate protects its focused application's opacity");
+    test_clock += 1000;
+    Tick();
+    CHECK(!StealthHidden(window), "generic WeType candidate interaction keeps the target visible");
+    SetWindowLongPtr(candidate, GWL_EXSTYLE, candidate_style & ~WS_EX_NOACTIVATE);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "a candidate becoming an activatable settings window is pruned");
+    SetWindowLongPtr(candidate, GWL_EXSTYLE, candidate_style);
+    EmitIme(EVENT_OBJECT_SHOW, candidate, OBJID_WINDOW, CHILDID_SELF);
+    Tick();
+    SetWindowLongPtr(candidate, GWL_EXSTYLE, candidate_style & ~WS_EX_TOOLWINDOW);
+    EmitIme(EVENT_OBJECT_HIDE, candidate, OBJID_WINDOW, CHILDID_SELF);
+    SetWindowLongPtr(candidate, GWL_EXSTYLE, candidate_style);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "generic HIDE clears the record even when candidate classification has changed");
+
+    EmitIme(EVENT_OBJECT_SHOW, candidate, OBJID_WINDOW, CHILDID_SELF);
+    EmitIme(EVENT_OBJECT_IME_SHOW, ordinary, OBJID_CLIENT, CHILDID_SELF);
+    Tick();
+    EmitIme(EVENT_OBJECT_HIDE, candidate, OBJID_WINDOW, CHILDID_SELF);
+    test_clock += 350;
+    Tick();
+    CHECK(!StealthHidden(window), "hiding WeType UI does not clear another HWND's official IME session");
+    EmitIme(EVENT_OBJECT_IME_HIDE, ordinary, OBJID_CLIENT, CHILDID_SELF);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "clearing both candidate channels resumes ordinary hiding");
+    EmitIme(EVENT_OBJECT_SHOW, candidate, OBJID_WINDOW, CHILDID_SELF);
+    Tick();
+    CHECK(DestroyWindow(candidate), "destroy an isolated WeType candidate without sending generic HIDE");
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "destroyed WeType candidates are pruned without a hide event");
+
+    before_unhooks = test_event_unhook_calls;
+    StealthImeShutdown();
+    CHECK(ActiveEventHooks() == 0 && test_event_unhook_calls == before_unhooks + 2,
+        "shutdown releases both event hooks without leaking either subscription");
+    test_generic_event_hook_available = FALSE;
+    StealthImeInit();
+    CHECK(ActiveEventHooks() == 1, "generic hook failure leaves the official IME subscription usable");
+    EmitIme(EVENT_OBJECT_IME_SHOW, ordinary, OBJID_CLIENT, CHILDID_SELF);
+    Tick();
+    CHECK(!StealthHidden(window), "official IME protection still works when the generic hook is unavailable");
+    EmitIme(EVENT_OBJECT_IME_HIDE, ordinary, OBJID_CLIENT, CHILDID_SELF);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "official IME completion still resumes hiding after generic hook failure");
+    before_unhooks = test_event_unhook_calls;
+    StealthImeShutdown();
+    CHECK(ActiveEventHooks() == 0 && test_event_unhook_calls == before_unhooks + 1,
+        "partial initialization shutdown only releases the hook that succeeded");
+    test_generic_event_hook_available = TRUE;
+    CHECK(StealthToggle(window), "disable WeType fallback test target");
+    test_foreground_window = NULL;
+    test_foreground_gui_available = FALSE;
+    ZeroMemory(&test_foreground_gui, sizeof(test_foreground_gui));
+}
+
 static void TestUnsupportedAndUntrackedWindows(void)
 {
     HWND transparent = NewWindow(WS_EX_TRANSPARENT);
@@ -656,6 +1054,10 @@ int main(void)
         fprintf(stderr, "RegisterClass failed: %lu\n", GetLastError());
         return 2;
     }
+    window_class.lpszClassName = "wetype.flutter.setting";
+    CHECK(RegisterClassA(&window_class), "register exact WeType candidate fixture class");
+    window_class.lpszClassName = "wetype.flutter.setting.extra";
+    CHECK(RegisterClassA(&window_class), "register similar-prefix negative fixture class");
 
     TestNormalWindow();
     TestTransparencyAndTopmost();
@@ -668,6 +1070,8 @@ int main(void)
     TestColorKeyOnlyAndClockWrap();
     TestInterruptedRevealDwell();
     TestOcclusionAndTopmostReveal();
+    TestImeCandidateEvents();
+    TestWeTypeCandidateFallback();
     TestUnsupportedAndUntrackedWindows();
 
     StealthRestoreAll();
@@ -675,7 +1079,9 @@ int main(void)
         if (IsWindow(test_windows[index])) DestroyWindow(test_windows[index]);
     CHECK(GetForegroundWindow() == initial_foreground,
         "tests never activate a window or change the user's foreground application");
-    UnregisterClassA(window_class.lpszClassName, window_class.hInstance);
+    UnregisterClassA("wetype.flutter.setting.extra", window_class.hInstance);
+    UnregisterClassA("wetype.flutter.setting", window_class.hInstance);
+    UnregisterClassA("AltSnapStealthRegression", window_class.hInstance);
     printf("%u checks, %u failures\n", checks, failures);
     return failures ? 1 : 0;
 }

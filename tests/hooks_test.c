@@ -11,6 +11,14 @@
 
 static POINT test_cursor;
 static DWORD test_clock = 1000;
+static HWND test_foreground_window;
+static HWND test_input_focus;
+static WINEVENTPROC test_ime_callback;
+static HWINEVENTHOOK test_ime_hook;
+static WINEVENTPROC test_generic_callback;
+static HWINEVENTHOOK test_generic_hook;
+static unsigned test_ime_subscriptions;
+static unsigned test_ime_unsubscriptions;
 
 static BOOL TestGetCursorPos(LPPOINT point)
 {
@@ -23,11 +31,70 @@ static DWORD TestGetTickCount(void)
     return test_clock;
 }
 
+static HWND TestGetForegroundWindow(void)
+{
+    return test_foreground_window;
+}
+
+static BOOL TestGetGUIThreadInfoL(DWORD thread, GUITHREADINFO *info)
+{
+    if (thread || !test_foreground_window) return FALSE;
+    ZeroMemory(info, sizeof(*info));
+    info->cbSize = sizeof(*info);
+    info->hwndActive = test_foreground_window;
+    info->hwndFocus = test_input_focus;
+    return TRUE;
+}
+
+static HWINEVENTHOOK TestSetWinEventHookL(DWORD first, DWORD last, HMODULE module,
+    WINEVENTPROC callback, DWORD process, DWORD thread, DWORD flags)
+{
+    (void)last;
+    (void)module;
+    (void)process;
+    (void)thread;
+    (void)flags;
+    ++test_ime_subscriptions;
+    if (first == EVENT_OBJECT_SHOW) {
+        test_generic_callback = callback;
+        test_generic_hook = (HWINEVENTHOOK)(UINT_PTR)(0x123 + test_ime_subscriptions);
+        return test_generic_hook;
+    }
+    test_ime_callback = callback;
+    test_ime_hook = (HWINEVENTHOOK)(UINT_PTR)(0x123 + test_ime_subscriptions);
+    return test_ime_hook;
+}
+
+static BOOL TestUnhookWinEventL(HWINEVENTHOOK hook)
+{
+    if (hook == test_ime_hook) {
+        ++test_ime_unsubscriptions;
+        test_ime_callback = NULL;
+        test_ime_hook = NULL;
+        return TRUE;
+    }
+    if (hook == test_generic_hook) {
+        ++test_ime_unsubscriptions;
+        test_generic_callback = NULL;
+        test_generic_hook = NULL;
+        return TRUE;
+    }
+    return FALSE;
+}
+
 #define GetCursorPos TestGetCursorPos
 #define GetTickCount TestGetTickCount
+#define GetForegroundWindow TestGetForegroundWindow
+#define GetGUIThreadInfoL TestGetGUIThreadInfoL
+#define SetWinEventHookL TestSetWinEventHookL
+#define UnhookWinEventL TestUnhookWinEventL
 #include "../hooks.c"
 #undef GetCursorPos
 #undef GetTickCount
+#undef GetForegroundWindow
+#undef GetGUIThreadInfoL
+#undef SetWinEventHookL
+#undef UnhookWinEventL
 
 static unsigned checks;
 static unsigned failures;
@@ -258,6 +325,87 @@ static void TestEnableStealthDuringMovement(DWORD initial_style, BYTE normal_alp
     conf.MoveTrans = 0;
 }
 
+static void TestImeProtectionThroughProductionTimer(void)
+{
+    HWND window = NewWindow(TEXT("AltSnapHooksRegression"), NULL, WS_EX_LAYERED, TRUE);
+    HWND candidate = NewWindow(TEXT("AltSnapHooksRegression"), NULL, WS_EX_TOOLWINDOW, TRUE);
+    HWND edit = CreateWindowEx(0, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE,
+        10, 10, 100, 30, window, NULL, hinstDLL, NULL);
+    CHECK(edit != NULL, "create isolated input control for production IME timer integration");
+    SetLayeredWindowAttributes(window, 0, 145, LWA_ALPHA);
+    PointInside(window);
+    Toggle(window);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "IME integration target starts hidden through production timer");
+    test_foreground_window = window;
+    test_input_focus = edit;
+    StealthImeInit();
+    CHECK(test_ime_callback != NULL && test_generic_callback != NULL && test_ime_subscriptions == 2,
+        "both IME subscriptions are intercepted without installing desktop hooks");
+    if (test_ime_callback)
+        test_ime_callback(test_ime_hook, EVENT_OBJECT_IME_SHOW, candidate,
+            OBJID_CLIENT, CHILDID_SELF, GetWindowThreadProcessId(candidate, NULL), test_clock);
+    Tick();
+    CHECK(!StealthHidden(window) && ActualAlpha(window) == 145,
+        "production timer immediately restores focused window for IME interaction");
+    test_clock += 1000;
+    Tick();
+    CHECK(!StealthHidden(window), "production timer keeps composition visible with the pointer away");
+    if (test_ime_callback)
+        test_ime_callback(test_ime_hook, EVENT_OBJECT_IME_HIDE, candidate,
+            OBJID_CLIENT, CHILDID_SELF, GetWindowThreadProcessId(candidate, NULL), test_clock);
+    Tick();
+    test_clock += 299;
+    Tick();
+    CHECK(!StealthHidden(window), "production IME completion preserves normal leave delay");
+    test_clock += 1;
+    Tick();
+    CHECK(StealthHidden(window), "production timer resumes normal hiding after composition completes");
+    StealthImeShutdown();
+    CHECK(test_ime_unsubscriptions == 2 && test_ime_callback == NULL && test_generic_callback == NULL,
+        "IME integration shutdown removes both intercepted subscriptions");
+    test_foreground_window = NULL;
+    test_input_focus = NULL;
+    Toggle(window);
+}
+
+static void TestWeTypeThroughProductionTimer(void)
+{
+    HWND window = NewWindow(TEXT("AltSnapHooksRegression"), NULL, WS_EX_LAYERED, TRUE);
+    HWND candidate = NewWindow(TEXT("wetype.flutter.setting"), NULL,
+        WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED, TRUE);
+    HWND edit = CreateWindowEx(0, TEXT("EDIT"), TEXT(""), WS_CHILD | WS_VISIBLE,
+        10, 10, 100, 30, window, NULL, hinstDLL, NULL);
+    unsigned before_unhooks = test_ime_unsubscriptions;
+    CHECK(edit != NULL, "create isolated WeType timer-integration edit control");
+    SetLayeredWindowAttributes(window, 0, 126, LWA_ALPHA);
+    PointInside(window);
+    Toggle(window);
+    LeaveAndWait();
+    test_foreground_window = window;
+    test_input_focus = edit;
+    StealthImeInit();
+    CHECK(test_generic_callback != NULL && test_generic_hook != test_ime_hook,
+        "generic WeType subscription has its own intercepted hook handle");
+    if (test_generic_callback)
+        test_generic_callback(test_generic_hook, EVENT_OBJECT_SHOW, candidate,
+            OBJID_WINDOW, CHILDID_SELF, GetWindowThreadProcessId(candidate, NULL), test_clock);
+    Tick();
+    CHECK(!StealthHidden(window) && ActualAlpha(window) == 126,
+        "production timer accepts the scoped WeType generic SHOW fallback");
+    if (test_generic_callback)
+        test_generic_callback(test_generic_hook, EVENT_OBJECT_HIDE, candidate,
+            OBJID_WINDOW, CHILDID_SELF, GetWindowThreadProcessId(candidate, NULL), test_clock);
+    LeaveAndWait();
+    CHECK(StealthHidden(window), "production timer resumes hiding after WeType generic HIDE");
+    StealthImeShutdown();
+    CHECK(test_ime_unsubscriptions == before_unhooks + 2,
+        "WeType integration shutdown releases both distinct event hooks");
+    test_foreground_window = NULL;
+    test_input_focus = NULL;
+    Toggle(window);
+}
+
 int main(void)
 {
     WNDCLASS window_class = {0};
@@ -269,12 +417,16 @@ int main(void)
     if (!RegisterClass(&window_class)) return 2;
     window_class.lpszClassName = TEXT("AltSnap-Pin");
     if (!RegisterClass(&window_class)) return 2;
+    window_class.lpszClassName = TEXT("wetype.flutter.setting");
+    if (!RegisterClass(&window_class)) return 2;
     g_mainhwnd = NewWindow(TEXT("AltSnapHooksRegression"), NULL, 0, FALSE);
 
     TestMoveTransBeforeMovement();
     TestEnableStealthDuringMovement(0, 255);
     TestEnableStealthDuringMovement(WS_EX_LAYERED, 128);
     TestPinOwnershipAndDeferredRestoration();
+    TestImeProtectionThroughProductionTimer();
+    TestWeTypeThroughProductionTimer();
 
     KillAllTimers();
     StealthRestoreAll();
@@ -282,6 +434,7 @@ int main(void)
         if (IsWindow(test_windows[index - 1])) DestroyWindow(test_windows[index - 1]);
     CHECK(GetForegroundWindow() == foreground, "integration tests preserve the user's foreground application");
     UnregisterClass(TEXT("AltSnap-Pin"), hinstDLL);
+    UnregisterClass(TEXT("wetype.flutter.setting"), hinstDLL);
     UnregisterClass(TEXT("AltSnapHooksRegression"), hinstDLL);
     printf("%u checks, %u failures\n", checks, failures);
     return failures ? 1 : 0;

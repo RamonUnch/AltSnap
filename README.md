@@ -45,6 +45,17 @@ transparency and always-on-top state remain independent. Menus, owned popups
 and dragging keep it visible. Native menu, move/resize and mouse-capture
 operations reveal it immediately, bypassing the hover delay.
 
+Candidate UI reported through IME show/hide/change events temporarily keeps the
+foreground window visible while its input control retains focus. WeType's
+observed candidate UI also has a narrow SHOW/HIDE fallback: the exact class
+`wetype.flutter.setting`, positive size, and `WS_EX_NOACTIVATE`,
+`WS_EX_TOOLWINDOW`, `WS_EX_TOPMOST` and `WS_EX_LAYERED` must all match.
+Protection ends when focus changes or the candidate UI closes. Chinese input
+mode alone does not prevent hiding; no composition text is read, and ordinary
+overlapping windows still follow the occlusion rules above. Candidate UI must
+emit a matching event after tracking starts; already open candidates may need
+to be reopened.
+
 Choose the checked menu item again to turn it off. Disabling or exiting AltSnap
 also restores the windows. You can assign `Stealth` to mouse buttons or keyboard
 shortcuts, or use `AltSnap.exe -afStealth` / `AltSnap.exe -apStealth` for the

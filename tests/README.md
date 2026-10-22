@@ -32,6 +32,24 @@ Real offscreen covering windows verify that covered geometry does not accumulate
 reveal time, becoming covered resets a partial dwell, and a topmost target can
 reveal when Windows hit testing selects it above an ordinary covering window.
 
+IME tests intercept WinEvent subscriptions and call the production callback with
+simulated `IME_SHOW`, `IME_HIDE`, and `IME_CHANGE` events. Real offscreen windows
+and edit controls test input-focus ownership, external unowned candidates,
+candidate replacement, object IDs, native hiding/destruction, handle identity
+changes, foreground changes, subscription failure, and shutdown. They verify
+that composition interaction preserves the window and its opacity, normal hiding
+resumes afterward, and unrelated input focus or candidate windows do not bypass
+occlusion rules. No desktop event hook or real input method is used by the tests.
+
+The observed WeType generic `SHOW`/`HIDE` fallback is also tested with a real
+unowned `wetype.flutter.setting` fixture. Positive matching requires the exact
+class, all four observed extended-style flags, a positive window size, and the
+correct foreground input focus. Ordinary windows, similar class prefixes,
+activatable settings windows, missing flags, zero-size windows, and other
+applications are excluded. Tests check generic hiding, destruction, style
+changes, independent official sessions, partial subscription failure, and cleanup
+of both distinct event subscriptions.
+
 `menu_test.c` includes the production `altsnap.c` code and captures the action menu
 without displaying it or sending messages. It checks the new action, checked
 state, translations, and compatibility with existing `ACMenuItems` bit masks.
@@ -43,7 +61,8 @@ movement action before the first mouse move does not save temporary drag opacity
 that first enabling stealth during a drag preserves the original opacity and
 layered drawing mode, and that pins remain hidden until their owner completes its
 reveal dwell. Only pins hidden by stealth are later restored. It never calls `Load`
-or installs system hooks. The compilation may report the existing pointer-cast
+or installs system hooks, and its IME case intercepts the event subscription while
+exercising the production visibility timer. The compilation may report the existing pointer-cast
 warning in the production `Unload` function.
 
 The complete Alt+middle-button interaction and appearance still require a manual

@@ -219,9 +219,206 @@ static BOOL StealthBelongsTo(HWND hwnd, HWND target)
     return FALSE;
 }
 
+#if defined(WINVER) && WINVER >= 0x0500 && defined(WINEVENT_OUTOFCONTEXT)
+#ifndef EVENT_OBJECT_IME_SHOW
+#define EVENT_OBJECT_IME_SHOW 0x8027
+#define EVENT_OBJECT_IME_HIDE 0x8028
+#define EVENT_OBJECT_IME_CHANGE 0x8029
+#endif
+
+struct stealth_ime_window {
+    struct stealth_ime_window *next;
+    HWND hwnd;
+    HWND target;
+    HWND focus;
+    DWORD thread;
+    DWORD process;
+    LONG object;
+    LONG child;
+    BOOL compat;
+};
+
+static HWINEVENTHOOK stealth_ime_hook;
+static HWINEVENTHOOK stealth_ime_window_hook;
+static struct stealth_ime_window *stealth_ime_windows;
+
+/* WeChat's candidate UI was observed to send window SHOW/HIDE rather than
+ * IME events. Its settings UI shares the class, so require the candidate's
+ * non-activating, layered, topmost tool-window shape as well. */
+static BOOL StealthImeCompatibleWindow(HWND hwnd)
+{
+    TCHAR name[64];
+    RECT rc;
+    LONG_PTR required = WS_EX_NOACTIVATE | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TOPMOST;
+    return IsWindowVisible(hwnd)
+        && (GetWindowLongPtr(hwnd, GWL_EXSTYLE) & required) == required
+        && GetClassName(hwnd, name, sizeof(name) / sizeof(*name))
+        && !lstrcmp(name, TEXT("wetype.flutter.setting"))
+        && GetWindowRect(hwnd, &rc) && rc.right > rc.left && rc.bottom > rc.top;
+}
+
+static HWND StealthImeFocus(void)
+{
+    GUITHREADINFO gui = {0};
+    gui.cbSize = sizeof(gui);
+    return GetGUIThreadInfoL(0, &gui) ? gui.hwndFocus : NULL;
+}
+
+static void StealthImeForget(struct stealth_ime_window **link)
+{
+    struct stealth_ime_window *ime = *link;
+    *link = ime->next;
+    free(ime);
+}
+
+static void StealthImePrune(HWND focus, HWND foreground)
+{
+    struct stealth_ime_window **link = &stealth_ime_windows;
+    while (*link) {
+        struct stealth_ime_window *ime = *link;
+        DWORD process = 0;
+        if (!focus || focus != ime->focus || !StealthFind(ime->target)
+        || !StealthBelongsTo(ime->target, focus)
+        || !StealthBelongsTo(ime->target, foreground)
+        || !IsWindowVisible(ime->hwnd)
+        || (ime->compat && !StealthImeCompatibleWindow(ime->hwnd))
+        || GetWindowThreadProcessId(ime->hwnd, &process) != ime->thread
+        || process != ime->process) {
+            StealthImeForget(link);
+            continue;
+        }
+        link = &ime->next;
+    }
+}
+
+/* IME providers can create candidate UI on another thread or in another
+ * process. Their IME WinEvents identify it without reading input text or
+ * treating an ordinary overlapping window as part of the application. */
+static void CALLBACK StealthImeEvent(HWINEVENTHOOK hook, DWORD event, HWND hwnd,
+    LONG object, LONG child, DWORD event_thread, DWORD event_time)
+{
+    struct stealth_ime_window **link = &stealth_ime_windows;
+    struct stealth_ime_window *ime;
+    struct stealth_window *win;
+    HWND focus;
+    HWND foreground;
+    DWORD process = 0;
+    DWORD thread;
+    BOOL compat;
+    BOOL hiding;
+    (void)event_thread;
+    (void)event_time;
+    if (!hwnd || (!stealth_windows && !stealth_ime_windows))
+        return;
+    compat = stealth_ime_window_hook && hook == stealth_ime_window_hook;
+    if (compat) {
+        if ((event != EVENT_OBJECT_SHOW && event != EVENT_OBJECT_HIDE)
+        || object != OBJID_WINDOW || child != CHILDID_SELF)
+            return;
+        if (event == EVENT_OBJECT_SHOW && !StealthImeCompatibleWindow(hwnd))
+            return;
+    } else if (!stealth_ime_hook || hook != stealth_ime_hook
+    || (event != EVENT_OBJECT_IME_SHOW && event != EVENT_OBJECT_IME_HIDE
+        && event != EVENT_OBJECT_IME_CHANGE)) {
+        return;
+    }
+    hiding = event == EVENT_OBJECT_IME_HIDE || event == EVENT_OBJECT_HIDE;
+    focus = StealthImeFocus();
+    foreground = GetForegroundWindow();
+    StealthImePrune(focus, foreground);
+    while (*link) {
+        ime = *link;
+        if (ime->hwnd == hwnd && ((compat && hiding)
+            || (ime->object == object && ime->child == child))) {
+            if (hiding) {
+                StealthImeForget(link);
+                if (compat)
+                    continue; // A whole-window HIDE ends every object on it.
+            } else if (!compat) {
+                ime->compat = FALSE;
+            }
+            return;
+        }
+        link = &ime->next;
+    }
+    if (hiding || !focus || !IsWindowVisible(hwnd))
+        return;
+    thread = GetWindowThreadProcessId(hwnd, &process);
+    if (!thread)
+        return;
+    for (win = stealth_windows; win; win = win->next) {
+        if (StealthValid(win) && StealthBelongsTo(win->hwnd, foreground)
+        && StealthBelongsTo(win->hwnd, focus))
+            break;
+    }
+    if (!win)
+        return;
+    ime = (struct stealth_ime_window *)calloc(1, sizeof(*ime));
+    if (!ime)
+        return;
+    ime->hwnd = hwnd;
+    ime->target = win->hwnd;
+    ime->focus = focus;
+    ime->thread = thread;
+    ime->process = process;
+    ime->object = object;
+    ime->child = child;
+    ime->compat = compat;
+    ime->next = stealth_ime_windows;
+    stealth_ime_windows = ime;
+}
+
+static void StealthImeInit(void)
+{
+    if (!stealth_ime_hook)
+        stealth_ime_hook = SetWinEventHookL(EVENT_OBJECT_IME_SHOW, EVENT_OBJECT_IME_CHANGE,
+            NULL, StealthImeEvent, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+    if (!stealth_ime_window_hook)
+        stealth_ime_window_hook = SetWinEventHookL(EVENT_OBJECT_SHOW, EVENT_OBJECT_HIDE,
+            NULL, StealthImeEvent, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+}
+
+static void StealthImeShutdown(void)
+{
+    HWINEVENTHOOK hook = stealth_ime_hook;
+    HWINEVENTHOOK window_hook = stealth_ime_window_hook;
+    stealth_ime_hook = NULL;
+    stealth_ime_window_hook = NULL;
+    if (hook)
+        UnhookWinEventL(hook);
+    if (window_hook)
+        UnhookWinEventL(window_hook);
+    while (stealth_ime_windows)
+        StealthImeForget(&stealth_ime_windows);
+}
+
+static BOOL StealthImeBusy(const struct stealth_window *win)
+{
+    struct stealth_ime_window *ime;
+    if (!stealth_ime_windows)
+        return FALSE;
+    StealthImePrune(StealthImeFocus(), GetForegroundWindow());
+    for (ime = stealth_ime_windows; ime; ime = ime->next) {
+        if (ime->target == win->hwnd)
+            return TRUE;
+    }
+    return FALSE;
+}
+#else
+static void StealthImeInit(void) {}
+static void StealthImeShutdown(void) {}
+static BOOL StealthImeBusy(const struct stealth_window *win)
+{
+    (void)win;
+    return FALSE;
+}
+#endif
+
 static BOOL StealthNativeBusy(const struct stealth_window *win)
 {
     GUITHREADINFO gui = {0};
+    if (StealthImeBusy(win))
+        return TRUE;
     gui.cbSize = sizeof(gui);
     if (!GetGUIThreadInfoL(win->thread, &gui))
         return FALSE;

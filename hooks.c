@@ -6350,6 +6350,7 @@ __declspec(dllexport) void WINAPI Unload(void)
     conf.keepMousehook = 0;
     if (mousehook) { UnhookWindowsHookEx(mousehook); mousehook = NULL; }
     KillAllTimers();
+    StealthImeShutdown();
     KillAltSnapMenu();
     if (conf.TransWinOpacity) {
         DestroyWindow(g_transhwnd[0]);
@@ -6884,6 +6885,7 @@ __declspec(dllexport) WNDPROC WINAPI Load(HWND mainhwnd, const TCHAR *inipath)
                        || conf.LongClickMove); // Move with long click
     // Capture main hwnd from caller. This is also the cursor wnd
     g_mainhwnd = mainhwnd;
+    StealthImeInit();
 
     // read and register all shortcuts related options.
     registerAllHotkeys(inipath);

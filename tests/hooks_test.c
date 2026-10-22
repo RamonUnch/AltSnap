@@ -199,6 +199,43 @@ static void TestPinOwnershipAndDeferredRestoration(void)
     CHECK(!IsWindowVisible(hidden_pin), "deferred restoration still leaves unrelated pins hidden");
 }
 
+static void TestEnableStealthDuringMovement(DWORD initial_style, BYTE normal_alpha)
+{
+    HWND window = NewWindow(TEXT("AltSnapHooksRegression"), NULL, initial_style, TRUE);
+    BYTE saved_alpha = 0;
+    if (initial_style & WS_EX_LAYERED)
+        CHECK(SetLayeredWindowAttributes(window, 0, normal_alpha, LWA_ALPHA),
+            "set original opacity before enabling stealth during a drag");
+    conf.MoveTrans = 96;
+    PointInside(window);
+    state.hwnd = window;
+    state.action = k_action_move;
+    state.moving = NOW_MOVING;
+    SetWindowTrans(window);
+    CHECK(ActualAlpha(window) == 96, "MoveTrans is active before stealth is first enabled");
+
+    Toggle(window);
+    CHECK(StealthEnabled(window), "while-moving action can first enable stealth");
+    CHECK(StealthGetAlpha(window, &saved_alpha) && saved_alpha == normal_alpha,
+        "enabling stealth while moving saves original opacity rather than MoveTrans");
+    CHECK(ActualAlpha(window) == 96, "enabling stealth preserves temporary drag opacity");
+    LeaveAndWait();
+    CHECK(!StealthHidden(window), "newly enabled moving window remains visible");
+
+    SetWindowTrans(NULL);
+    state.action = k_action_none;
+    state.moving = 0;
+    CHECK(ActualAlpha(window) == normal_alpha,
+        "drag completion restores opacity from before stealth was enabled");
+    CHECK(!!(GetWindowLongPtr(window, GWL_EXSTYLE) & WS_EX_LAYERED)
+        == !!(initial_style & WS_EX_LAYERED),
+        "drag completion restores the original layered drawing mode");
+    Toggle(window);
+    CHECK(!StealthEnabled(window), "disable window enabled through a while-moving action");
+    state.hwnd = NULL;
+    conf.MoveTrans = 0;
+}
+
 int main(void)
 {
     WNDCLASS window_class = {0};
@@ -213,6 +250,8 @@ int main(void)
     g_mainhwnd = NewWindow(TEXT("AltSnapHooksRegression"), NULL, 0, FALSE);
 
     TestMoveTransBeforeMovement();
+    TestEnableStealthDuringMovement(0, 255);
+    TestEnableStealthDuringMovement(WS_EX_LAYERED, 128);
     TestPinOwnershipAndDeferredRestoration();
 
     KillAllTimers();

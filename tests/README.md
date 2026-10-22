@@ -35,7 +35,8 @@ state, translations, and compatibility with existing `ACMenuItems` bit masks.
 dispatch, timer, temporary drag opacity, transparency actions, and pin
 synchronization using isolated offscreen windows. It verifies that holding a
 movement action before the first mouse move does not save temporary drag opacity,
-and that only pins hidden by stealth are later restored. It never calls `Load`
+that first enabling stealth during a drag preserves the original opacity and
+layered drawing mode, and that only pins hidden by stealth are later restored. It never calls `Load`
 or installs system hooks. The compilation may report the existing pointer-cast
 warning in the production `Unload` function.
 

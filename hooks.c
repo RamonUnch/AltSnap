@@ -4917,11 +4917,16 @@ static void SClickActions(HWND hwnd, action_t action)
     case AC_CENTER:      CenterWindow(hwnd, !state.shift  /*state.shift? 0: CW_RESTORE*/, 0); break;
     case AC_CENTER2:     CenterWindow(hwnd, !state.shift, /*full*/ 1); break;
     case AC_ALWAYSONTOP: TogglesAlwaysOnTop(hwnd); break;
-    case AC_STEALTH:
+    case AC_STEALTH: {
+        BOOL moving = hwnd == state.hwnd && state.action.ac && MOUVEMENT(state.action);
+        // A while-moving binding must capture normal opacity, not MoveTrans.
+        if (moving) SetWindowTrans(NULL);
         if (StealthToggle(hwnd) && StealthEnabled(hwnd)
         && !SetTimer(g_mainhwnd, STEALTH_TIMER, 50, TimerWindowProc))
             StealthToggle(hwnd);
+        if (moving) SetWindowTrans(hwnd);
         break;
+    }
     case AC_CLOSE:       PostMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0); break;
     case AC_TRANSPARENCY:ActionTransparency2(hwnd, action); break;
     case AC_LOWER:       ActionLower(hwnd, 0, state.shift, IsCtrlDown()); break;

@@ -893,6 +893,7 @@ static INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, 
         {TEXT("AltTabFullList"), L10NIDX(InputActionAltTabFullList) }, \
         {TEXT("Roll"),        L10NIDX(InputActionRoll) },  \
         {TEXT("AlwaysOnTop"), L10NIDX(InputActionAlwaysOnTop) }, \
+        {TEXT("Stealth"),     L10NIDX(InputActionStealth) }, \
         {TEXT("Borderless"),  L10NIDX(InputActionBorderless) }, \
         {TEXT("Center"),      L10NIDX(InputActionCenter) }, \
         {TEXT("Center2"),     L10NIDX(InputActionCenter2) }, \
@@ -1348,6 +1349,7 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
         {TEXT("Lower"),       L10NIDX(InputActionLower) },
         {TEXT("Roll"),        L10NIDX(InputActionRoll) },
         {TEXT("AlwaysOnTop"), L10NIDX(InputActionAlwaysOnTop) },
+        {TEXT("Stealth"),     L10NIDX(InputActionStealth) },
         {TEXT("Borderless"),  L10NIDX(InputActionBorderless) },
         {TEXT("Center"),      L10NIDX(InputActionCenter) },
         {TEXT("Center2"),     L10NIDX(InputActionCenter2) },
@@ -1369,6 +1371,7 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
         {TEXT("Roll"),        L10NIDX(InputActionRoll), ACPARAM_UPDOWN },
         {TEXT("Transparency"),L10NIDX(InputActionTransparency), ACPARAM_UPDOWNSETTOGGLE, ACPARAM_NUMBER },
         {TEXT("AlwaysOnTop"), L10NIDX(InputActionAlwaysOnTop) },
+        {TEXT("Stealth"),     L10NIDX(InputActionStealth) },
         {TEXT("Borderless"),  L10NIDX(InputActionBorderless) },
         {TEXT("Center"),      L10NIDX(InputActionCenter) },
         {TEXT("Center2"),     L10NIDX(InputActionCenter2) },

@@ -23,6 +23,8 @@ LRESULT CALLBACK HooksWinPorc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 //#define ALTUP_TIMER     (5)
 #define HIDELAYOUT_TIMER  (6)
 #define POOL_TIMER        (7)
+#define STEALTH_TIMER     (8)
+#define STEALTH_PIN_PROP  TEXT(APP_NAMEA)TEXT("-StealthPin")
 
 #define WM_DOWORK        (WM_APP+6)
 #define WM_DOMOUSEMOVE   (WM_APP+7)
@@ -467,6 +469,17 @@ static xpure int IsPtDragOut(const POINT *pt, const POINT *ptt)
 // Specific includes
 #include "snap.c"
 #include "zones.c"
+#include "stealth.c"
+
+/* FinishMovementNow can restore MoveTrans from the worker thread. Keep the
+ * stealth list and its window attributes owned by the main message thread. */
+static void StealthShowOnMainThread(HWND hwnd)
+{
+    if (GetCurrentThreadId() == GetWindowThreadProcessId(g_mainhwnd, NULL))
+        StealthShow(hwnd);
+    else
+        PostMessage(g_mainhwnd, WM_STEALTHSHOW, (WPARAM)hwnd, 0);
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // Wether a window is present or not in a blacklist
@@ -641,6 +654,7 @@ static void SetWindowTrans(HWND hwnd)
     }
 
     if (hwnd && !oldtrans) {
+        StealthShowOnMainThread(hwnd);
         oldhwnd = hwnd;
         LONG_PTR exstyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
         if (exstyle&WS_EX_LAYERED) {
@@ -659,6 +673,7 @@ static void SetWindowTrans(HWND hwnd)
         } else {
             SetLayeredWindowAttributes(oldhwnd, 0, oldtrans, LWA_ALPHA);
         }
+        StealthShowOnMainThread(oldhwnd);
         oldhwnd = NULL;
         oldtrans = 0;
     }
@@ -3331,13 +3346,15 @@ static int ActionTransparency(HWND hwnd, short delta)
     if (!alpha_delta) return 1;
 
     BYTE old_alpha;
-    if (GetLayeredWindowAttributes(hwnd, NULL, &old_alpha, NULL)) {
+    if (StealthGetAlpha(hwnd, &old_alpha)
+    || GetLayeredWindowAttributes(hwnd, NULL, &old_alpha, NULL)) {
          alpha = old_alpha; // If possible start from the current aplha.
     }
 
     alpha = CLAMP(conf.MinAlpha, alpha+alpha_delta, 255); // Limit alpha
 
-    SetWindowAlpha(hwnd, alpha);
+    if (!StealthSetAlpha(hwnd, (BYTE)alpha))
+        SetWindowAlpha(hwnd, (BYTE)alpha);
     return 1;
 }
 
@@ -3349,7 +3366,8 @@ static void ActionTransparency2(HWND hwnd, action_t action)
 
     if (action.fl == ACFL_SET)
         alpha = action.wp;
-    else if (GetLayeredWindowAttributes(hwnd, NULL, &old_alpha, NULL))
+    else if (StealthGetAlpha(hwnd, &old_alpha)
+          || GetLayeredWindowAttributes(hwnd, NULL, &old_alpha, NULL))
         alpha = old_alpha;
 
     if (action.fl == ACFL_UP) // 2=>TOP/UP
@@ -3361,7 +3379,8 @@ static void ActionTransparency2(HWND hwnd, action_t action)
 
     alpha = CLAMP(conf.MinAlpha, alpha, 255); // Limit alpha
 
-    SetWindowAlpha(hwnd, (BYTE)alpha);
+    if (!StealthSetAlpha(hwnd, (BYTE)alpha))
+        SetWindowAlpha(hwnd, (BYTE)alpha);
 }
 
 static void SetBottomMost(HWND hwnd)
@@ -4736,6 +4755,7 @@ static void ActionMenu(HWND hwnd)
        | !!(GetRestoreFlag(hwnd)&2) << 4                         // LP_ROLLED
        | !!GetProp(state.hwnd, APP_MOVEONOFF) << 5            // LP_MOVEONOFF
        | (state.alt <= BT_MB5) << 6                         // LP_NOALTACTION
+       | !!StealthEnabled(hwnd) << 7                         // LP_STEALTH
     );
 }
 // Finds the window that is just next the specified one.
@@ -4882,6 +4902,7 @@ static HWND FindTiledWindow(HWND hwnd, unsigned char direction)
 // Single click commands
 static void SClickActions(HWND hwnd, action_t action)
 {
+    StealthShow(hwnd);
     static const resizexy_t rxy_map[] = {
         { RZ_LEFT, RZ_YCENTER   },
         { RZ_XCENTER, RZ_TOP    },
@@ -4896,6 +4917,11 @@ static void SClickActions(HWND hwnd, action_t action)
     case AC_CENTER:      CenterWindow(hwnd, !state.shift  /*state.shift? 0: CW_RESTORE*/, 0); break;
     case AC_CENTER2:     CenterWindow(hwnd, !state.shift, /*full*/ 1); break;
     case AC_ALWAYSONTOP: TogglesAlwaysOnTop(hwnd); break;
+    case AC_STEALTH:
+        if (StealthToggle(hwnd) && StealthEnabled(hwnd)
+        && !SetTimer(g_mainhwnd, STEALTH_TIMER, 50, TimerWindowProc))
+            StealthToggle(hwnd);
+        break;
     case AC_CLOSE:       PostMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0); break;
     case AC_TRANSPARENCY:ActionTransparency2(hwnd, action); break;
     case AC_LOWER:       ActionLower(hwnd, 0, state.shift, IsCtrlDown()); break;
@@ -5100,6 +5126,8 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, action_t action, int b
 
     // If no action is to be done then we passed all balcklists
     if (probemode || action.ac == AC_NONE) return 1;
+
+    StealthShow(state.hwnd);
 
     // Set state
     state.blockaltup = state.alt; // If alt is down...
@@ -5718,6 +5746,27 @@ static xpure int IsAreaLongClikcable(int area)
         || area == HTSYSMENU;
 }
 /////////////////////////////////////////////////////////////////////////////
+static BOOL CALLBACK UpdateStealthPinWindow(HWND hwnd, LPARAM keep_timer)
+{
+    if (isClassName(hwnd, TEXT(APP_NAMEA)TEXT("-Pin"))) {
+        HWND owner = GetWindow(hwnd, GW_OWNER);
+        if (StealthHidden(owner)) {
+            if (IsWindowVisible(hwnd) && SetProp(hwnd, STEALTH_PIN_PROP, (HANDLE)1))
+                ShowWindow(hwnd, SW_HIDE);
+        } else if (GetProp(hwnd, STEALTH_PIN_PROP)) {
+            if (IsWindowVisible(owner) && !IsIconic(owner)) {
+                RemoveProp(hwnd, STEALTH_PIN_PROP);
+                ShowWindow(hwnd, SW_SHOWNA);
+            } else if (IsWindow(owner)) {
+                *(BOOL *)keep_timer = TRUE;
+            } else {
+                RemoveProp(hwnd, STEALTH_PIN_PROP);
+            }
+        }
+    }
+    return TRUE;
+}
+
 // Window for timers only...
 static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT_PTR idEvent, DWORD dwTime)
 {
@@ -5726,6 +5775,15 @@ static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT_PTR idEvent, DWOR
 
     //LOG("TimerWindowProc(%x, %u, %u, %lu)", (UINT)(UINT_PTR)hwnd, msg, idEvent, dwTime);
     switch (idEvent) {
+    case STEALTH_TIMER: {
+        BOOL keep_timer = StealthTick(IsWindow(g_mchwnd) ? state.sclickhwnd : NULL,
+            ((state.action.ac && MOUVEMENT(state.action)) || g_InFinishMovement)
+            ? state.hwnd : NULL);
+        EnumThreadWindows(GetCurrentThreadId(), UpdateStealthPinWindow, (LPARAM)&keep_timer);
+        if (!keep_timer)
+            KillTimer(g_mainhwnd, STEALTH_TIMER);
+        break;
+    }
     #ifndef NO_HOOK_LL
     case REHOOK_TIMER: {
         // Silently rehook hooks if they have been stopped (>= Win7 and LowLevelHooksTimeout)
@@ -5823,6 +5881,7 @@ static VOID CALLBACK TimerWindowProc(HWND hwnd, UINT msg, UINT_PTR idEvent, DWOR
 }
 static void KillAllTimers(void)
 {
+    KillTimer(g_mainhwnd, STEALTH_TIMER);
     KillTimer(g_mainhwnd, REHOOK_TIMER);
     KillTimer(g_mainhwnd, SPEED_TIMER);
     KillTimer(g_mainhwnd, GRAB_TIMER);
@@ -6156,6 +6215,10 @@ LRESULT CALLBACK MenuWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
 LRESULT CALLBACK HooksWinPorc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+    if (msg == WM_STEALTHSHOW) {
+        StealthShow((HWND)wParam);
+        return 0;
+    }
     if (msg == WM_HOTKEY) {
         int ptwindow = 0;
         action_t action = k_action_none;
@@ -6319,6 +6382,7 @@ __declspec(dllexport) void WINAPI Unload(void)
     // Wait for worker thread to have a clean closing...
     WaitForSingleObject(g_WorkerThreadHANDLE, 5000);
     CloseHandle(g_WorkerThreadHANDLE);
+    StealthRestoreAll();
 
     // Unregister from WM_POWERBROADCAST messages
     //UnregisterSuspendResumeNotificationL(g_suspendResumeNotificationHANDLE);

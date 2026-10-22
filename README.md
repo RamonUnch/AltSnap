@@ -31,6 +31,22 @@ WHAT'S NEW
 
 Many new features can be seen in the option dialog box, however some of them are only available through editing the AltSnap.ini file (middle click on tyhe tray icon for this).
 
+# Stealth mode
+Choose **Stealth mode** in the window action menu to toggle hover visibility for
+that window. It becomes nearly invisible 300 ms after the pointer leaves, and
+reappears when the pointer comes within 12 pixels of its current bounds. The
+window keeps its position and input area, and its transparency and always-on-top
+state remain independent. Menus, owned popups and dragging keep it visible.
+
+Choose the checked menu item again to turn it off. Disabling or exiting AltSnap
+also restores the windows. You can assign `Stealth` to mouse buttons or keyboard
+shortcuts, or use `AltSnap.exe -afStealth` / `AltSnap.exe -apStealth` for the
+foreground / pointed window. With a custom `ACMenuItems` mask, add `1048576` to
+show the new menu item; existing mask bits keep their meanings.
+
+Stealth uses alpha 1/255 so hidden windows retain hit testing. Click-through
+windows and windows using incompatible per-pixel layering are left unchanged.
+
 # VirusTotal false positive
 You will see with the latest builds that there are some alerts, usually from SecureAge APEX and sometimes from other vendors. Those are false positives, and I stopped contacting the APEX team for every release because it is a waste of time I would rather spend on improving the program.
 I already reduced the number of false positives significantly, simply by changing build flags and by switching to an older version of the NSIS installer system. This is an indication of the impertinence of some modern antivirus solutions. Chocolatey considers that up to five positives on VirusTotal is not even suspicious.

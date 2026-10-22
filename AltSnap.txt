@@ -54,10 +54,21 @@ _____________
 OTHER ACTIONS
 AltSnap can be configured quite finely You can set any button to perform
 any action among a list: Move, Resize, Close, Minimize, Maximize, Lower,
-AlwaysOnTop, Borderless, Center, Roll, Menu, Kill and Nothing.
+AlwaysOnTop, Stealth, Borderless, Center, Roll, Menu, Kill and Nothing.
 
 By default the middle mouse button is configured for the Maximize action,
 that maximizes/restores the window. Press Shift to minimize.
+____________
+STEALTH MODE
+Choose Stealth mode in the window action menu to hide a window until the
+pointer approaches it. It hides after 300 ms away and reappears within 12
+pixels of its current bounds. It keeps its input area, transparency and
+always-on-top state. Menus, owned popups and dragging keep it visible.
+Choose the checked item again to turn it off; disabling or exiting AltSnap
+also restores the windows. The Stealth action can be bound in the mouse or
+keyboard settings. With a custom ACMenuItems mask, add 1048576 for this item.
+Hidden opacity is 1/255 to retain hit testing. Click-through and incompatible
+per-pixel layered windows are left unchanged.
 ____________________________
 TRICKS YOU SHOULD KNOW ABOUT
 * AltSnap will not bring windows to front by default. Press Ctrl to bring the

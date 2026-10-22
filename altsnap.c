@@ -173,6 +173,10 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
     #undef K
     size_t i;
     for (i=0; i < ARR_SZ(mnlst); i++) {
+        // Keep existing ACMenuItems bits stable; the new action uses bit 20.
+        if (i == 1 && (ACMenuItems & (1UL << 20)))
+            AppendMenu(menu, MF_STRING | ((param & LP_STEALTH) ? MF_CHECKED : MF_UNCHECKED),
+                       AC_STEALTH << 16, l10n->InputActionStealth);
         if ( (ACMenuItems>>i)&1 && mnlst[i].action != 0xFF) {// Put the action in the HIWORD of wParam
             const TCHAR *str = mnlst[i].l10nidx >= 0 ? L10NSTR(mnlst[i].l10nidx) : NULL;
             AppendMenu(menu, mnlst[i].mf, mnlst[i].action<<16, str);
@@ -387,7 +391,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lP
                 G_HooksWinPorc(hwnd, WM_SETLAYOUTNUM, LayoutNumber, 0);
             }
         }
-    } else if (msg == WM_HOTKEY || msg == WM_STACKLIST /*|| msg == WM_POWERBROADCAST*/) {
+    } else if (msg == WM_HOTKEY || msg == WM_STACKLIST || msg == WM_STEALTHSHOW /*|| msg == WM_POWERBROADCAST*/) {
         if (G_HooksWinPorc)
             return G_HooksWinPorc(hwnd, msg, wParam, lParam);
     }

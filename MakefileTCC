@@ -20,7 +20,7 @@ EXELD = $(LDFLAGS) \
 
 default: AltSnap.exe hooks.dll
 
-hooks.dll : hooks.c hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c
+hooks.dll : hooks.c hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c stealth.c
 	$(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) $(LDFLAGS) -shared
 
 AltSnap.exe : altsnapr.o altsnap.c hooks.h tray.c config.c languages.h languages.c unfuck.h nanolibc.h

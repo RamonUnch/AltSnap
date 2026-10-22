@@ -33,7 +33,7 @@ CFLAGS= -municode -Og -g  -m32 -march=i686 -mtune=generic \
 
 default: AltSnap.exe hooks.dll
 
-hooks.dll : hooks.c hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c
+hooks.dll : hooks.c hooks.h hooksr.o unfuck.h nanolibc.h zones.c snap.c stealth.c
 	$(CC) -o hooks.dll hooks.c hooksr.o $(CFLAGS) -mdll -e_DllMain@12 -Wl,--kill-at
 
 #--disable-reloc-section,  -mwindows

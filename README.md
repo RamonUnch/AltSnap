@@ -31,6 +31,40 @@ WHAT'S NEW
 
 Many new features can be seen in the option dialog box, however some of them are only available through editing the AltSnap.ini file (middle click on tyhe tray icon for this).
 
+# Stealth mode
+Choose **Stealth mode** in the window action menu to toggle hover visibility for
+that window. It becomes nearly invisible after 300 ms without actual pointer
+hover, with a 12-pixel tolerance outside its current bounds while visible.
+To reveal it, hover continuously for 300 ms over its actual input area or an
+owned popup. The pointer must actually target that window or popup; geometry
+covered by another application does not count. Leaving or becoming covered
+resets the reveal timer. Normal Windows stacking applies: a topmost target
+takes precedence over ordinary windows but can still be covered by a higher
+topmost window. The window keeps its position and input area, and its
+transparency and always-on-top state remain independent. Menus, owned popups
+and dragging keep it visible. Native menu, move/resize and mouse-capture
+operations reveal it immediately, bypassing the hover delay.
+
+Candidate UI reported through IME show/hide/change events temporarily keeps the
+foreground window visible while its input control retains focus. WeType's
+observed candidate UI also has a narrow SHOW/HIDE fallback: the exact class
+`wetype.flutter.setting`, positive size, and `WS_EX_NOACTIVATE`,
+`WS_EX_TOOLWINDOW`, `WS_EX_TOPMOST` and `WS_EX_LAYERED` must all match.
+Protection ends when focus changes or the candidate UI closes. Chinese input
+mode alone does not prevent hiding; no composition text is read, and ordinary
+overlapping windows still follow the occlusion rules above. Candidate UI must
+emit a matching event after tracking starts; already open candidates may need
+to be reopened.
+
+Choose the checked menu item again to turn it off. Disabling or exiting AltSnap
+also restores the windows. You can assign `Stealth` to mouse buttons or keyboard
+shortcuts, or use `AltSnap.exe -afStealth` / `AltSnap.exe -apStealth` for the
+foreground / pointed window. With a custom `ACMenuItems` mask, add `1048576` to
+show the new menu item; existing mask bits keep their meanings.
+
+Stealth uses alpha 1/255 so hidden windows retain hit testing. Click-through
+windows and windows using incompatible per-pixel layering are left unchanged.
+
 # VirusTotal false positive
 You will see with the latest builds that there are some alerts, usually from SecureAge APEX and sometimes from other vendors. Those are false positives, and I stopped contacting the APEX team for every release because it is a waste of time I would rather spend on improving the program.
 I already reduced the number of false positives significantly, simply by changing build flags and by switching to an older version of the NSIS installer system. This is an indication of the impertinence of some modern antivirus solutions. Chocolatey considers that up to five positives on VirusTotal is not even suspicious.

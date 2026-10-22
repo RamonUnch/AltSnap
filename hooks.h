@@ -61,6 +61,7 @@
 #define LP_ROLLED      (1<<4)
 #define LP_MOVEONOFF   (1<<5)
 #define LP_NOALTACTION (1<<6)
+#define LP_STEALTH     (1<<7)
 
 // App
 #define APP_NAME       TEXT("AltSnap")
@@ -97,6 +98,7 @@
 #define WM_GETBESTLAYOUT  (WM_USER+18)
 //#define WM_GETZONESLEN    (WM_USER+19)
 #define WM_GETZONES       (WM_USER+20)
+#define WM_STEALTHSHOW    (WM_USER+21)
 
 // List of possible actions
 // ACVALUE(AC_ENUM, IniString, Info)
@@ -155,7 +157,8 @@
     ACVALUE(AC_ZOOM,         Zoom,         MR) \
     ACVALUE(AC_ZOOM2,        Zoom2,        MR) \
     ACVALUE(AC_NPSTACKED,    NPStacked,    ZO) \
-    ACVALUE(AC_NPSTACKED2,   NPStacked2,   ZO)
+    ACVALUE(AC_NPSTACKED2,   NPStacked2,   ZO) \
+    ACVALUE(AC_STEALTH,      Stealth,      00)
 
 #define ACVALUE(a, b, c) a,
 enum action { ACTION_MAP AC_MAXVALUE, AC_ORICLICK };

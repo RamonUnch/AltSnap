@@ -1364,6 +1364,25 @@ static DWORD GetProcessImageFileNameL(HANDLE hProcess, TCHAR *lpImageFileName, D
     return 0;
 }
 
+/* KERNEL32.DLL Vista+ */
+static BOOL QueryFullProcessImageNameL(HANDLE hProcess, DWORD dwFlags, TCHAR *lpExeName, DWORD *lpdwSize)
+{
+    typedef BOOL (WINAPI *funk_t)(HANDLE hProcess, DWORD dwFlags, TCHAR *lpExeName, DWORD *lpdwSize);
+    static funk_t funk=(funk_t)IPTR;
+
+    if (funk == (funk_t)IPTR) { /* First time */
+    #ifdef _UNICODE
+        funk = (funk_t)LoadDLLProc("KERNEL32.DLL", "QueryFullProcessImageNameW");
+    #else
+        funk = (funk_t)LoadDLLProc("KERNEL32.DLL", "QueryFullProcessImageNameA");
+    #endif
+    }
+    if (funk) {
+        return funk(hProcess, dwFlags, lpExeName, lpdwSize);
+    }
+    return FALSE;
+}
+
 static DWORD GetWindowProgNameFromPid(DWORD pid, TCHAR *title, size_t title_len)
 {
     DWORD ret=0;
@@ -1440,6 +1459,25 @@ static DWORD GetWindowProgNameSubWindow(DWORD parentpid, HWND parenthwnd, TCHAR 
     return 0;
 }
 
+
+/* Full path of the program with the given pid.
+ * Under Vista+ it also works for elevated programs and for 64-bit programs
+ * seen from 32-bit AltSnap. Otherwise we fall back to the old way. */
+#ifndef PROCESS_QUERY_LIMITED_INFORMATION
+#define PROCESS_QUERY_LIMITED_INFORMATION 0x1000
+#endif
+static DWORD GetProgPathFromPid(DWORD pid, TCHAR *path, DWORD path_len)
+{
+    DWORD ret = path_len;
+    HANDLE proc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+
+    if (!proc || !QueryFullProcessImageNameL(proc, 0, path, &ret))
+        ret = 0;
+    if (proc) CloseHandle(proc);
+
+    if (!ret) ret = GetWindowProgNameFromPid(pid, path, path_len);
+    return ret;
+}
 
 /* Function to get the best possible small icon associated with a window
  * We always use SendMessageTimeout to ensure we do not get  locked

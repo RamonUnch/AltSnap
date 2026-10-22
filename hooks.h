@@ -118,6 +118,7 @@
     ACVALUE(AC_KILL,         Kill,        CL) \
     ACVALUE(AC_PAUSE,        Pause,       CL) \
     ACVALUE(AC_RESUME,       Resume,      CL) \
+    ACVALUE(AC_REVEALEXE,    RevealExe,   CL) \
     ACVALUE(AC_MAXHV,        MaximizeHV,  MR) \
     ACVALUE(AC_MINALL,       MinAllOther, 00) \
     ACVALUE(AC_MUTE,         Mute,        00) \

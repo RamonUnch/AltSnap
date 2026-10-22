@@ -2615,6 +2615,50 @@ static int ActionKill(HWND hwnd)
 
     return 1;
 }
+///////////////////////////////////////////////////////////////////////////
+// Open Explorer with the program of hwnd selected
+static DWORD WINAPI ActionRevealExeThread(LPVOID hwnd)
+{
+    TCHAR path[MAX_PATH];
+    TCHAR explorer[MAX_PATH];
+    TCHAR cmd[MAX_PATH + 32];
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+
+    // GetWindowProgName gives the pid of an UWP app, not of its frame host.
+    // It fails with elevated programs, then we take the pid of the window.
+    DWORD pid = GetWindowProgName((HWND)hwnd, path, ARR_SZ(path));
+    if (!pid) GetWindowThreadProcessId((HWND)hwnd, &pid);
+
+    // Explorer cannot select a \Device\HarddiskVolumeX\... path (UNC is fine).
+    if (!pid || !GetProgPathFromPid(pid, path, ARR_SZ(path))
+    || (path[0] == '\\' && path[1] != '\\'))
+        return 0;
+    // Not GetWindowsDirectory: it is per user on a terminal server without --tsaware.
+    DWORD n = ExpandEnvironmentStrings(TEXT("%SystemRoot%\\explorer.exe"), explorer, ARR_SZ(explorer));
+    if (!n || n > ARR_SZ(explorer))
+        return 0;
+
+    lstrcpy_s(cmd, ARR_SZ(cmd), TEXT("explorer.exe /select,\""));
+    lstrcat_s(cmd, ARR_SZ(cmd), path);
+    lstrcat_s(cmd, ARR_SZ(cmd), TEXT("\""));
+
+    mem00(&si, sizeof(si));
+    si.cb = sizeof(si);
+    if (!CreateProcess(explorer, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+        return 0;
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    return 1;
+}
+static void ActionRevealExe(HWND hwnd)
+{
+    if (isClassName(hwnd, TEXT("Ghost"))) {
+        hwnd = HungWindowFromGhostWindowL(hwnd);
+        if (!hwnd) return;
+    }
+    PostThreadMessage(g_WorkerThreadID, WM_DOWORK, (WPARAM)ActionRevealExeThread, (LPARAM)hwnd);
+}
 // Try harder to actually set the window foreground.
 static void ReallySetForegroundWindow(HWND hwnd)
 {
@@ -4907,6 +4951,7 @@ static void SClickActions(HWND hwnd, action_t action)
     case AC_KILL:        ActionKill(hwnd); break;
     case AC_PAUSE:       ActionPause(hwnd, 1); break;
     case AC_RESUME:      ActionPause(hwnd, 0); break;
+    case AC_REVEALEXE:   ActionRevealExe(hwnd); break;
     case AC_ROLL:        RollWindow(hwnd, action.fl == ACFL_UP ? +120 : action.fl == ACFL_DOWN ? -120 : 0); break;
     case AC_MAXHV:       MaximizeHV(hwnd, state.shift); break;
     case AC_MINALL:      MinimizeAllOtherWindows(hwnd, state.shift); break;

@@ -3,6 +3,7 @@
 #define STEALTH_PROP TEXT("AltSnap-Stealth")
 #define STEALTH_MARGIN 12
 #define STEALTH_DELAY 300
+#define STEALTH_REVEAL_DELAY 300
 #define STEALTH_ALPHA 1
 
 struct stealth_window {
@@ -11,12 +12,14 @@ struct stealth_window {
     DWORD thread;
     DWORD process;
     DWORD lastnear;
+    DWORD reveal_start;
     COLORREF key;
     DWORD flags;
     BYTE alpha;
     BOOL layered;
     BOOL original_layered;
     BOOL hidden;
+    BOOL reveal_pending;
 };
 
 static struct stealth_window *stealth_windows;
@@ -112,6 +115,7 @@ static BOOL StealthApply(struct stealth_window *win, BOOL hidden)
         }
     }
     win->hidden = hidden;
+    win->reveal_pending = FALSE;
     return TRUE;
 }
 
@@ -227,16 +231,23 @@ static BOOL StealthNativeBusy(const struct stealth_window *win)
         || StealthBelongsTo(win->hwnd, gui.hwndCapture);
 }
 
-static BOOL StealthNear(HWND hwnd, POINT pt)
+static BOOL StealthNear(HWND hwnd, POINT pt, BOOL include_margin)
 {
     RECT rc;
+    /* Hit testing observes occlusion, topmost windows and color-key holes.
+     * Owned popups belong to the same application's interaction area. */
+    if (StealthBelongsTo(hwnd, WindowFromPoint(pt)))
+        return TRUE;
+    if (!include_margin)
+        return FALSE;
     if (!GetWindowRect(hwnd, &rc))
         return FALSE;
-    InflateRect(&rc, STEALTH_MARGIN, STEALTH_MARGIN);
+    /* The tolerance only extends outside the window. A different window
+     * covering its interior must not keep it revealed. */
     if (PtInRect(&rc, pt))
-        return TRUE;
-    /* Keep an application's owned popups usable outside the main rect. */
-    return StealthBelongsTo(hwnd, WindowFromPoint(pt));
+        return FALSE;
+    InflateRect(&rc, STEALTH_MARGIN, STEALTH_MARGIN);
+    return PtInRect(&rc, pt);
 }
 
 static BOOL StealthTick(HWND menu_hwnd, HWND moving_hwnd)
@@ -256,6 +267,7 @@ static BOOL StealthTick(HWND menu_hwnd, HWND moving_hwnd)
         || StealthNativeBusy(win)) {
             if (win->hidden)
                 StealthApply(win, FALSE);
+            win->reveal_pending = FALSE;
             win->lastnear = now;
             link = &win->next;
             continue;
@@ -271,6 +283,7 @@ static BOOL StealthTick(HWND menu_hwnd, HWND moving_hwnd)
             || ((flags & LWA_COLORKEY) && key != win->key)
             || flags != (win->flags | LWA_ALPHA)) {
                 win->hidden = FALSE;
+                win->reveal_pending = FALSE;
                 win->lastnear = now;
             }
         }
@@ -278,12 +291,26 @@ static BOOL StealthTick(HWND menu_hwnd, HWND moving_hwnd)
             StealthForget(link);
             continue;
         }
-        if (!IsWindowVisible(win->hwnd) || IsIconic(win->hwnd)
-        || !havecursor || StealthNear(win->hwnd, pt)) {
+        if (!IsWindowVisible(win->hwnd) || IsIconic(win->hwnd) || !havecursor) {
             if (win->hidden)
                 StealthApply(win, FALSE);
+            win->reveal_pending = FALSE;
             win->lastnear = now;
-        } else if (!win->hidden && (DWORD)(now - win->lastnear) >= STEALTH_DELAY) {
+        } else if (win->hidden) {
+            if (StealthNear(win->hwnd, pt, FALSE)) {
+                if (!win->reveal_pending) {
+                    win->reveal_start = now;
+                    win->reveal_pending = TRUE;
+                } else if ((DWORD)(now - win->reveal_start) >= STEALTH_REVEAL_DELAY) {
+                    if (StealthApply(win, FALSE))
+                        win->lastnear = now;
+                }
+            } else {
+                win->reveal_pending = FALSE;
+            }
+        } else if (StealthNear(win->hwnd, pt, TRUE)) {
+            win->lastnear = now;
+        } else if ((DWORD)(now - win->lastnear) >= STEALTH_DELAY) {
             if (!StealthApply(win, TRUE)) {
                 StealthForget(link);
                 continue;

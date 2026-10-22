@@ -77,6 +77,14 @@ static void LeaveAndWait(void)
     Tick();
 }
 
+static void DwellInside(HWND window)
+{
+    PointInside(window);
+    Tick();
+    test_clock += 300;
+    Tick();
+}
+
 static BYTE ActualAlpha(HWND window)
 {
     BYTE alpha = 255;
@@ -130,7 +138,15 @@ static void TestMoveTransBeforeMovement(void)
     CHECK(StealthHidden(window), "production timer hides after movement and worker finish");
     PointInside(window);
     Tick();
-    CHECK(ActualAlpha(window) == 173, "production timer restores normal opacity on approach");
+    CHECK(StealthHidden(window) && ActualAlpha(window) == 1,
+        "production timer starts reveal dwell without immediately displaying the window");
+    test_clock += 299;
+    Tick();
+    CHECK(StealthHidden(window) && StealthGetAlpha(window, &alpha) && alpha == 173,
+        "production timer keeps original opacity safe while reveal dwell is pending");
+    test_clock += 1;
+    Tick();
+    CHECK(ActualAlpha(window) == 173, "production timer restores normal opacity after 300-millisecond dwell");
     CHECK(GetWindowLongPtr(window, GWL_EXSTYLE) & WS_EX_TOPMOST,
         "action and timer wiring preserve topmost state");
 
@@ -140,16 +156,14 @@ static void TestMoveTransBeforeMovement(void)
         SClickActions(window, transparency);
     }
     LeaveAndWait();
-    PointInside(window);
-    Tick();
+    DwellInside(window);
     CHECK(ActualAlpha(window) == 101,
         "production transparency shortcut and stealth preserve the new opacity");
     conf.AlphaDelta = 16;
     state.shift = 0;
     CHECK(ActionTransparency(window, -WHEEL_DELTA), "production transparency wheel action succeeds");
     LeaveAndWait();
-    PointInside(window);
-    Tick();
+    DwellInside(window);
     CHECK(ActualAlpha(window) == 85,
         "production transparency wheel action uses logical, not hidden alpha");
     Toggle(window);
@@ -178,8 +192,16 @@ static void TestPinOwnershipAndDeferredRestoration(void)
         "production timer does not claim an already hidden pin");
     PointInside(owner);
     Tick();
+    CHECK(!IsWindowVisible(visible_pin) && GetProp(visible_pin, STEALTH_PIN_PROP),
+        "pin remains hidden when reveal dwell starts");
+    test_clock += 299;
+    Tick();
+    CHECK(StealthHidden(owner) && !IsWindowVisible(visible_pin),
+        "pin stays hidden until its owner completes the full dwell");
+    test_clock += 1;
+    Tick();
     CHECK(IsWindowVisible(visible_pin) && !GetProp(visible_pin, STEALTH_PIN_PROP),
-        "approach restores the pin hidden by stealth and removes its marker");
+        "completed dwell restores the pin hidden by stealth and removes its marker");
     CHECK(!IsWindowVisible(hidden_pin), "restoring one pin does not show an unrelated hidden pin");
     CHECK(GetWindowLongPtr(owner, GWL_EXSTYLE) & WS_EX_TOPMOST,
         "pin synchronization does not cancel owner topmost state");

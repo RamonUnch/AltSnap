@@ -108,6 +108,14 @@ static void LeaveAndWait(void)
     Tick();
 }
 
+static void DwellInside(HWND window)
+{
+    PointInside(window);
+    Tick();
+    test_clock += 300;
+    Tick();
+}
+
 static BYTE ActualAlpha(HWND window)
 {
     BYTE alpha = 255;
@@ -159,8 +167,26 @@ static void TestNormalWindow(void)
     test_cursor.x = rectangle.left - 11;
     test_cursor.y = rectangle.top + 40;
     Tick();
-    CHECK(!StealthHidden(window), "cursor near the edge reveals the window");
-    CHECK(ActualAlpha(window) == 255, "normal opacity is restored on approach");
+    test_clock += 350;
+    Tick();
+    CHECK(StealthHidden(window), "outside 12-pixel tolerance does not start reveal dwell");
+    PointInside(window);
+    Tick();
+    CHECK(StealthHidden(window), "entering the actual window does not reveal it immediately");
+    test_clock += 299;
+    Tick();
+    CHECK(StealthHidden(window) && ActualAlpha(window) == 1,
+        "window remains hidden at the 299-millisecond boundary");
+    test_clock += 1;
+    Tick();
+    CHECK(!StealthHidden(window), "window reveals after 300 milliseconds continuously inside");
+    CHECK(ActualAlpha(window) == 255, "normal opacity is restored after reveal dwell");
+
+    test_cursor.x = rectangle.left - 11;
+    Tick();
+    test_clock += 350;
+    Tick();
+    CHECK(!StealthHidden(window), "visible window retains the 12-pixel leave tolerance");
 
     LeaveAndWait();
     CHECK(StealthHidden(window), "window can hide repeatedly");
@@ -192,9 +218,8 @@ static void TestTransparencyAndTopmost(void)
     CHECK(StealthSetAlpha(window, 89), "opacity action is handled during stealth");
     CHECK(StealthHidden(window) && ActualAlpha(window) == 1,
         "opacity adjustment does not reveal an away window");
-    PointInside(window);
-    Tick();
-    CHECK(ActualAlpha(window) == 89, "approaching restores the latest chosen opacity");
+    DwellInside(window);
+    CHECK(ActualAlpha(window) == 89, "reveal dwell restores the latest chosen opacity");
     CHECK(GetLayeredWindowAttributes(window, &actual_key, &alpha, &flags),
         "read restored layered attributes");
     CHECK(actual_key == key && flags == (LWA_ALPHA | LWA_COLORKEY),
@@ -203,8 +228,7 @@ static void TestTransparencyAndTopmost(void)
     CHECK(SetLayeredWindowAttributes(window, key, 173, LWA_ALPHA | LWA_COLORKEY),
         "simulate an app changing its visible opacity");
     LeaveAndWait();
-    PointInside(window);
-    Tick();
+    DwellInside(window);
     CHECK(ActualAlpha(window) == 173, "visible external opacity changes are retained");
     CHECK(StealthToggle(window), "disable originally layered window");
     CHECK(GetLayeredWindowAttributes(window, &actual_key, &alpha, &flags)
@@ -221,15 +245,24 @@ static void TestMenuDragAndMovement(void)
     CHECK(StealthToggle(window), "enable window for menu and drag tests");
     LeaveAndWait();
     CHECK(StealthHidden(window), "hide before menu test");
+    PointInside(window);
+    Tick();
+    test_clock += 200;
+    Tick();
     StealthTick(window, NULL);
-    CHECK(!StealthHidden(window), "action menu target remains visible");
+    CHECK(!StealthHidden(window), "action menu target reveals immediately during pending dwell");
     test_clock += 1000;
     StealthTick(window, NULL);
     CHECK(!StealthHidden(window), "action menu prevents hiding while cursor is away");
     LeaveAndWait();
     CHECK(StealthHidden(window), "window hides again after menu closes");
+    PointInside(window);
+    Tick();
+    test_clock += 299;
+    Tick();
+    CHECK(StealthHidden(window), "menu reveal clears the old partial dwell before the next hide");
     StealthTick(NULL, window);
-    CHECK(!StealthHidden(window), "moving target is revealed");
+    CHECK(!StealthHidden(window), "moving target reveals immediately during pending dwell");
     test_clock += 1000;
     StealthTick(NULL, window);
     CHECK(!StealthHidden(window), "dragging prevents hiding while cursor is away");
@@ -237,9 +270,8 @@ static void TestMenuDragAndMovement(void)
     CHECK(SetWindowPos(window, NULL, -25000, -25000, 400, 300,
         SWP_NOACTIVATE | SWP_NOZORDER), "move and resize isolated window");
     LeaveAndWait();
-    PointInside(window);
-    Tick();
-    CHECK(!StealthHidden(window), "approach detection follows moved and resized windows");
+    DwellInside(window);
+    CHECK(!StealthHidden(window), "reveal dwell follows moved and resized windows");
     CHECK(StealthToggle(window), "disable menu and movement test window");
 }
 
@@ -257,7 +289,27 @@ static void TestMultipleWindowsAndCleanup(void)
     CHECK(StealthHidden(first) && StealthHidden(second), "multiple windows hide independently");
     PointInside(first);
     Tick();
-    CHECK(!StealthHidden(first) && StealthHidden(second), "approaching one does not reveal another");
+    test_clock += 200;
+    Tick();
+    CHECK(StealthHidden(first) && StealthHidden(second), "partial dwell reveals neither independent window");
+    PointInside(second);
+    Tick();
+    test_clock += 299;
+    Tick();
+    CHECK(StealthHidden(first) && StealthHidden(second),
+        "second window does not inherit the first window's partial dwell");
+    test_clock += 1;
+    Tick();
+    CHECK(StealthHidden(first) && !StealthHidden(second),
+        "only the second window reveals after its own 300-millisecond dwell");
+    PointInside(first);
+    Tick();
+    test_clock += 299;
+    Tick();
+    CHECK(StealthHidden(first), "returning to the first window restarts its full dwell");
+    test_clock += 1;
+    Tick();
+    CHECK(!StealthHidden(first), "first window reveals after a new uninterrupted dwell");
 
     CHECK(DestroyWindow(first), "close a tracked test window");
     Tick();
@@ -299,7 +351,10 @@ static void TestNativeHideMinimizeAndPopup(void)
         "assign isolated popup ownership");
     test_pointed_window = popup;
     Tick();
-    CHECK(!StealthHidden(window), "owned popup outside the main rectangle reveals its owner");
+    CHECK(StealthHidden(window), "owned popup starts dwell instead of revealing immediately");
+    test_clock += 300;
+    Tick();
+    CHECK(!StealthHidden(window), "owned popup reveals its owner after continuous dwell");
     test_clock += 1000;
     Tick();
     CHECK(!StealthHidden(window), "owned popup keeps its owner visible while in use");
@@ -374,9 +429,8 @@ static void TestOpacityChangesWhileHidden(void)
     CHECK(!StealthHidden(window) && StealthGetAlpha(window, &alpha) && alpha == 199,
         "an app's own opacity change is respected while hidden");
     LeaveAndWait();
-    PointInside(window);
-    Tick();
-    CHECK(ActualAlpha(window) == 199, "subsequent approach restores the app's new opacity");
+    DwellInside(window);
+    CHECK(ActualAlpha(window) == 199, "subsequent dwell restores the app's new opacity");
     CHECK(StealthToggle(window), "disable opacity edge-case window");
 }
 
@@ -435,14 +489,142 @@ static void TestColorKeyOnlyAndClockWrap(void)
     CHECK(StealthToggle(window), "enable window near GetTickCount rollover");
     LeaveAndWait();
     CHECK(StealthHidden(window), "hide delay handles unsigned GetTickCount rollover");
+    test_clock = 0xFFFFFF00u;
     PointInside(window);
     Tick();
+    test_clock += 299;
+    Tick();
+    CHECK(StealthHidden(window), "reveal dwell remains pending at 299 milliseconds across clock rollover");
+    test_clock += 1;
+    Tick();
+    CHECK(!StealthHidden(window), "reveal dwell completes at 300 milliseconds across clock rollover");
     CHECK(GetLayeredWindowAttributes(window, &key, NULL, &flags)
         && key == original_key && flags == LWA_COLORKEY,
         "revealing restores color-key-only flags without introducing alpha");
     CHECK(StealthToggle(window), "disable color-key-only layered window");
     CHECK(GetWindowLongPtr(window, GWL_EXSTYLE) & WS_EX_LAYERED,
         "original color-key-only layered style remains enabled");
+}
+
+static void TestInterruptedRevealDwell(void)
+{
+    HWND window = NewWindow(0);
+    RECT rectangle;
+    PointInside(window);
+    CHECK(StealthToggle(window), "enable interrupted-dwell test window");
+    LeaveAndWait();
+    PointInside(window);
+    Tick();
+    test_clock += 20;
+    Tick();
+    PointAway();
+    Tick();
+    test_clock += 1000;
+    Tick();
+    CHECK(StealthHidden(window), "briefly passing through does not reveal the window later");
+
+    PointInside(window);
+    Tick();
+    test_clock += 200;
+    Tick();
+    GetWindowRect(window, &rectangle);
+    test_cursor.x = rectangle.left - 11;
+    test_cursor.y = rectangle.top + 40;
+    Tick();
+    test_clock += 100;
+    Tick();
+    CHECK(StealthHidden(window), "leaving actual bounds into the outer tolerance cancels dwell");
+    PointInside(window);
+    Tick();
+    test_clock += 100;
+    Tick();
+    CHECK(StealthHidden(window), "interrupted dwell time is not accumulated after re-entry");
+    test_clock += 199;
+    Tick();
+    CHECK(StealthHidden(window), "re-entry requires all 300 milliseconds again");
+    test_clock += 1;
+    Tick();
+    CHECK(!StealthHidden(window), "uninterrupted re-entry dwell finally reveals the window");
+
+    LeaveAndWait();
+    PointInside(window);
+    Tick();
+    StealthShow(window);
+    CHECK(!StealthHidden(window), "explicit window operation reveals immediately during pending dwell");
+    LeaveAndWait();
+    test_clock = 0;
+    PointInside(window);
+    Tick();
+    CHECK(StealthHidden(window), "a dwell beginning at clock zero is not treated as completed");
+    test_clock += 299;
+    Tick();
+    CHECK(StealthHidden(window), "explicit operation clears old dwell before the next hide");
+    test_clock += 1;
+    Tick();
+    CHECK(!StealthHidden(window), "a dwell beginning at clock zero completes at 300 milliseconds");
+    CHECK(StealthToggle(window), "disable interrupted-dwell test window");
+}
+
+static void TestOcclusionAndTopmostReveal(void)
+{
+    HWND window = NewWindow(0);
+    HWND cover = NewWindow(0);
+    RECT rectangle;
+    PointInside(window);
+    CHECK(StealthToggle(window), "enable occlusion test window");
+    GetWindowRect(window, &rectangle);
+    CHECK(SetWindowPos(cover, HWND_TOP, rectangle.left, rectangle.top,
+        rectangle.right - rectangle.left, rectangle.bottom - rectangle.top, SWP_NOACTIVATE),
+        "place an isolated covering window above the stealth target");
+    LeaveAndWait();
+    PointInside(window);
+    CHECK(WindowFromPoint(test_cursor) == cover, "real hit testing selects the covering window");
+    Tick();
+    test_clock += 1000;
+    Tick();
+    CHECK(StealthHidden(window), "geometry behind another window does not start reveal dwell");
+
+    ShowWindow(cover, SW_HIDE);
+    CHECK(WindowFromPoint(test_cursor) == window, "removing cover exposes the stealth input region");
+    Tick();
+    test_clock += 200;
+    Tick();
+    CHECK(StealthHidden(window), "uncovered partial dwell remains hidden");
+    ShowWindow(cover, SW_SHOWNOACTIVATE);
+    SetWindowPos(cover, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    CHECK(WindowFromPoint(test_cursor) == cover, "new cover wins real hit testing during partial dwell");
+    Tick();
+    test_clock += 500;
+    Tick();
+    CHECK(StealthHidden(window), "becoming occluded cancels an in-progress reveal dwell");
+    ShowWindow(cover, SW_HIDE);
+    Tick();
+    test_clock += 299;
+    Tick();
+    CHECK(StealthHidden(window), "uncovering starts a new full dwell instead of resuming old time");
+    test_clock += 1;
+    Tick();
+    CHECK(!StealthHidden(window), "fresh uncovered dwell reveals after 300 milliseconds");
+
+    LeaveAndWait();
+    ShowWindow(cover, SW_SHOWNOACTIVATE);
+    SetWindowPos(cover, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    PointInside(window);
+    Tick();
+    CHECK(StealthHidden(window), "covered target remains hidden before it is made topmost");
+    CHECK(SetWindowPos(window, HWND_TOPMOST, 0, 0, 0, 0,
+        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE), "make only the isolated target topmost");
+    CHECK(WindowFromPoint(test_cursor) == window, "topmost target wins real hit testing over normal cover");
+    Tick();
+    test_clock += 299;
+    Tick();
+    CHECK(StealthHidden(window), "topmost target still requires its full reveal dwell");
+    test_clock += 1;
+    Tick();
+    CHECK(!StealthHidden(window), "topmost target reveals after its own uninterrupted dwell");
+    CHECK(GetWindowLongPtr(window, GWL_EXSTYLE) & WS_EX_TOPMOST,
+        "reveal does not alter topmost state");
+    CHECK(StealthToggle(window), "disable occlusion test window");
 }
 
 static void TestUnsupportedAndUntrackedWindows(void)
@@ -484,6 +666,8 @@ int main(void)
     TestOpacityChangesWhileHidden();
     TestNativeMenuDragAndCapture();
     TestColorKeyOnlyAndClockWrap();
+    TestInterruptedRevealDwell();
+    TestOcclusionAndTopmostReveal();
     TestUnsupportedAndUntrackedWindows();
 
     StealthRestoreAll();

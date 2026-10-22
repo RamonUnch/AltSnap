@@ -33,10 +33,17 @@ Many new features can be seen in the option dialog box, however some of them are
 
 # Stealth mode
 Choose **Stealth mode** in the window action menu to toggle hover visibility for
-that window. It becomes nearly invisible 300 ms after the pointer leaves, and
-reappears when the pointer comes within 12 pixels of its current bounds. The
-window keeps its position and input area, and its transparency and always-on-top
-state remain independent. Menus, owned popups and dragging keep it visible.
+that window. It becomes nearly invisible after 300 ms without actual pointer
+hover, with a 12-pixel tolerance outside its current bounds while visible.
+To reveal it, hover continuously for 300 ms over its actual input area or an
+owned popup. The pointer must actually target that window or popup; geometry
+covered by another application does not count. Leaving or becoming covered
+resets the reveal timer. Normal Windows stacking applies: a topmost target
+takes precedence over ordinary windows but can still be covered by a higher
+topmost window. The window keeps its position and input area, and its
+transparency and always-on-top state remain independent. Menus, owned popups
+and dragging keep it visible. Native menu, move/resize and mouse-capture
+operations reveal it immediately, bypassing the hover delay.
 
 Choose the checked menu item again to turn it off. Disabling or exiting AltSnap
 also restores the windows. You can assign `Stealth` to mouse buttons or keyboard

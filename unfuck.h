@@ -419,6 +419,18 @@ static DWORD GetMsgPT(POINT *pt)
     return point;
 }
 
+static size_t PathGetFileNameStart(const TCHAR *p)
+{
+    size_t i = 0;
+    while(p[i] != '\0') i++;
+    while (i) {
+        if (p[i] == '\\' || p[i] == '/')
+            return i + 1;
+        i--;
+    }
+    return 0;
+}
+
 /* Removes the trailing file name from a path */
 static BOOL PathRemoveFileSpecL(TCHAR *p)
 {
@@ -1385,20 +1397,20 @@ static DWORD GetWindowProgNameFromPid(DWORD pid, TCHAR *title, size_t title_len)
 }
 
 static DWORD GetWindowProgNameSubWindow(DWORD parentpid, HWND parenthwnd, TCHAR *title, size_t title_len);
-static DWORD GetWindowProgName(HWND hwnd, TCHAR *title, size_t title_len)
+static DWORD GetWindowProgNameFullPath(HWND hwnd, TCHAR *title, size_t title_len)
 {
     DWORD pid=0;
+    const TCHAR *p;
     if (!GetWindowThreadProcessId(hwnd, &pid)
     || !pid
     || !GetWindowProgNameFromPid(pid, title, title_len))
         return 0;
 
-    PathStripPathL(title);
-
-    if (pid && !lstrcmpi(title, TEXT("ApplicationFrameHost.exe"))) {
+    p = title + PathGetFileNameStart(title);
+    //LOGA("%ls -> |%ls|", title, p);
+    if (pid && !lstrcmpi(p, TEXT("ApplicationFrameHost.exe"))) {
         DWORD pid2 = GetWindowProgNameSubWindow(pid, hwnd, title, title_len);
         if (pid2)  {
-            PathStripPathL(title);
             return pid2;
         }
         /* If there is no child to ApplicationFrameHost.exe, */
@@ -1407,7 +1419,13 @@ static DWORD GetWindowProgName(HWND hwnd, TCHAR *title, size_t title_len)
 
     return pid;
 }
-
+static DWORD GetWindowProgName(HWND hwnd, TCHAR *title, size_t title_len)
+{
+    DWORD pid = GetWindowProgNameFullPath(hwnd, title, title_len);
+    if (pid)
+       PathStripPathL(title);
+    return pid;
+}
 struct pid_pair_struct { DWORD parent_pid; DWORD child_pid; };
 static BOOL CALLBACK GetWindowProgName_subwins_EnumProc(HWND hwnd, LPARAM lp)
 {
@@ -1440,6 +1458,18 @@ static DWORD GetWindowProgNameSubWindow(DWORD parentpid, HWND parenthwnd, TCHAR 
     return 0;
 }
 
+
+/* Open the file manager at the proper folder and select file... */
+static void ShowFileLocationInExplorer(const TCHAR *full_path)
+{
+    TCHAR cmd[MAX_PATH+32];
+    lstrcpy_s(cmd, ARR_SZ(cmd), TEXT("/SELECT, \""));
+    lstrcat_s(cmd, ARR_SZ(cmd), full_path);
+    lstrcat_s(cmd, ARR_SZ(cmd), TEXT("\""));
+
+    /* TODO: Use a better method... */
+    ShellExecute(NULL, TEXT("open"), TEXT("explorer"), cmd, NULL, SW_SHOWNORMAL);
+}
 
 /* Function to get the best possible small icon associated with a window
  * We always use SendMessageTimeout to ensure we do not get  locked

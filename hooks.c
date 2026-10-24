@@ -2615,6 +2615,22 @@ static int ActionKill(HWND hwnd)
 
     return 1;
 }
+
+// Open folder location of a specific exe from the hwnd.
+static void ActionRevealExe(HWND hwnd)
+{
+    if (isClassName(hwnd, TEXT("Ghost"))) {
+        hwnd = HungWindowFromGhostWindowL(hwnd);
+        if (!hwnd) {
+            return;
+        }
+    }
+    TCHAR exe_path[MAX_PATH];
+    if (GetWindowProgNameFullPath(hwnd, exe_path, ARR_SZ(exe_path))) {
+        ShowFileLocationInExplorer(exe_path);
+    }
+}
+
 // Try harder to actually set the window foreground.
 static void ReallySetForegroundWindow(HWND hwnd)
 {
@@ -4907,6 +4923,7 @@ static void SClickActions(HWND hwnd, action_t action)
     case AC_KILL:        ActionKill(hwnd); break;
     case AC_PAUSE:       ActionPause(hwnd, 1); break;
     case AC_RESUME:      ActionPause(hwnd, 0); break;
+    case AC_REVEALEXE:   ActionRevealExe(hwnd); break;
     case AC_ROLL:        RollWindow(hwnd, action.fl == ACFL_UP ? +120 : action.fl == ACFL_DOWN ? -120 : 0); break;
     case AC_MAXHV:       MaximizeHV(hwnd, state.shift); break;
     case AC_MINALL:      MinimizeAllOtherWindows(hwnd, state.shift); break;

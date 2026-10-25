@@ -881,6 +881,7 @@ static INT_PTR CALLBACK MousePageDialogProc(HWND hwnd, UINT msg, WPARAM wParam, 
     #define COMMON_ACTIONS \
         {TEXT("Close"),       L10NIDX(InputActionClose) },   \
         {TEXT("Kill"),        L10NIDX(InputActionKill) },    \
+        {TEXT("RevealExe"),   L10NIDX(InputActionRevealExe) }, \
         {TEXT("Minimize"),    L10NIDX(InputActionMinimize) }, \
         {TEXT("Maximize"),    L10NIDX(InputActionMaximize) }, \
         {TEXT("Lower"),       L10NIDX(InputActionLower) },    \
@@ -1361,6 +1362,7 @@ static INT_PTR CALLBACK KeyboardPageDialogProc(HWND hwnd, UINT msg, WPARAM wPara
         {TEXT("Kill"),        L10NIDX(InputActionKill) },
         {TEXT("Pause"),       L10NIDX(InputActionPause) },
         {TEXT("Resume"),      L10NIDX(InputActionResume) },
+        {TEXT("RevealExe"),   L10NIDX(InputActionRevealExe) },
         {TEXT("ASOnOff"),     L10NIDX(InputActionASOnOff) },
         {TEXT("Close"),       L10NIDX(InputActionClose) },
         {TEXT("Minimize"),    L10NIDX(InputActionMinimize) },

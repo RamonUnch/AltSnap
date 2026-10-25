@@ -163,6 +163,7 @@ void ShowSClickMenu(HWND hwnd, LPARAM param)
         { AC_CLOSE,       MF_STRING,          L10NIDX(InputActionClose) },
         { 0,              MF_SEPARATOR, -1 }, /* ------------------------ */
         { AC_KILL,        MF_STRING,          L10NIDX(InputActionKill) },
+        { AC_REVEALEXE,   MF_STRING,          L10NIDX(InputActionRevealExe) },
         { 0,              MF_SEPARATOR, -1 }, /* ------------------------ */
         { AC_MOVEONOFF,   CHK(LP_MOVEONOFF),  L10NIDX(InputActionMoveOnOff) },
         { 0,              MF_SEPARATOR, -1 }, /* ------------------------ */

@@ -122,6 +122,7 @@ struct langinfoitem {
   LNGVALUE(InputActionKill,      TEXT("&Kill program"), NULL) \
   LNGVALUE(InputActionPause,     TEXT("Pause program"), NULL) \
   LNGVALUE(InputActionResume,    TEXT("Resume program"), NULL) \
+  LNGVALUE(InputActionRevealExe, TEXT("Show program &in Explorer"), NULL) \
   LNGVALUE(InputActionASOnOff,   TEXT("S&uspend/Resume AltSnap"), NULL) \
   LNGVALUE(InputActionMoveOnOff, TEXT("Movement dis&abled"), NULL) \
   LNGVALUE(InputActionMinimize,  TEXT("Mi&nimize window"), NULL) \

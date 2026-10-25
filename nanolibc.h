@@ -362,9 +362,7 @@ static const TCHAR *LPTR2Hex(TCHAR str[AT_LEAST LPTR_HDIGITS+1], UINT_PTR n)
 
     for( i=LPTR_HDIGITS-1; ; --i )
     {
-        TCHAR rem = n & 15; /* MD 16 */
-        //str[i] = (rem > 9)? (rem-10) + 'A' : rem + '0';
-        str[i] = "0123456789ABCDEF"[rem];
+        str[i] = "0123456789ABCDEF"[n & 15u];
 
         n >>=4 ; /* Divide by 16. */
         if (n==0)

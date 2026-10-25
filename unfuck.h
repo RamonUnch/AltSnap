@@ -52,14 +52,14 @@ enum DWMWINDOWATTRIBUTE {
   /* Windows 11 Build 26100 + */
   DWMWA_REDIRECTIONBITMAP_ALPHA,
   DWMWA_BORDER_MARGINS,
-  DWMWA_LAST,
+  DWMWA_LAST
 };
 
 enum DWM_WINDOW_CORNER_PREFERENCE {
     DWMWCP_DEFAULT = 0,
     DWMWCP_DONOTROUND = 1,
     DWMWCP_ROUND = 2,
-    DWMWCP_ROUNDSMALL = 3,
+    DWMWCP_ROUNDSMALL = 3
 };
 
 enum MONITOR_DPI_TYPE {
@@ -752,6 +752,8 @@ static int GetSystemMetricsForDpiL(int  nIndex, UINT dpi)
     static funk_t funk=(funk_t)IPTR;
 
     if (dpi) {
+        HMONITOR hmon;
+        UINT dpiX = 0, systemDpi = 0;
         if (funk == (funk_t)IPTR) { /* First time */
             funk = (funk_t)LoadDLLProc("USER32.DLL", "GetSystemMetricsForDpi");
         }
@@ -763,8 +765,7 @@ static int GetSystemMetricsForDpiL(int  nIndex, UINT dpi)
          * Get Default display hmonitor to get system DPI
          * so that we can sacle the metric properly.
          */
-        HMONITOR hmon = MonitorFromWindow(NULL, MONITOR_DEFAULTTOPRIMARY);
-        UINT dpiX = 0, systemDpi = 0;
+        hmon = MonitorFromWindow(NULL, MONITOR_DEFAULTTOPRIMARY);
         if (hmon && 0 == GetDpiForMonitorL(hmon, MDT_DEFAULT, &dpiX, &systemDpi) && systemDpi > 0) {
             return MulDiv(GetSystemMetrics(nIndex), dpi, systemDpi);
         }
@@ -1407,7 +1408,7 @@ static DWORD GetWindowProgNameFullPath(HWND hwnd, TCHAR *title, size_t title_len
         return 0;
 
     p = title + PathGetFileNameStart(title);
-    //LOGA("%ls -> |%ls|", title, p);
+    /* LOGA("%ls -> |%ls|", title, p); */
     if (pid && !lstrcmpi(p, TEXT("ApplicationFrameHost.exe"))) {
         DWORD pid2 = GetWindowProgNameSubWindow(pid, hwnd, title, title_len);
         if (pid2)  {
@@ -1877,14 +1878,16 @@ static void RGIniMapSection(const TCHAR *section, /*OUT*/ sv_t *map, char const 
 {
     char key[64];
     size_t plen;
+    const TCHAR *p;
     mem00(map, sizeof(*map) * maplen); /* Always zero out */
-    for (const TCHAR *p = section; *p; p += plen + 1) {
+    for (p = section; *p; p += plen + 1) {
         char *pk = key;
+        size_t i;
         while(*p && *p != TEXT('=') && pk < key + 63) *pk++ = *p++; /* Copy key to char, stop at '=' sign */
         *pk = '\0'; p++;
         /* GetIniMapping_Index(key, ini_mapping, maplen); */
         plen = lstrlen(p);
-        for (size_t i = 0; i < maplen; i++) {
+        for (i = 0; i < maplen; i++) {
             if ( !lstrcmpiA(key, ini_mapping[i]) ) {
                 map[i].it = p;
                 map[i].len = plen;

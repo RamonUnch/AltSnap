@@ -6288,7 +6288,7 @@ __declspec(dllexport) void WINAPI Unload(void)
     // UnKook keyboard.
     if (g_keyhook) {
         BOOL ret = UnhookWindowsHookEx(g_keyhook);
-        LOG("UnhookWindowsHookEx(%x) -> %d", (unsigned)g_keyhook, (int)ret);
+        LOG("UnhookWindowsHookEx(%x) -> %d", (unsigned)(LPARAM)g_keyhook, (int)ret);
     }
     g_keyhook = NULL;
 
@@ -6422,7 +6422,7 @@ static void readblacklist(const TCHAR *section, blacklist_t *blacklist, const ch
         blacklist->items = newitem;
 
         // Store item
-        LOG( "%ls:%ls|%ls", exenm, title, klass);
+        LOG( "%s:%s|%s", exenm, title, klass);
         blacklist->items[blacklist->length].exename = exenm;
         blacklist->items[blacklist->length].title = title;
         blacklist->items[blacklist->length].classname = klass;

@@ -147,6 +147,7 @@ static struct {
 
     UCHAR clickbutton;
     UCHAR resizable;
+    UCHAR actionbutton; // Button that started the move/resize
     struct {
         UCHAR maximized;
         UCHAR fullscreen;
@@ -5154,6 +5155,7 @@ static int init_movement_and_actions(POINT pt, HWND hwnd, action_t action, int b
 
         // Set action statte.
         state.action = action; // MOVE OR RESIZE
+        state.actionbutton = button;
         state.moving = 0;
         // Wether or not we will use the zones
         state.usezones = ((conf.UseZones&9) == 9)^state.shift;
@@ -5592,6 +5594,14 @@ LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
             //LOGA("forwarded BT%d mouse up", button);
             return CALLNEXTHOOK;
         } else if (state.blockmouseup) {
+            if (state.action.ac && button == state.actionbutton) {
+                // The button that started the move/resize was released
+                // before the combo button (ex: Hotclick pressed again while
+                // dragging). Finish the movement now and keep blockmouseup
+                // for the combo button, otherwise we get stuck in drag mode.
+                FinishMovementAsync();
+                return 1;
+            }
             state.blockmouseup--;
             if(!state.blockmouseup && !state.action.ac && !state.alt)
                 UnhookMouseOnly(); // We no longer need the hook.

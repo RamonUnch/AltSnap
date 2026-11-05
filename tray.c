@@ -28,19 +28,21 @@ static int MaxLayouts = 0;
 
 enum { ICONS_COUNT = 3};
 static const TCHAR *tray_iconstr[] = {
-    TEXT("TRAY_OFF"),
     TEXT("TRAY_ON"),
+    TEXT("TRAY_OFF"),
     TEXT("TRAY_SUS")
 };
 static const TCHAR *tray_tooltipstr[] = {
-    TEXT(APP_NAMEA)TEXT(" (Off)"),
     TEXT(APP_NAMEA)TEXT(" (On)"),
+    TEXT(APP_NAMEA)TEXT(" (Off)"),
     TEXT(APP_NAMEA)TEXT("..."),
 };
 static HICON g_icons[ICONS_COUNT];
 
 static void LoadAllIcons(void)
 {
+    int small_ico_w = GetSystemMetrics(SM_CXSMICON);
+    int small_ico_h = GetSystemMetrics(SM_CYSMICON);
     TCHAR theme[MAX_PATH]; // Get theme name
     int ret = GetPrivateProfileString(TEXT("General"), TEXT("Theme"), TEXT(""), theme, ARR_SZ(theme), inipath);
     if (ret && theme[1]) {
@@ -58,8 +60,7 @@ static void LoadAllIcons(void)
                     sb.len = base_path_len;
                     SbAppendStr(&sb, tray_iconstr[i]);
                     SbAppendStr(&sb, TEXT(".ico"));
-                    HICON tmp = (HICON)LoadImage(g_hinst, path, IMAGE_ICON,0,0, LR_LOADFROMFILE|LR_DEFAULTSIZE|LR_LOADTRANSPARENT);
-                    g_icons[i] = tmp? tmp: LoadIcon(g_hinst, MAKEINTRESOURCE( TRAY_OFF+i ));
+                    g_icons[i] = (HICON)LoadImage(NULL, path, IMAGE_ICON, small_ico_w, small_ico_h, LR_LOADFROMFILE);
                     //MessageBox(NULL, path, NULL, 0);
                 }
                 return;
@@ -67,8 +68,14 @@ static void LoadAllIcons(void)
         }
     }
     // Fallback to internal icons.
-    for (size_t i = 0; i < ICONS_COUNT; i++)
-        g_icons[i] = LoadIcon(g_hinst, MAKEINTRESOURCE( TRAY_OFF+i ));
+    for (size_t i = 0; i < ICONS_COUNT; i++) {
+        if (g_icons[i] == NULL) {
+            //g_icons[i] = LoadIcon(g_hinst, MAKEINTRESOURCE( TRAY_ON+i ));
+            g_icons[i] = (HICON)LoadImage(g_hinst, MAKEINTRESOURCE( TRAY_ON+i ), IMAGE_ICON, small_ico_w, small_ico_h, 0);
+            //g_icons[i] = MyLoadIcon(g_hinst, MAKEINTRESOURCE( TRAY_ON+i ), small_ico_w, small_ico_h);
+            //if(g_icons[i]) MessageBox(NULL, TEXT("OK"), NULL, 0);
+        }
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -98,12 +105,11 @@ static int InitTray(void)
 /////////////////////////////////////////////////////////////////////////////
 static int UpdateTray(void)
 {
-    int Index = !!ENABLED();
-    if (Index) {
-        Index += (ScrollLockState&1)
-               && !( !(GetKeyState(VK_SCROLL)&1) ^ !(ScrollLockState&2) );
-        if (GetProp(g_hwnd, APP_ASONOFF))
-            Index=2;
+    int Index = !ENABLED(); // 0 => ON, 1 => OFF, 2 => SUSPENDED
+    if (Index == 0) {
+        int is_scroll_lock_suspended = (ScrollLockState&1) && !( !(GetKeyState(VK_SCROLL)&1) ^ !(ScrollLockState&2) );
+        if (is_scroll_lock_suspended || GetProp(g_hwnd, APP_ASONOFF))
+            Index = 2;
     }
     // Load info tool tip and tray icon
     lstrcpy_s(tray.szTip, ARR_SZ(tray.szTip), tray_tooltipstr[Index]);

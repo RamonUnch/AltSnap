@@ -536,6 +536,23 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
             LOG("No Elevation requested");
         }
     }
+    
+    // Elevate AltSnap if [Performance]: ProcessPriority.
+    {
+        static const WORD pp_table[] = {
+            REALTIME_PRIORITY_CLASS,
+            HIGH_PRIORITY_CLASS,
+            ABOVE_NORMAL_PRIORITY_CLASS,
+            NORMAL_PRIORITY_CLASS,
+            BELOW_NORMAL_PRIORITY_CLASS,
+            IDLE_PRIORITY_CLASS
+        };
+        int process_priority = GetPrivateProfileInt(TEXT("Performance"), TEXT("ProcessPriority"), 3, inipath);
+        if (process_priority > 0) {
+            process_priority = min(process_priority - 1, ARR_SZ(pp_table) - 1);
+            SetPriorityClass(GetCurrentProcess(), pp_table[process_priority]);
+        }
+    }
     // Language
     UpdateLanguage(); LOG("Language updated");
 

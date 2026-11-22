@@ -536,7 +536,7 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
             LOG("No Elevation requested");
         }
     }
-    
+
     // Elevate AltSnap if [Performance]: ProcessPriority.
     {
         static const WORD pp_table[] = {
@@ -548,10 +548,8 @@ int WINAPI tWinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, TCHAR *params, int
             IDLE_PRIORITY_CLASS
         };
         int process_priority = GetPrivateProfileInt(TEXT("Performance"), TEXT("ProcessPriority"), 3, inipath);
-        if (process_priority > 0) {
-            process_priority = min(process_priority - 1, ARR_SZ(pp_table) - 1);
-            SetPriorityClass(GetCurrentProcess(), pp_table[process_priority]);
-        }
+        if (0 < process_priority && process_priority <= (int)ARR_SZ(pp_table))
+            SetPriorityClass(GetCurrentProcess(), pp_table[process_priority-1]);
     }
     // Language
     UpdateLanguage(); LOG("Language updated");

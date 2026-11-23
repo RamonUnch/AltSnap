@@ -74,7 +74,7 @@ static void ReadZones(const TCHAR *inisection)
 
 
 // Generate a grid if asked
-static void GenerateGridZones(unsigned layout, unsigned short Nx, unsigned short Ny)
+static void GenerateGridZones(size_t layout, size_t Nx, size_t Ny)
 {
     // Enumerate monitors
     monitors.num = 0;
@@ -107,8 +107,8 @@ static void ReadGrids(const TCHAR *inisection)
     gnamey[7] = '\0';
     for (size_t i=0; i < ARR_SZ(Grids); i++) {
         Grids[i] = 0;
-        unsigned short GridNx = GetSectionOptionInt(inisection, gnamex, 0);
-        unsigned short GridNy = GetSectionOptionInt(inisection, gnamey, 0);
+        size_t GridNx = (unsigned short)GetSectionOptionInt(inisection, gnamex, 0);
+        size_t GridNy = (unsigned short)GetSectionOptionInt(inisection, gnamey, 0);
         if (GridNx && GridNy && GridNx*GridNy <= MAX_ZONES) {
             Grids[i] = GridNx | GridNy << 16; // Store grid dimentions
             GenerateGridZones(i, GridNx, GridNy);

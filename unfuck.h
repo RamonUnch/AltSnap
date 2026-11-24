@@ -940,6 +940,35 @@ static BOOL SystemParametersInfoForDpiL(UINT uiAction, UINT uiParam, PVOID pvPar
     return SystemParametersInfo(uiAction, uiParam, pvParam, fWinIni);
 }
 #define SystemParametersInfoForDpi SystemParametersInfoForDpiL
+
+#if 0 /* Not working good ? */
+static HRESULT LoadIconWithScaleDownL(HINSTANCE hinst, TCHAR *pszName, int cx, int cy, HICON *phico)
+{
+#ifdef UNICODE
+    typedef HRESULT (WINAPI *funk_t)(HINSTANCE hinst, PCWSTR pszName, int cx, int cy, HICON *phico);
+    static funk_t funk=(funk_t)IPTR;
+
+    if (funk == (funk_t)IPTR) { /* First time */
+        funk = (funk_t)LoadDLLProc("COMCTL32.DLL", "LoadIconWithScaleDown");
+    }
+    if (funk) { /* We know we have the function */
+        InitCommonControls();
+        HRESULT ret = funk(hinst, pszName, cx, cy, phico);
+        if (ret == 0) return ret;
+    }
+#endif
+    /* Fallback to LoadImage... */
+    *phico = (HICON)LoadImage(hinst, pszName, IMAGE_ICON, cx, cy, 0);
+    return !*phico;
+}
+static HICON MyLoadIcon(HINSTANCE hinst, TCHAR *name, int cx, int cy)
+{
+    HICON hico = NULL;
+    LoadIconWithScaleDownL(hinst, name, cx, cy, &hico);
+    return hico;
+}
+#endif
+
 #if defined(WINVER) && WINVER >= 0x0500 && defined(WINEVENT_OUTOFCONTEXT)
 static HWINEVENTHOOK SetWinEventHookL(
       DWORD eventMin, DWORD eventMax

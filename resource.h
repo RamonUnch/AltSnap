@@ -9,9 +9,9 @@
 #define APP_VERSION  "1.68"
 
 #define APP_ICON                         101
+#define TRAY_ON                          APP_ICON
 #define TRAY_OFF                         102
-#define TRAY_ON                          103
-#define TRAY_SUS                         104
+#define TRAY_SUS                         103
 
 #define IDD_GENERALPAGE                  201
 #define IDD_MOUSEPAGE                    202
